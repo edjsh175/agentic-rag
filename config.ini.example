@@ -1,0 +1,169 @@
+; ============================================================
+; RAG 知识库问答系统 —— 配置文件（示例）
+; ============================================================
+; 使用方法：复制此文件为 config.ini，填入真实的服务器地址
+; 优先级：环境变量 > config.ini > 代码默认值
+; 环境变量名 = {SECTION}_{KEY}（全大写）
+; 例：OLLAMA_BASE_URL 覆盖 [ollama] base_url
+;     SCANNER_WATCH_DIRECTORY 覆盖 [scanner] watch_directory
+; ============================================================
+
+[ollama]
+; Ollama 服务地址
+; 默认 http://127.0.0.1:11434（本机）
+; 远程 Ollama 请修改为对应 IP
+base_url = http://<OLLAMA_HOST>:11434
+;base_url = http://127.0.0.1:11434
+
+[model]
+; 向量嵌入模型（用于文档向量化，切换后需重建知识库）
+; 默认 qwen3-embedding:4b
+embedding = qwen3-embedding
+;embedding = qwen3-embedding:4b
+
+; 问答 LLM 模型（RAG 检索后生成回答）
+; 默认 deepseek-r1:7b
+llm = qwen3:30b
+;llm = deepseek-r1:7b
+
+; 视觉模型（用于图片描述和视频帧分析）
+; 默认 qwen3-vl:8b。可选 qwen3-vl:4b（更轻量）
+;vision = qwen3-vl:8b
+;vision = qwen3-vl:4b
+vision = qwen3-vl:8b
+
+[answer]
+; 知识库无明确依据时，是否允许在固定提示后提供明确标注的通用知识补充
+; 环境变量 ANSWER_ALLOW_GENERAL_KNOWLEDGE 可覆盖此值
+allow_general_knowledge = true
+
+
+[vector_store]
+; ChromaDB 向量数据持久化目录
+persist_directory = ./chroma_db
+; ChromaDB 集合名称
+collection_name = rag_knowledge
+
+[text]
+; 文档分块大小（token 数），越大每块信息越完整，但检索精度下降
+chunk_size = 500
+; 相邻分块的重叠 token 数，保持跨块上下文连贯
+chunk_overlap = 50
+; 是否提取 Word/PDF 内嵌图片并用视觉模型描述（false 则仅提取文字，避免大图超时）
+extract_embedded_images = false
+; 是否使用 unstructured 按标题切片（true=优先章节切片，false=仅固定长度）
+use_unstructured = true
+; unstructured 解析策略：fast（快速）/ hi_res（高精度，需要额外依赖）
+unstructured_strategy = fast
+
+[retrieval]
+; 向量检索返回 top_k 个文档块给 LLM，越大候选越多但可能引入噪声
+top_k = 4
+; MMR 检索初选数量，top_k 的候选池，越大多样性越好
+fetch_k = 12
+; MMR 多样性权重（0=纯多样，1=纯相关），0.7 表示偏相关性
+lambda_mult = 0.7
+
+[retrieval_strategy]
+; 检索方式：mmr | similarity | bm25 | hybrid
+method = mmr
+; Hybrid 融合方式（阶段三固定使用 RRF）
+fusion_method = rrf
+; RRF 排名平滑常数
+rrf_k = 60
+; Hybrid 每条检索分支召回的候选数量
+candidate_k = 12
+
+[reranker]
+; 是否启用 Cross-Encoder 重排序（Phase 4），启用后粗召回 candidate_k 条再精排为 top_n 条
+enabled = false
+; 重排序器类型: bge (FlagEmbedding) | cross_encoder (sentence-transformers)
+type = bge
+; 重排序模型名称（BAAI/bge-reranker-v2-m3 原生支持中文，Apache 2.0）
+; 可填写 HuggingFace 模型名，或完整本地目录（例如 ./models/bge-reranker-v2-m3）
+; 本地目录必须包含 config.json 和模型权重，残缺下载会自动降级而不会中断检索
+model = ./models/bge-reranker-v2-m3
+; 重排序后返回给 LLM 的最终文档数
+top_n = 4
+; 粗检索阶段召回的候选文档数（供重排序器打分筛选）
+candidate_k = 20
+
+[scanner]
+; 监视目录：支持绝对/相对路径，自动递归遍历所有子目录
+; 新放入的文件会被自动检测、向量化、入库
+watch_directory = ./watch_directory
+
+; 定时扫描间隔（分钟），检测新文件和变更文件
+interval_minutes = 30
+
+; 自动处理的文件类型，逗号分隔
+; 图片/视频类型需要配置视觉模型
+;file_types = pdf,docx,doc,txt,jpg,jpeg,png,gif,bmp,webp,mp4,avi,mov,mkv
+file_types = pdf,docx,doc,txt,md
+
+[path]
+; 数据目录（存放 file_index.json 等运行时数据）
+data_dir = ./data
+; 日志目录（自动轮转，保留 7 天）
+log_dir = ./logs
+
+[server]
+; FastAPI 监听地址，0.0.0.0 表示所有网卡
+host = 0.0.0.0
+; FastAPI 监听端口
+port = 10605
+
+[blog]
+; 博客文章发布后的存放目录（watch_directory 子目录），用于自动扫描入库
+posts_dir = ./watch_directory/已发布文章
+; 爬取后未发布的文章临时目录（和 watch_directory 同级）
+crawl_dir = ./scrape_article
+
+[crawl]
+; 爬取文章时，图片下载到此目录（nginx 代理为 /scraping）
+image_dir = ./scrapingImages
+
+[relational_db]
+; SQLite 关系数据库文件路径（存储实体、关系、实体-知识块关联）
+db_path = ./data/rag_relational.db
+
+[blog_publish]
+; 博客发布系统文章列表 API（返回 [{id, title, contentMd}]）
+; 设为空则跳过定时同步，仅使用本地文件
+;api_url = http://<BLOG_API_HOST>:8080/zslt/web/article/listAll
+api_url =
+; 与博客系统同步间隔（分钟）
+sync_interval = 30
+; 发布文章到博客系统的 addRag 接口，设为空则仅本地发布不入库外部系统
+;add_rag_url = http://<BLOG_API_HOST>:8080/zslt/web/article/addRag
+add_rag_url =
+
+[retrieval_quality]
+; 检索后处理质量控制总开关（Phase 5）
+enabled = true
+
+; 相似度阈值过滤：quality_score < threshold 的 chunk 丢弃
+; 第一版先关闭，A/B 评估后再决定阈值
+score_threshold_enabled = false
+score_threshold = 0.35
+
+; Chunk 去重：Jaccard 相似度 > threshold 的只保留得分最高的
+jaccard_dedup_enabled = true
+jaccard_threshold = 0.85
+
+; 动态 TopK：相邻得分断崖超过该比例时截断
+dynamic_topk_enabled = true
+score_drop_ratio = 0.5
+; 截断后最少保留数量
+min_top_k = 3
+; 截断前最多保留数量
+max_top_k = 8
+
+; 上下文压缩：使用轻量 LLM 从 chunk 中提取相关片段
+; 会增加延迟，第一版先关闭
+contextual_compression_enabled = false
+compression_model = qwen2.5:7b
+max_compressed_chunk_chars = 800
+
+; 调试日志
+debug_log_enabled = true

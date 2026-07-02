@@ -1,0 +1,137 @@
+<script setup lang="ts">
+/**
+ * 根组件 —— 提供导航切换（聊天 / 博客管理）
+ */
+import { ref } from 'vue'
+import ChatView from './views/ChatView.vue'
+import BlogView from './views/BlogView.vue'
+import 'github-markdown-css/github-markdown.css'
+
+type Tab = 'chat' | 'blog'
+
+const activeTab = ref<Tab>('chat')
+
+function switchTab(tab: Tab) {
+  activeTab.value = tab
+}
+</script>
+
+<template>
+  <div class="app-root">
+    <!-- 导航栏 -->
+    <nav class="nav-bar">
+      <button
+        class="nav-btn"
+        :class="{ active: activeTab === 'chat' }"
+        @click="switchTab('chat')"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        知识库问答
+      </button>
+      <button
+        class="nav-btn"
+        :class="{ active: activeTab === 'blog' }"
+        @click="switchTab('blog')"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        博客管理
+      </button>
+    </nav>
+
+    <!-- 视图容器 -->
+    <div class="view-container">
+      <ChatView v-show="activeTab === 'chat'" />
+      <BlogView v-show="activeTab === 'blog'" />
+    </div>
+  </div>
+</template>
+
+<style>
+/* 全局重置 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #fff;
+  color: #1e293b;
+}
+#app {
+  height: 100%;
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.nav-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.15s;
+}
+.nav-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+.nav-btn.active {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.view-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .nav-bar {
+    padding: 6px 12px;
+    gap: 4px;
+  }
+  .nav-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+}
+
+</style>

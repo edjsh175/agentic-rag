@@ -1,0 +1,92 @@
+; ============================================================
+; RAG 知识库问答系统 —— 生产配置文件（示例）
+; ============================================================
+; 使用方法：复制此文件为 config-prod.ini，填入真实的服务器地址
+; 优先级：环境变量 > config.ini > 代码默认值
+; 环境变量名 = {SECTION}_{KEY}（全大写）
+; 例：OLLAMA_BASE_URL 覆盖 [ollama] base_url
+;     SCANNER_WATCH_DIRECTORY 覆盖 [scanner] watch_directory
+; ============================================================
+
+[ollama]
+; Ollama 服务地址
+base_url = http://<OLLAMA_HOST>:11434
+
+[model]
+embedding = qwen3-embedding
+llm = qwen3:30b
+vision = qwen3-vl:8b
+
+[answer]
+; 可由环境变量 ANSWER_ALLOW_GENERAL_KNOWLEDGE 覆盖
+allow_general_knowledge = true
+
+[vector_store]
+; ChromaDB 向量数据持久化目录
+persist_directory = /app/chroma_db
+; ChromaDB 集合名称
+collection_name = rag_knowledge
+
+[text]
+; 文档分块大小（token 数），越大每块信息越完整，但检索精度下降
+chunk_size = 800
+; 相邻分块的重叠 token 数，保持跨块上下文连贯
+chunk_overlap = 150
+; 是否提取 Word/PDF 内嵌图片并用视觉模型描述（false 则仅提取文字，避免大图超时）
+extract_embedded_images = true
+; 是否使用 unstructured 按标题切片（true=优先章节切片，false=仅固定长度）
+use_unstructured = true
+; unstructured 解析策略：fast（快速）/ hi_res（高精度，需要额外依赖）
+unstructured_strategy = fast
+
+[retrieval]
+; 向量检索返回 top_k 个文档块给 LLM，越大候选越多但可能引入噪声
+top_k = 15
+; MMR 检索初选数量，top_k 的候选池，越大多样性越好
+fetch_k = 20
+; MMR 多样性权重（0=纯多样，1=纯相关），0.7 表示偏相关性
+lambda_mult = 0.7
+
+[scanner]
+; 监视目录：支持绝对路径，自动递归遍历所有子目录
+; Linux 部署示例：
+watch_directory = /app/watch_directory
+
+; 扫描间隔（分钟）
+interval_minutes = 30
+
+; 自动处理的文件类型
+file_types = pdf,docx,doc,txt,md
+
+[path]
+; 数据目录（存放 file_index.json 等）
+data_dir = /app/data
+; 日志目录（自动轮转，保留 7 天）
+log_dir = /app/logs
+
+[server]
+host = 0.0.0.0
+port = 10605
+
+[blog]
+; 爬取 CSDN 后保存博客文章的目录
+posts_dir = /app/watch_directory/已发布文章
+; 爬取后未发布的文章存放目录（和 watch_directory 同级）
+crawl_dir = /app/scrape_article
+
+[crawl]
+; 爬取文章时，图片下载到此目录（nginx 代理为 /scraping）
+image_dir = /app/scrapingImages
+
+[relational_db]
+; SQLite 关系数据库文件路径（存储实体、关系、实体-知识块关联）
+db_path = /app/data/rag_relational.db
+
+[blog_publish]
+; 博客发布系统 API 地址（返回 [{id, title, contentMd}]）
+; 设为空则跳过定时同步，仅使用本地文件
+api_url = http://<BLOG_API_HOST>:8080/zslt/web/article/listAll
+; 同步间隔（分钟）
+sync_interval = 30
+; 发布文章到博客系统的 addRag 接口，设为空则仅本地发布不入库外部系统
+add_rag_url = http://<BLOG_API_HOST>:8080/zslt/web/article/addRag

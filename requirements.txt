@@ -1,0 +1,55 @@
+# ---- 核心框架 ----
+langchain==0.3.20
+langchain-community==0.3.18
+langchain-core==0.3.52
+langchain-chroma==0.2.3
+langchain-ollama==0.2.1
+
+# ---- 向量数据库 ----
+chromadb==0.6.3
+
+# ---- 文档解析 ----
+pypdf==5.1.0
+python-docx==1.1.2
+docx2txt==0.9
+olefile==0.47
+PyMuPDF>=1.24.0
+
+# ---- 图片/视频处理 ----
+Pillow>=11.0.0
+opencv-python-headless>=4.10.0
+
+# ---- Web 框架 ----
+pydantic==2.10.6
+fastapi==0.115.8
+uvicorn==0.34.0
+python-multipart
+
+# ---- HTTP 客户端（用于直接调用 Ollama API） ----
+httpx>=0.28.0
+
+# ---- 网页爬虫 ----
+beautifulsoup4>=4.12.0
+html2text>=2024.2.0
+ddgs>=8.1.0
+
+# ---- 定时任务 ----
+apscheduler>=3.11.0
+
+# ---- 文档结构解析（章节切片） ----
+unstructured[pdf,docx,md]>=0.16.0
+
+# ---- BM25 关键词检索 ----
+rank-bm25>=0.2.2
+jieba>=0.42.0
+
+# ---- Cross-Encoder 重排序 (Phase 4) ----
+# FlagEmbedding 用于 BGE/Qwen3 Reranker（懒加载，不启用则不需要模型文件）
+FlagEmbedding>=1.2.0
+# FlagEmbedding 的直接依赖（transformers / torch 体积较大，按需安装 CPU 版）
+torch>=2.0.0
+# FlagEmbedding 1.4 仍依赖 Transformers 4.x 的 prepare_for_model 接口
+transformers>=4.44.2,<5
+sentence-transformers>=3.0.0
+# langchain-community 0.3.18 要求 numpy<2，不可升级
+numpy>=1.26.4,<2

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  rag-service:
+    image: rag-python-app
+    container_name: rag-service
+    restart: always
+    ports:
+      - "10605:10605"
+    volumes:
+      - /data/apache-tomcat-9.0.89/webapps/zsltStaticData:/app/watch_directory
+      - /data/rag_python/chroma_db:/app/chroma_db
+      - /data/rag_python/logs:/app/logs
+      - /data/rag_python/config.ini:/app/config.ini
+      - /data/rag_python/data:/app/data
+      - /data/rag_python/scrape_article:/app/scrape_article
+      - /data/rag_python/scrapingImages:/app/scrapingImages
