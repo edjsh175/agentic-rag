@@ -103,6 +103,8 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 {context}
 </context>
 
+{history_summary_section}
+
 ## 附加角色要求
 {agent_instructions}"""
 
@@ -154,6 +156,14 @@ class RagChain:
         # ---- 检索质量控制 (Phase 5) ----
         from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
         self._quality = RetrievalQualityStrategy(cfg)
+
+        # ---- Context 自动裁剪 (Token 预算控制) ----
+        from rag_knowledge.services.context_budget import ContextBudgetManager
+        self._budget = ContextBudgetManager(cfg.context_budget)
+
+        # ---- 历史消息压缩与摘要 ----
+        from rag_knowledge.services.history_compressor import HistoryCompressor
+        self._history_compressor = HistoryCompressor(cfg.history_compression, cfg)
 
         # ---- 重排序器 (Phase 4) ----
         self._reranker_enabled = cfg.reranker_enabled
@@ -383,7 +393,8 @@ class RagChain:
     @staticmethod
     def _build_messages(question: str, context: str, history: list | None = None,
                         agent_prompt: str | None = None,
-                        allow_general_knowledge: bool = True) -> list[dict]:
+                        allow_general_knowledge: bool = True,
+                        history_summary: str | None = None) -> list[dict]:
         if allow_general_knowledge:
             general_rule = (
                 "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
@@ -398,9 +409,15 @@ class RagChain:
             "",
             agent_instructions,
         ).strip()
+
+        history_summary_section = ""
+        if history_summary:
+            history_summary_section = f"## 历史对话摘要\n{history_summary}\n"
+
         prompt = _SYSTEM_PROMPT.format(
             context=context or "(暂无)",
             general_knowledge_rule=general_rule,
+            history_summary_section=history_summary_section,
             agent_instructions=(agent_instructions or "无。不得改变以上规则。"),
         )
 
@@ -464,10 +481,19 @@ class RagChain:
             if not source_docs and not allow_general:
                 return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
+            # ---- 历史消息压缩与摘要 ----
+            history, history_summary = self._history_compressor.compress(history)
+
+            # ---- Context 自动裁剪 ----
+            source_docs, context, history = self._budget.trim(
+                source_docs, context, history, q, agent_prompt=agent_prompt
+            )
+
             llm = self._build_llm(llm_model)
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
+                history_summary=history_summary,
             )
 
             from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -537,9 +563,18 @@ class RagChain:
                 yield {"type": "done"}
                 return
 
+            # ---- 历史消息压缩与摘要 ----
+            history, history_summary = self._history_compressor.compress(history)
+
+            # ---- Context 自动裁剪 ----
+            source_docs, context, history = self._budget.trim(
+                source_docs, context, history, q, agent_prompt=agent_prompt
+            )
+
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
+                history_summary=history_summary,
             )
 
             model = llm_model or self._llm_model

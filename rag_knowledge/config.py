@@ -31,6 +31,35 @@ class RetrievalQualityConfig:
     debug_log_enabled: bool = True
 
 
+@dataclass
+class ContextBudgetConfig:
+    """Context 自动裁剪配置（Token 预算控制）"""
+    enabled: bool = True
+    # 模型上下文窗口大小（tokens），切换模型时同步修改
+    context_window: int = 32768
+    # 生成预留 tokens（对应 num_predict）
+    generation_reserve: int = 2048
+    # 系统提示词预留 tokens
+    system_reserve: int = 1000
+    # 当前问题预留 tokens
+    question_reserve: int = 500
+    # context 在可用预算中的占比（剩余给 history）
+    context_ratio: float = 0.7
+    # 字符数 / token 的估算系数（中文约 1.5，偏保守取 1.3）
+    chars_per_token: float = 1.3
+
+
+@dataclass
+class HistoryCompressionConfig:
+    """历史消息压缩与摘要配置"""
+    enabled: bool = True
+    # 触发压缩时的保留最小原始对话轮数（1轮=1个user+1个assistant消息，即最近10个message）
+    min_raw_rounds: int = 5
+    # 触发压缩的最大原始对话轮数（超过此轮数则对历史进行摘要压缩）
+    max_raw_rounds: int = 10
+
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -120,11 +149,29 @@ class Config:
             debug_log_enabled=_get("retrieval_quality", "debug_log_enabled", "true").lower() == "true",
         )
 
+        # ---- Context 自动裁剪 (Token 预算控制) ----
+        self.context_budget = ContextBudgetConfig(
+            enabled=_get("context_budget", "enabled", "true").lower() == "true",
+            context_window=int(_get("context_budget", "context_window", "32768")),
+            generation_reserve=int(_get("context_budget", "generation_reserve", "2048")),
+            system_reserve=int(_get("context_budget", "system_reserve", "1000")),
+            question_reserve=int(_get("context_budget", "question_reserve", "500")),
+            context_ratio=float(_get("context_budget", "context_ratio", "0.7")),
+            chars_per_token=float(_get("context_budget", "chars_per_token", "1.3")),
+        )
+
+        # ---- 历史消息压缩与摘要 ----
+        self.history_compression = HistoryCompressionConfig(
+            enabled=_get("history_compression", "enabled", "true").lower() == "true",
+            min_raw_rounds=int(_get("history_compression", "min_raw_rounds", "5")),
+            max_raw_rounds=int(_get("history_compression", "max_raw_rounds", "10")),
+        )
+
         # ---- 目录扫描 ----
         self.watch_dir = _dir(_get("scanner", "watch_directory", "./watch_directory"), "./watch_directory")
         self.scan_interval = int(_get("scanner", "interval_minutes", "30"))
         raw_types = _get("scanner", "file_types",
-                         "pdf,docx,doc,txt,jpg,jpeg,png,gif,bmp,webp,mp4,avi,mov,mkv")
+                         "pdf,docx,doc,txt,md,xls,xlsx,jpg,jpeg,png,gif,bmp,webp,mp4,avi,mov,mkv")
         self.watch_file_types = [t.strip().lower() for t in raw_types.split(",")]
 
         # ---- Web 服务 ----

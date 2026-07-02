@@ -50,13 +50,13 @@ _cfg: Config | None = None
 _syncer: BlogPostSyncer | None = None
 _chat_storage: ChatStorage | None = None
 
-_UPLOAD_EXTS = {".pdf", ".docx", ".doc", ".txt", ".md"}
+_UPLOAD_EXTS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xls", ".xlsx"}
 
 # 文件魔数 → 扩展名映射
 _MAGIC: dict[bytes, set[str]] = {
     b"%PDF": {".pdf"},
-    b"PK\x03\x04": {".docx"},            # DOCX 本质是 ZIP
-    b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1": {".doc"},  # OLE2
+    b"PK\x03\x04": {".docx", ".xlsx"},           # DOCX / XLSX 本质是 ZIP
+    b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1": {".doc", ".xls"},  # OLE2（旧版 Word / Excel）
 }
 
 
@@ -285,7 +285,7 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
     # 魔数校验：防止伪装扩展名
     header = file.file.read(16)
     file.file.seek(0)
-    if suffix in {".pdf", ".docx", ".doc"}:
+    if suffix in {".pdf", ".docx", ".doc", ".xls", ".xlsx"}:
         matched = any(header.startswith(m) for m, exts in _MAGIC.items() if suffix in exts)
         if not matched:
             raise HTTPException(400, detail="文件格式校验失败，内容与扩展名不符")

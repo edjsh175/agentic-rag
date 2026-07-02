@@ -481,7 +481,7 @@ function scrollDown() {
             </button>
           </div>
 
-          <input ref="docInput" type="file" accept=".pdf,.docx,.doc,.txt" hidden @change="handleUpload" />
+          <input ref="docInput" type="file" accept=".pdf,.docx,.doc,.txt,.xls,.xlsx" hidden @change="handleUpload" />
           <div class="upload-wrap">
             <button class="icon-btn" @click="clickUpload" :disabled="uploading" title="上传文档">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -56,24 +56,28 @@
 
 ### 当前阶段：检索能力优化
 
-正在基于 [rag知识库任务.md](docs/试岗/rag知识库任务.md) 进行「四、检索能力优化」。
+正在基于 [rag知识库任务.md](docs/试岗/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-02：检索优化主线已基本完成并通过本地测试，剩余重点是文件兼容补齐、Token 管理和性能优化。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
 - ✅ 阶段四：语料治理 + 新资料规范入库 — 已完成（文本清洗、难例评测集生成、批量审核入口）
-- 🟡 阶段五（检索优化阶段四）：Cross-Encoder Reranker — 代码与降级流程已完成（粗召回 Top 20 → 精排 Top 4）；真实模型推理及 A/B 指标待模型文件可用后验证
-- ✅ 阶段五附加：检索质量控制 — 已完成（分数归一化、Jaccard 去重、动态 TopK 断崖截断；上下文压缩待评估后决定）
-- 后续：A/B 评估验证 → 可选上下文压缩 → 性能优化
+- ✅ 阶段五：Cross-Encoder Reranker — 代码、降级流程和本地 A/B 验证已完成；当前最佳策略为 `Hybrid+Rerank`，生产默认是否启用取决于部署机模型与 CUDA 条件
+- ✅ 阶段五附加：检索质量控制 — 已实现分数归一化、Jaccard 去重、动态 TopK；但 `Hybrid+Rerank+Quality` 指标略低于 `Hybrid+Rerank`，暂不建议默认开启
+- ⏳ 阶段六：性能优化 — Embedding 缓存、查询缓存、异步/并发检索尚未落地
+- ✅ Token 预算与历史摘要管理 — 已完成（基于 Token 预算的 context 自动裁剪、阶梯窗口及缓存式增量历史摘要）
+- ✅ 表格/代码块完整保留 — 已完成结构保护切块：Markdown/Excel 表格按完整行切分并重复表头，fenced code block 按完整代码块或完整行切分
+- ⏳ 文档能力缺口：真正的语义切块仍待补齐
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓
 
 ### 核心功能
 - **章节切片**：`.md`/`.docx`/`.txt` 使用 `unstructured` 按标题结构切片，保留 `section_title`；`.pdf`/`.doc` 回退到固定字数切片
+- **结构保护切块**：Markdown/Excel 表格不切断行和单元格，代码块不切断 fence；超长结构块按完整行拆分。
 - **语料清洗**：入库前自动移除 `HYPERLINK` / `PAGEREF` / `TOC` 等 Word 域代码，过滤纯目录块、纯链接块和极短噪声块
 - **文档分类过滤**：上传时选择 `doc_category`（运维管理/前端开发/后端开发/二次开发/开源生态/其他），检索时可按分类筛选
 - **审核状态**：每个 chunk 有 `review_status` 字段（pending/approved/rejected），检索默认只返回 approved
 - **批量审核**：支持通过 `/review/status` 按 `file_path` 或 `chunk_id` 批量更新 `review_status`
 - **关系数据库**：SQLite 三张表 —— `entities`（实体）、`relations`（关系边）、`entity_chunk_links`（实体-知识块关联）
-- **知识库问答**：上传文档（PDF/DOCX/TXT/MD）后，通过语义检索 + LLM 生成回答
+- **知识库问答**：上传文档（PDF/DOC/DOCX/TXT/MD/XLS/XLSX）后，通过语义检索 + LLM 生成回答；Excel 转 Markdown 表格格式入库
 - **流式输出**：SSE（Server-Sent Events）实时逐 token 显示回答
 - **图片问答**：上传图片，调用视觉模型（qwen3-vl）描述/回答
 - **知识库**：固定两个知识库——「已发布文章」和「文章附件」，检索时按 `kb_name` 元数据筛选
@@ -144,6 +148,8 @@ rag_python/
 │       ├── web_search.py           # 联网搜索（DuckDuckGo）
 │       ├── agent_service.py        # 智能体预设加载
 │       ├── chat_storage.py         # 聊天记录服务端持久化
+│       ├── context_budget.py       # Context 自动裁剪（Token 预算控制）
+│       ├── history_compressor.py   # 历史消息压缩与增量摘要（LRU 缓存）
 │       ├── reranker.py             # 重排序器（Cross-Encoder，BGE/Qwen3）
 │       ├── retrieval_quality.py    # 检索后处理质量控制（Phase 5：分数归一化、Jaccard去重、动态TopK）
 │       ├── blog_crawler.py         # 多平台博客爬虫（CSDN/博客园/掘金/微信公众号）
@@ -219,7 +225,20 @@ rag_python/
 | Hit Rate | 61.11% | 77.78% | 83.33% | **86.11%** |
 | 平均延迟 | 215.0ms | 224.3ms | **24.2ms** | 218.4ms |
 
-> 新题集来自 607 个 approved chunks 的重新采样，与历史 14 题不是同一分布，不能把指标下降直接解释为检索退化。四种策略均已恢复正常；Hybrid 在新题集上仍是综合指标最高，线上默认策略继续保持 MMR。
+> 新题集来自 607 个 approved chunks 的重新采样，与历史 14 题不是同一分布，不能把指标下降直接解释为检索退化。四种策略均已恢复正常；Hybrid 在新题集上仍是综合指标最高。
+
+### Rerank A/B 指标（2026-07-02）
+
+| 数据集 | 策略 | Recall@3 | Recall@5 | MRR | 结论 |
+|---|---|---:|---:|---:|---|
+| 标准集（36 题） | Hybrid | 83.33% | 86.11% | 0.6736 | 对照基线 |
+| 标准集（36 题） | Hybrid+Rerank | **88.89%** | **94.44%** | **0.7731** | 当前最优 |
+| 标准集（36 题） | Hybrid+Rerank+Quality | 88.89% | 91.67% | 0.7662 | 质量控制略降 |
+| 难例集（144 题） | Hybrid | 84.72% | 88.19% | 0.6858 | 对照基线 |
+| 难例集（144 题） | Hybrid+Rerank | **90.97%** | **95.83%** | **0.7888** | 当前最优 |
+| 难例集（144 题） | Hybrid+Rerank+Quality | 90.28% | 93.06% | 0.7812 | 质量控制略降 |
+
+> 结论：当前推荐的高质量检索方案是 `Hybrid+Rerank`。检索质量控制策略已经实现，但不建议作为默认叠加项。生产默认策略仍需结合部署机模型文件、显存/CUDA 条件和延迟要求决定。
 
 ## 后端架构详解
 
@@ -261,6 +280,8 @@ watch_directory/ 文件变化
       → 检索默认过滤 review_status='approved'，可选 doc_category 过滤
       → `_retrieve()` 支持 `review_status=None` 跳过审核过滤（评估用）
       → `_retrieve()` 支持 `method` 参数覆盖配置（评估用）
+    → [可选] Reranker 精排（粗召回 candidate_k → reranker top_n；失败时回退原始排序）
+    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK；上下文压缩未实现）
     → [可选] 联网搜索增强（DuckDuckGo）
     → 组装 prompt（system + context + history + question）
     → 调用 Ollama LLM 生成回答（同步/SSE 流式）

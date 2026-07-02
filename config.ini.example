@@ -99,7 +99,7 @@ interval_minutes = 30
 ; 自动处理的文件类型，逗号分隔
 ; 图片/视频类型需要配置视觉模型
 ;file_types = pdf,docx,doc,txt,jpg,jpeg,png,gif,bmp,webp,mp4,avi,mov,mkv
-file_types = pdf,docx,doc,txt,md
+file_types = pdf,docx,doc,txt,md,xls,xlsx
 
 [path]
 ; 数据目录（存放 file_index.json 等运行时数据）
