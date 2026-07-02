@@ -110,3 +110,37 @@ def test_stream_query_returns_same_exact_fallback_without_calling_llm():
         {"type": "token", "data": NO_KNOWLEDGE_ANSWER},
         {"type": "done"},
     ]
+
+
+def test_non_stream_greeting_returns_fixed_reply_without_calling_llm(monkeypatch):
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("greeting branch should not call the model")
+
+    monkeypatch.setattr("rag_knowledge.services.rag.ChatOllama", fail_if_called)
+
+    chain = object.__new__(RagChain)
+    result = chain.query("你好")
+
+    assert result == {
+        "answer": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。",
+        "source_documents": [],
+    }
+
+
+def test_stream_greeting_returns_fixed_reply_without_calling_llm(monkeypatch):
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("greeting branch should not call the model")
+
+    monkeypatch.setattr("rag_knowledge.services.rag.ChatOllama", fail_if_called)
+
+    chain = object.__new__(RagChain)
+
+    async def collect():
+        return [event async for event in chain.stream_query("你好")]
+
+    events = asyncio.run(collect())
+    assert events == [
+        {"type": "sources", "data": []},
+        {"type": "token", "data": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"},
+        {"type": "done"},
+    ]

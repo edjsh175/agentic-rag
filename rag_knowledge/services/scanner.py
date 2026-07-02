@@ -22,6 +22,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from rag_knowledge.config import Config
 from rag_knowledge.models.document import FileRecord
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.bm25_store import BM25Store
+from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.loader import FileLoader
 
 logger = logging.getLogger(__name__)
@@ -94,9 +96,11 @@ class DirectoryScanner:
 
         # 清理已删除的文件索引
         cleaned = self._clean_removed(watch_dir)
-        for name in cleaned:
-            details.append(f"[清理] {name}")
+        for item in cleaned:
+            details.append(f"[清理] {item.file_name}")
         self._save_index()
+        if new or any(item.should_rebuild_bm25 for item in cleaned):
+            BM25Store().rebuild()
 
         elapsed = time.time() - t0
         parts = [f"新增 {new}"]
@@ -242,14 +246,21 @@ class DirectoryScanner:
         )
         return "new"
 
-    def _clean_removed(self, base: Path) -> list[str]:
-        """清理已被删除文件的索引记录，返回清理的文件名列表"""
+    def _clean_removed(self, base: Path) -> list:
+        """清理已被删除文件的索引记录，同时删除对应向量。"""
         files = self._index.get("files", {})
-        removed = [(h, r["file_name"]) for h, r in files.items() if not (base / r["file_path"]).exists()]
-        if removed:
-            for h, _ in removed:
-                files.pop(h, None)
-        return [name for _, name in removed]
+        removed_hashes = [h for h, r in files.items() if not (base / r["file_path"]).exists()]
+        cleaned = []
+        for file_hash in removed_hashes:
+            cleaned.append(
+                cleanup_indexed_file(
+                    file_hash,
+                    data_dir=self._cfg.data_dir,
+                    index_data=self._index,
+                    persist=False,
+                )
+            )
+        return cleaned
 
     # ------------------------------------------------------------------
     # 哈希 & 持久化

@@ -3,13 +3,19 @@ import importlib
 import sys
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import MagicMock
 
 
 def _load_directory_scanner():
+    vector_store_stub = ModuleType("rag_knowledge.repository.vector_store")
+    vector_store_stub.VectorStore = MagicMock
+    sys.modules["rag_knowledge.repository.vector_store"] = vector_store_stub
+
     stub = ModuleType("rag_knowledge.services.unstructured_loader")
     stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
     stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
     sys.modules.setdefault("rag_knowledge.services.unstructured_loader", stub)
+    sys.modules.pop("rag_knowledge.services.scanner", None)
     module = importlib.import_module("rag_knowledge.services.scanner")
     return module.DirectoryScanner
 

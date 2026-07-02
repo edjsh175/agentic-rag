@@ -35,6 +35,7 @@ from rag_knowledge.services.scanner import DirectoryScanner
 from rag_knowledge.services.blog_syncer import BlogPostSyncer
 from rag_knowledge.services.blog_crawler import create_crawler, detect_platform
 from rag_knowledge.services.chat_storage import ChatStorage
+from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.repository.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -559,17 +560,12 @@ def delete_blog_post(filename: str):
     # 计算哈希，从 file_index 中查找 chunk_ids 并删除向量
     fhash = _hash_file(str(fp))
     if fhash:
-        index_path = _cfg.data_dir / "file_index.json"
-        if index_path.exists():
-            try:
-                index = json.loads(index_path.read_text(encoding="utf-8"))
-                entry = index.get("files", {}).pop(fhash, None)
-                if entry and entry.get("chunk_ids"):
-                    VectorStore().delete(entry["chunk_ids"])
-                    logger.info("已删除向量: %s (%d 块)", filename, len(entry["chunk_ids"]))
-                index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
-            except Exception as e:
-                logger.warning("清理文件索引失败: %s", e)
+        try:
+            cleanup = cleanup_indexed_file(fhash, data_dir=_cfg.data_dir)
+            if cleanup.should_rebuild_bm25:
+                _rebuild_bm25()
+        except Exception as e:
+            logger.warning("清理文件索引失败: %s", e)
 
     fp.unlink(missing_ok=True)
     logger.info("已删除文件: %s", fp)

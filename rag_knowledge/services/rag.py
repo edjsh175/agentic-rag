@@ -44,6 +44,8 @@ _GREETING_REPLY_PROMPT = """你是项目知识库助手。
 5. 尽量把用户引导回项目文档、配置、接口或业务资料相关问题
 """
 
+_GREETING_FIXED_REPLY = "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"
+
 
 def _is_greeting(text: str) -> bool:
     return any(re.search(p, text.strip()) for p in _GREETING_PATTERNS)
@@ -448,25 +450,7 @@ class RagChain:
 
         if _is_greeting(q):
             logger.info("闲聊模式: %s", q[:40])
-            try:
-                llm = ChatOllama(
-                    model=llm_model or self._llm_model,
-                    base_url=self._ollama_base,
-                    temperature=0.1,
-                    num_predict=128,
-                )
-                from langchain_core.messages import SystemMessage, HumanMessage
-                answer = llm.invoke(
-                    [
-                        SystemMessage(content=_GREETING_REPLY_PROMPT),
-                        HumanMessage(content=q),
-                    ],
-                    think=False,
-                ).content
-                answer = _clean_greeting_answer(answer) or "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"
-                return {"answer": answer or "你好！我是知识库助手，可以帮你查项目文档、配置和资料。", "source_documents": []}
-            except Exception as e:
-                logger.warning("闲聊降级: %s", e)
+            return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
         try:
             t0 = time.time()
@@ -533,26 +517,8 @@ class RagChain:
             return
 
         if _is_greeting(q):
-            try:
-                llm = ChatOllama(
-                    model=llm_model or self._llm_model,
-                    base_url=self._ollama_base,
-                    temperature=0.1,
-                    num_predict=128,
-                )
-                from langchain_core.messages import SystemMessage, HumanMessage
-                answer = llm.invoke(
-                    [
-                        SystemMessage(content=_GREETING_REPLY_PROMPT),
-                        HumanMessage(content=q),
-                    ],
-                    think=False,
-                ).content
-                answer = _clean_greeting_answer(answer)
-                yield {"type": "sources", "data": []}
-                yield {"type": "token", "data": answer or "浣犲ソ锛佹湁浠€涔堝彲浠ュ府浣犵殑鍚楋紵"}
-            except Exception as e:
-                yield {"type": "token", "data": f"你好！有什么可以帮你的吗？"}
+            yield {"type": "sources", "data": []}
+            yield {"type": "token", "data": _GREETING_FIXED_REPLY}
             yield {"type": "done"}
             return
 

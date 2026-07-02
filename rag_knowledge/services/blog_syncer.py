@@ -2,7 +2,6 @@
 博客已发布文章同步服务 —— 定时/手动同步文章到知识库
 """
 import re
-import json
 import hashlib
 import logging
 from pathlib import Path
@@ -10,7 +9,7 @@ from datetime import datetime
 
 import httpx
 
-from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 
 logger = logging.getLogger(__name__)
 
@@ -58,16 +57,8 @@ def _delete_file_vectors(file_path: Path, data_dir: Path):
     fhash = _hash_file(file_path)
     if not fhash:
         return
-    index_path = data_dir / "file_index.json"
-    if not index_path.exists():
-        return
     try:
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        entry = index.get("files", {}).pop(fhash, None)
-        if entry and entry.get("chunk_ids"):
-            VectorStore().delete(entry["chunk_ids"])
-            logger.info("已删除向量: %s (%d 块)", file_path.name, len(entry["chunk_ids"]))
-        index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+        cleanup_indexed_file(fhash, data_dir=data_dir)
     except Exception as e:
         logger.warning("删除向量失败 %s: %s", file_path, e)
 
