@@ -12,7 +12,7 @@ __pycache__/
 # ML model weights (downloaded at runtime)
 models/
 
-# SVN metadata (migrating away from SVN)
+# SVN version control metadata
 .svn/
 
 # SVN branch copies
@@ -24,10 +24,10 @@ web/node_modules/
 # Frontend build artifacts
 web/dist/
 
-# Runtime data
+# Runtime data: user-uploaded documents, videos, images
 watch_directory/
 
-# Vector database (runtime)
+# Vector database
 chroma_db/
 chroma_db_backup_*/
 
@@ -37,7 +37,7 @@ logs/
 # Repair/diagnostic backups
 backups/
 
-# Scraped blog images/articles (runtime)
+# Scraped blog images and articles
 scrapingImages/
 scrape_article/
 
@@ -47,17 +47,17 @@ scrape_article/
 # IDE settings
 .idea/
 
-# Machine-specific Claude Code permissions
+# Claude Code local settings
 .claude/settings.local.json
 
 # Config files with internal IPs (use .example versions instead)
 config.ini
 config-prod.ini
 
-# Junk artifact files
+# Zero-byte junk files
 =1.2.0
 _debug_out.txt
 
-# OS files
+# OS-generated files
 .DS_Store
 Thumbs.db
