@@ -13,6 +13,7 @@ const currentSources = ref<SourceDoc[]>([])
 const loading = ref(false)
 const stats = ref<Stats | null>(null)
 const showSources = ref(false)
+const sourcePanel = ref<InstanceType<typeof SourcePanel> | null>(null)
 const msgContainer = ref<HTMLElement | null>()
 const initialized = ref(false)
 const welcomeHint = `你好！我是 RAG 知识库助手。
@@ -110,6 +111,8 @@ const showWelcomeHint = computed(() => messages.value.length === 0)
 
 onMounted(async () => {
   messages.value = await loadChatState()
+  const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
+  currentSources.value = withSources.length ? withSources[withSources.length - 1].sources! : []
   initialized.value = true
   stats.value = await getStats().catch(() => null)
   try {
@@ -137,6 +140,14 @@ onMounted(async () => {
 async function persist() {
   if (!initialized.value) return
   await saveChatState(messages.value)
+}
+
+async function handleCitationClick(message: Message, citationId: number) {
+  if (!message.sources?.length) return
+  currentSources.value = message.sources
+  showSources.value = true
+  await nextTick()
+  sourcePanel.value?.focusCitation(citationId)
 }
 
 const abortController = ref<AbortController | null>(null)
@@ -235,6 +246,7 @@ async function handleSend(text: string, image?: File) {
         },
         onSources: (sources) => {
           currentSources.value = sources
+          lastAiMsg().sources = sources
         },
         onDone: () => {
           streamOk = true
@@ -253,6 +265,7 @@ async function handleSend(text: string, image?: File) {
         msg.content = result.answer
         msg.loading = false
         currentSources.value = result.source_documents
+        msg.sources = result.source_documents
         await persist()
         loading.value = false
         scrollDown()
@@ -523,6 +536,8 @@ function scrollDown() {
             :role="msg.role" :content="msg.content"
             :image-url="msg.imageUrl" :loading="msg.loading"
             :thinking="msg.thinking"
+            :sources="msg.sources"
+            @citation-click="handleCitationClick(msg, $event)"
           />
         </div>
       </div>
@@ -545,7 +560,7 @@ function scrollDown() {
         </button>
       </div>
       <div class="sidebar-bd">
-        <SourcePanel :sources="currentSources" />
+        <SourcePanel ref="sourcePanel" :sources="currentSources" />
       </div>
     </aside>
 

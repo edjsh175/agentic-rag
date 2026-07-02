@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role } from '../types'
+import type { Role, SourceDoc } from '../types'
+import { decorateCitations } from '../utils/citations'
 
 const props = defineProps<{
   role: Role
@@ -10,6 +11,11 @@ const props = defineProps<{
   imageUrl?: string
   loading?: boolean
   thinking?: string
+  sources?: SourceDoc[]
+}>()
+
+const emit = defineEmits<{
+  citationClick: [citationId: number]
 }>()
 
 const showThinking = ref(true)
@@ -23,9 +29,17 @@ renderer.image = ({ href, title, text }) => {
 
 const rendered = computed(() => {
   if (props.loading) return ''
-  const raw = marked.parse(props.content, { async: false, renderer }) as string
+  const content = isUser.value ? props.content : decorateCitations(props.content, props.sources)
+  const raw = marked.parse(content, { async: false, renderer }) as string
   return DOMPurify.sanitize(raw)
 })
+
+function handleContentClick(event: MouseEvent) {
+  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-citation-id]')
+  if (!target) return
+  const citationId = Number(target.dataset.citationId)
+  if (Number.isInteger(citationId)) emit('citationClick', citationId)
+}
 </script>
 
 <template>
@@ -58,7 +72,7 @@ const rendered = computed(() => {
           <span class="dot"></span>
         </div>
 
-        <div v-else-if="content" class="md" v-html="rendered"></div>
+        <div v-else-if="content" class="md" v-html="rendered" @click="handleContentClick"></div>
       </div>
     </div>
   </div>
@@ -171,6 +185,34 @@ const rendered = computed(() => {
 .md :deep(ul), .md :deep(ol) { padding-left: 20px; margin: 8px 0; }
 .md :deep(img) { max-width: 100%; height: auto; border-radius: 4px; }
 .md :deep(a) { color: inherit; text-decoration: underline; }
+.md :deep(.citation-chip) {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(320px, 100%);
+  margin: 0 2px;
+  padding: 1px 6px;
+  border: 1px solid #d9e2f2;
+  border-radius: 4px;
+  background: #eef4ff;
+  color: #49617f;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.55;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.md :deep(.citation-chip:hover) {
+  border-color: #8fb0ea;
+  background: #e4eeff;
+  color: #245fc7;
+}
+.md :deep(.citation-chip:focus-visible) {
+  outline: 2px solid #3370ff;
+  outline-offset: 1px;
+}
 .md :deep(blockquote) {
   margin: 8px 0;
   padding: 2px 12px;
@@ -242,6 +284,10 @@ const rendered = computed(() => {
   }
   .md :deep(code) {
     font-size: 12px;
+  }
+  .md :deep(.citation-chip) {
+    max-width: 220px;
+    font-size: 10px;
   }
   .thinking-content {
     font-size: 12px;

@@ -26,6 +26,9 @@ export interface SourceDoc {
     citation_id?: number
     file_name?: string
     page_label?: string
+    title?: string
+    section_title?: string
+    section_path?: string
     source_type?: 'knowledge_base' | 'external'
     url?: string
   }

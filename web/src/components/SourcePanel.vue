@@ -1,9 +1,28 @@
 <script setup lang="ts">
+import { nextTick, ref } from 'vue'
 import type { SourceDoc } from '../types'
 
 defineProps<{
   sources: SourceDoc[]
 }>()
+
+const panel = ref<HTMLElement | null>(null)
+const highlightedId = ref<number | null>(null)
+let highlightTimer = 0
+
+async function focusCitation(citationId: number) {
+  highlightedId.value = citationId
+  await nextTick()
+  panel.value
+    ?.querySelector<HTMLElement>(`[data-source-id="${citationId}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  window.clearTimeout(highlightTimer)
+  highlightTimer = window.setTimeout(() => {
+    if (highlightedId.value === citationId) highlightedId.value = null
+  }, 1800)
+}
+
+defineExpose({ focusCitation })
 
 function categoryColor(cat?: string): string {
   const map: Record<string, string> = {
@@ -16,10 +35,16 @@ function categoryColor(cat?: string): string {
 </script>
 
 <template>
-  <div class="panel">
+  <div ref="panel" class="panel">
     <div v-if="sources.length === 0" class="empty">暂无引用来源</div>
 
-    <div v-for="(src, i) in sources" :key="i" class="item">
+    <div
+      v-for="(src, i) in sources"
+      :key="src.metadata?.citation_id || i"
+      class="item"
+      :class="{ 'item--highlighted': highlightedId === (src.metadata?.citation_id || i + 1) }"
+      :data-source-id="src.metadata?.citation_id || i + 1"
+    >
       <div class="item-hd">
         <span class="idx">{{ src.metadata?.citation_id || i + 1 }}</span>
         <span
@@ -57,6 +82,12 @@ function categoryColor(cat?: string): string {
   border-radius: 6px;
   padding: 10px 12px;
   margin-bottom: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.item--highlighted {
+  border-color: #7ca3e8;
+  background: #f4f8ff;
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.12);
 }
 .item-hd {
   display: flex;
