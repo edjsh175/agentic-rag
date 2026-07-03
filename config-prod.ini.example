@@ -32,6 +32,12 @@ collection_name = rag_knowledge
 chunk_size = 800
 ; 相邻分块的重叠 token 数，保持跨块上下文连贯
 chunk_overlap = 150
+; 是否默认使用 embedding 语义切块，不可用时自动降级到固定长度切分
+semantic_chunking_enabled = true
+; 相邻语义单元余弦距离的 percentile 阈值，用于判断主题突变边界
+semantic_breakpoint_percentile = 80
+; 语义块最小字符长度，低于该值则继续合并
+semantic_min_chunk_size = 200
 ; 是否提取 Word/PDF 内嵌图片并用视觉模型描述（false 则仅提取文字，避免大图超时）
 extract_embedded_images = true
 ; 是否使用 unstructured 按标题切片（true=优先章节切片，false=仅固定长度）

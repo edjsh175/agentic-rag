@@ -10,7 +10,7 @@ __pycache__/
 .pytest_cache/
 
 # ML model weights (downloaded at runtime)
-models/
+/models/
 
 # SVN version control metadata
 .svn/
