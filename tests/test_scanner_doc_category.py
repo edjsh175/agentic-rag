@@ -21,6 +21,11 @@ def _load_directory_scanner():
 
 
 class ScannerDocCategoryTests(unittest.TestCase):
+    def tearDown(self):
+        sys.modules.pop("rag_knowledge.repository.vector_store", None)
+        sys.modules.pop("rag_knowledge.services.scanner", None)
+        super().tearDown()
+
     def test_resolve_doc_category_prefers_explicit_map(self):
         DirectoryScanner = _load_directory_scanner()
         scanner = object.__new__(DirectoryScanner)

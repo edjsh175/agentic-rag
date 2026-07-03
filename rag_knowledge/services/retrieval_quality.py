@@ -6,7 +6,7 @@
   2. 相似度阈值过滤
   3. Jaccard 相似度去重
   4. 动态 TopK 断崖截断
-  5. 可选上下文压缩（暂未实现）
+  5. 可选质量过滤组合
 
 所有处理按 quality_score 降序进行，得分越高越相关。
 """
@@ -36,7 +36,7 @@ class RetrievalQualityStrategy:
         对检索结果执行质量控制后处理。
 
         参数：
-          query: 用户问题（用于上下文压缩）
+          query: 用户问题（保留参数以兼容现有调用）
           docs:  检索返回的 Document 列表
 
         返回：处理后的 Document 列表，按 quality_score 降序
@@ -64,12 +64,7 @@ class RetrievalQualityStrategy:
         if self._cfg.dynamic_topk_enabled:
             docs = self._truncate_by_score_drop(docs)
 
-        # 5. 上下文压缩（暂未实现）
-        if self._cfg.contextual_compression_enabled:
-            if debug:
-                logger.debug("上下文压缩暂未实现，跳过")
-            # docs = self._compress_context(query, docs)
-
+        # Contextual compression now runs in RagChain._retrieve().
         if debug:
             scores = [f"{float(d.metadata.get('quality_score', 0)):.3f}" for d in docs]
             logger.debug(

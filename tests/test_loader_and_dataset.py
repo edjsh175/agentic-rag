@@ -3,7 +3,7 @@ import importlib
 import sys
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from langchain_core.documents import Document
 
@@ -93,6 +93,21 @@ class VectorStoreMetadataTests(unittest.TestCase):
             ids=["chunk-1"],
             metadatas=[{"kb_name": "文章附件", "review_status": "approved"}],
         )
+
+    def test_set_embedding_model_clears_embedding_cache(self):
+        store = object.__new__(VectorStore)
+        store._store = MagicMock()
+        store._collection_name = "rag_knowledge"
+        store._embedding_cache = MagicMock()
+
+        with patch("rag_knowledge.repository.vector_store.Config") as cfg_cls, \
+                patch("rag_knowledge.repository.vector_store.OllamaEmbeddings"):
+            cfg_cls.return_value.ollama_base_url = "http://localhost:11434"
+            cfg_cls.return_value.collection_name = "rag_knowledge"
+
+            store.set_embedding_model("other-model")
+
+        store._embedding_cache.clear.assert_called_once_with()
 
     def test_normalize_metadata_replaces_none_and_complex_values(self):
         normalized = VectorStore._normalize_metadata({

@@ -101,6 +101,8 @@ class DirectoryScanner:
         self._save_index()
         if new or any(item.should_rebuild_bm25 for item in cleaned):
             BM25Store().rebuild()
+            from rag_knowledge.services.query_cache import clear_query_cache
+            clear_query_cache()
 
         elapsed = time.time() - t0
         parts = [f"新增 {new}"]

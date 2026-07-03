@@ -6,6 +6,7 @@ RAG 问答链 —— 检索增强生成
   - 流式输出（SSE，逐 token 返回）
   - 闲聊/知识问答自动分流
 """
+import asyncio
 import re
 import json
 import time
@@ -13,10 +14,12 @@ import logging
 
 import httpx
 from langchain_ollama import ChatOllama
+from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.query_cache import QueryCache, get_query_cache
 from rag_knowledge.services.web_search import WebSearch
 
 logger = logging.getLogger(__name__)
@@ -123,6 +126,25 @@ _QUERY_REWRITE_PROMPT = """你是一个查询改写助手。将用户问题改�
 用户问题：{question}
 改写后："""
 
+_CONTEXTUAL_COMPRESSION_PROMPT = """你是检索上下文压缩助手。
+请从给定文档片段中，原样提取与用户问题最相关的一段连续文本。
+
+要求：
+1. 只能摘取原文中的连续片段，不要改写，不要总结，不要补充。
+2. 如果存在多段候选，选择信息最密集、最能回答问题的一段。
+3. 输出不要超过 {max_chars} 个字符。
+4. 如果文档完全不相关，只输出空字符串。
+5. 不要输出解释、标签、引号或 Markdown。
+
+用户问题：
+{question}
+
+文档片段：
+{content}
+"""
+
+_MIN_COMPRESSED_SNIPPET_CHARS = 4
+
 _ROUTE_PROMPT = """分析用户问题，判断应该从哪个知识库检索答案。只输出知识库名称。
 
 文章附件：技术文档、操作指南、配置、代码、开发相关
@@ -156,6 +178,7 @@ class RagChain:
         # ---- 检索质量控制 (Phase 5) ----
         from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
         self._quality = RetrievalQualityStrategy(cfg)
+        self._retrieval_quality_cfg = cfg.retrieval_quality
 
         # ---- Context 自动裁剪 (Token 预算控制) ----
         from rag_knowledge.services.context_budget import ContextBudgetManager
@@ -164,6 +187,11 @@ class RagChain:
         # ---- 历史消息压缩与摘要 ----
         from rag_knowledge.services.history_compressor import HistoryCompressor
         self._history_compressor = HistoryCompressor(cfg.history_compression, cfg)
+        self._query_cache = get_query_cache(
+            enabled=cfg.cache.query_cache_enabled,
+            ttl_seconds=cfg.cache.query_cache_ttl_seconds,
+            capacity=cfg.cache.query_cache_capacity,
+        )
 
         # ---- 重排序器 (Phase 4) ----
         self._reranker_enabled = cfg.reranker_enabled
@@ -205,6 +233,178 @@ class RagChain:
             num_predict=2048,
         )
 
+    async def _aretrieve_with_cache(
+        self,
+        *,
+        rewritten_query: str,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        rerank: bool | None = None,
+        web_search: bool = False,
+    ) -> tuple[list[dict], str]:
+        enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
+        cache = getattr(self, "_query_cache", None)
+        cache_key = QueryCache.make_key(
+            rewritten_query=rewritten_query,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            method=method,
+            rerank=enable_rerank,
+            web_search=web_search,
+        )
+
+        if cache is not None:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                logger.debug("query cache hit | key=%s", cache_key[:8])
+                return cached["source_docs"], cached["context"]
+            logger.debug("query cache miss | key=%s", cache_key[:8])
+
+        source_docs, context = await self._aretrieve_uncached(
+            rewritten_query,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            method=method,
+            rerank=rerank,
+            web_search=web_search,
+        )
+
+        if cache is not None:
+            cache.set(cache_key, {"source_docs": source_docs, "context": context})
+        return source_docs, context
+
+    async def _aretrieve_uncached(
+        self,
+        question: str,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        rerank: bool | None = None,
+        web_search: bool = False,
+    ) -> tuple[list[dict], str]:
+        enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
+        strategy_top_k = self._reranker_candidate_k if enable_rerank else None
+
+        if kb_name:
+            docs = await self._strategy.aretrieve(
+                question,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+                method=method,
+                top_k=strategy_top_k,
+            )
+        else:
+            routed_kb = self._route_query(question)
+            if routed_kb:
+                docs = await self._strategy.aretrieve(
+                    question,
+                    kb_name=routed_kb,
+                    doc_category=doc_category,
+                    review_status=review_status,
+                    method=method,
+                    top_k=strategy_top_k,
+                )
+            else:
+                per_k = self._reranker_candidate_k // 2 + 1 if enable_rerank else self._retrieval_k // 2 + 1
+                target_k = self._reranker_candidate_k if enable_rerank else self._retrieval_k
+                started = time.perf_counter()
+                kb1_docs, kb2_docs = await asyncio.gather(
+                    self._strategy.aretrieve(
+                        question,
+                        kb_name="文章附件",
+                        doc_category=doc_category,
+                        review_status=review_status,
+                        method=method,
+                        top_k=per_k,
+                    ),
+                    self._strategy.aretrieve(
+                        question,
+                        kb_name="已发布文章",
+                        doc_category=doc_category,
+                        review_status=review_status,
+                        method=method,
+                        top_k=per_k,
+                    ),
+                )
+                logger.debug(
+                    "multi-kb concurrent recall finished | elapsed=%.3fs",
+                    time.perf_counter() - started,
+                )
+                docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
+
+        docs = await self._postprocess_docs(question, docs, enable_rerank)
+        source_docs = [
+            self._normalize_source(d.page_content, d.metadata, index + 1)
+            for index, d in enumerate(docs)
+        ]
+        context = self._format_context(source_docs)
+
+        if web_search:
+            source_docs, context = await asyncio.to_thread(
+                self._search_web, question, source_docs, context
+            )
+
+        return source_docs, context
+
+    async def _postprocess_docs(
+        self,
+        question: str,
+        docs: list[Document],
+        enable_rerank: bool,
+    ) -> list[Document]:
+        if enable_rerank and len(docs) > self._reranker_top_n:
+            candidate_count = len(docs)
+            try:
+                reranker_instance = self._get_reranker()
+                docs = await asyncio.to_thread(
+                    reranker_instance.rerank, question, docs, self._reranker_top_n
+                )
+                logger.debug("reranker finished | %d -> %d", candidate_count, len(docs))
+            except Exception as e:
+                logger.warning("reranker failed, fallback to original order: %s", e)
+                docs = docs[:self._reranker_top_n]
+
+        docs = await asyncio.to_thread(self._quality.apply, question, docs)
+        docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
+        return docs
+
+    @staticmethod
+    def _merge_multi_kb_docs(
+        kb1_docs: list[Document],
+        kb2_docs: list[Document],
+        target_k: int,
+    ) -> list[Document]:
+        docs: list[Document] = []
+        seen_chunks: set[str] = set()
+        i = 0
+        j = 0
+        while len(docs) < target_k and (i < len(kb1_docs) or j < len(kb2_docs)):
+            if i < len(kb1_docs):
+                chunk_id = kb1_docs[i].metadata.get("chunk_id") or (
+                    kb1_docs[i].metadata.get("source", "") + kb1_docs[i].page_content[:80]
+                )
+                if chunk_id not in seen_chunks:
+                    seen_chunks.add(chunk_id)
+                    docs.append(kb1_docs[i])
+                i += 1
+                if len(docs) >= target_k:
+                    break
+            if j < len(kb2_docs):
+                chunk_id = kb2_docs[j].metadata.get("chunk_id") or (
+                    kb2_docs[j].metadata.get("source", "") + kb2_docs[j].page_content[:80]
+                )
+                if chunk_id not in seen_chunks:
+                    seen_chunks.add(chunk_id)
+                    docs.append(kb2_docs[j])
+                j += 1
+        return docs[:target_k]
+
     def _retrieve(self, question: str, kb_name: str | None = None,
                   doc_category: str | None = None,
                   review_status: str | None = "approved",
@@ -219,8 +419,6 @@ class RagChain:
         """
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
         strategy_top_k = self._reranker_candidate_k if enable_rerank else None
-
-        chroma = self._store.get_chroma()
 
         def _build_filter(kb: str) -> dict:
             """构建 ChromaDB 过滤条件"""
@@ -250,6 +448,7 @@ class RagChain:
                     top_k=strategy_top_k,
                 )
             else:
+                chroma = self._store.get_chroma()
                 # 路由不确定 → 分别搜两个知识库，交错合并保证多样性
                 per_k = self._reranker_candidate_k // 2 + 1 if enable_rerank else self._retrieval_k // 2 + 1
                 target_k = self._reranker_candidate_k if enable_rerank else self._retrieval_k
@@ -294,6 +493,7 @@ class RagChain:
 
         # ---- 检索质量控制 (Phase 5) ----
         docs = self._quality.apply(question, docs)
+        docs = self._compress_retrieved_docs(question, docs)
 
         source_docs = [self._normalize_source(d.page_content, d.metadata, i + 1)
                        for i, d in enumerate(docs)]
@@ -334,6 +534,63 @@ class RagChain:
                 f"文档片段：{item['content']}"
             )
         return "\n\n---\n\n".join(parts)
+
+    def _compress_retrieved_docs(self, query: str, docs: list[Document]) -> list[Document]:
+        cfg = getattr(self, "_retrieval_quality_cfg", None)
+        if cfg is None and getattr(self, "_quality", None) is not None:
+            cfg = getattr(self._quality, "_cfg", None)
+
+        if not cfg or not cfg.contextual_compression_enabled or not docs:
+            return docs
+
+        return [self._compress_single_doc(query, doc, cfg) for doc in docs]
+
+    def _compress_single_doc(self, query: str, doc: Document, cfg) -> Document:
+        raw_content = (doc.page_content or "").strip()
+        if not raw_content:
+            return doc
+
+        compressed = self._request_compressed_snippet(query, raw_content, cfg)
+        if not compressed:
+            return doc
+
+        metadata = dict(doc.metadata or {})
+        metadata["compression_applied"] = True
+        metadata["raw_content_length"] = len(raw_content)
+        metadata["raw_content_preview"] = raw_content[:200]
+        return Document(page_content=compressed, metadata=metadata)
+
+    def _request_compressed_snippet(self, query: str, content: str, cfg) -> str:
+        try:
+            prompt = _CONTEXTUAL_COMPRESSION_PROMPT.format(
+                question=query,
+                content=content,
+                max_chars=cfg.max_compressed_chunk_chars,
+            )
+            resp = httpx.post(
+                f"{self._ollama_base}/api/chat",
+                json={
+                    "model": cfg.compression_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,
+                        "num_predict": max(64, cfg.max_compressed_chunk_chars),
+                        "top_k": 20,
+                    },
+                },
+                timeout=45,
+            )
+            resp.raise_for_status()
+            response_content = resp.json().get("message", {}).get("content", "")
+            cleaned = re.sub(r"(?is)<think>.*?</think>", "", response_content or "")
+            cleaned = cleaned.strip().strip('"')
+            if len(cleaned) < _MIN_COMPRESSED_SNIPPET_CHARS or cleaned not in content:
+                return ""
+            return cleaned[: cfg.max_compressed_chunk_chars]
+        except Exception as e:
+            logger.warning("contextual compression failed, fallback to raw chunk: %s", e)
+            return ""
 
     def _rewrite_query(self, question: str, history: list | None = None) -> str:
         """用 LLM 改写用户问题，补全指代，提升检索命中率。失败时返回原问题。"""
@@ -524,6 +781,79 @@ class RagChain:
             logger.error("查询失败: %s", e)
             return {"answer": f"查询出错: {str(e)}", "source_documents": []}
 
+    async def aquery(self, question: str, history: list | None = None,
+                     llm_model: str | None = None, vision_model: str | None = None,
+                     kb_name: str | None = None, doc_category: str | None = None,
+                     thinking: bool | None = None,
+                     web_search: bool | None = None,
+                     allow_general_knowledge: bool | None = None,
+                     agent_prompt: str | None = None) -> dict:
+        q = (question or "").strip()
+
+        if not q:
+            return {"answer": "请输入有效的问题", "source_documents": []}
+        if _is_sensitive(q):
+            logger.warning("敏感内容拦截: %s", q[:40])
+            return {"answer": "抱歉，我无法回答这个问题。", "source_documents": []}
+        if _is_greeting(q):
+            logger.info("闲聊模式: %s", q[:40])
+            return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
+
+        try:
+            t0 = time.time()
+            search_query = self._rewrite_query(q, history)
+            source_docs, context = await self._aretrieve_with_cache(
+                rewritten_query=search_query,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                web_search=bool(web_search),
+            )
+
+            allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
+                             else allow_general_knowledge)
+            if not source_docs and not allow_general:
+                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+
+            history, history_summary = self._history_compressor.compress(history)
+            source_docs, context, history = self._budget.trim(
+                source_docs, context, history, q, agent_prompt=agent_prompt
+            )
+
+            llm = self._build_llm(llm_model)
+            msgs = self._build_messages(
+                q, context, history, agent_prompt=agent_prompt,
+                allow_general_knowledge=allow_general,
+                history_summary=history_summary,
+            )
+
+            from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+            lc_msgs = []
+            for m in msgs:
+                if m["role"] == "system":
+                    lc_msgs.append(SystemMessage(content=m["content"]))
+                elif m["role"] == "assistant":
+                    lc_msgs.append(AIMessage(content=m["content"]))
+                else:
+                    lc_msgs.append(HumanMessage(content=m["content"]))
+
+            answer = await asyncio.to_thread(llm.invoke, lc_msgs)
+            answer_content = answer.content if hasattr(answer, "content") else str(answer)
+
+            elapsed = time.time() - t0
+            src_info = "; ".join(
+                f"{s['metadata'].get('source', '?')}[{s['metadata'].get('category', '?')}]"
+                for s in source_docs
+            ) or "无匹配"
+            logger.info("异步查询完成 | %d 个来源 | %.2fs | %s", len(source_docs), elapsed, src_info)
+
+            if not answer_content.strip():
+                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": source_docs}
+
+            return {"answer": answer_content, "source_documents": source_docs}
+        except Exception as e:
+            logger.error("异步查询失败: %s", e)
+            return {"answer": f"查询出错: {str(e)}", "source_documents": []}
+
     async def stream_query(self, question: str, history: list | None = None,
                             llm_model: str | None = None, vision_model: str | None = None,
                             kb_name: str | None = None, doc_category: str | None = None,
@@ -550,15 +880,24 @@ class RagChain:
 
         try:
             search_query = self._rewrite_query(q, history)
-            source_docs, context = self._retrieve(search_query, kb_name=kb_name, doc_category=doc_category)
-            if web_search:
-                source_docs, context = self._search_web(q, source_docs, context)
-
-            yield {"type": "sources", "data": source_docs}
+            if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
+                source_docs, context = await self._aretrieve_with_cache(
+                    rewritten_query=search_query,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    web_search=bool(web_search),
+                )
+            else:
+                source_docs, context = self._retrieve(
+                    search_query, kb_name=kb_name, doc_category=doc_category
+                )
+                if web_search:
+                    source_docs, context = self._search_web(q, source_docs, context)
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
+                yield {"type": "sources", "data": []}
                 yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
                 yield {"type": "done"}
                 return
@@ -570,6 +909,8 @@ class RagChain:
             source_docs, context, history = self._budget.trim(
                 source_docs, context, history, q, agent_prompt=agent_prompt
             )
+
+            yield {"type": "sources", "data": source_docs}
 
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,

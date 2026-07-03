@@ -63,7 +63,7 @@
 - ✅ 阶段四：语料治理 + 新资料规范入库 — 已完成（文本清洗、难例评测集生成、批量审核入口）
 - ✅ 阶段五：Cross-Encoder Reranker — 代码、降级流程和本地 A/B 验证已完成；当前最佳策略为 `Hybrid+Rerank`，生产默认是否启用取决于部署机模型与 CUDA 条件
 - ✅ 阶段五附加：检索质量控制 — 已实现分数归一化、Jaccard 去重、动态 TopK；但 `Hybrid+Rerank+Quality` 指标略低于 `Hybrid+Rerank`，暂不建议默认开启
-- ⏳ 阶段六：性能优化 — Embedding 缓存、查询缓存、异步/并发检索尚未落地
+- ✅ 阶段六：性能优化 — Embedding 缓存、查询缓存、Hybrid 两路并发召回、异步检索与并发检索已落地，并已补齐缓存失效与测试验证
 - ✅ Token 预算与历史摘要管理 — 已完成（基于 Token 预算的 context 自动裁剪、阶梯窗口及缓存式增量历史摘要）
 - ✅ 表格/代码块完整保留 — 已完成结构保护切块：Markdown/Excel 表格按完整行切分并重复表头，fenced code block 按完整代码块或完整行切分
 - ⏳ 文档能力缺口：真正的语义切块仍待补齐
@@ -281,7 +281,8 @@ watch_directory/ 文件变化
       → `_retrieve()` 支持 `review_status=None` 跳过审核过滤（评估用）
       → `_retrieve()` 支持 `method` 参数覆盖配置（评估用）
     → [可选] Reranker 精排（粗召回 candidate_k → reranker top_n；失败时回退原始排序）
-    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK；上下文压缩未实现）
+    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK）
+    → [可选] 上下文压缩（从 chunk 中提取与问题相关的连续原文片段）
     → [可选] 联网搜索增强（DuckDuckGo）
     → 组装 prompt（system + context + history + question）
     → 调用 Ollama LLM 生成回答（同步/SSE 流式）

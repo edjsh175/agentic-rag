@@ -3,7 +3,11 @@
 
 按配置选择 mmr / similarity / bm25 / hybrid 检索方式。
 """
+import asyncio
+import functools
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 from langchain_core.documents import Document
 
@@ -20,6 +24,9 @@ class RetrievalStrategy:
         self._cfg = Config()
         self._store = VectorStore()
         self._bm25 = None  # 懒加载
+        self._executor = ThreadPoolExecutor(
+            max_workers=max(1, self._cfg.cache.retrieval_executor_workers)
+        )
 
     def _get_bm25(self):
         if self._bm25 is None:
@@ -81,6 +88,48 @@ class RetrievalStrategy:
                 doc_category=doc_category, review_status=review_status,
                 search_type="mmr", top_k=top_k,
             )
+
+    async def aretrieve(
+        self,
+        question: str,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        top_k: int | None = None,
+    ) -> list[Document]:
+        actual_method = method or self._cfg.retrieval_strategy
+        logger.info("async 检索策略: %s | kb=%s", actual_method, kb_name or "auto")
+
+        supported = {"mmr", "similarity", "bm25", "hybrid"}
+        if actual_method not in supported:
+            raise ValueError(
+                f"不支持的检索策略: {actual_method}，可选值: {', '.join(sorted(supported))}"
+            )
+
+        if actual_method == "bm25":
+            return await self._aretrieve_bm25(
+                question, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                top_k=top_k,
+            )
+        if actual_method == "hybrid":
+            return await self._aretrieve_hybrid(
+                question, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                top_k=top_k,
+            )
+        if actual_method == "similarity":
+            return await self._aretrieve_vector(
+                question, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                search_type="similarity", top_k=top_k,
+            )
+        return await self._aretrieve_vector(
+            question, kb_name=kb_name,
+            doc_category=doc_category, review_status=review_status,
+            search_type="mmr", top_k=top_k,
+        )
 
     # ------------------------------------------------------------------
     # 内部
@@ -168,6 +217,88 @@ class RetrievalStrategy:
             question, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
             top_k=candidate_k,
+        )
+        return self._rrf_fuse(
+            [vector_docs, bm25_docs],
+            rrf_k=self._cfg.retrieval_rrf_k,
+            top_k=top_k or self._cfg.retrieval_top_k,
+        )
+
+    async def _run_blocking(self, func, *args, **kwargs):
+        loop = asyncio.get_running_loop()
+        executor = getattr(self, "_executor", None)
+        bound = functools.partial(func, *args, **kwargs)
+        if executor is None:
+            return await asyncio.to_thread(bound)
+        return await loop.run_in_executor(executor, bound)
+
+    async def _aretrieve_vector(
+        self,
+        question: str,
+        kb_name: str | None,
+        doc_category: str | None,
+        review_status: str | None,
+        search_type: str,
+        top_k: int | None = None,
+    ) -> list[Document]:
+        return await self._run_blocking(
+            self._retrieve_vector,
+            question,
+            kb_name,
+            doc_category,
+            review_status,
+            search_type,
+            top_k,
+        )
+
+    async def _aretrieve_bm25(
+        self,
+        question: str,
+        kb_name: str | None,
+        doc_category: str | None,
+        review_status: str | None,
+        top_k: int | None = None,
+    ) -> list[Document]:
+        return await self._run_blocking(
+            self._retrieve_bm25,
+            question,
+            kb_name,
+            doc_category,
+            review_status,
+            top_k,
+        )
+
+    async def _aretrieve_hybrid(
+        self,
+        question: str,
+        kb_name: str | None,
+        doc_category: str | None,
+        review_status: str | None,
+        top_k: int | None = None,
+    ) -> list[Document]:
+        if self._cfg.retrieval_fusion_method != "rrf":
+            raise ValueError(
+                f"不支持的融合方式: {self._cfg.retrieval_fusion_method}，当前仅支持 rrf"
+            )
+
+        candidate_k = self._cfg.retrieval_candidate_k
+        started = time.perf_counter()
+        vector_docs, bm25_docs = await asyncio.gather(
+            self._aretrieve_vector(
+                question, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                search_type="similarity", top_k=candidate_k,
+            ),
+            self._aretrieve_bm25(
+                question, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                top_k=candidate_k,
+            ),
+        )
+        logger.debug(
+            "Hybrid async recall finished | kb=%s | elapsed=%.3fs",
+            kb_name or "auto",
+            time.perf_counter() - started,
         )
         return self._rrf_fuse(
             [vector_docs, bm25_docs],

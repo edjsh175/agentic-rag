@@ -60,6 +60,17 @@ class HistoryCompressionConfig:
 
 
 
+@dataclass
+class CacheConfig:
+    """Stage 6 performance cache settings."""
+    embedding_cache_enabled: bool = True
+    embedding_cache_capacity: int = 10000
+    query_cache_enabled: bool = False
+    query_cache_ttl_seconds: int = 300
+    query_cache_capacity: int = 256
+    retrieval_executor_workers: int = 4
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -124,6 +135,14 @@ class Config:
         self.retrieval_fusion_method = _get("retrieval_strategy", "fusion_method", "rrf")
         self.retrieval_rrf_k = int(_get("retrieval_strategy", "rrf_k", "60"))
         self.retrieval_candidate_k = int(_get("retrieval_strategy", "candidate_k", "12"))
+        self.cache = CacheConfig(
+            embedding_cache_enabled=_get("cache", "embedding_cache_enabled", "true").lower() == "true",
+            embedding_cache_capacity=int(_get("cache", "embedding_cache_capacity", "10000")),
+            query_cache_enabled=_get("cache", "query_cache_enabled", "false").lower() == "true",
+            query_cache_ttl_seconds=int(_get("cache", "query_cache_ttl_seconds", "300")),
+            query_cache_capacity=int(_get("cache", "query_cache_capacity", "256")),
+            retrieval_executor_workers=int(_get("cache", "retrieval_executor_workers", "4")),
+        )
 
         # ---- 重排序器 (Phase 4) ----
         self.reranker_enabled = _get("reranker", "enabled", "false").lower() == "true"

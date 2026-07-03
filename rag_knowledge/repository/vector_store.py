@@ -7,6 +7,8 @@
   - 语义相似度检索
   - 按 ID 删除文档块
 """
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
 
@@ -21,6 +23,73 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.embedding_cache import get_embedding_cache
+
+
+class CachedOllamaEmbeddings(OllamaEmbeddings):
+    def __init__(self, *, cache, **kwargs):
+        super().__init__(**kwargs)
+        self._cache = cache
+
+    def embed_query(self, text: str) -> list[float]:
+        cached = self._cache.get(self.model, text)
+        if cached is not None:
+            return cached
+
+        vector = super().embed_query(text)
+        self._cache.put(self.model, text, vector)
+        return vector
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        results: list[list[float] | None] = [None] * len(texts)
+        missing: dict[str, list[int]] = {}
+
+        for index, text in enumerate(texts):
+            cached = self._cache.get(self.model, text)
+            if cached is not None:
+                results[index] = cached
+            else:
+                missing.setdefault(text, []).append(index)
+
+        if missing:
+            missing_texts = list(missing.keys())
+            vectors = super().embed_documents(missing_texts)
+            for text, vector in zip(missing_texts, vectors):
+                self._cache.put(self.model, text, vector)
+                for index in missing[text]:
+                    results[index] = list(vector)
+
+        return [vector or [] for vector in results]
+
+    async def aembed_query(self, text: str) -> list[float]:
+        cached = self._cache.get(self.model, text)
+        if cached is not None:
+            return cached
+
+        vector = await super().aembed_query(text)
+        self._cache.put(self.model, text, vector)
+        return vector
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        results: list[list[float] | None] = [None] * len(texts)
+        missing: dict[str, list[int]] = {}
+
+        for index, text in enumerate(texts):
+            cached = self._cache.get(self.model, text)
+            if cached is not None:
+                results[index] = cached
+            else:
+                missing.setdefault(text, []).append(index)
+
+        if missing:
+            missing_texts = list(missing.keys())
+            vectors = await super().aembed_documents(missing_texts)
+            for text, vector in zip(missing_texts, vectors):
+                self._cache.put(self.model, text, vector)
+                for index in missing[text]:
+                    results[index] = list(vector)
+
+        return [vector or [] for vector in results]
 
 
 class VectorStore:
@@ -39,7 +108,12 @@ class VectorStore:
             return
         validate_chroma_runtime()
         cfg = Config()
-        self._embeddings = OllamaEmbeddings(
+        self._embedding_cache = get_embedding_cache(
+            enabled=cfg.cache.embedding_cache_enabled,
+            capacity=cfg.cache.embedding_cache_capacity,
+        )
+        self._embeddings = CachedOllamaEmbeddings(
+            cache=self._embedding_cache,
             model=cfg.embedding_model,
             base_url=cfg.ollama_base_url,
         )
@@ -152,7 +226,9 @@ class VectorStore:
         会销毁当前 Chroma 实例，下次 get_chroma() 时重建
         """
         cfg = Config()
-        self._embeddings = OllamaEmbeddings(
+        self._embedding_cache.clear()
+        self._embeddings = CachedOllamaEmbeddings(
+            cache=self._embedding_cache,
             model=model,
             base_url=cfg.ollama_base_url,
         )
@@ -174,6 +250,9 @@ class VectorStore:
             store.delete_collection()
         finally:
             self._store = None
+            embedding_cache = getattr(self, "_embedding_cache", None)
+            if embedding_cache is not None:
+                embedding_cache.clear()
             _gc.collect()
 
         Path(self._persist_dir).mkdir(parents=True, exist_ok=True)

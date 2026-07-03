@@ -7,6 +7,17 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+_STUBBED_MODULES = (
+    "rag_knowledge.repository.vector_store",
+    "rag_knowledge.api.routes",
+    "rag_knowledge.services.rag",
+    "rag_knowledge.services.scanner",
+    "rag_knowledge.services.blog_syncer",
+    "rag_knowledge.services.blog_crawler",
+    "rag_knowledge.services.chat_storage",
+    "rag_knowledge.services.agent_service",
+)
+
 
 def _stub_unstructured_loader():
     stub = ModuleType("rag_knowledge.services.unstructured_loader")
@@ -64,7 +75,14 @@ def _import_routes_module():
     return importlib.import_module("rag_knowledge.api.routes")
 
 
-class IndexedFileCleanupTests(unittest.TestCase):
+class _ModuleIsolationMixin:
+    def tearDown(self):
+        for name in _STUBBED_MODULES:
+            sys.modules.pop(name, None)
+        super().tearDown()
+
+
+class IndexedFileCleanupTests(_ModuleIsolationMixin, unittest.TestCase):
     def test_cleanup_deletes_vectors_and_index_entry(self):
         _stub_vector_store_module()
         from rag_knowledge.services.index_cleanup import cleanup_indexed_file
@@ -141,7 +159,7 @@ class IndexedFileCleanupTests(unittest.TestCase):
             self.assertEqual(saved["files"], {})
 
 
-class BlogDeletionIntegrationTests(unittest.TestCase):
+class BlogDeletionIntegrationTests(_ModuleIsolationMixin, unittest.TestCase):
     def test_blog_syncer_delete_file_vectors_uses_shared_cleanup(self):
         _stub_vector_store_module()
         sys.modules.pop("rag_knowledge.services.blog_syncer", None)

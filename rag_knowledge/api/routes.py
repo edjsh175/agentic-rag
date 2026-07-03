@@ -36,6 +36,7 @@ from rag_knowledge.services.blog_syncer import BlogPostSyncer
 from rag_knowledge.services.blog_crawler import create_crawler, detect_platform
 from rag_knowledge.services.chat_storage import ChatStorage
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
+from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.repository.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,11 @@ def _rebuild_bm25():
         BM25Store().rebuild()
     except Exception as e:
         logger.warning("BM25 索引重建失败: %s", e)
+
+
+def _invalidate_retrieval_caches(reason: str) -> None:
+    logger.debug("invalidate retrieval caches | reason=%s", reason)
+    clear_query_cache()
 
 
 def _resolve_chunk_ids(file_paths: list[str] | None, chunk_ids: list[str] | None) -> list[str]:
@@ -161,7 +167,7 @@ def health():
 
 
 @router.post("/query", response_model=QueryResponse)
-def query(req: QueryRequest):
+async def query(req: QueryRequest):
     """知识库问答"""
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
@@ -170,12 +176,12 @@ def query(req: QueryRequest):
         history = [h.dict() for h in req.history] if req.history else None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
-        result = _rag.query(req.question, history,
-                            llm_model=req.llm_model, vision_model=req.vision_model,
-                            kb_name=kb_name, doc_category=doc_category,
-                            thinking=req.thinking, web_search=req.web_search,
-                            allow_general_knowledge=req.allow_general_knowledge,
-                            agent_prompt=req.agent_prompt)
+        result = await _rag.aquery(req.question, history,
+                                   llm_model=req.llm_model, vision_model=req.vision_model,
+                                   kb_name=kb_name, doc_category=doc_category,
+                                   thinking=req.thinking, web_search=req.web_search,
+                                   allow_general_knowledge=req.allow_general_knowledge,
+                                   agent_prompt=req.agent_prompt)
         return QueryResponse(answer=result["answer"], source_documents=result["source_documents"])
     except Exception as e:
         logger.error("查询失败: %s", e)
@@ -311,6 +317,7 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
     if _scanner:
         scan_result = _scanner.scan()
         _rebuild_bm25()
+        _invalidate_retrieval_caches("upload")
 
     return UploadResponse(
         message=f"文件已上传至知识库「{kb_name}」({doc_category})",
@@ -327,6 +334,7 @@ def trigger_scan():
     try:
         r = _scanner.scan()
         _rebuild_bm25()
+        _invalidate_retrieval_caches("scan")
         return ScanResponse(
             message=f"新增 {r['new_files']} / 跳过 {r['skipped_files']} / 失败 {r['errors']}",
             **r,
@@ -366,6 +374,7 @@ def update_review_status(req: ReviewRequest):
         raise HTTPException(400, detail="未找到可更新的 chunk_id")
 
     updated = VectorStore().update_metadata(resolved_ids, {"review_status": status})
+    _invalidate_retrieval_caches("review_status")
     return ReviewResponse(
         message=f"已将 {updated} 个 chunk 更新为 {status}",
         updated_chunks=updated,
@@ -384,6 +393,7 @@ def set_embedding_model(model: str = Form(...)):
     from rag_knowledge.repository.vector_store import VectorStore
     try:
         VectorStore().set_embedding_model(model)
+        _invalidate_retrieval_caches("embedding_model_switch")
         logger.info("向量模型已切换: %s", model)
         return {"message": f"向量模型已切换为 {model}，请执行 /rebuild 重建知识库"}
     except Exception as e:
@@ -407,6 +417,7 @@ def rebuild_knowledge():
     try:
         # 清空向量数据库
         VectorStore().clear()
+        _invalidate_retrieval_caches("rebuild_clear")
         logger.info("向量数据库已清空")
 
         # 清空文件索引（同时重置 scanner 内存缓存，避免跳过）
@@ -418,6 +429,7 @@ def rebuild_knowledge():
         if _scanner:
             result = _scanner.scan()
             _rebuild_bm25()
+            _invalidate_retrieval_caches("rebuild_scan")
             return {
                 "message": "知识库已重建",
                 "new_files": result["new_files"],
@@ -564,6 +576,7 @@ def delete_blog_post(filename: str):
             cleanup = cleanup_indexed_file(fhash, data_dir=_cfg.data_dir)
             if cleanup.should_rebuild_bm25:
                 _rebuild_bm25()
+            _invalidate_retrieval_caches("blog_delete")
         except Exception as e:
             logger.warning("清理文件索引失败: %s", e)
 
@@ -671,6 +684,7 @@ def publish_blog_post(filename: str):
     fp.unlink()  # 删除爬取目录的原文件
     scan_result = _scanner.scan()
     _rebuild_bm25()
+    _invalidate_retrieval_caches("blog_publish")
 
     logger.info("文章已发布: %s → %s", filename, target)
     return {
@@ -692,6 +706,7 @@ def sync_published_posts():
         if _scanner:
             scan_result = _scanner.scan()
             _rebuild_bm25()
+            _invalidate_retrieval_caches("blog_sync")
             result["scan"] = {k: scan_result[k] for k in ("new_files", "skipped_files", "errors")}
         parts = []
         if result["new"]: parts.append(f"新增 {result['new']}")

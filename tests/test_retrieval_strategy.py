@@ -1,3 +1,5 @@
+import asyncio
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -54,6 +56,51 @@ class RetrievalStrategyTests(unittest.TestCase):
             "query", kb_name="kb", doc_category="category",
             review_status="approved", top_k=12,
         )
+
+    def test_async_hybrid_runs_two_branches_concurrently(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_fusion_method="rrf",
+            retrieval_candidate_k=12,
+            retrieval_rrf_k=60,
+            retrieval_top_k=4,
+        )
+
+        async def fake_vector(*args, **kwargs):
+            await asyncio.sleep(0.05)
+            return [_doc("a")]
+
+        async def fake_bm25(*args, **kwargs):
+            await asyncio.sleep(0.05)
+            return [_doc("b")]
+
+        strategy._aretrieve_vector = fake_vector
+        strategy._aretrieve_bm25 = fake_bm25
+
+        started = time.perf_counter()
+        result = asyncio.run(
+            strategy._aretrieve_hybrid("query", "kb", "category", "approved")
+        )
+        elapsed = time.perf_counter() - started
+
+        self.assertEqual([doc.metadata["chunk_id"] for doc in result], ["a", "b"])
+        self.assertLess(elapsed, 0.095)
+
+    def test_aretrieve_dispatches_hybrid_and_bm25(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(retrieval_strategy="hybrid")
+
+        async def return_empty(*args, **kwargs):
+            return []
+
+        strategy._aretrieve_vector = return_empty
+        strategy._aretrieve_bm25 = return_empty
+        strategy._aretrieve_hybrid = MagicMock(side_effect=return_empty)
+
+        asyncio.run(strategy.aretrieve("q", method="hybrid"))
+        asyncio.run(strategy.aretrieve("q", method="bm25"))
+
+        strategy._aretrieve_hybrid.assert_called_once()
 
     def test_retrieve_dispatches_existing_methods_and_rejects_unknown(self):
         strategy = object.__new__(RetrievalStrategy)
