@@ -20,9 +20,11 @@ import httpx
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings
 
 from rag_knowledge.config import Config
 from rag_knowledge.models.document import FileCategory
+from rag_knowledge.services.semantic_chunker import SemanticChunker, SemanticChunkingError
 from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader, SUPPORTED_EXTS
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class FileLoader:
         cfg = Config()
         self._chunk_size = cfg.chunk_size
         self._chunk_overlap = cfg.chunk_overlap
+        self._semantic_chunking_enabled = cfg.semantic_chunking_enabled
         self._ollama_base = cfg.ollama_base_url
         self._vision_model = cfg.vision_model
         self._extract_images = cfg.extract_embedded_images
@@ -54,6 +57,24 @@ class FileLoader:
             separators=["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
         )
         self._http: httpx.Client | None = None
+        self._semantic_chunker: SemanticChunker | None = None
+        if self._semantic_chunking_enabled:
+            try:
+                self._semantic_chunker = SemanticChunker(
+                    embeddings=OllamaEmbeddings(
+                        model=cfg.embedding_model,
+                        base_url=cfg.ollama_base_url,
+                    ),
+                    fallback_splitter=self._splitter,
+                    max_chunk_size=self._chunk_size,
+                    min_chunk_size=cfg.semantic_min_chunk_size,
+                    breakpoint_percentile=cfg.semantic_breakpoint_percentile,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "semantic embedding client initialization failed; fixed splitter will be used: %s",
+                    exc,
+                )
 
         # unstructured 章节切片（可配置开关）
         self._use_unstructured = cfg.use_unstructured
@@ -61,7 +82,7 @@ class FileLoader:
         if self._use_unstructured:
             self._unstructured_loader = UnstructuredChapterLoader(
                 chunk_size=self._chunk_size,
-                chunk_overlap=self._chunk_overlap,
+                chunk_overlap=0 if self._semantic_chunking_enabled else self._chunk_overlap,
                 strategy=cfg.unstructured_strategy,
             )
 
@@ -746,9 +767,33 @@ class FileLoader:
                 if not b_text.strip():
                     continue
                 temp_doc = Document(page_content=b_text, metadata=b_metadata)
-                out_docs.extend(self._splitter.split_documents([temp_doc]))
+                out_docs.extend(self._split_plain_text_block(temp_doc))
 
         return out_docs
+
+    def _split_plain_text_block(self, doc: Document) -> list[Document]:
+        if getattr(self, "_semantic_chunking_enabled", False) and getattr(self, "_semantic_chunker", None) is not None:
+            try:
+                return self._semantic_chunker.split_document(doc)
+            except SemanticChunkingError as exc:
+                logger.warning(
+                    "semantic chunking unavailable for %s, falling back to fixed splitter: %s",
+                    doc.metadata.get("source", ""),
+                    exc,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "semantic chunking failed for %s, falling back to fixed splitter: %s",
+                    doc.metadata.get("source", ""),
+                    exc,
+                )
+        return self._split_documents_with_method([doc], "fixed_fallback")
+
+    def _split_documents_with_method(self, docs: list[Document], method: str) -> list[Document]:
+        chunks = self._splitter.split_documents(docs)
+        for chunk in chunks:
+            chunk.metadata["chunking_method"] = method
+        return chunks
 
     def _extract_markdown_blocks(self, text: str) -> list[dict]:
         """
@@ -833,6 +878,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "table",
+                    "chunking_method": "table",
                     "table_id": table_id,
                     "row_start": 1,
                     "row_end": len(lines),
@@ -849,6 +895,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "table",
+                    "chunking_method": "table",
                     "table_id": table_id,
                     "row_start": 0,
                     "row_end": 0,
@@ -861,6 +908,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "table",
+                    "chunking_method": "table",
                     "table_id": table_id,
                     "row_start": 1,
                     "row_end": len(data_rows),
@@ -884,6 +932,7 @@ class FileLoader:
                     metadata={
                         **metadata,
                         "content_type": "table",
+                        "chunking_method": "table",
                         "table_id": table_id,
                         "row_start": start_row_idx,
                         "row_end": idx - 1,
@@ -903,6 +952,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "table",
+                    "chunking_method": "table",
                     "table_id": table_id,
                     "row_start": start_row_idx,
                     "row_end": len(data_rows),
@@ -929,6 +979,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "code",
+                    "chunking_method": "code",
                     "language": "",
                     "code_block_index": code_block_id,
                     "part_index": 1,
@@ -947,6 +998,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "code",
+                    "chunking_method": "code",
                     "language": language,
                     "code_block_index": code_block_id,
                     "part_index": 1,
@@ -972,6 +1024,7 @@ class FileLoader:
                     metadata={
                         **metadata,
                         "content_type": "code",
+                        "chunking_method": "code",
                         "language": language,
                         "code_block_index": code_block_id,
                         "part_index": part_idx,
@@ -991,6 +1044,7 @@ class FileLoader:
                 metadata={
                     **metadata,
                     "content_type": "code",
+                    "chunking_method": "code",
                     "language": language,
                     "code_block_index": code_block_id,
                     "part_index": part_idx,

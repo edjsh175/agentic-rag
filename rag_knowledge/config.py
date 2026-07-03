@@ -112,6 +112,9 @@ class Config:
         # ---- 文本分块 ----
         self.chunk_size = int(_get("text", "chunk_size", "800"))
         self.chunk_overlap = int(_get("text", "chunk_overlap", "150"))
+        self.semantic_chunking_enabled = _get("text", "semantic_chunking_enabled", "true").lower() == "true"
+        self.semantic_breakpoint_percentile = int(_get("text", "semantic_breakpoint_percentile", "80"))
+        self.semantic_min_chunk_size = int(_get("text", "semantic_min_chunk_size", "200"))
         self.extract_embedded_images = _get("text", "extract_embedded_images", "true").lower() == "true"
         self.use_unstructured = _get("text", "use_unstructured", "true").lower() == "true"
         self.unstructured_strategy = _get("text", "unstructured_strategy", "fast")

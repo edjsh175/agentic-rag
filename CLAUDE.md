@@ -66,7 +66,7 @@
 - ⏳ 阶段六：性能优化 — Embedding 缓存、查询缓存、异步/并发检索尚未落地
 - ✅ Token 预算与历史摘要管理 — 已完成（基于 Token 预算的 context 自动裁剪、阶梯窗口及缓存式增量历史摘要）
 - ✅ 表格/代码块完整保留 — 已完成结构保护切块：Markdown/Excel 表格按完整行切分并重复表头，fenced code block 按完整代码块或完整行切分
-- ⏳ 文档能力缺口：真正的语义切块仍待补齐
+- ✅ 文档能力补齐：真正的语义切块已实现，普通文本默认按段落/句子做 embedding 语义边界切分，标题章节不跨段合并；Ollama embedding 超时、模型不可用或返回异常时自动降级到现有固定长度滑窗切分，不影响入库
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓
 
 ### 核心功能
@@ -94,7 +94,7 @@
 | **LLM 引擎** | Ollama（本地运行模型） |
 | **RAG 框架** | LangChain（检索链）、LangChain-Ollama |
 | **向量数据库** | ChromaDB |
-| **文本分块** | unstructured (chunk_by_title) + RecursiveCharacterTextSplitter (fallback) |
+| **文本分块** | unstructured 标题硬边界 + Ollama embedding 相邻语义边界；RecursiveCharacterTextSplitter 降级兜底 |
 | **文档解析** | PyPDFLoader, Docx2txtLoader, TextLoader, unstructured (partition) |
 | **图片/视频** | Pillow（压缩）、OpenCV（视频帧提取） |
 | **前端** | Vue 3 + TypeScript + Vite |
@@ -257,8 +257,8 @@ watch_directory/ 文件变化
       → 哈希在索引中已存在？→ 跳过
       → 新文件？→ loader.load()
         → 文本（.md/.docx/.txt）→ unstructured 章节切片（优先）
-          失败回退 → PyPDFLoader/Docx2txtLoader/TextLoader + RecursiveCharacterTextSplitter
-        → 文本（.pdf/.doc）→ PyPDFLoader/旧版解析 → RecursiveCharacterTextSplitter
+          失败回退 → PyPDFLoader/Docx2txtLoader/TextLoader + 语义切块（embedding 异常时固定长度降级）
+        → 文本（.pdf/.doc）→ PyPDFLoader/旧版解析 → 语义切块（embedding 异常时固定长度降级）
         → 图片（jpg/png/...）→ 视觉模型描述 → 分块
         → 视频（mp4/avi/...）→ OpenCV 提取关键帧 → 视觉模型描述 → 合并 → 分块
       → store.add_chunks() → ChromaDB 向量化存储
@@ -434,7 +434,7 @@ docker run -p 10605:10605 rag-knowledge
 - **联网搜索**：仅在请求显式开启时将 DuckDuckGo 结果作为“外部来源”加入 context，保留标题、URL 和片段并独立编号引用
 - **Agent 预设**：可追加角色与输出风格要求，但不能覆盖基础 RAG 的禁止编造、拒答和引用规则
 - **SSE 流式**：前后端均使用 SSE（Server-Sent Events），逐 token 展示
-- **分块策略**：优先 unstructured 按标题切片（.md/.docx/.txt），失败回退 RecursiveCharacterTextSplitter（chunk_size=500，overlap=50）
+- **分块策略**：标题章节作为硬边界；章节内普通文本按段落/句子生成 embedding，使用相邻余弦距离第 80 分位识别语义边界，并受最小 200 字符及 `chunk_size` 最大长度约束。语义路径不添加 overlap；embedding 超时、模型不可用或响应异常时，当前普通文本块整体降级到 RecursiveCharacterTextSplitter，并保留 `chunk_overlap`
 - **元数据**：每个 chunk 携带 section_title / section_path / section_index / chunk_in_section / review_status / doc_category / geo_wkt
 - **评估体系**：`rag_knowledge/evaluation/` 提供测试集构建（LLM 合成）+ 检索指标计算（Recall@K/MRR/Hit）+ 多策略 ablations 对比
 - **数据迁移**：`review_status` 字段为后期添加，现有 chunk 通过一次性脚本设为 `"approved"`；新 chunk 默认为 `"pending"`
