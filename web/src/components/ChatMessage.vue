@@ -10,6 +10,7 @@ const props = defineProps<{
   content: string
   imageUrl?: string
   loading?: boolean
+  status?: string
   thinking?: string
   sources?: SourceDoc[]
 }>()
@@ -66,7 +67,12 @@ function handleContentClick(event: MouseEvent) {
           <div v-if="showThinking" class="thinking-content">{{ thinking }}</div>
         </div>
 
-        <div v-if="loading" class="typing">
+        <div v-if="loading && status" class="stream-status">
+          <span class="status-dot"></span>
+          <span>{{ status }}</span>
+        </div>
+
+        <div v-else-if="loading" class="typing">
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
@@ -160,6 +166,24 @@ function handleContentClick(event: MouseEvent) {
 }
 .dot:nth-child(1) { animation-delay: -0.32s; }
 .dot:nth-child(2) { animation-delay: -0.16s; }
+.stream-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: #6b7280;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3370ff;
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
 @keyframes bounce {
   0%, 80%, 100% { transform: scale(0); }
   40% { transform: scale(1); }

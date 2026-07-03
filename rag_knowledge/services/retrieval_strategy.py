@@ -132,6 +132,168 @@ class RetrievalStrategy:
         )
 
     # ------------------------------------------------------------------
+    # 多查询检索（Multi-query Retrieval）
+    # ------------------------------------------------------------------
+
+    def retrieve_many(
+        self,
+        queries: list[str],
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        top_k: int | None = None,
+        query_weights: list[float] | None = None,
+        query_labels: list[str] | None = None,
+    ) -> list[Document]:
+        """对多个查询分别检索，用 RRF 融合所有结果。
+
+        每个查询走完整策略（hybrid 内部已含 vector+BM25 的 RRF），
+        外层再做一次跨查询 RRF，保证多角度召回的综合排序。
+
+        参数：
+          queries: 多个检索查询（原始问题、上下文化改写、来源锚点等）
+          其余参数同 retrieve()
+        """
+        if not queries:
+            return []
+
+        if len(queries) == 1:
+            return self.retrieve(
+                queries[0], kb_name=kb_name, doc_category=doc_category,
+                review_status=review_status, method=method, top_k=top_k,
+            )
+
+        actual_method = method or self._cfg.retrieval_strategy
+        actual_top_k = top_k or self._cfg.retrieval_top_k
+        # 每个查询拉取 candidate_k 条，给 RRF 足够的候选池
+        per_query_k = max(actual_top_k, self._cfg.retrieval_candidate_k)
+
+        logger.info(
+            "多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
+            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k,
+        )
+
+        all_ranked: list[list[Document]] = []
+        effective_weights: list[float] = []
+        effective_labels: list[str] = []
+        for i, q in enumerate(queries):
+            q = q.strip()
+            if not q:
+                continue
+            try:
+                docs = self.retrieve(
+                    q, kb_name=kb_name, doc_category=doc_category,
+                    review_status=review_status, method=actual_method,
+                    top_k=per_query_k,
+                )
+                all_ranked.append(docs)
+                weight = query_weights[i] if query_weights and i < len(query_weights) else 1.0
+                label = query_labels[i] if query_labels and i < len(query_labels) else f"query_{i}"
+                effective_weights.append(weight)
+                effective_labels.append(label)
+                logger.info(
+                    "multi_query_branch | index=%d label=%s weight=%.2f hits=%d",
+                    i, label, weight, len(docs),
+                )
+            except Exception as e:
+                logger.warning("多查询检索 query[%d] 失败，跳过: %s", i, e)
+
+        if not all_ranked:
+            return []
+
+        if len(all_ranked) == 1 and query_weights is None and query_labels is None:
+            return all_ranked[0][:actual_top_k]
+
+        return self._rrf_fuse(
+            all_ranked,
+            rrf_k=self._cfg.retrieval_rrf_k,
+            top_k=actual_top_k,
+            weights=effective_weights,
+            labels=effective_labels,
+        )
+
+    async def aretrieve_many(
+        self,
+        queries: list[str],
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        top_k: int | None = None,
+        query_weights: list[float] | None = None,
+        query_labels: list[str] | None = None,
+    ) -> list[Document]:
+        """异步版多查询检索。各查询并发执行。"""
+        if not queries:
+            return []
+
+        if len(queries) == 1:
+            return await self.aretrieve(
+                queries[0], kb_name=kb_name, doc_category=doc_category,
+                review_status=review_status, method=method, top_k=top_k,
+            )
+
+        actual_method = method or self._cfg.retrieval_strategy
+        actual_top_k = top_k or self._cfg.retrieval_top_k
+        per_query_k = max(actual_top_k, self._cfg.retrieval_candidate_k)
+
+        logger.info(
+            "async 多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
+            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k,
+        )
+
+        async def _fetch_one(q: str) -> list[Document]:
+            q = q.strip()
+            if not q:
+                return []
+            try:
+                return await self.aretrieve(
+                    q, kb_name=kb_name, doc_category=doc_category,
+                    review_status=review_status, method=actual_method,
+                    top_k=per_query_k,
+                )
+            except Exception as e:
+                logger.warning("async 多查询检索 query 失败，跳过: %s", e)
+                return []
+
+        started = time.perf_counter()
+        fetched = await asyncio.gather(*[_fetch_one(q) for q in queries])
+        all_ranked: list[list[Document]] = []
+        effective_weights: list[float] = []
+        effective_labels: list[str] = []
+        for i, docs in enumerate(fetched):
+            if not docs:
+                continue
+            weight = query_weights[i] if query_weights and i < len(query_weights) else 1.0
+            label = query_labels[i] if query_labels and i < len(query_labels) else f"query_{i}"
+            all_ranked.append(docs)
+            effective_weights.append(weight)
+            effective_labels.append(label)
+            logger.info(
+                "async_multi_query_branch | index=%d label=%s weight=%.2f hits=%d",
+                i, label, weight, len(docs),
+            )
+
+        logger.debug(
+            "async 多查询检索并发完成 | %d/%d 有效 | elapsed=%.3fs",
+            len(all_ranked), len(queries), time.perf_counter() - started,
+        )
+
+        if not all_ranked:
+            return []
+        if len(all_ranked) == 1 and query_weights is None and query_labels is None:
+            return all_ranked[0][:actual_top_k]
+
+        return self._rrf_fuse(
+            all_ranked,
+            rrf_k=self._cfg.retrieval_rrf_k,
+            top_k=actual_top_k,
+            weights=effective_weights,
+            labels=effective_labels,
+        )
+
+    # ------------------------------------------------------------------
     # 内部
     # ------------------------------------------------------------------
 
@@ -311,10 +473,14 @@ class RetrievalStrategy:
         ranked_lists: list[list[Document]],
         rrf_k: int,
         top_k: int,
+        weights: list[float] | None = None,
+        labels: list[str] | None = None,
     ) -> list[Document]:
-        """按 chunk_id 去重并执行 Reciprocal Rank Fusion。"""
+        """按 chunk_id 去重并执行可选加权的 Reciprocal Rank Fusion。"""
         fused: dict[str, dict] = {}
-        for docs in ranked_lists:
+        for list_index, docs in enumerate(ranked_lists):
+            weight = weights[list_index] if weights and list_index < len(weights) else 1.0
+            label = labels[list_index] if labels and list_index < len(labels) else f"query_{list_index}"
             for rank, doc in enumerate(docs, start=1):
                 chunk_id = doc.metadata.get("chunk_id")
                 if not chunk_id:
@@ -322,13 +488,25 @@ class RetrievalStrategy:
                     continue
                 entry = fused.setdefault(
                     chunk_id,
-                    {"doc": doc, "score": 0.0, "best_rank": rank},
+                    {"doc": doc, "score": 0.0, "best_rank": rank, "labels": []},
                 )
-                entry["score"] += 1.0 / (rrf_k + rank)
+                entry["score"] += weight / (rrf_k + rank)
                 entry["best_rank"] = min(entry["best_rank"], rank)
+                if label not in entry["labels"]:
+                    entry["labels"].append(label)
 
         ranked = sorted(
             fused.items(),
             key=lambda item: (-item[1]["score"], item[1]["best_rank"], item[0]),
         )
-        return [entry["doc"] for _, entry in ranked[:top_k]]
+        result: list[Document] = []
+        for _, entry in ranked[:top_k]:
+            doc = entry["doc"]
+            doc.metadata["rrf_score"] = entry["score"]
+            doc.metadata["matched_query_kinds"] = entry["labels"]
+            result.append(doc)
+        logger.info(
+            "rrf_fusion | branches=%d candidates=%d returned=%d weighted=%s",
+            len(ranked_lists), len(fused), len(result), weights is not None,
+        )
+        return result

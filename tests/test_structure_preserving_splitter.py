@@ -1,6 +1,14 @@
 import unittest
 import hashlib
 import re
+import sys
+from pathlib import Path
+
+# 确保 tests/ 目录在 sys.path 中，支持 `python -m pytest` 直接从项目根运行
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
+
 from langchain_core.documents import Document
 from test_loader_and_dataset import _load_file_loader
 from langchain_text_splitters import RecursiveCharacterTextSplitter

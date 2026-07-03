@@ -96,3 +96,8 @@ api_url = http://<BLOG_API_HOST>:8080/zslt/web/article/listAll
 sync_interval = 30
 ; 发布文章到博客系统的 addRag 接口，设为空则仅本地发布不入库外部系统
 add_rag_url = http://<BLOG_API_HOST>:8080/zslt/web/article/addRag
+[history_compression]
+enabled = true
+max_raw_rounds = 20
+min_raw_rounds = 8
+failure_cooldown_seconds = 300

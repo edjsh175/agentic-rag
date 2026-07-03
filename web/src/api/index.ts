@@ -9,7 +9,7 @@
  * 流式接口 /query/stream 仍使用原生 fetch（axios 不适合 SSE）
  */
 import axios from 'axios'
-import type { Stats, ScanResult } from '../types'
+import type { ChunkStats, Stats, ScanResult } from '../types'
 
 // ---- axios 实例 ----
 const http = axios.create({
@@ -41,6 +41,9 @@ interface UploadResult {
   message: string
   chunks_count: number
   file_name: string
+  new_files: number
+  skipped_files: number
+  errors: number
 }
 
 interface HealthResult {
@@ -72,12 +75,13 @@ export async function queryKnowledge(
   history?: { role: string; content: string }[],
   llmModel?: string,
   kbName?: string,
+  thinking?: boolean,
   webSearch?: boolean,
   signal?: AbortSignal,
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
 ) {
-  return postJSON<QueryResult>('/query', { question, history, llm_model: llmModel, kb_name: kbName, web_search: webSearch, agent_prompt: agentPrompt, allow_general_knowledge: allowGeneralKnowledge }, signal)
+  return postJSON<QueryResult>('/query', { question, history, llm_model: llmModel, kb_name: kbName, thinking, web_search: webSearch, agent_prompt: agentPrompt, allow_general_knowledge: allowGeneralKnowledge }, signal)
 }
 
 /**
@@ -89,6 +93,7 @@ export async function queryKnowledgeStream(
   history: { role: string; content: string }[],
   callbacks: {
     onToken: (token: string) => void
+    onStatus?: (status: string) => void
     onThinking?: (thought: string) => void
     onSources: (sources: any[]) => void
     onDone: () => void
@@ -138,6 +143,8 @@ export async function queryKnowledgeStream(
           const event = JSON.parse(raw)
           if (event.type === 'token') {
             callbacks.onToken(event.data)
+          } else if (event.type === 'status') {
+            callbacks.onStatus?.(event.data)
           } else if (event.type === 'thinking') {
             callbacks.onThinking?.(event.data)
           } else if (event.type === 'sources') {
@@ -212,6 +219,11 @@ export async function queryImageStream(
 /** 知识库统计 */
 export async function getStats(signal?: AbortSignal) {
   return getJSON<Stats>('/stats', signal)
+}
+
+/** Chunk 级深度统计 */
+export async function getChunkStats(signal?: AbortSignal) {
+  return getJSON<ChunkStats>('/stats/chunks', signal)
 }
 
 /** 手动扫描 */

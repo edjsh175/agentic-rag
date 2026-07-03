@@ -12,6 +12,8 @@ export interface Message {
   sources?: SourceDoc[]
   /** 是否正在生成（打字动画） */
   loading?: boolean
+  /** 仅用于当前流式请求，不持久化 */
+  status?: string
   /** 深度思考过程（assistant 消息） */
   thinking?: string
 }
@@ -24,6 +26,7 @@ export interface SourceDoc {
     category?: string
     file_path?: string
     citation_id?: number
+    chunk_id?: string
     file_name?: string
     page_label?: string
     title?: string
@@ -41,6 +44,75 @@ export interface Stats {
   watched_directory: string
   file_types: string[]
   scan_interval_minutes: number
+}
+
+export interface ChunkCountItem {
+  key: string
+  chunk_count: number
+}
+
+export interface ChunkHitCountItem {
+  key: string
+  hit_count: number
+}
+
+export interface FileChunkDistributionItem {
+  file_path: string
+  file_name: string
+  kb_name?: string
+  doc_category?: string
+  file_type: string
+  chunk_count: number
+}
+
+export interface ChunkHitItem {
+  chunk_id: string
+  hit_count: number
+  file_name?: string
+  file_path?: string
+  review_status?: string
+  file_type?: string
+}
+
+export interface ChunkStatsOverview {
+  total_chunks: number
+  avg_chunk_tokens: number
+  avg_chunk_length: number
+  min_chunk_length: number
+  max_chunk_length: number
+}
+
+export interface ChunkStatsDistributions {
+  by_file: FileChunkDistributionItem[]
+  by_file_type: ChunkCountItem[]
+  by_review_status: ChunkCountItem[]
+}
+
+export interface ChunkStatsOnlineHitRates {
+  total_queries: number
+  hit_queries: number
+  query_hit_rate: number
+  top_chunks: ChunkHitItem[]
+  by_review_status: ChunkHitCountItem[]
+  by_file_type: ChunkHitCountItem[]
+  last_updated_at?: string | null
+}
+
+export interface ChunkStatsOfflineHitRates {
+  available: boolean
+  evaluated_at?: string | null
+  sample_count: number
+  hit_rate: number
+  recall_at_k: Record<string, number>
+}
+
+export interface ChunkStats {
+  overview: ChunkStatsOverview
+  distributions: ChunkStatsDistributions
+  hit_rates: {
+    online: ChunkStatsOnlineHitRates
+    offline: ChunkStatsOfflineHitRates
+  }
 }
 
 /** 扫描结果 */

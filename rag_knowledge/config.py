@@ -54,9 +54,10 @@ class HistoryCompressionConfig:
     """历史消息压缩与摘要配置"""
     enabled: bool = True
     # 触发压缩时的保留最小原始对话轮数（1轮=1个user+1个assistant消息，即最近10个message）
-    min_raw_rounds: int = 5
+    min_raw_rounds: int = 8
     # 触发压缩的最大原始对话轮数（超过此轮数则对历史进行摘要压缩）
-    max_raw_rounds: int = 10
+    max_raw_rounds: int = 20
+    failure_cooldown_seconds: int = 300
 
 
 
@@ -106,6 +107,7 @@ class Config:
         # ---- 模型 ----
         self.embedding_model = _get("model", "embedding", "qwen3-embedding:4b")
         self.llm_model = _get("model", "llm", "deepseek-r1:7b")
+        self.helper_llm_model = _get("model", "helper_llm", "gemma3:4b")
         self.vision_model = _get("model", "vision", "qwen3-vl:8b")
 
         # ---- 问答策略 ----
@@ -185,8 +187,11 @@ class Config:
         # ---- 历史消息压缩与摘要 ----
         self.history_compression = HistoryCompressionConfig(
             enabled=_get("history_compression", "enabled", "true").lower() == "true",
-            min_raw_rounds=int(_get("history_compression", "min_raw_rounds", "5")),
-            max_raw_rounds=int(_get("history_compression", "max_raw_rounds", "10")),
+            min_raw_rounds=int(_get("history_compression", "min_raw_rounds", "8")),
+            max_raw_rounds=int(_get("history_compression", "max_raw_rounds", "20")),
+            failure_cooldown_seconds=int(
+                _get("history_compression", "failure_cooldown_seconds", "300")
+            ),
         )
 
         # ---- 目录扫描 ----

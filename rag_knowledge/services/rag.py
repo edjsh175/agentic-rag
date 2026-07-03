@@ -19,10 +19,24 @@ from langchain_core.prompts import PromptTemplate
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.chunk_hit_telemetry import ChunkHitTelemetry
 from rag_knowledge.services.query_cache import QueryCache, get_query_cache
+from rag_knowledge.services.query_contextualizer import (
+    QueryContextualizer,
+    RetrievalQuery,
+    get_contextualizer,
+)
 from rag_knowledge.services.web_search import WebSearch
 
 logger = logging.getLogger(__name__)
+
+# Helper 模型共用 options（query 改写、路由、摘要等轻量任务）
+_HELPER_OPTIONS = {
+    "temperature": 0.0,
+    "num_predict": 256,
+    "top_k": 10,
+    "thinking": False,
+}
 
 # ------------------------------------------------------------------
 # 闲聊问候检测
@@ -166,6 +180,7 @@ class RagChain:
     def __init__(self):
         cfg = Config()
         self._llm_model = cfg.llm_model
+        self._helper_llm_model = cfg.helper_llm_model
         self._ollama_base = cfg.ollama_base_url
         self._retrieval_k = cfg.retrieval_top_k
         self._retrieval_fetch_k = cfg.retrieval_fetch_k
@@ -192,6 +207,10 @@ class RagChain:
             ttl_seconds=cfg.cache.query_cache_ttl_seconds,
             capacity=cfg.cache.query_cache_capacity,
         )
+        self._chunk_hit_telemetry = ChunkHitTelemetry()
+
+        # ---- 对话式查询上下文化 ----
+        self._contextualizer = QueryContextualizer(cfg)
 
         # ---- 重排序器 (Phase 4) ----
         self._reranker_enabled = cfg.reranker_enabled
@@ -217,6 +236,16 @@ class RagChain:
             logger.info("按需创建重排序器: type=%s, model=%s",
                         self._reranker_type, self._reranker_model)
         return self._reranker
+
+    def _record_chunk_hit_query(self, source_docs: list[dict]) -> None:
+        """Persist online chunk-hit telemetry without affecting query success paths."""
+        telemetry = getattr(self, "_chunk_hit_telemetry", None)
+        if telemetry is None:
+            return
+        try:
+            telemetry.record_query(source_docs)
+        except Exception as exc:
+            logger.warning("chunk hit telemetry write failed: %s", exc)
 
     # ------------------------------------------------------------------
     # 检索 + 上下文构建（同步，流式/非流式共用）
@@ -522,6 +551,40 @@ class RagChain:
         return {"content": content, "metadata": meta}
 
     @staticmethod
+    def _filter_cited_sources(answer: str, source_docs: list[dict]) -> list[dict]:
+        """只保留最终答案实际引用且存在于候选集中的来源。"""
+        answer = (answer or "").strip()
+        if not answer or answer == NO_KNOWLEDGE_ANSWER or not source_docs:
+            logger.info(
+                "trusted_sources | candidates=%d cited=0 dropped=%d",
+                len(source_docs), len(source_docs),
+            )
+            return []
+
+        by_id: dict[int, dict] = {}
+        for source in source_docs:
+            try:
+                citation_id = int(source.get("metadata", {}).get("citation_id"))
+            except (TypeError, ValueError):
+                continue
+            by_id[citation_id] = source
+
+        trusted: list[dict] = []
+        seen: set[int] = set()
+        for match in re.finditer(r"\[(\d+)\]", answer):
+            citation_id = int(match.group(1))
+            if citation_id in seen or citation_id not in by_id:
+                continue
+            seen.add(citation_id)
+            trusted.append(by_id[citation_id])
+
+        logger.info(
+            "trusted_sources | candidates=%d cited=%d dropped=%d",
+            len(source_docs), len(trusted), len(source_docs) - len(trusted),
+        )
+        return trusted
+
+    @staticmethod
     def _format_context(source_docs: list[dict]) -> str:
         parts = []
         for item in source_docs:
@@ -593,48 +656,233 @@ class RagChain:
             return ""
 
     def _rewrite_query(self, question: str, history: list | None = None) -> str:
-        """用 LLM 改写用户问题，补全指代，提升检索命中率。失败时返回原问题。"""
-        history_text = ""
-        if history:
-            recent = history[-4:]
-            history_lines = [f"{h.get('role', '?')}: {h.get('content', '')[:80]}"
-                             for h in recent]
-            history_text = "\n".join(history_lines)
+        """将用户问题上下文化，补全指代与省略，提升检索命中率。
 
-        prompt = _QUERY_REWRITE_PROMPT.format(question=question)
-        prompt = f"{prompt}\n\n历史参考：\n{history_text}" if history_text else prompt
+        当 history 存在时，使用 Conversation Contextualizer 判断问题是否依赖历史，
+        并将追问改写成独立的检索查询。无 history 或 LLM 不可用时回退到原问题。
+        """
+        # 无历史 → 原问题微调（保留旧逻辑作为简单兜底）
+        if not history:
+            return self._simple_rewrite(question)
 
+        # 有历史 → 使用对话上下文化器
+        try:
+            result = self._contextualizer.contextualize(question, history)
+            standalone = result.get("standalone_query", question)
+            is_dependent = result.get("is_context_dependent", False)
+            confidence = result.get("confidence", 0.5)
+
+            if standalone and len(standalone) > 2 and standalone != question:
+                logger.info(
+                    "Query 上下文化: %s → %s (dependent=%s, confidence=%.2f)",
+                    question[:50], standalone[:60], is_dependent, confidence,
+                )
+                return standalone
+            elif is_dependent and standalone:
+                # 即使文本近似，也记录上下文依赖
+                logger.info(
+                    "Query 上下文依赖但改写变化小: %s (dependent=%s, confidence=%.2f)",
+                    question[:50], is_dependent, confidence,
+                )
+                return standalone
+        except Exception as e:
+            logger.warning("Query 上下文化失败，回退到简单改写: %s", e)
+
+        # 回退：简单改写
+        return self._simple_rewrite(question)
+
+    def _simple_rewrite(self, question: str) -> str:
+        """简单查询改写（无历史时的兜底方案）。"""
         try:
             resp = httpx.post(
                 f"{self._ollama_base}/api/chat",
                 json={
-                    "model": self._llm_model,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "model": self._helper_llm_model,
+                    "messages": [{"role": "user", "content": _QUERY_REWRITE_PROMPT.format(question=question)}],
                     "stream": False,
-                    "options": {"temperature": 0.1, "num_predict": 256, "top_k": 20},
+                    "options": _HELPER_OPTIONS,
                 },
                 timeout=30,
             )
             resp.raise_for_status()
             rewritten = resp.json().get("message", {}).get("content", "").strip().strip('"')
             if rewritten and len(rewritten) > 3:
-                logger.info("Query 改写: %s → %s", question[:50], rewritten[:60])
+                logger.info("Query 简单改写: %s → %s", question[:50], rewritten[:60])
                 return rewritten
         except Exception as e:
-            logger.warning("Query 改写失败，使用原问题: %s", e)
+            logger.warning("Query 简单改写失败，使用原问题: %s", e)
 
         return question
+
+    def _build_retrieval_queries(
+        self, question: str, history: list | None = None
+    ) -> list[str]:
+        """兼容旧调用方，返回多角度检索查询文本。"""
+        return [
+            spec.text
+            for spec in self._build_retrieval_query_specs(question, history)
+        ]
+
+    def _build_retrieval_query_specs(
+        self, question: str, history: list | None = None
+    ) -> list[RetrievalQuery]:
+        """构建带类型和融合权重的多角度检索查询。
+
+        当 history 存在时，生成：原始问题 + 上下文化改写 + 来源锚点 + 上一轮主题。
+        无 history 时，只返回改写后的单查询。
+        """
+        if not history:
+            return [RetrievalQuery(self._rewrite_query(question, None), "original", 1.0)]
+
+        try:
+            specs = self._contextualizer.build_query_specs(question, history)
+            if specs:
+                return specs
+        except Exception as e:
+            logger.warning("多查询构建失败，回退到单查询: %s", e)
+
+        return [RetrievalQuery(self._rewrite_query(question, history), "original", 1.0)]
+
+    @staticmethod
+    def _split_query_specs(
+        queries: list[str] | list[RetrievalQuery],
+    ) -> tuple[list[str], list[float] | None, list[str] | None]:
+        if queries and isinstance(queries[0], RetrievalQuery):
+            specs = queries
+            return (
+                [spec.text for spec in specs],
+                [spec.weight for spec in specs],
+                [spec.kind for spec in specs],
+            )
+        return list(queries), None, None
+
+    def _retrieve_multi(
+        self,
+        queries: list[str] | list[RetrievalQuery],
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        rerank: bool | None = None,
+        web_search: bool = False,
+    ) -> tuple[list[dict], str]:
+        """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
+        enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
+
+        query_texts, query_weights, query_labels = self._split_query_specs(queries)
+        if len(query_texts) <= 1:
+            # 单查询走原路径
+            return self._retrieve(
+                query_texts[0] if query_texts else "",
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+                method=method,
+                rerank=rerank,
+            )
+
+        q = query_texts[0]  # 主查询用于后处理和 web search
+        docs = self._strategy.retrieve_many(
+            query_texts,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            method=method,
+            query_weights=query_weights,
+            query_labels=query_labels,
+        )
+        docs = self._postprocess_docs_sync(q, docs, enable_rerank)
+        source_docs = [
+            self._normalize_source(d.page_content, d.metadata, index + 1)
+            for index, d in enumerate(docs)
+        ]
+        context = self._format_context(source_docs)
+
+        if web_search:
+            source_docs, context = self._search_web(q, source_docs, context)
+
+        return source_docs, context
+
+    async def _aretrieve_multi_uncached(
+        self,
+        queries: list[str] | list[RetrievalQuery],
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        method: str | None = None,
+        rerank: bool | None = None,
+        web_search: bool = False,
+    ) -> tuple[list[dict], str]:
+        """异步多查询检索 + 后处理 + 格式化。"""
+        enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
+
+        query_texts, query_weights, query_labels = self._split_query_specs(queries)
+        if len(query_texts) <= 1:
+            single_q = query_texts[0] if query_texts else ""
+            return await self._aretrieve_with_cache(
+                rewritten_query=single_q,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+                method=method,
+                rerank=rerank,
+                web_search=web_search,
+            )
+
+        q = query_texts[0]
+        docs = await self._strategy.aretrieve_many(
+            query_texts,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            method=method,
+            query_weights=query_weights,
+            query_labels=query_labels,
+        )
+        docs = await self._postprocess_docs(q, docs, enable_rerank)
+        source_docs = [
+            self._normalize_source(d.page_content, d.metadata, index + 1)
+            for index, d in enumerate(docs)
+        ]
+        context = self._format_context(source_docs)
+
+        if web_search:
+            source_docs, context = await asyncio.to_thread(
+                self._search_web, q, source_docs, context
+            )
+
+        return source_docs, context
+
+    def _postprocess_docs_sync(
+        self,
+        question: str,
+        docs: list[Document],
+        enable_rerank: bool,
+    ) -> list[Document]:
+        """同步版文档后处理（rerank + quality + compression）。"""
+        if enable_rerank and len(docs) > self._reranker_top_n:
+            try:
+                reranker_instance = self._get_reranker()
+                docs = reranker_instance.rerank(question, docs, self._reranker_top_n)
+            except Exception as e:
+                logger.warning("reranker failed, fallback to original order: %s", e)
+                docs = docs[:self._reranker_top_n]
+
+        docs = self._quality.apply(question, docs)
+        docs = self._compress_retrieved_docs(question, docs)
+        return docs
 
     def _route_query(self, question: str) -> str | None:
         """判断问题应检索哪个知识库，返回 kb_name 或 None（不确定/兜底搜全部）"""
         try:
+            route_options = dict(_HELPER_OPTIONS, num_predict=16)
             resp = httpx.post(
                 f"{self._ollama_base}/api/chat",
                 json={
-                    "model": self._llm_model,
+                    "model": self._helper_llm_model,
                     "messages": [{"role": "user", "content": _ROUTE_PROMPT.format(question=question)}],
                     "stream": False,
-                    "options": {"temperature": 0.1, "num_predict": 16, "top_k": 10},
+                    "options": route_options,
                 },
                 timeout=15,
             )
@@ -715,6 +963,8 @@ class RagChain:
               allow_general_knowledge: bool | None = None,
               agent_prompt: str | None = None) -> dict:
         q = (question or "").strip()
+        deep_mode = bool(thinking)
+        enable_rerank = deep_mode
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -728,10 +978,13 @@ class RagChain:
 
         try:
             t0 = time.time()
-            search_query = self._rewrite_query(q, history)
-            source_docs, context = self._retrieve(search_query, kb_name=kb_name, doc_category=doc_category)
-            if web_search:
-                source_docs, context = self._search_web(q, source_docs, context)
+            queries = self._build_retrieval_query_specs(q, history)
+            source_docs, context = self._retrieve_multi(
+                queries, kb_name=kb_name, doc_category=doc_category,
+                rerank=enable_rerank,
+                web_search=bool(web_search),
+            )
+            self._record_chunk_hit_query(source_docs)
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
@@ -770,12 +1023,18 @@ class RagChain:
                 f"{s['metadata'].get('source', '?')}[{s['metadata'].get('category', '?')}]"
                 for s in source_docs
             ) or "无匹配"
-            logger.info("查询完成 | %d 个来源 | %.2fs | %s", len(source_docs), elapsed, src_info)
+            logger.info(
+                "查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
+                len(source_docs), elapsed, deep_mode, enable_rerank, thinking, src_info
+            )
 
             if not answer.strip():
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": source_docs}
+                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
-            return {"answer": answer, "source_documents": source_docs}
+            return {
+                "answer": answer,
+                "source_documents": self._filter_cited_sources(answer, source_docs),
+            }
 
         except Exception as e:
             logger.error("查询失败: %s", e)
@@ -789,6 +1048,8 @@ class RagChain:
                      allow_general_knowledge: bool | None = None,
                      agent_prompt: str | None = None) -> dict:
         q = (question or "").strip()
+        deep_mode = bool(thinking)
+        enable_rerank = deep_mode
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -801,13 +1062,15 @@ class RagChain:
 
         try:
             t0 = time.time()
-            search_query = self._rewrite_query(q, history)
-            source_docs, context = await self._aretrieve_with_cache(
-                rewritten_query=search_query,
+            queries = self._build_retrieval_query_specs(q, history)
+            source_docs, context = await self._aretrieve_multi_uncached(
+                queries,
                 kb_name=kb_name,
                 doc_category=doc_category,
+                rerank=enable_rerank,
                 web_search=bool(web_search),
             )
+            self._record_chunk_hit_query(source_docs)
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
@@ -844,12 +1107,20 @@ class RagChain:
                 f"{s['metadata'].get('source', '?')}[{s['metadata'].get('category', '?')}]"
                 for s in source_docs
             ) or "无匹配"
-            logger.info("异步查询完成 | %d 个来源 | %.2fs | %s", len(source_docs), elapsed, src_info)
+            logger.info(
+                "异步查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
+                len(source_docs), elapsed, deep_mode, enable_rerank, thinking, src_info
+            )
 
             if not answer_content.strip():
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": source_docs}
+                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
-            return {"answer": answer_content, "source_documents": source_docs}
+            return {
+                "answer": answer_content,
+                "source_documents": self._filter_cited_sources(
+                    answer_content, source_docs
+                ),
+            }
         except Exception as e:
             logger.error("异步查询失败: %s", e)
             return {"answer": f"查询出错: {str(e)}", "source_documents": []}
@@ -862,6 +1133,8 @@ class RagChain:
                             allow_general_knowledge: bool | None = None,
                             agent_prompt: str | None = None):
         q = (question or "").strip()
+        deep_mode = bool(thinking)
+        enable_rerank = deep_mode
 
         if not q:
             yield {"type": "token", "data": "请输入有效的问题"}
@@ -872,33 +1145,38 @@ class RagChain:
             yield {"type": "done"}
             return
 
+        yield {"type": "status", "data": "正在理解问题..."}
+
         if _is_greeting(q):
-            yield {"type": "sources", "data": []}
             yield {"type": "token", "data": _GREETING_FIXED_REPLY}
+            yield {"type": "sources", "data": []}
             yield {"type": "done"}
             return
 
         try:
-            search_query = self._rewrite_query(q, history)
+            yield {"type": "status", "data": "正在检索知识库..."}
+            queries = self._build_retrieval_query_specs(q, history)
             if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
-                source_docs, context = await self._aretrieve_with_cache(
-                    rewritten_query=search_query,
+                source_docs, context = await self._aretrieve_multi_uncached(
+                    queries,
                     kb_name=kb_name,
                     doc_category=doc_category,
+                    rerank=enable_rerank,
                     web_search=bool(web_search),
                 )
             else:
-                source_docs, context = self._retrieve(
-                    search_query, kb_name=kb_name, doc_category=doc_category
+                source_docs, context = self._retrieve_multi(
+                    queries, kb_name=kb_name, doc_category=doc_category,
+                    rerank=enable_rerank,
+                    web_search=bool(web_search),
                 )
-                if web_search:
-                    source_docs, context = self._search_web(q, source_docs, context)
+            self._record_chunk_hit_query(source_docs)
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
-                yield {"type": "sources", "data": []}
                 yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
+                yield {"type": "sources", "data": []}
                 yield {"type": "done"}
                 return
 
@@ -910,7 +1188,7 @@ class RagChain:
                 source_docs, context, history, q, agent_prompt=agent_prompt
             )
 
-            yield {"type": "sources", "data": source_docs}
+            yield {"type": "status", "data": "正在整理答案..."}
 
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
@@ -919,13 +1197,14 @@ class RagChain:
             )
 
             model = llm_model or self._llm_model
+            enable_model_thinking = deep_mode and self._need_ollama_thinking(model)
             options = {
                 "temperature": 0.2,
                 "top_p": 0.9,
                 "top_k": 40,
                 "num_predict": 2048,
             }
-            if thinking and self._need_ollama_thinking(model):
+            if enable_model_thinking:
                 options["thinking"] = True
 
             ollama_payload = {
@@ -935,6 +1214,7 @@ class RagChain:
                 "options": options,
             }
 
+            answer_parts: list[str] = []
             async with httpx.AsyncClient(base_url=self._ollama_base, timeout=120) as client:
                 async with client.stream("POST", "/api/chat", json=ollama_payload) as resp:
                     if resp.status_code != 200:
@@ -954,13 +1234,27 @@ class RagChain:
                                 yield {"type": "thinking", "data": thinking_text}
                             content = msg.get("content", "")
                             if content:
+                                answer_parts.append(content)
                                 yield {"type": "token", "data": content}
+
                         except json.JSONDecodeError:
                             continue
 
+            logger.info(
+                "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
+                len(source_docs), deep_mode, enable_rerank, thinking
+            )
+
+            yield {
+                "type": "sources",
+                "data": self._filter_cited_sources(
+                    "".join(answer_parts), source_docs
+                ),
+            }
             yield {"type": "done"}
 
         except Exception as e:
             logger.error("流式查询失败: %s", e)
             yield {"type": "token", "data": f"查询出错: {str(e)}"}
+            yield {"type": "sources", "data": []}
             yield {"type": "done"}

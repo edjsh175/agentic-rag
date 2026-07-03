@@ -173,3 +173,8 @@ max_compressed_chunk_chars = 800
 
 ; 调试日志
 debug_log_enabled = true
+[history_compression]
+enabled = true
+max_raw_rounds = 20
+min_raw_rounds = 8
+failure_cooldown_seconds = 300

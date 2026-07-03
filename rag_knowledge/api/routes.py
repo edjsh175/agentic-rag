@@ -27,7 +27,13 @@ from fastapi.responses import StreamingResponse
 from rag_knowledge.config import Config
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.models.api import QueryRequest, QueryResponse, UploadResponse
-from rag_knowledge.models.api import ScanResponse, StatsResponse, ReviewRequest, ReviewResponse
+from rag_knowledge.models.api import (
+    ChunkStatsResponse,
+    ReviewRequest,
+    ReviewResponse,
+    ScanResponse,
+    StatsResponse,
+)
 from rag_knowledge.models.api import CrawlRequest, CrawlResponse, BlogPostListResponse, BlogPostItem
 from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.rag import RagChain
@@ -35,6 +41,7 @@ from rag_knowledge.services.scanner import DirectoryScanner
 from rag_knowledge.services.blog_syncer import BlogPostSyncer
 from rag_knowledge.services.blog_crawler import create_crawler, detect_platform
 from rag_knowledge.services.chat_storage import ChatStorage
+from rag_knowledge.services.chunk_stats import ChunkStatsService
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.repository.vector_store import VectorStore
@@ -214,6 +221,8 @@ async def query_stream(req: QueryRequest):
                                               thinking=req.thinking, web_search=req.web_search,
                                               allow_general_knowledge=req.allow_general_knowledge,
                                               agent_prompt=req.agent_prompt):
+            if event.get("type") == "status":
+                yield "event: status\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -315,14 +324,22 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
     # 触发扫描器，通过文件哈希去重自动入库
     scan_result = {"new_files": 0, "skipped_files": 0, "errors": 0}
     if _scanner:
+        before_chunks = VectorStore().count()
         scan_result = _scanner.scan()
+        after_chunks = VectorStore().count()
+        chunks_count = max(0, after_chunks - before_chunks)
         _rebuild_bm25()
         _invalidate_retrieval_caches("upload")
+    else:
+        chunks_count = 0
 
     return UploadResponse(
         message=f"文件已上传至知识库「{kb_name}」({doc_category})",
-        chunks_count=scan_result["new_files"],
+        chunks_count=chunks_count,
         file_name=file.filename,
+        new_files=scan_result["new_files"],
+        skipped_files=scan_result["skipped_files"],
+        errors=scan_result["errors"],
     )
 
 
@@ -356,6 +373,12 @@ def stats():
     )
 
 
+@router.get("/stats/chunks", response_model=ChunkStatsResponse)
+def chunk_stats():
+    """Chunk 级深度统计。"""
+    return ChunkStatsService(cfg=_cfg).build()
+
+
 @router.get("/scan/index")
 def scan_index():
     """文件索引详情"""
@@ -374,6 +397,20 @@ def update_review_status(req: ReviewRequest):
         raise HTTPException(400, detail="未找到可更新的 chunk_id")
 
     updated = VectorStore().update_metadata(resolved_ids, {"review_status": status})
+
+    # 审核状态变更后强制重建 BM25，确保 Hybrid 检索下过滤一致
+    try:
+        from rag_knowledge.services.bm25_store import BM25Store
+        BM25Store().rebuild()
+        logger.info("BM25 索引已在审核状态更新后重建")
+    except Exception as exc:
+        logger.exception("BM25 rebuild failed after review status update")
+        _invalidate_retrieval_caches("review_status")
+        raise HTTPException(
+            status_code=500,
+            detail="审核状态已更新，但 BM25 索引重建失败，请重新执行扫描或重建索引。"
+        )
+
     _invalidate_retrieval_caches("review_status")
     return ReviewResponse(
         message=f"已将 {updated} 个 chunk 更新为 {status}",

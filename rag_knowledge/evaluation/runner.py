@@ -128,6 +128,25 @@ class EvaluationRunner:
 
         return metrics
 
+    @staticmethod
+    def write_summary(metrics: dict, output_path: str | Path | None = None) -> Path:
+        cfg = Config()
+        path = Path(output_path) if output_path else (cfg.data_dir / "eval_summary.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        recall_at_k = {
+            key.split("@", 1)[1]: value
+            for key, value in metrics.items()
+            if key.startswith("recall@")
+        }
+        payload = {
+            "evaluated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "sample_count": int(metrics.get("total_questions", 0) or 0),
+            "hit_rate": float(metrics.get("overall_hit_rate", 0.0) or 0.0),
+            "recall_at_k": recall_at_k,
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return path
+
     def run_end_to_end_eval(
         self,
         sample_size: int = 50,
@@ -377,5 +396,7 @@ def build_and_eval(
             logger.info("  %s = %.4f", key, val)
         else:
             logger.info("  %s = %s", key, val)
+
+    EvaluationRunner.write_summary(metrics)
 
     return metrics

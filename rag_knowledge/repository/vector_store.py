@@ -261,6 +261,10 @@ class VectorStore:
         """当前集合中文本块总数"""
         return self._get_store()._collection.count()
 
+    def get_chunk_stats_source(self) -> dict:
+        """返回 chunk 统计接口所需的原始数据快照。"""
+        return self._get_store()._collection.get(include=["documents", "metadatas"])
+
     @staticmethod
     def _normalize_metadata(metadata: dict) -> dict:
         """将 metadata 规范化为 Chroma 可接受的基础类型。"""

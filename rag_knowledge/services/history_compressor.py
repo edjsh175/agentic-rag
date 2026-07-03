@@ -9,6 +9,8 @@
 import hashlib
 import json
 import logging
+import threading
+import time
 from collections import OrderedDict
 from typing import Any, Optional
 
@@ -48,6 +50,17 @@ class HistoryCompressor:
         self._cfg = cfg
         self._main_cfg = main_cfg
         self._cache = LRUCache(capacity=200)
+        self._lock = threading.RLock()
+        self._background_task: threading.Thread | None = None
+        self._cooldown_until = 0.0
+
+    def _cache_get(self, key: str) -> Optional[str]:
+        with self._lock:
+            return self._cache.get(key)
+
+    def _cache_put(self, key: str, value: str) -> None:
+        with self._lock:
+            self._cache.put(key, value)
 
     def _hash_history(self, history_slice: list[dict]) -> str:
         """根据历史对话片段内容计算唯一的 Hash 值"""
@@ -73,7 +86,7 @@ class HistoryCompressor:
         try:
             url = f"{self._main_cfg.ollama_base_url}/api/chat"
             payload = {
-                "model": self._main_cfg.llm_model,
+                "model": self._main_cfg.helper_llm_model,
                 "messages": [
                     {
                         "role": "system",
@@ -83,9 +96,10 @@ class HistoryCompressor:
                 ],
                 "stream": False,
                 "options": {
-                    "temperature": 0.1,
-                    "num_predict": 512,
-                    "top_k": 20,
+                    "temperature": 0.0,
+                    "num_predict": 256,
+                    "top_k": 10,
+                    "thinking": False,
                 },
             }
             logger.debug("开始调用本地 LLM 压缩对话历史...")
@@ -117,7 +131,7 @@ class HistoryCompressor:
         for i in range(len(older_history) - 2, 0, -2):
             prefix_slice = older_history[:i]
             prefix_hash = self._hash_history(prefix_slice)
-            cached_sum = self._cache.get(prefix_hash)
+            cached_sum = self._cache_get(prefix_hash)
             if cached_sum:
                 best_prefix_hash = prefix_hash
                 best_prefix_idx = i
@@ -125,7 +139,7 @@ class HistoryCompressor:
 
         if best_prefix_hash and best_prefix_idx > 0:
             # 找到前缀摘要，进行增量合并总结
-            prev_summary = self._cache.get(best_prefix_hash)
+            prev_summary = self._cache_get(best_prefix_hash)
             new_additions = older_history[best_prefix_idx:]
             new_text = self._format_history_text(new_additions)
 
@@ -204,24 +218,51 @@ class HistoryCompressor:
 
         # 针对 older_history 计算 Hash 缓存 key
         older_hash = self._hash_history(older_history)
-        cached_summary = self._cache.get(older_hash)
+        with self._lock:
+            cached_summary = self._cache.get(older_hash)
+            if cached_summary:
+                logger.info("history_compressor: 摘要缓存命中 (0ms) | HASH=%s", older_hash[:8])
+                return recent_history, cached_summary
 
-        if cached_summary:
-            logger.info("history_compressor: 摘要缓存命中 (0ms) | HASH=%s", older_hash[:8])
-            return recent_history, cached_summary
+            now = time.monotonic()
+            if self._background_task is not None or now < self._cooldown_until:
+                return history, None
 
-        # 缓存未命中，开始总结
-        summary = self._generate_summary(older_history, history, total_rounds)
-        if summary:
-            # 存入缓存
-            self._cache.put(older_hash, summary)
-            logger.info(
-                "history_compressor: 新摘要生成并存入缓存 | 长度=%d | HASH=%s",
-                len(summary),
-                older_hash[:8],
+            task = threading.Thread(
+                target=self._summarize_in_background,
+                args=(older_hash, older_history, history, total_rounds),
+                name="history-summary",
+                daemon=True,
             )
-            return recent_history, summary
-        else:
-            # 总结失败，降级不压缩，继续以原始历史返回
-            logger.warning("history_compressor: 总结生成失败，降级不使用摘要")
-            return history, None
+            self._background_task = task
+            task.start()
+
+        return history, None
+
+    def _summarize_in_background(
+        self,
+        older_hash: str,
+        older_history: list[dict],
+        history: list[dict],
+        total_rounds: int,
+    ) -> None:
+        try:
+            summary = self._generate_summary(older_history, history, total_rounds)
+            with self._lock:
+                if summary:
+                    self._cache.put(older_hash, summary)
+                    logger.info(
+                        "history_compressor: 后台摘要生成并存入缓存 | 长度=%d | HASH=%s",
+                        len(summary),
+                        older_hash[:8],
+                    )
+                else:
+                    self._cooldown_until = time.monotonic() + self._cfg.failure_cooldown_seconds
+                    logger.warning("history_compressor: 后台摘要失败，进入全局冷却")
+        except Exception:
+            with self._lock:
+                self._cooldown_until = time.monotonic() + self._cfg.failure_cooldown_seconds
+            logger.exception("history_compressor: 后台摘要任务异常")
+        finally:
+            with self._lock:
+                self._background_task = None

@@ -2,6 +2,8 @@
 单元测试：历史消息压缩与摘要控制 (HistoryCompressor)
 """
 import unittest
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 from rag_knowledge.config import Config, HistoryCompressionConfig
@@ -34,7 +36,73 @@ class TestHistoryCompressor(unittest.TestCase):
         self.main_cfg = MagicMock(spec=Config)
         self.main_cfg.ollama_base_url = "http://localhost:11434"
         self.main_cfg.llm_model = "test-model"
+        self.main_cfg.helper_llm_model = "helper-model"
         self.compressor = HistoryCompressor(self.cfg, self.main_cfg)
+
+    def wait_for_background(self):
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline:
+            with self.compressor._lock:
+                task = self.compressor._background_task
+            if task is None:
+                return
+            task.join(0.02)
+        self.fail("background summary did not finish")
+
+    def test_cache_miss_returns_immediately_and_deduplicates_background_work(self):
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        started = threading.Event()
+        release = threading.Event()
+
+        def summarize(*_args):
+            started.set()
+            release.wait(1)
+            return "summary"
+
+        self.compressor._generate_summary = summarize
+        started_at = time.monotonic()
+        recent, summary = self.compressor.compress(history)
+        elapsed = time.monotonic() - started_at
+
+        self.assertEqual(recent, history)
+        self.assertIsNone(summary)
+        self.assertLess(elapsed, 0.2)
+        self.assertTrue(started.wait(1))
+
+        self.compressor.compress(history)
+        release.set()
+        self.wait_for_background()
+
+        recent, summary = self.compressor.compress(history)
+        self.assertEqual(len(recent), 4)
+        self.assertEqual(summary, "summary")
+
+    def test_failed_summary_enters_global_cooldown(self):
+        self.cfg.failure_cooldown_seconds = 300
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        calls = 0
+
+        def fail(*_args):
+            nonlocal calls
+            calls += 1
+            return ""
+
+        self.compressor._generate_summary = fail
+        self.compressor.compress(history)
+        self.wait_for_background()
+        self.compressor.compress(history + [
+            {"role": "user", "content": "new"},
+            {"role": "assistant", "content": "new"},
+        ])
+        self.assertEqual(calls, 1)
 
     def test_no_compression_within_limit(self):
         # 3 轮（6条消息），小于或等于 max_raw_rounds (4)
@@ -49,6 +117,34 @@ class TestHistoryCompressor(unittest.TestCase):
         recent, summary = self.compressor.compress(history)
         self.assertEqual(recent, history)
         self.assertIsNone(summary)
+
+    def test_default_threshold_does_not_schedule_at_twenty_rounds(self):
+        compressor = HistoryCompressor(HistoryCompressionConfig(), self.main_cfg)
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(20)
+            for role in ("user", "assistant")
+        ]
+        compressor._generate_summary = MagicMock(return_value="summary")
+
+        recent, summary = compressor.compress(history)
+
+        self.assertEqual(recent, history)
+        self.assertIsNone(summary)
+        compressor._generate_summary.assert_not_called()
+
+    def test_disabled_compressor_never_schedules_background_work(self):
+        self.cfg.enabled = False
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        self.compressor._generate_summary = MagicMock(return_value="summary")
+
+        self.compressor.compress(history)
+
+        self.compressor._generate_summary.assert_not_called()
 
     @patch("httpx.post")
     def test_compression_exceeds_limit_with_caching(self, mock_post):
@@ -75,18 +171,18 @@ class TestHistoryCompressor(unittest.TestCase):
         }
         mock_post.return_value = mock_response
 
-        # 首次调用：应该调用 LLM 并生成摘要
+        # 首次调用不阻塞，后台生成摘要
         recent, summary = self.compressor.compress(history)
-
-        self.assertEqual(len(recent), 4)  # 最近 2 轮（4条消息：u4, a4, u5, a5）
-        self.assertEqual(recent[0]["content"], "u4")
-        self.assertEqual(summary, "这是 1-3 轮的摘要")
+        self.assertEqual(recent, history)
+        self.assertIsNone(summary)
+        self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
 
-        # 第二次调用（相同历史）：应该命中缓存，不调用 LLM
+        # 第二次调用（相同历史）：命中缓存，不调用 LLM
         recent_cached, summary_cached = self.compressor.compress(history)
-        self.assertEqual(recent_cached, recent)
-        self.assertEqual(summary_cached, summary)
+        self.assertEqual(len(recent_cached), 4)
+        self.assertEqual(recent_cached[0]["content"], "u4")
+        self.assertEqual(summary_cached, "这是 1-3 轮的摘要")
         self.assertEqual(mock_post.call_count, 1)  # 仍然是 1
 
     @patch("httpx.post")
@@ -113,7 +209,9 @@ class TestHistoryCompressor(unittest.TestCase):
         mock_post.return_value = mock_response1
 
         recent1, summary1 = self.compressor.compress(history_step1)
-        self.assertEqual(summary1, "Summary-1")
+        self.assertEqual(recent1, history_step1)
+        self.assertIsNone(summary1)
+        self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
 
         # 追加新消息到 history_step2 (总共 7 轮)
@@ -136,7 +234,9 @@ class TestHistoryCompressor(unittest.TestCase):
         mock_post.return_value = mock_response2
 
         recent2, summary2 = self.compressor.compress(history_step2)
-        self.assertEqual(summary2, "Summary-2 (Merged)")
+        self.assertEqual(recent2, history_step2)
+        self.assertIsNone(summary2)
+        self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
 
         # 检查是否使用了增量 prompt：包含 "Summary-1"

@@ -6,6 +6,7 @@ BM25 关键词检索索引
 """
 import time
 import logging
+from threading import Lock
 
 import jieba
 from rank_bm25 import BM25Okapi
@@ -34,6 +35,7 @@ class BM25Store:
         self._bm25: BM25Okapi | None = None
         self._docs: list[Document] = []
         self._metadatas: list[dict] = []
+        self._build_lock = Lock()
         self._initialized = True
 
     # ------------------------------------------------------------------
@@ -60,7 +62,8 @@ class BM25Store:
             return []
 
         # jieba 分词
-        tokenized_query = list(jieba.cut(query))
+        tokenized_query = [token for token in jieba.cut(query) if token.strip()]
+        query_terms = set(tokenized_query)
 
         # BM25 打分 → (index, score) 列表，按分数降序
         scores = self._bm25.get_scores(tokenized_query)
@@ -70,7 +73,9 @@ class BM25Store:
         results: list[Document] = []
         for idx, score in ranked:
             if score <= 0:
-                continue
+                doc_terms = {token for token in jieba.cut(self._docs[idx].page_content) if token.strip()}
+                if not query_terms.intersection(doc_terms):
+                    continue
             meta = self._metadatas[idx]
             if kb_name and meta.get("kb_name") != kb_name:
                 continue
@@ -100,20 +105,27 @@ class BM25Store:
     # ------------------------------------------------------------------
 
     def _ensure_index(self):
-        """确保索引已构建（懒加载）"""
-        if self._bm25 is None:
-            self._build_index()
+        """确保索引已构建（懒加载，失败时优雅降级）"""
+        if self._bm25 is not None:
+            return
+        with self._build_lock:
+            if self._bm25 is None:
+                try:
+                    self._build_index()
+                except Exception as e:
+                    logger.error("BM25 懒加载索引失败，检索将返回空结果: %s", e)
 
     def _build_index(self):
-        """从 ChromaDB 拉取全量文档并构建 BM25Okapi 索引"""
+        """从 ChromaDB 拉取全量文档并构建 BM25Okapi 索引。
+
+        异常会向上传播，由调用方决定处理策略：
+          - _ensure_index（懒加载）→ 捕获并降级
+          - rebuild（显式重建）  → 由上层 routes.py 捕获并返回错误
+        """
         t0 = time.time()
-        try:
-            chroma = VectorStore().get_chroma()
-            # 拉取全部文档（不带过滤条件）
-            result = chroma.get(include=["documents", "metadatas"])
-        except Exception as e:
-            logger.error("从 ChromaDB 拉取文档失败: %s", e)
-            return
+        chroma = VectorStore().get_chroma()
+        # 拉取全部文档（不带过滤条件）
+        result = chroma.get(include=["documents", "metadatas"])
 
         documents = result.get("documents", [])
         metadatas = result.get("metadatas", [])

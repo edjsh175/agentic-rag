@@ -54,9 +54,9 @@
 
 基于 RAG（检索增强生成）的本地知识库问答系统。后端使用 FastAPI + LangChain + ChromaDB + Ollama，前端使用 Vue 3 + TypeScript + Vite。
 
-### 当前阶段：检索能力优化
+### 当前阶段：检索能力优化 + 交付前查漏补缺
 
-正在基于 [rag知识库任务.md](docs/试岗/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-02：检索优化主线已基本完成并通过本地测试，剩余重点是文件兼容补齐、Token 管理和性能优化。
+正在基于 [rag知识库任务.md](docs/试岗/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-03：检索优化主线已基本完成，交付前查漏补缺正在收口；已新增 Chunk 统计接口、chunk 命中统计、对话式查询上下文化/多查询召回、审核状态更新后的 BM25 同步。剩余重点是 Git/SVN 交付清理、Excel 复杂真实文件测试、同步/异步检索路径完全统一和交付文档口径一致。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
@@ -67,6 +67,10 @@
 - ✅ Token 预算与历史摘要管理 — 已完成（基于 Token 预算的 context 自动裁剪、阶梯窗口及缓存式增量历史摘要）
 - ✅ 表格/代码块完整保留 — 已完成结构保护切块：Markdown/Excel 表格按完整行切分并重复表头，fenced code block 按完整代码块或完整行切分
 - ✅ 文档能力补齐：真正的语义切块已实现，普通文本默认按段落/句子做 embedding 语义边界切分，标题章节不跨段合并；Ollama embedding 超时、模型不可用或返回异常时自动降级到现有固定长度滑窗切分，不影响入库
+- ✅ Chunk 统计接口：`/stats/chunks` 已提供总量、长度、token 估算、文件/类型/审核状态/知识库分布，以及线上 chunk 命中统计与离线评估命中率入口
+- ✅ 对话式查询上下文化：`query_contextualizer.py` 已支持基于历史消息和上一轮来源的独立问题改写、多查询召回、来源锚点查询，LLM 失败时使用启发式降级
+- ✅ Chunk 命中统计：`chunk_hit_telemetry.py` 已记录问答返回来源的 chunk 命中次数，为 `/stats/chunks` 提供线上命中分布
+- ✅ 审核状态同步：`/review/status` 更新 Chroma metadata 后会重建 BM25 索引并清空查询缓存，避免 pending/approved/rejected 状态在关键词检索中滞后
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓
 
 ### 核心功能
@@ -78,6 +82,8 @@
 - **批量审核**：支持通过 `/review/status` 按 `file_path` 或 `chunk_id` 批量更新 `review_status`
 - **关系数据库**：SQLite 三张表 —— `entities`（实体）、`relations`（关系边）、`entity_chunk_links`（实体-知识块关联）
 - **知识库问答**：上传文档（PDF/DOC/DOCX/TXT/MD/XLS/XLSX）后，通过语义检索 + LLM 生成回答；Excel 转 Markdown 表格格式入库
+- **对话式查询上下文化**：结合历史消息和上一轮来源，将“它/这个/继续说”等追问改写为独立查询，并生成多路检索 query 和来源锚点 query
+- **Chunk 统计与命中率**：`/stats/chunks` 统计 chunk 数量、长度、token 估算、文件/类型/审核状态/知识库分布，并汇总线上 chunk 命中次数与离线评估命中率
 - **流式输出**：SSE（Server-Sent Events）实时逐 token 显示回答
 - **图片问答**：上传图片，调用视觉模型（qwen3-vl）描述/回答
 - **知识库**：固定两个知识库——「已发布文章」和「文章附件」，检索时按 `kb_name` 元数据筛选
@@ -145,6 +151,9 @@ rag_python/
 │       ├── unstructured_loader.py  # 章节感知加载器（unstructured 按标题切片）
 │       ├── bm25_store.py           # BM25 关键词索引（jieba 分词，单例，懒加载）
 │       ├── retrieval_strategy.py   # 检索策略调度器（mmr/similarity/bm25/hybrid）
+│       ├── query_contextualizer.py # 对话式查询上下文化、多查询生成、来源锚点查询
+│       ├── chunk_stats.py          # Chunk 统计服务（长度/分布/命中率）
+│       ├── chunk_hit_telemetry.py  # 线上问答来源 chunk 命中次数记录
 │       ├── web_search.py           # 联网搜索（DuckDuckGo）
 │       ├── agent_service.py        # 智能体预设加载
 │       ├── chat_storage.py         # 聊天记录服务端持久化
@@ -271,7 +280,8 @@ watch_directory/ 文件变化
   → 闲聊检测（问候/感谢/自我介绍等）→ 直接 LLM 回答，跳过检索
   → 敏感内容检测 → 拒绝回答
   → 知识问答 →
-    → Query 改写（LLM 补全省略/指代，提升命中率）
+    → Query 上下文化（结合历史消息/上一轮来源，将追问改写成独立问题；LLM 不可用时启发式降级）
+    → 多查询构建（原问题、上下文化问题、历史关键词补强、上一轮来源锚点 query）
     → RetrievalStrategy 调度检索（按 config.ini [retrieval_strategy] method 选择）
       → mmr: ChromaDB MMR 检索（top_k=4, fetch_k=12, lambda_mult=0.7）
       → similarity: ChromaDB 余弦相似度检索
@@ -286,6 +296,7 @@ watch_directory/ 文件变化
     → [可选] 联网搜索增强（DuckDuckGo）
     → 组装 prompt（system + context + history + question）
     → 调用 Ollama LLM 生成回答（同步/SSE 流式）
+    → 记录本次返回来源的 chunk 命中次数（供 `/stats/chunks` 线上命中统计使用）
     → 返回回答 + 来源文档
 ```
 
@@ -300,8 +311,10 @@ watch_directory/ 文件变化
 | POST | `/query/stream` | 知识库问答（流式 SSE） |
 | POST | `/query/image` | 图片问答（流式 SSE） |
 | POST | `/upload` | 上传文档 |
+| POST | `/review/status` | 按 file_path 或 chunk_id 批量更新审核状态，并同步重建 BM25 |
 | POST | `/scan` | 手动触发扫描 |
-| GET | `/stats` | 知识库统计 |
+| GET | `/stats` | 知识库基础统计 |
+| GET | `/stats/chunks` | Chunk 数量、长度、token 估算、分布和命中率统计 |
 | GET | `/scan/index` | 文件索引详情 |
 | POST | `/config/embedding-model` | 切换向量模型 |
 | GET/POST | `/rebuild` | 重建知识库（清空 + 全量重扫） |
@@ -430,7 +443,8 @@ docker run -p 10605:10605 rag-knowledge
 - **BM25 关键词检索**：`rank-bm25` + `jieba` 中文分词，全量 ChromaDB 文档懒加载构建 BM25Okapi 索引，入库后 routes.py 自动 rebuild
 - **MMR 检索**：使用最大边际相关性（MMR），在相关性和多样性之间平衡
 - **哈希去重**：SHA-256 文件哈希确保同一文件不重复入库，移动/重命名可自动追踪
-- **Query 改写**：检索前用 LLM 补全用户问题中的省略/指代，提升检索命中率
+- **Query 上下文化与多查询召回**：检索前用 LLM 或启发式规则补全省略/指代；对依赖历史的问题生成独立问题、历史关键词补强 query 和上一轮来源锚点 query，提升追问场景命中率
+- **Chunk 命中统计**：问答返回来源后将 chunk_id/source/page 等写入轻量 JSON telemetry，`/stats/chunks` 汇总线上命中分布；离线 Hit Rate 仍来自 evaluation 结果文件
 - **闲聊分流**：正则匹配问候/感谢等，直接 LLM 回答，跳过检索，节省资源
 - **联网搜索**：仅在请求显式开启时将 DuckDuckGo 结果作为“外部来源”加入 context，保留标题、URL 和片段并独立编号引用
 - **Agent 预设**：可追加角色与输出风格要求，但不能覆盖基础 RAG 的禁止编造、拒答和引用规则

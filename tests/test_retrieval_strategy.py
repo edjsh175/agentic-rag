@@ -35,6 +35,100 @@ class RetrievalStrategyTests(unittest.TestCase):
         result = RetrievalStrategy._rrf_fuse([[], [missing, _doc("a")]], 60, 4)
         self.assertEqual([doc.metadata["chunk_id"] for doc in result], ["a"])
 
+    def test_weighted_rrf_prioritizes_primary_query_and_records_provenance(self):
+        result = RetrievalStrategy._rrf_fuse(
+            [[_doc("primary")], [_doc("anchor")]],
+            rrf_k=60,
+            top_k=2,
+            weights=[1.0, 0.3],
+            labels=["original", "source_anchor"],
+        )
+
+        self.assertEqual(
+            [doc.metadata["chunk_id"] for doc in result],
+            ["primary", "anchor"],
+        )
+        self.assertGreater(
+            result[0].metadata["rrf_score"], result[1].metadata["rrf_score"]
+        )
+        self.assertEqual(result[0].metadata["matched_query_kinds"], ["original"])
+
+    def test_unweighted_rrf_remains_equal_weight_compatible(self):
+        result = RetrievalStrategy._rrf_fuse(
+            [[_doc("b")], [_doc("a")]], rrf_k=60, top_k=2
+        )
+        self.assertEqual([doc.metadata["chunk_id"] for doc in result], ["a", "b"])
+        self.assertAlmostEqual(
+            result[0].metadata["rrf_score"], result[1].metadata["rrf_score"]
+        )
+
+    def test_sync_and_async_multi_query_use_same_weights(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_strategy="hybrid",
+            retrieval_candidate_k=4,
+            retrieval_rrf_k=60,
+            retrieval_top_k=2,
+        )
+
+        def fake_retrieve(query, **kwargs):
+            return [_doc("primary" if query == "q1" else "anchor")]
+
+        async def fake_aretrieve(query, **kwargs):
+            return fake_retrieve(query, **kwargs)
+
+        strategy.retrieve = fake_retrieve
+        strategy.aretrieve = fake_aretrieve
+        kwargs = {
+            "query_weights": [1.0, 0.3],
+            "query_labels": ["original", "source_anchor"],
+        }
+
+        sync_result = strategy.retrieve_many(["q1", "q2"], **kwargs)
+        async_result = asyncio.run(strategy.aretrieve_many(["q1", "q2"], **kwargs))
+
+        self.assertEqual(
+            [doc.metadata["chunk_id"] for doc in sync_result],
+            [doc.metadata["chunk_id"] for doc in async_result],
+        )
+
+    def test_single_successful_weighted_branch_keeps_rrf_metadata(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_strategy="hybrid",
+            retrieval_candidate_k=4,
+            retrieval_rrf_k=60,
+            retrieval_top_k=2,
+        )
+        strategy.retrieve = lambda query, **kwargs: (
+            [_doc("anchor")] if query == "anchor" else []
+        )
+
+        async def fake_aretrieve(query, **kwargs):
+            return strategy.retrieve(query, **kwargs)
+
+        strategy.aretrieve = fake_aretrieve
+
+        result = strategy.retrieve_many(
+            ["primary", "anchor"],
+            query_weights=[1.0, 0.3],
+            query_labels=["original", "source_anchor"],
+        )
+
+        self.assertEqual(result[0].metadata["matched_query_kinds"], ["source_anchor"])
+        self.assertAlmostEqual(result[0].metadata["rrf_score"], 0.3 / 61)
+        async_result = asyncio.run(
+            strategy.aretrieve_many(
+                ["primary", "anchor"],
+                query_weights=[1.0, 0.3],
+                query_labels=["original", "source_anchor"],
+            )
+        )
+        self.assertEqual(
+            async_result[0].metadata["matched_query_kinds"], ["source_anchor"]
+        )
+        self.assertAlmostEqual(async_result[0].metadata["rrf_score"], 0.3 / 61)
+
     def test_hybrid_passes_same_filters_to_both_branches(self):
         strategy = object.__new__(RetrievalStrategy)
         strategy._cfg = SimpleNamespace(

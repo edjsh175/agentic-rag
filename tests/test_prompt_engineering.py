@@ -19,7 +19,7 @@ class _AsyncStreamResponse:
         return b""
 
     async def aiter_lines(self):
-        yield json.dumps({"message": {"content": "trimmed answer"}})
+        yield json.dumps({"message": {"content": "trimmed answer [1]"}})
 
 
 class _AsyncClientStub:
@@ -45,6 +45,27 @@ def _chain_without_sources():
 
 
 class PromptEngineeringTests(unittest.TestCase):
+    def test_only_sources_cited_by_answer_are_trusted(self):
+        sources = [
+            {"content": "alpha", "metadata": {"citation_id": 1}},
+            {"content": "beta", "metadata": {"citation_id": 2}},
+            {"content": "gamma", "metadata": {"citation_id": 3}},
+        ]
+
+        trusted = RagChain._filter_cited_sources("先看 [2]，再比较 [1]，重复 [2]。", sources)
+
+        self.assertEqual(
+            [source["metadata"]["citation_id"] for source in trusted], [2, 1]
+        )
+
+    def test_no_knowledge_empty_and_invalid_citations_return_no_sources(self):
+        sources = [{"content": "alpha", "metadata": {"citation_id": 1}}]
+
+        self.assertEqual(RagChain._filter_cited_sources(NO_KNOWLEDGE_ANSWER, sources), [])
+        self.assertEqual(RagChain._filter_cited_sources("", sources), [])
+        self.assertEqual(RagChain._filter_cited_sources("不存在的引用 [99]", sources), [])
+        self.assertEqual(RagChain._filter_cited_sources("没有引用", sources), [])
+
     def test_source_metadata_uses_real_pdf_page_and_citation_id(self):
         source = RagChain._normalize_source(
             "部署步骤原文", {"source": "manual.pdf", "category": "text", "page": 2}, 1
@@ -142,8 +163,10 @@ class PromptEngineeringTests(unittest.TestCase):
         self.assertEqual(
             events,
             [
-                {"type": "sources", "data": []},
+                {"type": "status", "data": "正在理解问题..."},
+                {"type": "status", "data": "正在检索知识库..."},
                 {"type": "token", "data": NO_KNOWLEDGE_ANSWER},
+                {"type": "sources", "data": []},
                 {"type": "done"},
             ],
         )
@@ -179,8 +202,9 @@ class PromptEngineeringTests(unittest.TestCase):
         self.assertEqual(
             events,
             [
-                {"type": "sources", "data": []},
+                {"type": "status", "data": "正在理解问题..."},
                 {"type": "token", "data": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"},
+                {"type": "sources", "data": []},
                 {"type": "done"},
             ],
         )
@@ -225,8 +249,16 @@ class PromptEngineeringTests(unittest.TestCase):
 
             events = asyncio.run(collect())
 
-        self.assertEqual(events[0], {"type": "sources", "data": trimmed_docs})
-        self.assertIn({"type": "token", "data": "trimmed answer"}, events)
+        self.assertEqual(
+            [event["data"] for event in events if event["type"] == "status"],
+            ["正在理解问题...", "正在检索知识库...", "正在整理答案..."],
+        )
+        source_event = {"type": "sources", "data": trimmed_docs}
+        token_event = {"type": "token", "data": "trimmed answer [1]"}
+        self.assertIn(source_event, events)
+        self.assertIn(token_event, events)
+        self.assertLess(events.index(token_event), events.index(source_event))
+        self.assertLess(events.index(source_event), events.index({"type": "done"}))
 
 
 if __name__ == "__main__":

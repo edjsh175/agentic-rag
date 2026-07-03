@@ -69,6 +69,12 @@ const supportsThinking = computed(() => {
   return model.includes('deepseek') || model.includes('qwen3') || model.includes('qwq')
 })
 
+const deepModeTitle = computed(() => (
+  supportsThinking.value
+    ? '开启后会启用重排序检索；支持的模型还会启用深度思考。'
+    : '开启后会启用重排序检索；当前模型仅增强检索。'
+))
+
 function toggleThinking() {
   thinkingEnabled.value = !thinkingEnabled.value
   localStorage.setItem('rag-thinking', String(thinkingEnabled.value))
@@ -105,6 +111,16 @@ const chatHistory = computed(() => {
   return list.slice(-60).map((m) => ({
     role: m.role,
     content: m.content,
+    ...(m.role === 'assistant' && m.sources?.length ? {
+      sources: m.sources.slice(0, 4).map((s) => ({
+        file_name: s.metadata?.file_name || s.metadata?.source || undefined,
+        source: s.metadata?.source || undefined,
+        section_title: s.metadata?.section_title || undefined,
+        page_label: s.metadata?.page_label || undefined,
+        chunk_id: s.metadata?.chunk_id || undefined,
+        preview: s.content?.slice(0, 200) || undefined,
+      }))
+    } : {}),
   }))
 })
 const showWelcomeHint = computed(() => messages.value.length === 0)
@@ -157,6 +173,7 @@ function handleStop() {
   loading.value = false
   const last = messages.value.filter((m) => m.role === 'assistant').slice(-1)[0]
   if (last && last.loading) {
+    last.status = undefined
     last.loading = false
     if (last.content) last.content += '\n\n*（已停止）*'
     else last.content = '*（已停止）*'
@@ -185,6 +202,7 @@ async function handleSend(text: string, image?: File) {
     role: 'assistant',
     content: '',
     loading: true,
+    status: image ? '正在分析图片...' : '正在理解问题...',
   })
   loading.value = true
   scrollDown()
@@ -200,12 +218,14 @@ async function handleSend(text: string, image?: File) {
       await queryImageStream(text, image, {
         onToken: (token) => {
           const msg = lastAiMsg()
+          msg.status = undefined
           msg.content += token
           msg.loading = false
           scrollDown()
         },
         onDone: () => {
           streamOk = true
+          lastAiMsg().status = undefined
           lastAiMsg().loading = false
         },
         onError: (err) => { throw err },
@@ -215,6 +235,7 @@ async function handleSend(text: string, image?: File) {
       }
     } catch (e: any) {
       if ((e as DOMException)?.name !== 'AbortError') {
+        lastAiMsg().status = undefined
         lastAiMsg().content = `**出错了**\n\n${e.message}`
       }
       lastAiMsg().loading = false
@@ -233,8 +254,13 @@ async function handleSend(text: string, image?: File) {
       abortController.value = new AbortController()
       const llmModel = currentModel.value || undefined
       await queryKnowledgeStream(text, history, {
+        onStatus: (status) => {
+          lastAiMsg().status = status
+          scrollDown()
+        },
         onToken: (token) => {
           const msg = lastAiMsg()
+          msg.status = undefined
           msg.content += token
           msg.loading = false
           scrollDown()
@@ -251,6 +277,7 @@ async function handleSend(text: string, image?: File) {
         onDone: () => {
           streamOk = true
           abortController.value = null
+          lastAiMsg().status = undefined
           lastAiMsg().loading = false
           loading.value = false
           persist()
@@ -259,8 +286,18 @@ async function handleSend(text: string, image?: File) {
         onError: () => { throw new Error('stream failed') },
       }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt)
     } catch {
+      lastAiMsg().status = undefined
       if (!streamOk && !abortController.value) {
-        const result = await queryKnowledge(text, history, currentModel.value || undefined, currentKb.value, webSearchEnabled.value || undefined, undefined, activeAgent.value?.system_prompt)
+        const result = await queryKnowledge(
+          text,
+          history,
+          currentModel.value || undefined,
+          currentKb.value,
+          thinkingEnabled.value || undefined,
+          webSearchEnabled.value || undefined,
+          undefined,
+          activeAgent.value?.system_prompt,
+        )
         const msg = lastAiMsg()
         msg.content = result.answer
         msg.loading = false
@@ -275,6 +312,7 @@ async function handleSend(text: string, image?: File) {
     if ((e as DOMException)?.name === 'AbortError') {
       // 手动中止
     } else {
+      lastAiMsg().status = undefined
       lastAiMsg().content = `**出错了**\n\n${e.message || '请求失败'}`
       lastAiMsg().loading = false
     }
@@ -467,11 +505,11 @@ function scrollDown() {
               <span v-else class="model-tag">{{ visionModel.replace(':latest','') || '…' }}</span>
             </span>
             <span class="model-pill" title="嵌入模型需通过配置文件修改">嵌入 {{ embeddingModel.replace(':latest','') || '…' }}</span>
-            <button v-if="supportsThinking" class="think-btn" :class="{ active: thinkingEnabled }" @click="toggleThinking" title="深度思考">
+            <button class="think-btn" :class="{ active: thinkingEnabled }" @click="toggleThinking" :title="deepModeTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
               </svg>
-              深度思考
+              深度模式
             </button>
             <button class="think-btn" :class="{ active: webSearchEnabled }" @click="toggleWebSearch" title="联网搜索">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -535,6 +573,7 @@ function scrollDown() {
             v-for="msg in messages" :key="msg.id"
             :role="msg.role" :content="msg.content"
             :image-url="msg.imageUrl" :loading="msg.loading"
+            :status="msg.status"
             :thinking="msg.thinking"
             :sources="msg.sources"
             @citation-click="handleCitationClick(msg, $event)"
