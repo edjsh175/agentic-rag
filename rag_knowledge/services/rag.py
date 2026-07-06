@@ -449,17 +449,6 @@ class RagChain:
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
         strategy_top_k = self._reranker_candidate_k if enable_rerank else None
 
-        def _build_filter(kb: str) -> dict:
-            """构建 ChromaDB 过滤条件"""
-            conditions = [{"kb_name": kb}]
-            if review_status:
-                conditions.append({"review_status": review_status})
-            if doc_category:
-                conditions.append({"doc_category": doc_category})
-            if len(conditions) == 1:
-                return conditions[0]  # 单条件不需要 $and
-            return {"$and": conditions}
-
         if kb_name:
             # 用户指定了具体知识库 → 策略检索
             docs = self._strategy.retrieve(
@@ -477,37 +466,26 @@ class RagChain:
                     top_k=strategy_top_k,
                 )
             else:
-                chroma = self._store.get_chroma()
                 # 路由不确定 → 分别搜两个知识库，交错合并保证多样性
                 per_k = self._reranker_candidate_k // 2 + 1 if enable_rerank else self._retrieval_k // 2 + 1
                 target_k = self._reranker_candidate_k if enable_rerank else self._retrieval_k
-                docs = []
-                seen_chunks: set[str] = set()
-                for kb in ("文章附件", "已发布文章"):
-                    skw = {
-                        "k": per_k,
-                        "fetch_k": self._retrieval_fetch_k,
-                        "lambda_mult": self._retrieval_lambda,
-                        "filter": _build_filter(kb),
-                    }
-                    retriever = chroma.as_retriever(search_type="mmr", search_kwargs=skw)
-                    for d in retriever.invoke(question):
-                        cid = d.metadata.get("source", "") + d.page_content[:80]
-                        if cid not in seen_chunks:
-                            seen_chunks.add(cid)
-                            docs.append(d)
-                    if len(docs) >= target_k:
-                        break
-                # 交错排列（轮流取），保证两个 KB 的结果混排
-                kb1 = [d for d in docs if d.metadata.get("kb_name") == "文章附件"]
-                kb2 = [d for d in docs if d.metadata.get("kb_name") == "已发布文章"]
-                docs = []
-                i, j = 0, 0
-                while len(docs) < target_k and (i < len(kb1) or j < len(kb2)):
-                    if i < len(kb1) and (len(docs) % 2 == 0 or j >= len(kb2)):
-                        docs.append(kb1[i]); i += 1
-                    elif j < len(kb2):
-                        docs.append(kb2[j]); j += 1
+                kb1_docs = self._strategy.retrieve(
+                    question,
+                    kb_name="文章附件",
+                    doc_category=doc_category,
+                    review_status=review_status,
+                    method=method,
+                    top_k=per_k,
+                )
+                kb2_docs = self._strategy.retrieve(
+                    question,
+                    kb_name="已发布文章",
+                    doc_category=doc_category,
+                    review_status=review_status,
+                    method=method,
+                    top_k=per_k,
+                )
+                docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
         # ---- 重排序 (Phase 4) ----
         if enable_rerank and len(docs) > self._reranker_top_n:

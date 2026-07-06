@@ -327,6 +327,82 @@ class RagStage6Tests(unittest.TestCase):
             ["文章附件", "已发布文章", "文章附件", "已发布文章"],
         )
 
+    def test_unknown_kb_sync_path_merges_two_targets_deterministically(self):
+        chain = object.__new__(RagChain)
+        chain._reranker = None
+        chain._retrieval_k = 4
+        chain._retrieval_fetch_k = 12
+        chain._retrieval_lambda = 0.7
+        chain._reranker_candidate_k = 20
+        chain._retrieval_quality_cfg = type(
+            "RetrievalQualityCfgStub",
+            (),
+            {"contextual_compression_enabled": False},
+        )()
+        chain._quality = type(
+            "QualityStub",
+            (),
+            {"apply": lambda self, question, docs: docs},
+        )()
+        chain._compress_retrieved_docs = lambda question, docs: docs
+        chain._route_query = lambda question: None
+
+        # Mock strategy to track calls and parameters
+        strategy_mock = MagicMock()
+
+        def fake_retrieve(question, kb_name=None, doc_category=None, review_status=None, method=None, top_k=None, **kwargs):
+            if kb_name == "文章附件":
+                return [
+                    type("Doc", (), {"page_content": "a1", "metadata": {"chunk_id": "a1", "kb_name": "文章附件"}})(),
+                    type("Doc", (), {"page_content": "a2", "metadata": {"chunk_id": "a2", "kb_name": "文章附件"}})(),
+                ]
+            return [
+                type("Doc", (), {"page_content": "b1", "metadata": {"chunk_id": "b1", "kb_name": "已发布文章"}})(),
+                type("Doc", (), {"page_content": "b2", "metadata": {"chunk_id": "b2", "kb_name": "已发布文章"}})(),
+            ]
+
+        strategy_mock.retrieve = MagicMock(side_effect=fake_retrieve)
+        chain._strategy = strategy_mock
+
+        source_docs, _ = chain._retrieve(
+            question="test query",
+            kb_name=None,
+            doc_category="some_cat",
+            review_status="approved",
+            method="hybrid",
+        )
+
+        # Assert that both KBs were searched with strategy.retrieve and correct parameters
+        self.assertEqual(strategy_mock.retrieve.call_count, 2)
+
+        strategy_mock.retrieve.assert_any_call(
+            "test query",
+            kb_name="文章附件",
+            doc_category="some_cat",
+            review_status="approved",
+            method="hybrid",
+            top_k=3,  # (4 // 2) + 1 = 3
+        )
+
+        strategy_mock.retrieve.assert_any_call(
+            "test query",
+            kb_name="已发布文章",
+            doc_category="some_cat",
+            review_status="approved",
+            method="hybrid",
+            top_k=3,  # (4 // 2) + 1 = 3
+        )
+
+        # Assert merging / interleaving behavior
+        self.assertEqual(
+            [item["metadata"]["kb_name"] for item in source_docs],
+            ["文章附件", "已发布文章", "文章附件", "已发布文章"],
+        )
+
+        # Assert no Chroma attribute exists or was called
+        self.assertFalse(hasattr(chain, "_store"))
+
 
 if __name__ == "__main__":
     unittest.main()
+

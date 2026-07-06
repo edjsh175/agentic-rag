@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "test": "node --test src/utils/*.test.mjs",
+    "check": "npm run test && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
