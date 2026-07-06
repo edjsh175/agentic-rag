@@ -527,7 +527,9 @@ class QueryContextualizer:
             standalone = _build_standalone_heuristic(
                 question, history_text, last_user
             )
-            confidence = 0.55  # 启发式不确定度较高
+            # The local detector already confirmed a dependent follow-up; keep
+            # confidence at the history-anchor threshold for offline fallback.
+            confidence = 0.6
         else:
             standalone = question
             confidence = 0.85

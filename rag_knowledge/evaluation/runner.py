@@ -339,10 +339,15 @@ class EvaluationRunner:
                 if "rerank" in method:
                     enable_rerank = True
 
-            metrics = self.run_retrieval_eval(
-                k_values=k_values, verbose=True,
-                method=actual_method, rerank=enable_rerank,
-            )
+            try:
+                metrics = self.run_retrieval_eval(
+                    k_values=k_values, verbose=True,
+                    method=actual_method, rerank=enable_rerank,
+                )
+            except Exception:
+                for key, val in saved_values.items():
+                    setattr(cfg.retrieval_quality, key, val)
+                raise
             metrics["method"] = method
             results.append(metrics)
 

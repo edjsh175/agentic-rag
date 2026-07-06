@@ -21,6 +21,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from rag_knowledge.config import Config
 from rag_knowledge.models.document import FileRecord
+from rag_knowledge.services.chunk_admin import DOC_CATEGORIES, classify_doc_category
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
@@ -41,7 +42,7 @@ def _fmt_size(n: int) -> str:
 class DirectoryScanner:
     """目录扫描器"""
 
-    _DOC_CATEGORIES = {"运维管理", "前端开发", "后端开发", "二次开发", "开源生态", "其他"}
+    _DOC_CATEGORIES = set(DOC_CATEGORIES)
 
     def __init__(self):
         self._cfg = Config()
@@ -338,8 +339,4 @@ class DirectoryScanner:
         if inherited:
             return inherited
 
-        for part in rel_path.parts:
-            if part in self._DOC_CATEGORIES:
-                return part
-
-        return "其他"
+        return classify_doc_category(rel, rel_path.name, "已发布文章" if "已发布文章" in rel_path.parts else "")

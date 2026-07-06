@@ -19,15 +19,19 @@ import logging
 import re
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 import httpx
-from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
 from rag_knowledge.config import Config
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.models.api import QueryRequest, QueryResponse, UploadResponse
 from rag_knowledge.models.api import (
+    AdminChunkListResponse,
+    AdminChunkUpdateRequest,
+    BatchReviewRequest,
     ChunkStatsResponse,
     ReviewRequest,
     ReviewResponse,
@@ -42,9 +46,29 @@ from rag_knowledge.services.blog_syncer import BlogPostSyncer
 from rag_knowledge.services.blog_crawler import create_crawler, detect_platform
 from rag_knowledge.services.chat_storage import ChatStorage
 from rag_knowledge.services.chunk_stats import ChunkStatsService
+from rag_knowledge.services.chunk_admin import (
+    ChunkAdminService,
+    DOC_CATEGORIES,
+    REVIEW_STATUSES,
+    RetrievalRefreshError,
+)
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
+from rag_knowledge.models.api import (
+    LinkTypeEnum,
+    EntityCreateRequest,
+    EntityCreateResponse,
+    EntityUpdateRequest,
+    EntityResponse,
+    RelationCreateRequest,
+    RelationResponse,
+    EntityChunkLinkRequest,
+    EntityChunkLinkResponse,
+    GraphDataResponse,
+    EntityChunkDetailResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -291,8 +315,10 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
     """
     上传文档到监视目录并触发扫描入库
 
-    doc_category: 文档分类（运维管理/前端开发/后端开发/二次开发/开源生态/其他）
+    doc_category: 产品/业务域分类
     """
+    if doc_category not in DOC_CATEGORIES:
+        raise HTTPException(400, detail=f"doc_category 仅支持 {' / '.join(DOC_CATEGORIES)}")
     suffix = os.path.splitext(file.filename)[1].lower()
     if suffix not in _UPLOAD_EXTS:
         raise HTTPException(400, detail=f"不支持 {suffix}，仅支持 {_UPLOAD_EXTS}")
@@ -385,6 +411,83 @@ def scan_index():
     return _scanner.get_index() if _scanner else {"total_files": 0, "files": []}
 
 
+@router.get("/admin/chunks", response_model=AdminChunkListResponse)
+def admin_chunks(
+    review_status: str = "pending",
+    doc_category: str = "all",
+    filename: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """List chunks for the admin review workspace."""
+    if review_status not in {*REVIEW_STATUSES, "all"}:
+        raise HTTPException(400, detail="review_status 仅支持 pending / approved / rejected / all")
+    if doc_category not in {*DOC_CATEGORIES, "all"}:
+        raise HTTPException(400, detail=f"doc_category 仅支持 {' / '.join(DOC_CATEGORIES)} / all")
+    if page < 1:
+        raise HTTPException(400, detail="page 必须大于等于 1")
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(400, detail="page_size 必须在 1 到 100 之间")
+    return ChunkAdminService().list_chunks(
+        review_status=review_status,
+        doc_category=doc_category,
+        filename=filename,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.patch("/admin/chunks/{chunk_id}", response_model=ReviewResponse)
+def update_admin_chunk(chunk_id: str, req: AdminChunkUpdateRequest):
+    """Edit review metadata for one chunk."""
+    changes = req.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(400, detail="至少提供 review_status、doc_category、section_title 中的一项")
+    if "review_status" in changes and changes["review_status"] not in REVIEW_STATUSES:
+        raise HTTPException(400, detail="review_status 仅支持 pending / approved / rejected")
+    if "doc_category" in changes and changes["doc_category"] not in DOC_CATEGORIES:
+        raise HTTPException(400, detail=f"doc_category 仅支持 {' / '.join(DOC_CATEGORIES)}")
+
+    try:
+        updated = ChunkAdminService().update_chunk(chunk_id, changes)
+    except RetrievalRefreshError as exc:
+        logger.exception("BM25 rebuild failed after admin chunk update")
+        raise HTTPException(
+            500,
+            detail="metadata 已更新，但 BM25 索引重建失败，请重新执行扫描或重建索引。",
+        ) from exc
+    if not updated:
+        raise HTTPException(404, detail="未找到指定的 chunk_id")
+    status = changes.get("review_status", "unchanged")
+    return ReviewResponse(
+        message=f"chunk {chunk_id} 已更新",
+        updated_chunks=updated,
+        requested_chunks=1,
+        status=status,
+    )
+
+
+@router.post("/admin/chunks/batch-review", response_model=ReviewResponse)
+def batch_review_admin_chunks(req: BatchReviewRequest):
+    """Approve or reject chunks in one operation."""
+    if not req.chunk_ids:
+        raise HTTPException(400, detail="chunk_ids 不能为空")
+    status = req.status.strip().lower()
+    if status not in {"approved", "rejected"}:
+        raise HTTPException(400, detail="status 仅支持 approved / rejected")
+    try:
+        response = ChunkAdminService().batch_review(req.chunk_ids, status)
+    except RetrievalRefreshError as exc:
+        logger.exception("BM25 rebuild failed after batch review")
+        raise HTTPException(
+            500,
+            detail="metadata 已更新，但 BM25 索引重建失败，请重新执行扫描或重建索引。",
+        ) from exc
+    if not response.updated_chunks:
+        raise HTTPException(404, detail="未找到可更新的 chunk_id")
+    return response
+
+
 @router.post("/review/status", response_model=ReviewResponse)
 def update_review_status(req: ReviewRequest):
     """批量更新 chunk 审核状态，支持按文件或 chunk_id 提交。"""
@@ -396,28 +499,15 @@ def update_review_status(req: ReviewRequest):
     if not resolved_ids:
         raise HTTPException(400, detail="未找到可更新的 chunk_id")
 
-    updated = VectorStore().update_metadata(resolved_ids, {"review_status": status})
-
-    # 审核状态变更后强制重建 BM25，确保 Hybrid 检索下过滤一致
     try:
-        from rag_knowledge.services.bm25_store import BM25Store
-        BM25Store().rebuild()
-        logger.info("BM25 索引已在审核状态更新后重建")
-    except Exception as exc:
+        response = ChunkAdminService().batch_review(resolved_ids, status)
+    except RetrievalRefreshError as exc:
         logger.exception("BM25 rebuild failed after review status update")
-        _invalidate_retrieval_caches("review_status")
         raise HTTPException(
             status_code=500,
             detail="审核状态已更新，但 BM25 索引重建失败，请重新执行扫描或重建索引。"
-        )
-
-    _invalidate_retrieval_caches("review_status")
-    return ReviewResponse(
-        message=f"已将 {updated} 个 chunk 更新为 {status}",
-        updated_chunks=updated,
-        requested_chunks=len(resolved_ids),
-        status=status,
-    )
+        ) from exc
+    return response
 
 
 @router.post("/config/embedding-model")
@@ -817,3 +907,143 @@ def _parse_front_matter(file_path: Path) -> dict:
     except Exception:
         pass
     return meta
+
+
+# =====================================================================
+# 知识图谱 (Knowledge Graph) APIs
+# =====================================================================
+
+@router.get("/admin/knowledge_graph/data", response_model=GraphDataResponse)
+def get_graph_data(doc_category: Optional[str] = None):
+    """获取知识图谱的节点和边"""
+    try:
+        return KnowledgeGraphService().list_graph_data(doc_category=doc_category)
+    except Exception as e:
+        logger.error("Failed to list graph data: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/entities", response_model=EntityCreateResponse, status_code=201)
+def create_entity(req: EntityCreateRequest, response: Response):
+    """创建实体"""
+    try:
+        res = KnowledgeGraphService().create_entity(
+            name=req.name,
+            entity_type=req.entity_type,
+            doc_category=req.doc_category
+        )
+        if not res.created:
+            response.status_code = 200
+        return res
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to create entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.patch("/admin/knowledge_graph/entities/{entity_id}", response_model=EntityResponse)
+def update_entity(entity_id: str, req: EntityUpdateRequest):
+    """更新实体属性"""
+    changes = req.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(400, detail="至少提供 name、entity_type、doc_category 中的一项")
+    try:
+        return KnowledgeGraphService().update_entity(
+            entity_id=entity_id,
+            name=req.name,
+            entity_type=req.entity_type,
+            doc_category=req.doc_category
+        )
+    except KeyError:
+        raise HTTPException(404, detail="未找到指定的实体")
+    except ValueError as e:
+        raise HTTPException(409, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to update entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/entities/{entity_id}")
+def delete_entity(entity_id: str):
+    """级联删除实体"""
+    try:
+        KnowledgeGraphService().delete_entity(entity_id)
+        return {"success": True, "message": "实体删除成功"}
+    except Exception as e:
+        logger.error("Failed to delete entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/relations", response_model=RelationResponse, status_code=201)
+def create_relation(req: RelationCreateRequest, response: Response):
+    """创建实体关系"""
+    try:
+        res = KnowledgeGraphService().create_relation(
+            source_id=req.source_id,
+            target_id=req.target_id,
+            relation_type=req.relation_type
+        )
+        if res.created is False:
+            response.status_code = 200
+        return res
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to create relation: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/relations/{relation_id}")
+def delete_relation(relation_id: str):
+    """删除实体关系"""
+    try:
+        KnowledgeGraphService().delete_relation(relation_id)
+        return {"success": True, "message": "关系删除成功"}
+    except Exception as e:
+        logger.error("Failed to delete relation: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/entities/{entity_id}/chunks", response_model=EntityChunkLinkResponse, status_code=201)
+def link_entity_chunk(entity_id: str, req: EntityChunkLinkRequest, response: Response):
+    """关联实体与知识块"""
+    try:
+        res = KnowledgeGraphService().link_entity_chunk(
+            entity_id=entity_id,
+            chunk_id=req.chunk_id,
+            link_type=req.link_type or LinkTypeEnum.primary
+        )
+        if not res.created:
+            response.status_code = 200
+        return res
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to link entity to chunk: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/entities/{entity_id}/chunks/{chunk_id}")
+def unlink_entity_chunk(entity_id: str, chunk_id: str):
+    """移除实体与知识块的关联"""
+    try:
+        KnowledgeGraphService().unlink_entity_chunk(entity_id, chunk_id)
+        return {"success": True, "message": "关联删除成功"}
+    except Exception as e:
+        logger.error("Failed to unlink entity and chunk: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/knowledge_graph/entities/{entity_id}/chunks", response_model=list[EntityChunkDetailResponse])
+def list_entity_chunks(entity_id: str):
+    """获取实体关联的所有知识块列表"""
+    try:
+        return KnowledgeGraphService().list_entity_chunks(entity_id)
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to list chunks for entity: %s", e)
+        raise HTTPException(500, detail=str(e))

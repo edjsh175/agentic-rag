@@ -78,7 +78,7 @@
 - **章节切片**：`.md`/`.docx`/`.txt` 使用 `unstructured` 按标题结构切片，保留 `section_title`；`.pdf`/`.doc` 回退到固定字数切片
 - **结构保护切块**：Markdown/Excel 表格不切断行和单元格，代码块不切断 fence；超长结构块按完整行拆分。
 - **语料清洗**：入库前自动移除 `HYPERLINK` / `PAGEREF` / `TOC` 等 Word 域代码，过滤纯目录块、纯链接块和极短噪声块
-- **文档分类过滤**：上传时选择 `doc_category`（运维管理/前端开发/后端开发/二次开发/开源生态/其他），检索时可按分类筛选
+- **文档分类过滤**：上传时选择 `doc_category`（StampServer/StampTools/StampWebRTC/实景三维/耕地保护/矢量瓦片/基础环境/博客/其他），检索时可按分类筛选
 - **审核状态**：每个 chunk 有 `review_status` 字段（pending/approved/rejected），检索默认只返回 approved
 - **批量审核**：支持通过 `/review/status` 按 `file_path` 或 `chunk_id` 批量更新 `review_status`
 - **关系数据库**：SQLite 三张表 —— `entities`（实体）、`relations`（关系边）、`entity_chunk_links`（实体-知识块关联）
@@ -335,7 +335,7 @@ watch_directory/ 文件变化
 - watch_directory/已发布文章/ 下的文件 → kb_name = "已发布文章"
 - 其余所有文件 → kb_name = "文章附件"
 - 检索时通过 filter={kb_name: xxx} 筛选
-- MVP 新增 metadata 字段：`doc_category`（文档分类）、`section_title`（章节标题）、`review_status`（审核状态，默认 pending，检索只返回 approved）、`geo_wkt`（空间预留字段，始终为 None）
+- MVP 新增 metadata 字段：`doc_category`（产品/业务域分类：StampServer/StampTools/StampWebRTC/实景三维/耕地保护/矢量瓦片/基础环境/博客/其他）、`section_title`（章节标题）、`review_status`（审核状态，默认 pending，检索只返回 approved）、`geo_wkt`（空间预留字段，始终为 None）
 - **数据迁移**：现有 375 个 chunk 已通过一次性迁移将 `review_status` 设为 `"approved"`。新入库的 chunk 默认仍为 `"pending"`，需通过审核工作台或 API 手动批准
 
 ### 关系数据库（SQLite）
@@ -393,7 +393,7 @@ App.vue (导航栏: 知识库问答 | 博客管理)
 **后端：**
 ```powershell
 # 唯一标准本地环境：项目根目录下的 venv（不要使用裸 python 或 .venv）
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
 # 修改 config.ini（Ollama 地址等）
 

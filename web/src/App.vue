@@ -1,40 +1,21 @@
 <script setup lang="ts">
 /**
- * 根组件 —— 提供导航切换（聊天 / 博客管理）
+ * 根组件 —— 提供主要页面导航。
  */
-import { ref } from 'vue'
-import ChatView from './views/ChatView.vue'
-import BlogView from './views/BlogView.vue'
 import 'github-markdown-css/github-markdown.css'
-
-type Tab = 'chat' | 'blog'
-
-const activeTab = ref<Tab>('chat')
-
-function switchTab(tab: Tab) {
-  activeTab.value = tab
-}
 </script>
 
 <template>
   <div class="app-root">
     <!-- 导航栏 -->
     <nav class="nav-bar">
-      <button
-        class="nav-btn"
-        :class="{ active: activeTab === 'chat' }"
-        @click="switchTab('chat')"
-      >
+      <RouterLink class="nav-btn" to="/">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
         知识库问答
-      </button>
-      <button
-        class="nav-btn"
-        :class="{ active: activeTab === 'blog' }"
-        @click="switchTab('blog')"
-      >
+      </RouterLink>
+      <RouterLink class="nav-btn" to="/blog">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
@@ -42,13 +23,18 @@ function switchTab(tab: Tab) {
           <line x1="16" y1="17" x2="8" y2="17"/>
         </svg>
         博客管理
-      </button>
+      </RouterLink>
+      <RouterLink class="nav-btn" to="/admin/chunks">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        审核工作台
+      </RouterLink>
     </nav>
 
     <!-- 视图容器 -->
     <div class="view-container">
-      <ChatView v-show="activeTab === 'chat'" />
-      <BlogView v-show="activeTab === 'blog'" />
+      <RouterView />
     </div>
   </div>
 </template>
@@ -103,12 +89,13 @@ html, body {
   background: transparent;
   color: #64748b;
   transition: all 0.15s;
+  text-decoration: none;
 }
 .nav-btn:hover {
   background: #f1f5f9;
   color: #334155;
 }
-.nav-btn.active {
+.nav-btn.router-link-exact-active {
   background: #fff;
   border-color: #e2e8f0;
   color: #1e293b;

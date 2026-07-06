@@ -9,7 +9,16 @@
  * 流式接口 /query/stream 仍使用原生 fetch（axios 不适合 SSE）
  */
 import axios from 'axios'
-import type { ChunkStats, Stats, ScanResult } from '../types'
+import type {
+  AdminChunkListResponse,
+  AdminChunkUpdate,
+  ChunkStats,
+  DocCategory,
+  ReviewMutationResponse,
+  ReviewStatus,
+  Stats,
+  ScanResult,
+} from '../types'
 
 // ---- axios 实例 ----
 const http = axios.create({
@@ -60,6 +69,35 @@ async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T> {
 async function postJSON<T>(url: string, body?: any, signal?: AbortSignal): Promise<T> {
   const { data } = await http.post<T>(url, body, { signal })
   return data
+}
+
+export async function listAdminChunks(params: {
+  review_status?: ReviewStatus | 'all'
+  doc_category?: DocCategory | 'all'
+  filename?: string
+  page?: number
+  page_size?: number
+}, signal?: AbortSignal) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') query.set(key, String(value))
+  })
+  return getJSON<AdminChunkListResponse>(`/admin/chunks?${query.toString()}`, signal)
+}
+
+export async function updateAdminChunk(chunkId: string, changes: AdminChunkUpdate) {
+  const { data } = await http.patch<ReviewMutationResponse>(
+    `/admin/chunks/${encodeURIComponent(chunkId)}`,
+    changes,
+  )
+  return data
+}
+
+export async function batchReviewChunks(chunkIds: string[], status: 'approved' | 'rejected') {
+  return postJSON<ReviewMutationResponse>('/admin/chunks/batch-review', {
+    chunk_ids: chunkIds,
+    status,
+  })
 }
 
 // ---- 接口实现 ----

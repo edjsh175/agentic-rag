@@ -17,6 +17,9 @@ class QueryContextualizerTests(unittest.TestCase):
 
     def setUp(self):
         self.ctx = QueryContextualizer()
+        self.ctx._contextualize_via_llm = unittest.mock.MagicMock(
+            side_effect=RuntimeError("LLM disabled in unit tests")
+        )
 
     # ------------------------------------------------------------------
     # 上下文依赖检测
@@ -167,6 +170,9 @@ class MultiQueryBuildTests(unittest.TestCase):
 
     def setUp(self):
         self.ctx = QueryContextualizer()
+        self.ctx._contextualize_via_llm = unittest.mock.MagicMock(
+            side_effect=RuntimeError("LLM disabled in unit tests")
+        )
 
     def test_no_history_returns_original_question(self):
         """无历史时只返回原始问题"""

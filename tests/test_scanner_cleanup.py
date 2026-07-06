@@ -7,24 +7,34 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
 
+_INJECTED_UNSTRUCTURED_LOADER = False
+
+
 def _load_scanner_module():
+    global _INJECTED_UNSTRUCTURED_LOADER
     vector_store_stub = ModuleType("rag_knowledge.repository.vector_store")
     vector_store_stub.VectorStore = MagicMock
     sys.modules["rag_knowledge.repository.vector_store"] = vector_store_stub
 
-    stub = ModuleType("rag_knowledge.services.unstructured_loader")
-    stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
-    stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
-    sys.modules.setdefault("rag_knowledge.services.unstructured_loader", stub)
+    if "rag_knowledge.services.unstructured_loader" not in sys.modules:
+        stub = ModuleType("rag_knowledge.services.unstructured_loader")
+        stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
+        stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
+        sys.modules["rag_knowledge.services.unstructured_loader"] = stub
+        _INJECTED_UNSTRUCTURED_LOADER = True
     sys.modules.pop("rag_knowledge.services.scanner", None)
     return importlib.import_module("rag_knowledge.services.scanner")
 
 
 class ScannerCleanupTests(unittest.TestCase):
     def tearDown(self):
+        global _INJECTED_UNSTRUCTURED_LOADER
         sys.modules.pop("rag_knowledge.repository.vector_store", None)
         sys.modules.pop("rag_knowledge.services.scanner", None)
         sys.modules.pop("rag_knowledge.services.query_cache", None)
+        if _INJECTED_UNSTRUCTURED_LOADER:
+            sys.modules.pop("rag_knowledge.services.unstructured_loader", None)
+            _INJECTED_UNSTRUCTURED_LOADER = False
         super().tearDown()
 
     def test_clean_removed_deletes_vectors_and_index_entry(self):

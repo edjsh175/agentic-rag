@@ -11,13 +11,26 @@ from rag_knowledge.evaluation.test_dataset import build_hardcase_dataset
 from rag_knowledge.repository.vector_store import VectorStore
 
 
+_INJECTED_UNSTRUCTURED_LOADER = False
+
+
 def _load_file_loader():
-    stub = ModuleType("rag_knowledge.services.unstructured_loader")
-    stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
-    stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
-    sys.modules.setdefault("rag_knowledge.services.unstructured_loader", stub)
+    global _INJECTED_UNSTRUCTURED_LOADER
+    if "rag_knowledge.services.unstructured_loader" not in sys.modules:
+        stub = ModuleType("rag_knowledge.services.unstructured_loader")
+        stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
+        stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
+        sys.modules["rag_knowledge.services.unstructured_loader"] = stub
+        _INJECTED_UNSTRUCTURED_LOADER = True
     module = importlib.import_module("rag_knowledge.services.loader")
     return module.FileLoader
+
+
+def tearDownModule():
+    global _INJECTED_UNSTRUCTURED_LOADER
+    if _INJECTED_UNSTRUCTURED_LOADER:
+        sys.modules.pop("rag_knowledge.services.unstructured_loader", None)
+        _INJECTED_UNSTRUCTURED_LOADER = False
 
 
 class LoaderCleaningTests(unittest.TestCase):

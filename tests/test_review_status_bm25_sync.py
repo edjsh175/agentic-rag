@@ -40,6 +40,8 @@ class TestReviewStatusBM25Sync:
     @pytest.fixture(autouse=True)
     def _setup_teardown(self):
         """每个测试前后清理单例缓存和测试数据。"""
+        VectorStore._instance = None
+        BM25Store._instance = None
         self._test_ids: list[str] = []
         yield
         # 清理 ChromaDB 中的测试文档
@@ -51,6 +53,8 @@ class TestReviewStatusBM25Sync:
                 pass
         # 重建 BM25 以清除测试文档残留
         BM25Store().rebuild()
+        VectorStore._instance = None
+        BM25Store._instance = None
 
     # ------------------------------------------------------------------
     # 核心验证

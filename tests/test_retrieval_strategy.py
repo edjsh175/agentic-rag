@@ -1,10 +1,13 @@
 import asyncio
+import sys
 import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from langchain_core.documents import Document
+import jieba
+from rank_bm25 import BM25Okapi
 
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
@@ -233,6 +236,51 @@ class RetrievalStrategyTests(unittest.TestCase):
 
         self.assertEqual(store._docs[0].metadata["chunk_id"], "chunk-1")
         self.assertEqual(store._metadatas[0]["chunk_id"], "chunk-1")
+
+    def test_bm25_build_skips_empty_document_collection(self):
+        store = object.__new__(BM25Store)
+        store._bm25 = None
+        store._docs = []
+        store._metadatas = []
+        chroma = MagicMock()
+        chroma.get.return_value = {
+            "documents": [],
+            "metadatas": [],
+            "ids": [],
+        }
+        vector_store = MagicMock()
+        vector_store.get_chroma.return_value = chroma
+
+        with patch("rag_knowledge.services.bm25_store.VectorStore", return_value=vector_store):
+            store._build_index()
+
+        self.assertIsNone(store._bm25)
+        self.assertEqual(store._docs, [])
+        self.assertEqual(store._metadatas, [])
+
+    def test_bm25_build_skips_empty_tokenized_corpus(self):
+        store = object.__new__(BM25Store)
+        store._bm25 = None
+        store._docs = []
+        store._metadatas = []
+        chroma = MagicMock()
+        chroma.get.return_value = {
+            "documents": ["   ", ""],
+            "metadatas": [{"kb_name": "kb-a"}, {"kb_name": "kb-b"}],
+            "ids": ["chunk-a", "chunk-b"],
+        }
+        vector_store = MagicMock()
+        vector_store.get_chroma.return_value = chroma
+
+        with patch("rag_knowledge.services.bm25_store.VectorStore", return_value=vector_store), \
+             patch("rag_knowledge.services.bm25_store.jieba.cut", side_effect=[[], []]), \
+             patch("rag_knowledge.services.bm25_store.BM25Okapi") as bm25_cls:
+            store._build_index()
+
+        bm25_cls.assert_not_called()
+        self.assertIsNone(store._bm25)
+        self.assertEqual(store._docs, [])
+        self.assertEqual(store._metadatas, [])
 
 
 if __name__ == "__main__":

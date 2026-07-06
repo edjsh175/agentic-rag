@@ -294,13 +294,32 @@ class RelationalDB:
             cur = conn.execute("DELETE FROM entity_chunk_links WHERE id = ?", (link_id,))
             return cur.rowcount > 0
 
-    def delete_links_by_entity(self, entity_id: str) -> int:
-        """删除实体的所有关联，返回删除数量"""
+    def delete_link_by_entity_chunk(self, entity_id: str, chunk_id: str) -> bool:
+        """删除实体与知识块的特定关联"""
         with self._get_conn() as conn:
             cur = conn.execute(
-                "DELETE FROM entity_chunk_links WHERE entity_id = ?", (entity_id,)
+                "DELETE FROM entity_chunk_links WHERE entity_id = ? AND chunk_id = ?",
+                (entity_id, chunk_id),
             )
-            return cur.rowcount
+            return cur.rowcount > 0
+
+    def get_link_by_entity_chunk(self, entity_id: str, chunk_id: str) -> dict | None:
+        """获取特定实体与知识块的关联"""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM entity_chunk_links WHERE entity_id = ? AND chunk_id = ?",
+                (entity_id, chunk_id),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_relation_by_details(self, source_id: str, target_id: str, relation_type: str) -> dict | None:
+        """按源、目标和关系类型查找关系"""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM relations WHERE source_id = ? AND target_id = ? AND relation_type = ?",
+                (source_id, target_id, relation_type),
+            ).fetchone()
+            return dict(row) if row else None
 
     # ------------------------------------------------------------------
     # 统计

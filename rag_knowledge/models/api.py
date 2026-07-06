@@ -1,5 +1,6 @@
 """API 请求与响应数据模型。"""
 from typing import Optional
+from enum import Enum
 
 from pydantic import BaseModel, Field
 
@@ -147,6 +148,48 @@ class ReviewResponse(BaseModel):
     status: str
 
 
+class AdminChunkItem(BaseModel):
+    chunk_id: str
+    file_name: str
+    source: str
+    section_title: str
+    doc_category: str
+    review_status: str
+    content_preview: str
+    content: str
+    kb_name: str | None = None
+    page_label: str
+    indexed_at: str | None = None
+    file_path: str | None = None
+    kb_path: str | None = None
+    title: str | None = None
+    source_url: str | None = None
+    author: str | None = None
+    platform: str | None = None
+    publish_date: str | None = None
+    last_modified: str | None = None
+    crawled_at: str | None = None
+
+
+class AdminChunkListResponse(BaseModel):
+    items: list[AdminChunkItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AdminChunkUpdateRequest(BaseModel):
+    review_status: str | None = None
+    doc_category: str | None = None
+    section_title: str | None = None
+
+
+class BatchReviewRequest(BaseModel):
+    chunk_ids: list[str]
+    status: str
+
+
 class CrawlRequest(BaseModel):
     url: str
 
@@ -178,3 +221,128 @@ class BlogPostListResponse(BaseModel):
     total_pages: int
     posts: list[BlogPostItem]
     posts_dir: str
+
+
+# =====================================================================
+# 知识图谱 (Knowledge Graph) 数据模型
+# =====================================================================
+
+class EntityTypeEnum(str, Enum):
+    module = "功能模块"
+    data_file = "数据文件"
+    config = "配置项"
+    api = "API接口"
+
+
+class RelationTypeEnum(str, Enum):
+    dependency = "依赖"
+    used_in = "被使用于"
+    contains = "包含"
+    peer = "平级"
+
+
+class LinkTypeEnum(str, Enum):
+    primary = "主要描述"
+    indirect = "间接提及"
+
+
+class DocCategoryEnum(str, Enum):
+    stamp_server = "StampServer"
+    stamp_tools = "StampTools"
+    stamp_webrtc = "StampWebRTC"
+    real3d = "实景三维"
+    farmland = "耕地保护"
+    vector_tile = "矢量瓦片"
+    infra = "基础环境"
+    blog = "博客"
+    other = "其他"
+
+
+class EntityCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, description="实体名称")
+    entity_type: EntityTypeEnum = Field(..., description="实体类型")
+    doc_category: Optional[DocCategoryEnum] = Field(None, description="所属文档分类")
+
+
+class EntityCreateResponse(BaseModel):
+    id: str
+    name: str
+    entity_type: EntityTypeEnum
+    doc_category: Optional[DocCategoryEnum] = None
+    created_by: str
+    created_at: str
+    created: bool = Field(..., description="是否为新创建的实体")
+
+
+class EntityUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, description="实体名称")
+    entity_type: Optional[EntityTypeEnum] = Field(None, description="实体类型")
+    doc_category: Optional[DocCategoryEnum] = Field(None, description="所属文档分类")
+
+
+class EntityResponse(BaseModel):
+    id: str
+    name: str
+    entity_type: EntityTypeEnum
+    doc_category: Optional[DocCategoryEnum] = None
+    created_by: str
+    created_at: str
+
+
+class RelationCreateRequest(BaseModel):
+    source_id: str = Field(..., description="源实体 ID")
+    target_id: str = Field(..., description="目标实体 ID")
+    relation_type: RelationTypeEnum = Field(..., description="关系类型")
+
+
+class RelationResponse(BaseModel):
+    id: str
+    source_id: str
+    target_id: str
+    relation_type: RelationTypeEnum
+    created_by: str
+    created_at: str
+    created: Optional[bool] = None
+
+
+class EntityChunkLinkRequest(BaseModel):
+    chunk_id: str = Field(..., description="知识块 ID")
+    link_type: Optional[LinkTypeEnum] = Field(LinkTypeEnum.primary, description="关联类型")
+
+
+class EntityChunkLinkResponse(BaseModel):
+    id: str
+    entity_id: str
+    chunk_id: str
+    link_type: LinkTypeEnum
+    created_at: str
+    created: bool
+
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    type: str
+    doc_category: Optional[str] = None
+
+
+class GraphEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str
+
+
+class GraphDataResponse(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+class EntityChunkDetailResponse(BaseModel):
+    chunk_id: str
+    file_name: str
+    section_title: str
+    link_type: str
+    content_preview: str
+    content: str
+

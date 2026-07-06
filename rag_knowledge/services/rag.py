@@ -30,6 +30,26 @@ from rag_knowledge.services.web_search import WebSearch
 
 logger = logging.getLogger(__name__)
 
+
+class _FallbackRetrievalPlan:
+    """Compatibility fallback for tests or lightweight chains without QueryPlanner."""
+
+    def __init__(
+        self,
+        queries: list[str] | list[RetrievalQuery],
+        *,
+        top_k: int,
+        candidate_k: int,
+        enable_rerank: bool,
+    ):
+        self.intent = "definition"
+        self.queries = queries
+        self.top_k = top_k
+        self.candidate_k = candidate_k
+        self.enable_rerank = enable_rerank
+        self.expand_neighbors = False
+        self.confidence = 1.0
+
 # Helper 模型共用 options（query 改写、路由、摘要等轻量任务）
 _HELPER_OPTIONS = {
     "temperature": 0.0,
@@ -103,11 +123,12 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 
 1. 知识库事实只能来自 <context>，历史消息只用于理解追问、指代和用户意图，不能作为事实依据。
 2. 每项知识库事实后必须使用对应的引用编号，例如 `[1]`。只能使用 context 中存在的编号，不得编造文件名、页码、URL、片段或编号。
-3. context 仅能支持部分答案时，只回答有明确依据的部分；对缺失部分逐项说明“当前知识库中未查询到相关内容。”
-4. context 无法明确支持答案时，必须先原样输出："当前知识库中未查询到相关内容。"
-5. {general_knowledge_rule}
-6. 外部网页仅在 context 中标记为“外部来源”时可用，必须引用，并与知识库来源明确区分。
-7. 禁止推测、补全隐含逻辑或把通用知识伪装成知识库内容。宁可少答，不得编造。
+3. context 仅能支持部分答案时，先回答有明确依据的部分，并在每项事实后引用编号；然后说明：“以上为知识库中已查到的部分内容。关于[具体未覆盖的方面]，当前知识库中未查询到相关内容。”
+4. context 无法完整回答但存在与问题主体（如工具名、产品名、服务名）相关的片段时，应说明：“知识库中查到了[主体]的部分相关内容（如[已有内容概要]），但未检索到关于[具体问题]的完整说明。”并引用相关片段编号。
+5. context 与问题主体完全不相关时，必须先原样输出："当前知识库中未查询到相关内容。"
+6. {general_knowledge_rule}
+7. 外部网页仅在 context 中标记为“外部来源”时可用，必须引用，并与知识库来源明确区分。
+8. 禁止推测、补全隐含逻辑或把通用知识伪装成知识库内容。宁可少答，不得编造。
 
 ## 输出规则
 
@@ -212,6 +233,10 @@ class RagChain:
         # ---- 对话式查询上下文化 ----
         self._contextualizer = QueryContextualizer(cfg)
 
+        # ---- 意图驱动检索计划 ----
+        from rag_knowledge.services.query_planner import QueryPlanner
+        self._query_planner = QueryPlanner(cfg)
+
         # ---- 重排序器 (Phase 4) ----
         self._reranker_enabled = cfg.reranker_enabled
         self._reranker_type = cfg.reranker_type
@@ -272,6 +297,9 @@ class RagChain:
         method: str | None = None,
         rerank: bool | None = None,
         web_search: bool = False,
+        top_k_override: int | None = None,
+        candidate_k_override: int | None = None,
+        expand_neighbors: bool = False,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         cache = getattr(self, "_query_cache", None)
@@ -283,6 +311,9 @@ class RagChain:
             method=method,
             rerank=enable_rerank,
             web_search=web_search,
+            top_k_override=top_k_override,
+            candidate_k_override=candidate_k_override,
+            expand_neighbors=expand_neighbors,
         )
 
         if cache is not None:
@@ -300,6 +331,9 @@ class RagChain:
             method=method,
             rerank=rerank,
             web_search=web_search,
+            top_k_override=top_k_override,
+            candidate_k_override=candidate_k_override,
+            expand_neighbors=expand_neighbors,
         )
 
         if cache is not None:
@@ -315,9 +349,14 @@ class RagChain:
         method: str | None = None,
         rerank: bool | None = None,
         web_search: bool = False,
+        top_k_override: int | None = None,
+        candidate_k_override: int | None = None,
+        expand_neighbors: bool = False,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
-        strategy_top_k = self._reranker_candidate_k if enable_rerank else None
+        final_top_k = top_k_override or self._retrieval_k
+        candidate_top_k = candidate_k_override or self._reranker_candidate_k
+        strategy_top_k = candidate_top_k if enable_rerank else top_k_override
 
         if kb_name:
             docs = await self._strategy.aretrieve(
@@ -340,8 +379,8 @@ class RagChain:
                     top_k=strategy_top_k,
                 )
             else:
-                per_k = self._reranker_candidate_k // 2 + 1 if enable_rerank else self._retrieval_k // 2 + 1
-                target_k = self._reranker_candidate_k if enable_rerank else self._retrieval_k
+                target_k = candidate_top_k if enable_rerank else final_top_k
+                per_k = target_k // 2 + 1
                 started = time.perf_counter()
                 kb1_docs, kb2_docs = await asyncio.gather(
                     self._strategy.aretrieve(
@@ -367,7 +406,13 @@ class RagChain:
                 )
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
-        docs = await self._postprocess_docs(question, docs, enable_rerank)
+        docs = await self._postprocess_docs(
+            question,
+            docs,
+            enable_rerank,
+            target_top_k=top_k_override,
+            expand_neighbors=expand_neighbors,
+        )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
             for index, d in enumerate(docs)
@@ -386,18 +431,26 @@ class RagChain:
         question: str,
         docs: list[Document],
         enable_rerank: bool,
+        target_top_k: int | None = None,
+        expand_neighbors: bool = False,
     ) -> list[Document]:
-        if enable_rerank and len(docs) > self._reranker_top_n:
+        if expand_neighbors and docs:
+            docs = await asyncio.to_thread(self._expand_neighbor_chunks, docs)
+
+        rerank_top_k = target_top_k
+        if rerank_top_k is None:
+            rerank_top_k = getattr(self, "_reranker_top_n", getattr(self, "_retrieval_k", len(docs)))
+        if enable_rerank and len(docs) > rerank_top_k:
             candidate_count = len(docs)
             try:
                 reranker_instance = self._get_reranker()
                 docs = await asyncio.to_thread(
-                    reranker_instance.rerank, question, docs, self._reranker_top_n
+                    reranker_instance.rerank, question, docs, rerank_top_k
                 )
                 logger.debug("reranker finished | %d -> %d", candidate_count, len(docs))
             except Exception as e:
                 logger.warning("reranker failed, fallback to original order: %s", e)
-                docs = docs[:self._reranker_top_n]
+                docs = docs[:rerank_top_k]
 
         docs = await asyncio.to_thread(self._quality.apply, question, docs)
         docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
@@ -438,26 +491,24 @@ class RagChain:
                   doc_category: str | None = None,
                   review_status: str | None = "approved",
                   method: str | None = None,
-                  rerank: bool | None = None) -> tuple[list[dict], str]:
-        """
-        执行检索，返回 (source_docs, 格式化后的 context 文本)
-
-        method: 检索方式（mmr/similarity/bm25/hybrid），None 则使用配置值
-        review_status: None 表示不限制审核状态（评估用）
-        rerank: 是否启用重排序（None=使用配置，True=强制启用，False=强制禁用）
-        """
+                  rerank: bool | None = None,
+                  web_search: bool = False,
+                  top_k_override: int | None = None,
+                  candidate_k_override: int | None = None,
+                  expand_neighbors: bool = False) -> tuple[list[dict], str]:
+        """Execute retrieval and return (source_docs, formatted context)."""
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
-        strategy_top_k = self._reranker_candidate_k if enable_rerank else None
+        final_top_k = top_k_override or self._retrieval_k
+        candidate_top_k = candidate_k_override or self._reranker_candidate_k
+        strategy_top_k = candidate_top_k if enable_rerank else top_k_override
 
         if kb_name:
-            # 用户指定了具体知识库 → 策略检索
             docs = self._strategy.retrieve(
                 question, kb_name=kb_name, doc_category=doc_category,
                 review_status=review_status, method=method,
                 top_k=strategy_top_k,
             )
         else:
-            # 未指定知识库 → 先路由分类
             routed_kb = self._route_query(question)
             if routed_kb:
                 docs = self._strategy.retrieve(
@@ -466,9 +517,8 @@ class RagChain:
                     top_k=strategy_top_k,
                 )
             else:
-                # 路由不确定 → 分别搜两个知识库，交错合并保证多样性
-                per_k = self._reranker_candidate_k // 2 + 1 if enable_rerank else self._retrieval_k // 2 + 1
-                target_k = self._reranker_candidate_k if enable_rerank else self._retrieval_k
+                target_k = candidate_top_k if enable_rerank else final_top_k
+                per_k = target_k // 2 + 1
                 kb1_docs = self._strategy.retrieve(
                     question,
                     kb_name="文章附件",
@@ -487,24 +537,20 @@ class RagChain:
                 )
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
-        # ---- 重排序 (Phase 4) ----
-        if enable_rerank and len(docs) > self._reranker_top_n:
-            candidate_count = len(docs)
-            try:
-                reranker_instance = self._get_reranker()
-                docs = reranker_instance.rerank(question, docs, self._reranker_top_n)
-                logger.debug("重排序完成: %d 候选 → %d 结果", candidate_count, len(docs))
-            except Exception as e:
-                logger.warning("重排序初始化或推理失败，回退到原始排序: %s", e)
-                docs = docs[:self._reranker_top_n]
-
-        # ---- 检索质量控制 (Phase 5) ----
-        docs = self._quality.apply(question, docs)
-        docs = self._compress_retrieved_docs(question, docs)
+        docs = self._postprocess_docs_sync(
+            question,
+            docs,
+            enable_rerank,
+            target_top_k=top_k_override,
+            expand_neighbors=expand_neighbors,
+        )
 
         source_docs = [self._normalize_source(d.page_content, d.metadata, i + 1)
                        for i, d in enumerate(docs)]
         context = self._format_context(source_docs)
+
+        if web_search:
+            source_docs, context = self._search_web(question, source_docs, context)
 
         return source_docs, context
 
@@ -530,7 +576,7 @@ class RagChain:
 
     @staticmethod
     def _filter_cited_sources(answer: str, source_docs: list[dict]) -> list[dict]:
-        """只保留最终答案实际引用且存在于候选集中的来源。"""
+        """Keep only sources that are explicitly cited in the final answer."""
         answer = (answer or "").strip()
         if not answer or answer == NO_KNOWLEDGE_ANSWER or not source_docs:
             logger.info(
@@ -549,12 +595,16 @@ class RagChain:
 
         trusted: list[dict] = []
         seen: set[int] = set()
-        for match in re.finditer(r"\[(\d+)\]", answer):
-            citation_id = int(match.group(1))
-            if citation_id in seen or citation_id not in by_id:
-                continue
-            seen.add(citation_id)
-            trusted.append(by_id[citation_id])
+        for pattern in (r"\[(\d+)\]", r"\((\d+)\)"):
+            for match in re.finditer(pattern, answer):
+                try:
+                    citation_id = int(match.group(1))
+                except (TypeError, ValueError):
+                    continue
+                if citation_id in seen or citation_id not in by_id:
+                    continue
+                seen.add(citation_id)
+                trusted.append(by_id[citation_id])
 
         logger.info(
             "trusted_sources | candidates=%d cited=%d dropped=%d",
@@ -743,13 +793,16 @@ class RagChain:
         method: str | None = None,
         rerank: bool | None = None,
         web_search: bool = False,
+        plan_top_k: int | None = None,
+        plan_candidate_k: int | None = None,
+        expand_neighbors: bool = False,
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
 
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
         if len(query_texts) <= 1:
-            # 单查询走原路径
+            # ???????
             return self._retrieve(
                 query_texts[0] if query_texts else "",
                 kb_name=kb_name,
@@ -757,9 +810,14 @@ class RagChain:
                 review_status=review_status,
                 method=method,
                 rerank=rerank,
+                web_search=web_search,
+                top_k_override=plan_top_k,
+                candidate_k_override=plan_candidate_k,
+                expand_neighbors=expand_neighbors,
             )
 
-        q = query_texts[0]  # 主查询用于后处理和 web search
+        q = query_texts[0]  # ???????? and web search
+        retrieval_top_k = plan_candidate_k if enable_rerank and plan_candidate_k else plan_top_k
         docs = self._strategy.retrieve_many(
             query_texts,
             kb_name=kb_name,
@@ -768,8 +826,12 @@ class RagChain:
             method=method,
             query_weights=query_weights,
             query_labels=query_labels,
+            top_k=retrieval_top_k,
+            candidate_k=plan_candidate_k,
         )
-        docs = self._postprocess_docs_sync(q, docs, enable_rerank)
+        docs = self._postprocess_docs_sync(
+            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
+        )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
             for index, d in enumerate(docs)
@@ -790,10 +852,12 @@ class RagChain:
         method: str | None = None,
         rerank: bool | None = None,
         web_search: bool = False,
+        plan_top_k: int | None = None,
+        plan_candidate_k: int | None = None,
+        expand_neighbors: bool = False,
     ) -> tuple[list[dict], str]:
-        """异步多查询检索 + 后处理 + 格式化。"""
+        """异步多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
-
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
         if len(query_texts) <= 1:
             single_q = query_texts[0] if query_texts else ""
@@ -805,9 +869,13 @@ class RagChain:
                 method=method,
                 rerank=rerank,
                 web_search=web_search,
+                top_k_override=plan_top_k,
+                candidate_k_override=plan_candidate_k,
+                expand_neighbors=expand_neighbors,
             )
 
         q = query_texts[0]
+        retrieval_top_k = plan_candidate_k if enable_rerank and plan_candidate_k else plan_top_k
         docs = await self._strategy.aretrieve_many(
             query_texts,
             kb_name=kb_name,
@@ -816,8 +884,12 @@ class RagChain:
             method=method,
             query_weights=query_weights,
             query_labels=query_labels,
+            top_k=retrieval_top_k,
+            candidate_k=plan_candidate_k,
         )
-        docs = await self._postprocess_docs(q, docs, enable_rerank)
+        docs = await self._postprocess_docs(
+            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
+        )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
             for index, d in enumerate(docs)
@@ -836,19 +908,122 @@ class RagChain:
         question: str,
         docs: list[Document],
         enable_rerank: bool,
+        target_top_k: int | None = None,
+        expand_neighbors: bool = False,
     ) -> list[Document]:
         """同步版文档后处理（rerank + quality + compression）。"""
-        if enable_rerank and len(docs) > self._reranker_top_n:
+        if expand_neighbors and docs:
+            docs = self._expand_neighbor_chunks(docs)
+
+        rerank_top_k = target_top_k
+        if rerank_top_k is None:
+            rerank_top_k = getattr(self, "_reranker_top_n", getattr(self, "_retrieval_k", len(docs)))
+        if enable_rerank and len(docs) > rerank_top_k:
             try:
                 reranker_instance = self._get_reranker()
-                docs = reranker_instance.rerank(question, docs, self._reranker_top_n)
+                docs = reranker_instance.rerank(question, docs, rerank_top_k)
             except Exception as e:
                 logger.warning("reranker failed, fallback to original order: %s", e)
-                docs = docs[:self._reranker_top_n]
+                docs = docs[:rerank_top_k]
 
         docs = self._quality.apply(question, docs)
         docs = self._compress_retrieved_docs(question, docs)
         return docs
+
+    def _expand_neighbor_chunks(
+        self,
+        docs: list[Document],
+        window: int | None = None,
+        max_per_source: int | None = None,
+    ) -> list[Document]:
+        """为流程型问题扩展相邻 chunk。
+
+        对每个命中的 chunk，按 (source, section_index ± window) 拉取相邻 chunk，
+        与已有结果去重后合并。同一 source 文件最多保留 max_per_source 个 chunk，
+        避免单一文件占满所有结果。
+        """
+        planner = getattr(self, "_query_planner", None)
+        planner_cfg = getattr(planner, "_planner_cfg", None)
+        if planner_cfg:
+            window = window or getattr(planner_cfg, "neighbor_window", 2)
+            max_per_source = max_per_source or getattr(planner_cfg, "max_neighbors_per_source", 6)
+        else:
+            window = window or 2
+            max_per_source = max_per_source or 6
+
+        if not docs:
+            return docs
+
+        # 收集现有 chunk_ids 和按 source 计数
+        existing_ids = set()
+        source_counts = {}
+        for d in docs:
+            cid = d.metadata.get("chunk_id")
+            if cid:
+                existing_ids.add(cid)
+            src = d.metadata.get("source")
+            if src:
+                source_counts[src] = source_counts.get(src, 0) + 1
+
+        new_neighbors = []
+        for d in docs:
+            source = d.metadata.get("source")
+            section_index = d.metadata.get("section_index")
+            if not source or section_index is None:
+                continue
+
+            try:
+                sec_idx = int(section_index)
+            except (ValueError, TypeError):
+                continue
+
+            # 获取相邻 chunks
+            neighbors = self._store.get_neighbor_chunks(
+                source=source,
+                section_index=sec_idx,
+                window=window,
+                review_status="approved",
+            )
+
+            for n in neighbors:
+                ncid = n.metadata.get("chunk_id")
+                if not ncid or ncid in existing_ids:
+                    continue
+
+                # 检查同源数量限制
+                nsrc = n.metadata.get("source")
+                current_count = source_counts.get(nsrc, 0)
+                if current_count >= max_per_source:
+                    continue
+
+                existing_ids.add(ncid)
+                source_counts[nsrc] = current_count + 1
+                new_neighbors.append(n)
+
+        if new_neighbors:
+            logger.info("邻近 chunk 扩展: 补充了 %d 个相邻 chunk", len(new_neighbors))
+            # 保持原始文档顺序，并把新扩展的补充在后面
+            merged_docs = list(docs) + new_neighbors
+            return merged_docs
+
+        return docs
+
+    def _plan_retrieval(
+        self,
+        question: str,
+        queries: list[str] | list[RetrievalQuery],
+        *,
+        force_rerank: bool,
+    ):
+        planner = getattr(self, "_query_planner", None)
+        if planner is None:
+            return _FallbackRetrievalPlan(
+                queries,
+                top_k=getattr(self, "_retrieval_k", 4),
+                candidate_k=getattr(self, "_reranker_candidate_k", 12),
+                enable_rerank=force_rerank,
+            )
+        return planner.plan(question, queries, force_rerank=force_rerank)
 
     def _route_query(self, question: str) -> str | None:
         """判断问题应检索哪个知识库，返回 kb_name 或 None（不确定/兜底搜全部）"""
@@ -957,10 +1132,14 @@ class RagChain:
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
+            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
             source_docs, context = self._retrieve_multi(
-                queries, kb_name=kb_name, doc_category=doc_category,
-                rerank=enable_rerank,
+                plan.queries, kb_name=kb_name, doc_category=doc_category,
+                rerank=plan.enable_rerank,
                 web_search=bool(web_search),
+                plan_top_k=plan.top_k,
+                plan_candidate_k=plan.candidate_k,
+                expand_neighbors=plan.expand_neighbors,
             )
             self._record_chunk_hit_query(source_docs)
 
@@ -1041,12 +1220,16 @@ class RagChain:
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
+            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
             source_docs, context = await self._aretrieve_multi_uncached(
-                queries,
+                plan.queries,
                 kb_name=kb_name,
                 doc_category=doc_category,
-                rerank=enable_rerank,
+                rerank=plan.enable_rerank,
                 web_search=bool(web_search),
+                plan_top_k=plan.top_k,
+                plan_candidate_k=plan.candidate_k,
+                expand_neighbors=plan.expand_neighbors,
             )
             self._record_chunk_hit_query(source_docs)
 
@@ -1134,19 +1317,26 @@ class RagChain:
         try:
             yield {"type": "status", "data": "正在检索知识库..."}
             queries = self._build_retrieval_query_specs(q, history)
+            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
             if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
                 source_docs, context = await self._aretrieve_multi_uncached(
-                    queries,
+                    plan.queries,
                     kb_name=kb_name,
                     doc_category=doc_category,
-                    rerank=enable_rerank,
+                    rerank=plan.enable_rerank,
                     web_search=bool(web_search),
+                    plan_top_k=plan.top_k,
+                    plan_candidate_k=plan.candidate_k,
+                    expand_neighbors=plan.expand_neighbors,
                 )
             else:
                 source_docs, context = self._retrieve_multi(
-                    queries, kb_name=kb_name, doc_category=doc_category,
-                    rerank=enable_rerank,
+                    plan.queries, kb_name=kb_name, doc_category=doc_category,
+                    rerank=plan.enable_rerank,
                     web_search=bool(web_search),
+                    plan_top_k=plan.top_k,
+                    plan_candidate_k=plan.candidate_k,
+                    expand_neighbors=plan.expand_neighbors,
                 )
             self._record_chunk_hit_query(source_docs)
 
@@ -1218,6 +1408,19 @@ class RagChain:
                         except json.JSONDecodeError:
                             continue
 
+            answer_text = "".join(answer_parts)
+            if not answer_text.strip():
+                fallback_answer = (
+                    "知识库已完成检索，但模型没有返回有效答案，请重试一次。"
+                    if source_docs else NO_KNOWLEDGE_ANSWER
+                )
+                logger.warning(
+                    "流式查询模型输出为空 | %d 个来源 | question=%s",
+                    len(source_docs), q[:80]
+                )
+                answer_text = fallback_answer
+                yield {"type": "token", "data": fallback_answer}
+
             logger.info(
                 "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
                 len(source_docs), deep_mode, enable_rerank, thinking
@@ -1226,7 +1429,7 @@ class RagChain:
             yield {
                 "type": "sources",
                 "data": self._filter_cited_sources(
-                    "".join(answer_parts), source_docs
+                    answer_text, source_docs
                 ),
             }
             yield {"type": "done"}

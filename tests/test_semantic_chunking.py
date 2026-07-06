@@ -9,11 +9,21 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
+_INJECTED_MODULES = []
+
+
+def _inject_stub(name, stub):
+    global _INJECTED_MODULES
+    if name not in sys.modules:
+        sys.modules[name] = stub
+        _INJECTED_MODULES.append(name)
+
+
 def _install_loader_stubs():
     unstructured_stub = ModuleType("rag_knowledge.services.unstructured_loader")
     unstructured_stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
     unstructured_stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
-    sys.modules["rag_knowledge.services.unstructured_loader"] = unstructured_stub
+    _inject_stub("rag_knowledge.services.unstructured_loader", unstructured_stub)
 
     models_pkg = ModuleType("rag_knowledge.models")
     document_mod = ModuleType("rag_knowledge.models.document")
@@ -24,10 +34,17 @@ def _install_loader_stubs():
         VIDEO = "video"
 
     document_mod.FileCategory = FileCategory
-    sys.modules["rag_knowledge.models"] = models_pkg
-    sys.modules["rag_knowledge.models.document"] = document_mod
+    _inject_stub("rag_knowledge.models", models_pkg)
+    _inject_stub("rag_knowledge.models.document", document_mod)
 
     return FileCategory
+
+
+def tearDownModule():
+    global _INJECTED_MODULES
+    for name in _INJECTED_MODULES:
+        sys.modules.pop(name, None)
+    _INJECTED_MODULES.clear()
 
 
 def _load_loader_and_chunker():

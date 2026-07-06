@@ -46,6 +46,7 @@ class RetrievalStrategy:
         review_status: str | None = "approved",
         method: str | None = None,
         top_k: int | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         """
         执行检索，返回 LangChain Document 列表。
@@ -53,6 +54,7 @@ class RetrievalStrategy:
         参数：
           method: 检索方式，None 则使用配置值（mmr/similarity/bm25/hybrid）
           top_k:  覆盖配置中的 retrieval_top_k（用于重排序等场景获取更多候选文档）
+          candidate_k: 覆盖 hybrid 每路候选池大小
         """
         actual_method = method or self._cfg.retrieval_strategy
         logger.info("检索策略: %s | kb=%s", actual_method, kb_name or "auto")
@@ -74,6 +76,7 @@ class RetrievalStrategy:
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
+                candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
             return self._retrieve_vector(
@@ -97,6 +100,7 @@ class RetrievalStrategy:
         review_status: str | None = "approved",
         method: str | None = None,
         top_k: int | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         actual_method = method or self._cfg.retrieval_strategy
         logger.info("async 检索策略: %s | kb=%s", actual_method, kb_name or "auto")
@@ -118,6 +122,7 @@ class RetrievalStrategy:
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
+                candidate_k=candidate_k,
             )
         if actual_method == "similarity":
             return await self._aretrieve_vector(
@@ -145,6 +150,7 @@ class RetrievalStrategy:
         top_k: int | None = None,
         query_weights: list[float] | None = None,
         query_labels: list[str] | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         """对多个查询分别检索，用 RRF 融合所有结果。
 
@@ -162,12 +168,14 @@ class RetrievalStrategy:
             return self.retrieve(
                 queries[0], kb_name=kb_name, doc_category=doc_category,
                 review_status=review_status, method=method, top_k=top_k,
+                candidate_k=candidate_k,
             )
 
         actual_method = method or self._cfg.retrieval_strategy
         actual_top_k = top_k or self._cfg.retrieval_top_k
         # 每个查询拉取 candidate_k 条，给 RRF 足够的候选池
-        per_query_k = max(actual_top_k, self._cfg.retrieval_candidate_k)
+        actual_candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        per_query_k = max(actual_top_k, actual_candidate_k)
 
         logger.info(
             "多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
@@ -186,6 +194,7 @@ class RetrievalStrategy:
                     q, kb_name=kb_name, doc_category=doc_category,
                     review_status=review_status, method=actual_method,
                     top_k=per_query_k,
+                    candidate_k=actual_candidate_k,
                 )
                 all_ranked.append(docs)
                 weight = query_weights[i] if query_weights and i < len(query_weights) else 1.0
@@ -223,6 +232,7 @@ class RetrievalStrategy:
         top_k: int | None = None,
         query_weights: list[float] | None = None,
         query_labels: list[str] | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         """异步版多查询检索。各查询并发执行。"""
         if not queries:
@@ -232,11 +242,13 @@ class RetrievalStrategy:
             return await self.aretrieve(
                 queries[0], kb_name=kb_name, doc_category=doc_category,
                 review_status=review_status, method=method, top_k=top_k,
+                candidate_k=candidate_k,
             )
 
         actual_method = method or self._cfg.retrieval_strategy
         actual_top_k = top_k or self._cfg.retrieval_top_k
-        per_query_k = max(actual_top_k, self._cfg.retrieval_candidate_k)
+        actual_candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        per_query_k = max(actual_top_k, actual_candidate_k)
 
         logger.info(
             "async 多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
@@ -252,6 +264,7 @@ class RetrievalStrategy:
                     q, kb_name=kb_name, doc_category=doc_category,
                     review_status=review_status, method=actual_method,
                     top_k=per_query_k,
+                    candidate_k=actual_candidate_k,
                 )
             except Exception as e:
                 logger.warning("async 多查询检索 query 失败，跳过: %s", e)
@@ -362,6 +375,7 @@ class RetrievalStrategy:
         doc_category: str | None,
         review_status: str | None,
         top_k: int | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         """Similarity + BM25，并使用 RRF 融合两路排名。"""
         if self._cfg.retrieval_fusion_method != "rrf":
@@ -369,7 +383,7 @@ class RetrievalStrategy:
                 f"不支持的融合方式: {self._cfg.retrieval_fusion_method}，当前仅支持 rrf"
             )
 
-        candidate_k = self._cfg.retrieval_candidate_k
+        candidate_k = candidate_k or self._cfg.retrieval_candidate_k
         vector_docs = self._retrieve_vector(
             question, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
@@ -437,13 +451,14 @@ class RetrievalStrategy:
         doc_category: str | None,
         review_status: str | None,
         top_k: int | None = None,
+        candidate_k: int | None = None,
     ) -> list[Document]:
         if self._cfg.retrieval_fusion_method != "rrf":
             raise ValueError(
                 f"不支持的融合方式: {self._cfg.retrieval_fusion_method}，当前仅支持 rrf"
             )
 
-        candidate_k = self._cfg.retrieval_candidate_k
+        candidate_k = candidate_k or self._cfg.retrieval_candidate_k
         started = time.perf_counter()
         vector_docs, bm25_docs = await asyncio.gather(
             self._aretrieve_vector(

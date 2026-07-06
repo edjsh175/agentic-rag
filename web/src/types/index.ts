@@ -115,6 +115,58 @@ export interface ChunkStats {
   }
 }
 
+export const DOC_CATEGORIES = [
+  'StampServer', 'StampTools', 'StampWebRTC', '实景三维', '耕地保护',
+  '矢量瓦片', '基础环境', '博客', '其他',
+] as const
+
+export type DocCategory = typeof DOC_CATEGORIES[number]
+export type ReviewStatus = 'pending' | 'approved' | 'rejected'
+
+export interface AdminChunk {
+  chunk_id: string
+  file_name: string
+  source: string
+  section_title: string
+  doc_category: DocCategory
+  review_status: ReviewStatus
+  content_preview: string
+  content: string
+  kb_name?: string | null
+  page_label: string
+  indexed_at?: string | null
+  file_path?: string | null
+  kb_path?: string | null
+  title?: string | null
+  source_url?: string | null
+  author?: string | null
+  platform?: string | null
+  publish_date?: string | null
+  last_modified?: string | null
+  crawled_at?: string | null
+}
+
+export interface AdminChunkListResponse {
+  items: AdminChunk[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface AdminChunkUpdate {
+  review_status?: ReviewStatus
+  doc_category?: DocCategory
+  section_title?: string
+}
+
+export interface ReviewMutationResponse {
+  message: string
+  updated_chunks: number
+  requested_chunks: number
+  status: string
+}
+
 /** 扫描结果 */
 export interface ScanResult {
   new_files: number

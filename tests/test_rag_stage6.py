@@ -1,11 +1,37 @@
 import asyncio
+import sys
+import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
-from rag_knowledge.api import routes
 from rag_knowledge.models.api import QueryRequest
+
+try:
+    from rag_knowledge.api import routes
+except ModuleNotFoundError:
+    routes = None
+
+
+def _planner_stub(top_k=4, candidate_k=12, enable_rerank=False, expand_neighbors=False):
+    return type(
+        "PlannerStub",
+        (),
+        {
+            "plan": lambda self, question, queries, force_rerank=False: type(
+                "PlanStub",
+                (),
+                {
+                    "queries": queries,
+                    "top_k": top_k,
+                    "candidate_k": candidate_k,
+                    "enable_rerank": enable_rerank or force_rerank,
+                    "expand_neighbors": expand_neighbors,
+                },
+            )()
+        },
+    )()
 
 
 class RagStage6Tests(unittest.TestCase):
@@ -14,7 +40,9 @@ class RagStage6Tests(unittest.TestCase):
         chain._reranker = None
         chain._strategy = MagicMock()
         chain._strategy.retrieve_many.return_value = []
-        chain._postprocess_docs_sync = lambda question, docs, enabled: docs
+        chain._postprocess_docs_sync = (
+            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False: docs
+        )
 
         specs = [
             RetrievalQuery("current question", "original", 1.0),
@@ -30,9 +58,99 @@ class RagStage6Tests(unittest.TestCase):
             method=None,
             query_weights=[1.0, 0.3],
             query_labels=["original", "source_anchor"],
+            top_k=None,
+            candidate_k=None,
+        )
+
+    def test_multi_retrieval_uses_candidate_pool_before_rerank(self):
+        chain = object.__new__(RagChain)
+        chain._reranker = object()
+        chain._strategy = MagicMock()
+        chain._strategy.retrieve_many.return_value = []
+        chain._postprocess_docs_sync = (
+            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False: docs
+        )
+
+        specs = [
+            RetrievalQuery("main question", "original", 1.0),
+            RetrievalQuery("stage query", "planner_stage", 0.45),
+        ]
+        chain._retrieve_multi(
+            specs,
+            rerank=True,
+            plan_top_k=8,
+            plan_candidate_k=24,
+        )
+
+        chain._strategy.retrieve_many.assert_called_once_with(
+            ["main question", "stage query"],
+            kb_name=None,
+            doc_category=None,
+            review_status="approved",
+            method=None,
+            query_weights=[1.0, 0.45],
+            query_labels=["original", "planner_stage"],
+            top_k=24,
+            candidate_k=24,
+        )
+
+    def test_single_query_retrieval_keeps_planner_parameters(self):
+        chain = object.__new__(RagChain)
+        chain._retrieve = MagicMock(return_value=([], ""))
+
+        chain._retrieve_multi(
+            ["question"],
+            rerank=True,
+            web_search=True,
+            plan_top_k=8,
+            plan_candidate_k=24,
+            expand_neighbors=True,
+        )
+
+        chain._retrieve.assert_called_once_with(
+            "question",
+            kb_name=None,
+            doc_category=None,
+            review_status="approved",
+            method=None,
+            rerank=True,
+            web_search=True,
+            top_k_override=8,
+            candidate_k_override=24,
+            expand_neighbors=True,
+        )
+
+    def test_single_query_async_retrieval_keeps_planner_parameters(self):
+        chain = object.__new__(RagChain)
+        chain._aretrieve_with_cache = AsyncMock(return_value=([], ""))
+
+        asyncio.run(
+            chain._aretrieve_multi_uncached(
+                ["question"],
+                rerank=True,
+                web_search=True,
+                plan_top_k=8,
+                plan_candidate_k=24,
+                expand_neighbors=True,
+            )
+        )
+
+        chain._aretrieve_with_cache.assert_awaited_once_with(
+            rewritten_query="question",
+            kb_name=None,
+            doc_category=None,
+            review_status="approved",
+            method=None,
+            rerank=True,
+            web_search=True,
+            top_k_override=8,
+            candidate_k_override=24,
+            expand_neighbors=True,
         )
 
     def test_stream_route_encodes_named_status_event(self):
+        if routes is None:
+            self.skipTest("optional API route dependencies are not installed")
         original = routes._rag
 
         class RagStub:
@@ -95,6 +213,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._allow_general_knowledge = True
         chain._ollama_base = "http://localhost:11434"
         chain._llm_model = "test-model"
+        chain._query_planner = _planner_stub()
         chain._query_cache = MagicMock()
         chain._query_cache.get.side_effect = [None, {"source_docs": [], "context": ""}]
         chain._query_cache.set = MagicMock()
@@ -142,6 +261,7 @@ class RagStage6Tests(unittest.TestCase):
     def test_aquery_maps_thinking_true_to_request_rerank(self):
         chain = object.__new__(RagChain)
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._query_planner = _planner_stub(enable_rerank=True)
         chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
         chain._allow_general_knowledge = False
 
@@ -156,6 +276,9 @@ class RagStage6Tests(unittest.TestCase):
             doc_category=None,
             rerank=True,
             web_search=False,
+            plan_top_k=4,
+            plan_candidate_k=12,
+            expand_neighbors=False,
         )
 
     def test_aquery_keeps_rerank_disabled_when_thinking_false_or_none(self):
@@ -163,6 +286,7 @@ class RagStage6Tests(unittest.TestCase):
             with self.subTest(thinking=thinking):
                 chain = object.__new__(RagChain)
                 chain._build_retrieval_query_specs = lambda question, history: ["question"]
+                chain._query_planner = _planner_stub(enable_rerank=False)
                 chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
                 chain._allow_general_knowledge = False
 
@@ -180,11 +304,15 @@ class RagStage6Tests(unittest.TestCase):
                     doc_category=None,
                     rerank=False,
                     web_search=False,
+                    plan_top_k=4,
+                    plan_candidate_k=12,
+                    expand_neighbors=False,
                 )
 
     def test_stream_query_maps_thinking_true_to_request_rerank(self):
         chain = object.__new__(RagChain)
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._query_planner = _planner_stub(enable_rerank=True)
         chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
         chain._query_cache = MagicMock()
         chain._aretrieve_uncached = AsyncMock(return_value=([], ""))
@@ -207,6 +335,9 @@ class RagStage6Tests(unittest.TestCase):
             doc_category=None,
             rerank=True,
             web_search=False,
+            plan_top_k=4,
+            plan_candidate_k=12,
+            expand_neighbors=False,
         )
 
     def test_stream_query_keeps_rerank_disabled_when_thinking_false_or_none(self):
@@ -214,6 +345,7 @@ class RagStage6Tests(unittest.TestCase):
             with self.subTest(thinking=thinking):
                 chain = object.__new__(RagChain)
                 chain._build_retrieval_query_specs = lambda question, history: ["question"]
+                chain._query_planner = _planner_stub(enable_rerank=False)
                 chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
                 chain._query_cache = MagicMock()
                 chain._aretrieve_uncached = AsyncMock(return_value=([], ""))
@@ -237,12 +369,16 @@ class RagStage6Tests(unittest.TestCase):
                     doc_category=None,
                     rerank=False,
                     web_search=False,
+                    plan_top_k=4,
+                    plan_candidate_k=12,
+                    expand_neighbors=False,
                 )
 
     def test_query_logs_deep_mode_rerank_and_thinking_states(self):
         chain = object.__new__(RagChain)
         chain._allow_general_knowledge = True
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._query_planner = _planner_stub(enable_rerank=True)
         chain._retrieve_multi = MagicMock(return_value=([{"content": "ctx", "metadata": {"source": "doc", "category": "text"}}], "ctx"))
         chain._history_compressor = type(
             "HistoryCompressorStub",
@@ -272,6 +408,9 @@ class RagStage6Tests(unittest.TestCase):
             doc_category=None,
             rerank=True,
             web_search=False,
+            plan_top_k=4,
+            plan_candidate_k=12,
+            expand_neighbors=False,
         )
         self.assertTrue(
             any(
@@ -282,9 +421,36 @@ class RagStage6Tests(unittest.TestCase):
             )
         )
 
+    def test_query_uses_planner_parameters_for_retrieval(self):
+        chain = object.__new__(RagChain)
+        chain._allow_general_knowledge = False
+        chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._query_planner = _planner_stub(
+            top_k=8,
+            candidate_k=24,
+            enable_rerank=True,
+            expand_neighbors=True,
+        )
+        chain._retrieve_multi = MagicMock(return_value=([], ""))
+
+        result = chain.query("question", thinking=True, allow_general_knowledge=False)
+
+        self.assertEqual(result["source_documents"], [])
+        chain._retrieve_multi.assert_called_once_with(
+            ["question"],
+            kb_name=None,
+            doc_category=None,
+            rerank=True,
+            web_search=False,
+            plan_top_k=8,
+            plan_candidate_k=24,
+            expand_neighbors=True,
+        )
+
     def test_unknown_kb_async_path_merges_two_targets_deterministically(self):
         chain = object.__new__(RagChain)
         chain._reranker = None
+        chain._reranker_top_n = 4
         chain._retrieval_k = 4
         chain._retrieval_fetch_k = 12
         chain._retrieval_lambda = 0.7
@@ -405,4 +571,3 @@ class RagStage6Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

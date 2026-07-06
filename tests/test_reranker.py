@@ -117,6 +117,19 @@ class RagRerankerIntegrationTests(unittest.TestCase):
 
 
 class RerankerEvaluationTests(unittest.TestCase):
+    def test_ablation_restores_global_quality_config_after_failure(self):
+        runner = object.__new__(EvaluationRunner)
+        cfg = Config()
+        original = cfg.retrieval_quality.enabled
+        self.addCleanup(setattr, cfg.retrieval_quality, "enabled", original)
+        cfg.retrieval_quality.enabled = True
+        runner.run_retrieval_eval = MagicMock(side_effect=RuntimeError("evaluation failed"))
+
+        with self.assertRaisesRegex(RuntimeError, "evaluation failed"):
+            runner.run_ablation(methods=["hybrid"], k_values=[3])
+
+        self.assertTrue(cfg.retrieval_quality.enabled)
+
     def test_ablation_disables_quality_for_baseline_and_enables_variant(self):
         runner = object.__new__(EvaluationRunner)
         states = []

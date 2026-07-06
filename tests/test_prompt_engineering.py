@@ -39,12 +39,47 @@ class _AsyncClientStub:
 def _chain_without_sources():
     chain = object.__new__(RagChain)
     chain._allow_general_knowledge = True
-    chain._rewrite_query = lambda question, history: question
-    chain._retrieve = lambda *args, **kwargs: ([], "")
+    chain._build_retrieval_query_specs = lambda question, history: [question]
+    chain._query_planner = type(
+        "PlannerStub",
+        (),
+        {
+            "plan": lambda self, question, queries, force_rerank=False: type(
+                "PlanStub",
+                (),
+                {
+                    "queries": queries,
+                    "top_k": 4,
+                    "candidate_k": 12,
+                    "enable_rerank": force_rerank,
+                    "expand_neighbors": False,
+                },
+            )()
+        },
+    )()
+    chain._retrieve_multi = lambda *args, **kwargs: ([], "")
     return chain
 
 
 class PromptEngineeringTests(unittest.TestCase):
+    def test_partial_answer_keeps_explicitly_cited_sources(self):
+        sources = [
+            {"content": "alpha", "metadata": {"citation_id": 1}},
+            {"content": "beta", "metadata": {"citation_id": 2}},
+        ]
+
+        answer = (
+            "已查到部署准备步骤 [1]。"
+            "以上为知识库中已查到的部分内容。"
+            "关于发布回滚，当前知识库中未查询到相关内容。"
+        )
+
+        trusted = RagChain._filter_cited_sources(answer, sources)
+
+        self.assertEqual(
+            [source["metadata"]["citation_id"] for source in trusted], [1]
+        )
+
     def test_only_sources_cited_by_answer_are_trusted(self):
         sources = [
             {"content": "alpha", "metadata": {"citation_id": 1}},

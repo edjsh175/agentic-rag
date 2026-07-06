@@ -19,11 +19,17 @@ _STUBBED_MODULES = (
 )
 
 
+_INJECTED_UNSTRUCTURED_LOADER = False
+
+
 def _stub_unstructured_loader():
-    stub = ModuleType("rag_knowledge.services.unstructured_loader")
-    stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
-    stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
-    sys.modules.setdefault("rag_knowledge.services.unstructured_loader", stub)
+    global _INJECTED_UNSTRUCTURED_LOADER
+    if "rag_knowledge.services.unstructured_loader" not in sys.modules:
+        stub = ModuleType("rag_knowledge.services.unstructured_loader")
+        stub.UnstructuredChapterLoader = type("UnstructuredChapterLoader", (), {})
+        stub.SUPPORTED_EXTS = {".txt", ".md", ".docx"}
+        sys.modules["rag_knowledge.services.unstructured_loader"] = stub
+        _INJECTED_UNSTRUCTURED_LOADER = True
 
 
 def _stub_vector_store_module():
@@ -77,8 +83,12 @@ def _import_routes_module():
 
 class _ModuleIsolationMixin:
     def tearDown(self):
+        global _INJECTED_UNSTRUCTURED_LOADER
         for name in _STUBBED_MODULES:
             sys.modules.pop(name, None)
+        if _INJECTED_UNSTRUCTURED_LOADER:
+            sys.modules.pop("rag_knowledge.services.unstructured_loader", None)
+            _INJECTED_UNSTRUCTURED_LOADER = False
         super().tearDown()
 
 

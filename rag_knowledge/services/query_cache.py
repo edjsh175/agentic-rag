@@ -28,6 +28,9 @@ class QueryCache:
         method: str | None,
         rerank: bool,
         web_search: bool,
+        top_k_override: int | None = None,
+        candidate_k_override: int | None = None,
+        expand_neighbors: bool = False,
     ) -> str:
         payload = {
             "rewritten_query": rewritten_query,
@@ -37,6 +40,9 @@ class QueryCache:
             "method": method,
             "rerank": rerank,
             "web_search": web_search,
+            "top_k_override": top_k_override,
+            "candidate_k_override": candidate_k_override,
+            "expand_neighbors": expand_neighbors,
         }
         raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()

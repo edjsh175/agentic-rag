@@ -194,6 +194,103 @@ class VectorStore:
             kwargs["filter"] = filter
         return self._get_store().similarity_search_with_relevance_scores(query, **kwargs)
 
+    def get_neighbor_chunks(
+        self,
+        source: str,
+        section_index: int,
+        window: int = 2,
+        review_status: str | None = "approved",
+    ) -> list[Document]:
+        """按 source 文件名和 section_index 获取相邻 chunk。
+
+        例如命中 source=A.docx, section_index=23，window=2，
+        则返回 section_index ∈ [21, 22, 24, 25] 的 chunk（不含自身 23）。
+        使用 ChromaDB 原生 metadata filter ($and/$gte/$lte)。
+        """
+        if not source or section_index is None:
+            return []
+
+        where_conditions = [
+            {"source": {"$eq": source}},
+            {"section_index": {"$gte": int(section_index - window)}},
+            {"section_index": {"$lte": int(section_index + window)}},
+            {"section_index": {"$ne": int(section_index)}}
+        ]
+        if review_status:
+            where_conditions.append({"review_status": {"$eq": review_status}})
+
+        where = {"$and": where_conditions}
+        
+        try:
+            collection = self._get_store()._collection
+            res = collection.get(
+                where=where,
+                include=["documents", "metadatas"]
+            )
+            
+            documents = []
+            ids = res.get("ids") or []
+            metadatas = res.get("metadatas") or []
+            contents = res.get("documents") or []
+            
+            for idx, content in enumerate(contents):
+                if idx >= len(metadatas):
+                    break
+                meta = dict(metadatas[idx] or {})
+                if "chunk_id" not in meta and idx < len(ids):
+                    meta["chunk_id"] = ids[idx]
+                documents.append(Document(page_content=content, metadata=meta))
+                
+            # 按 section_index 升序排序
+            try:
+                documents.sort(key=lambda d: int(d.metadata.get("section_index", 0)))
+            except (TypeError, ValueError):
+                pass
+                
+            return documents
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("获取相邻 chunk 失败: %s", exc)
+            return []
+
+    def get_chunks_by_metadata(
+        self,
+        filters: dict,
+        limit: int = 20,
+    ) -> list[Document]:
+        """按 metadata 条件查询 chunk（不走向量检索）。
+        
+        filters: ChromaDB where 条件字典
+        """
+        if not filters:
+            return []
+        try:
+            collection = self._get_store()._collection
+            res = collection.get(
+                where=filters,
+                limit=limit,
+                include=["documents", "metadatas"]
+            )
+            
+            documents = []
+            ids = res.get("ids") or []
+            metadatas = res.get("metadatas") or []
+            contents = res.get("documents") or []
+            
+            for idx, content in enumerate(contents):
+                if idx >= len(metadatas):
+                    break
+                meta = dict(metadatas[idx] or {})
+                if "chunk_id" not in meta and idx < len(ids):
+                    meta["chunk_id"] = ids[idx]
+                documents.append(Document(page_content=content, metadata=meta))
+                
+            return documents
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("根据元数据查询 chunk 失败: %s", exc)
+            return []
+
     def delete(self, ids: list[str]):
         """按 chunk_id 列表删除"""
         if ids:

@@ -1,4 +1,5 @@
 import asyncio
+import importlib.machinery
 import importlib.util
 import json
 import sys
@@ -10,20 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import types
 
-jieba_module = types.ModuleType("jieba")
-jieba_module.cut = lambda text: list(text)
-rank_bm25_module = types.ModuleType("rank_bm25")
+_INJECTED_MODULES = []
 
 
-class _BM25OkapiStub:
-    def __init__(self, *args, **kwargs):
-        pass
+def _inject_stub(name, stub):
+    if name not in sys.modules:
+        sys.modules[name] = stub
+        _INJECTED_MODULES.append(name)
 
-    def get_scores(self, *args, **kwargs):
-        return []
-
-
-rank_bm25_module.BM25Okapi = _BM25OkapiStub
 
 unstructured_module = types.ModuleType("unstructured")
 unstructured_chunking_module = types.ModuleType("unstructured.chunking")
@@ -36,17 +31,19 @@ unstructured_chunking_title_module.chunk_by_title = lambda *args, **kwargs: []
 unstructured_partition_docx_module.partition_docx = lambda *args, **kwargs: []
 unstructured_partition_md_module.partition_md = lambda *args, **kwargs: []
 unstructured_partition_text_module.partition_text = lambda *args, **kwargs: []
-sys.modules.setdefault("unstructured", unstructured_module)
-sys.modules.setdefault("unstructured.chunking", unstructured_chunking_module)
-sys.modules.setdefault("unstructured.chunking.title", unstructured_chunking_title_module)
-sys.modules.setdefault("unstructured.partition", unstructured_partition_module)
-sys.modules.setdefault("unstructured.partition.docx", unstructured_partition_docx_module)
-sys.modules.setdefault("unstructured.partition.md", unstructured_partition_md_module)
-sys.modules.setdefault("unstructured.partition.text", unstructured_partition_text_module)
-if importlib.util.find_spec("jieba") is None:
-    sys.modules.setdefault("jieba", jieba_module)
-if importlib.util.find_spec("rank_bm25") is None:
-    sys.modules.setdefault("rank_bm25", rank_bm25_module)
+
+_inject_stub("unstructured", unstructured_module)
+_inject_stub("unstructured.chunking", unstructured_chunking_module)
+_inject_stub("unstructured.chunking.title", unstructured_chunking_title_module)
+_inject_stub("unstructured.partition", unstructured_partition_module)
+_inject_stub("unstructured.partition.docx", unstructured_partition_docx_module)
+_inject_stub("unstructured.partition.md", unstructured_partition_md_module)
+_inject_stub("unstructured.partition.text", unstructured_partition_text_module)
+
+
+def tearDownModule():
+    for name in _INJECTED_MODULES:
+        sys.modules.pop(name, None)
 
 from rag_knowledge.api import routes
 from rag_knowledge.models.api import QueryRequest

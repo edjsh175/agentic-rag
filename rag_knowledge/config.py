@@ -72,6 +72,22 @@ class CacheConfig:
     retrieval_executor_workers: int = 4
 
 
+@dataclass
+class QueryPlannerConfig:
+    """意图驱动检索计划配置。"""
+    enabled: bool = True
+    llm_timeout: int = 15
+    procedure_top_k: int = 8
+    procedure_candidate_k: int = 24
+    troubleshooting_top_k: int = 6
+    troubleshooting_candidate_k: int = 18
+    comparison_top_k: int = 6
+    comparison_candidate_k: int = 18
+    max_expanded_queries: int = 8
+    neighbor_window: int = 2
+    max_neighbors_per_source: int = 6
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -140,6 +156,22 @@ class Config:
         self.retrieval_fusion_method = _get("retrieval_strategy", "fusion_method", "rrf")
         self.retrieval_rrf_k = int(_get("retrieval_strategy", "rrf_k", "60"))
         self.retrieval_candidate_k = int(_get("retrieval_strategy", "candidate_k", "12"))
+
+        # ---- 意图驱动检索计划 ----
+        self.query_planner = QueryPlannerConfig(
+            enabled=_get("query_planner", "enabled", "true").lower() == "true",
+            llm_timeout=int(_get("query_planner", "llm_timeout", "15")),
+            procedure_top_k=int(_get("query_planner", "procedure_top_k", "8")),
+            procedure_candidate_k=int(_get("query_planner", "procedure_candidate_k", "24")),
+            troubleshooting_top_k=int(_get("query_planner", "troubleshooting_top_k", "6")),
+            troubleshooting_candidate_k=int(_get("query_planner", "troubleshooting_candidate_k", "18")),
+            comparison_top_k=int(_get("query_planner", "comparison_top_k", "6")),
+            comparison_candidate_k=int(_get("query_planner", "comparison_candidate_k", "18")),
+            max_expanded_queries=int(_get("query_planner", "max_expanded_queries", "8")),
+            neighbor_window=int(_get("query_planner", "neighbor_window", "2")),
+            max_neighbors_per_source=int(_get("query_planner", "max_neighbors_per_source", "6")),
+        )
+
         self.cache = CacheConfig(
             embedding_cache_enabled=_get("cache", "embedding_cache_enabled", "true").lower() == "true",
             embedding_cache_capacity=int(_get("cache", "embedding_cache_capacity", "10000")),

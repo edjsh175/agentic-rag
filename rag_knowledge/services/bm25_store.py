@@ -4,8 +4,9 @@ BM25 关键词检索索引
 从 ChromaDB 全量文档构建 BM25Okapi 索引，支持中文 jieba 分词。
 单例模式，通过 rebuild() 重建索引。
 """
-import time
 import logging
+import re
+import time
 from threading import Lock
 
 import jieba
@@ -116,41 +117,61 @@ class BM25Store:
                     logger.error("BM25 懒加载索引失败，检索将返回空结果: %s", e)
 
     def _build_index(self):
-        """从 ChromaDB 拉取全量文档并构建 BM25Okapi 索引。
-
-        异常会向上传播，由调用方决定处理策略：
-          - _ensure_index（懒加载）→ 捕获并降级
-          - rebuild（显式重建）  → 由上层 routes.py 捕获并返回错误
-        """
+        """Build the BM25 index from the full Chroma snapshot."""
         t0 = time.time()
         chroma = VectorStore().get_chroma()
-        # 拉取全部文档（不带过滤条件）
         result = chroma.get(include=["documents", "metadatas"])
 
         documents = result.get("documents", [])
         metadatas = result.get("metadatas", [])
         ids = result.get("ids", [])
 
+        self._bm25 = None
+        self._docs = []
+        self._metadatas = []
+
         if not documents:
-            logger.warning("ChromaDB 中没有文档，BM25 索引为空")
+            logger.warning("ChromaDB contains no documents; BM25 index remains empty")
             return
 
-        # jieba 分词构建语料
-        tokenized_corpus = [list(jieba.cut(doc)) for doc in documents]
-
-        self._bm25 = BM25Okapi(tokenized_corpus)
-        self._metadatas = []
-        for doc_id, meta in zip(ids, metadatas):
+        indexed_rows: list[tuple[str, str, dict, list[str]]] = []
+        for doc_id, doc, meta in zip(ids, documents, metadatas):
+            tokens = self._tokenize(doc)
+            if not tokens:
+                continue
             normalized_meta = dict(meta or {})
             normalized_meta.setdefault("chunk_id", doc_id)
+            indexed_rows.append((doc_id, doc, normalized_meta, tokens))
+
+        if not indexed_rows:
+            logger.warning("BM25 tokenized corpus is empty; skip index build")
+            return
+
+        tokenized_corpus = [tokens for _, _, _, tokens in indexed_rows]
+        self._bm25 = BM25Okapi(tokenized_corpus)
+        for _, doc, normalized_meta, _ in indexed_rows:
             self._metadatas.append(normalized_meta)
-        self._docs = [
-            Document(page_content=doc, metadata=meta)
-            for doc, meta in zip(documents, self._metadatas)
-        ]
+            self._docs.append(Document(page_content=doc, metadata=normalized_meta))
 
         elapsed = time.time() - t0
         logger.info(
-            "BM25 索引构建完成: %d 文档 | jieba 分词 | %.2fs",
+            "BM25 index built: %d docs | jieba tokenization | %.2fs",
             len(self._docs), elapsed,
         )
+
+    @staticmethod
+    def _tokenize(text: str) -> list[str]:
+        normalized = (text or "").strip()
+        if not normalized:
+            return []
+
+        try:
+            tokens = [token for token in jieba.cut(normalized) if str(token).strip()]
+        except Exception:
+            tokens = []
+
+        if tokens:
+            return tokens
+
+        # Fallback tokenizer for non-empty text when jieba returns nothing unexpectedly.
+        return re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]|[^\s]", normalized)
