@@ -930,12 +930,19 @@ def create_entity(req: EntityCreateRequest, response: Response):
         res = KnowledgeGraphService().create_entity(
             name=req.name,
             entity_type=req.entity_type,
-            doc_category=req.doc_category
+            doc_category=req.doc_category,
+            canonical_name=req.canonical_name or "",
+            description=req.description or "",
+            properties_json=req.properties_json or "{}",
+            confidence=req.confidence,
+            review_status=req.review_status
         )
         if not res.created:
             response.status_code = 200
         return res
     except ValueError as e:
+        if "already exists" in str(e):
+            raise HTTPException(409, detail=str(e))
         raise HTTPException(400, detail=str(e))
     except Exception as e:
         logger.error("Failed to create entity: %s", e)
@@ -947,13 +954,18 @@ def update_entity(entity_id: str, req: EntityUpdateRequest):
     """更新实体属性"""
     changes = req.model_dump(exclude_none=True)
     if not changes:
-        raise HTTPException(400, detail="至少提供 name、entity_type、doc_category 中的一项")
+        raise HTTPException(400, detail="至少提供要修改的一个属性")
     try:
         return KnowledgeGraphService().update_entity(
             entity_id=entity_id,
             name=req.name,
             entity_type=req.entity_type,
-            doc_category=req.doc_category
+            doc_category=req.doc_category,
+            canonical_name=req.canonical_name,
+            description=req.description,
+            properties_json=req.properties_json,
+            confidence=req.confidence,
+            review_status=req.review_status
         )
     except KeyError:
         raise HTTPException(404, detail="未找到指定的实体")
@@ -982,12 +994,19 @@ def create_relation(req: RelationCreateRequest, response: Response):
         res = KnowledgeGraphService().create_relation(
             source_id=req.source_id,
             target_id=req.target_id,
-            relation_type=req.relation_type
+            relation_type=req.relation_type,
+            properties_json=req.properties_json or "{}",
+            confidence=req.confidence,
+            evidence_text=req.evidence_text or "",
+            source_chunk_id=req.source_chunk_id or "",
+            review_status=req.review_status
         )
         if res.created is False:
             response.status_code = 200
         return res
     except ValueError as e:
+        if "already exists" in str(e):
+            raise HTTPException(409, detail=str(e))
         raise HTTPException(400, detail=str(e))
     except KeyError as e:
         raise HTTPException(404, detail=str(e))

@@ -165,6 +165,16 @@ neighbor_window = 2
 ; ??????????? chunk ?
 max_neighbors_per_source = 6
 
+[graph_retrieval]
+; Phase C 图谱增强检索。正式图谱通过 full quality 前保持关闭。
+enabled = false
+min_link_confidence = 0.75
+min_entity_confidence = 0.7
+min_relation_confidence = 0.7
+max_entities = 16
+max_chunks = 24
+graph_weight = 1.25
+
 [retrieval_quality]
 ; 检索后处理质量控制总开关（Phase 5）
 enabled = true
@@ -199,3 +209,11 @@ enabled = true
 max_raw_rounds = 20
 min_raw_rounds = 8
 failure_cooldown_seconds = 300
+
+
+[structured_retrieval]
+; 表格与结构化检索加权配置
+enabled = true
+table_boost = 0.03
+table_header_boost = 0.01
+section_match_boost = 0.02

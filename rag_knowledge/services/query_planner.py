@@ -169,6 +169,12 @@ class RetrievalPlan:
     enable_rerank: bool
     expand_neighbors: bool
     confidence: float
+    linked_entities: tuple[Any, ...] = ()
+    graph_queries: tuple[str, ...] = ()
+    graph_chunk_ids: tuple[str, ...] = ()
+    excluded_entity_ids: tuple[str, ...] = ()
+    graph_revision: str = ""
+    graph_fallback_reason: str | None = None
 
 
 class QueryPlanner:

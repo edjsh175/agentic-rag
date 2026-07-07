@@ -31,6 +31,9 @@ class QueryCache:
         top_k_override: int | None = None,
         candidate_k_override: int | None = None,
         expand_neighbors: bool = False,
+        graph_enabled: bool = False,
+        graph_entity_ids: tuple[str, ...] = (),
+        graph_revision: str = "",
     ) -> str:
         payload = {
             "rewritten_query": rewritten_query,
@@ -43,6 +46,9 @@ class QueryCache:
             "top_k_override": top_k_override,
             "candidate_k_override": candidate_k_override,
             "expand_neighbors": expand_neighbors,
+            "graph_enabled": graph_enabled,
+            "graph_entity_ids": graph_entity_ids,
+            "graph_revision": graph_revision,
         }
         raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()

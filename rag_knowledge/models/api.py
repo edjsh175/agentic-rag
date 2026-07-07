@@ -228,22 +228,71 @@ class BlogPostListResponse(BaseModel):
 # =====================================================================
 
 class EntityTypeEnum(str, Enum):
-    module = "功能模块"
-    data_file = "数据文件"
-    config = "配置项"
-    api = "API接口"
+    """实体类型 — 覆盖三层图谱。
+
+    旧值（功能模块/数据文件/配置项/API接口）保留为别名以兼容已有 API。
+    """
+    # --- 第一层：文档结构 ---
+    document = "Document"
+    section = "Section"
+    # --- 第二层：领域概念 ---
+    product = "Product"
+    tool = "Tool"
+    service = "Service"
+    module = "Module"
+    data_table = "DataTable"
+    field = "Field"
+    config_item = "ConfigItem"
+    format = "Format"
+    # --- 第三层：业务能力 ---
+    procedure = "Procedure"
+    step = "Step"
+    error = "Error"
+    solution = "Solution"
+    # --- 旧版兼容别名 ---
+    legacy_module = "功能模块"
+    legacy_data_file = "数据文件"
+    legacy_config = "配置项"
+    legacy_api = "API接口"
 
 
 class RelationTypeEnum(str, Enum):
-    dependency = "依赖"
-    used_in = "被使用于"
-    contains = "包含"
-    peer = "平级"
+    """关系类型 — 覆盖三层图谱。"""
+    # 文档结构
+    has_section = "has_section"
+    has_chunk = "has_chunk"
+    defined_in = "defined_in"
+    # 领域概念
+    alias_of = "alias_of"
+    different_from = "different_from"
+    belongs_to = "belongs_to"
+    has_table = "has_table"
+    has_field = "has_field"
+    uses_config = "uses_config"
+    supports_format = "supports_format"
+    produces = "produces"
+    consumes = "consumes"
+    requires = "requires"
+    # 业务能力
+    has_step = "has_step"
+    causes = "causes"
+    solved_by = "solved_by"
+    # --- 旧版兼容别名 ---
+    legacy_dependency = "依赖"
+    legacy_used_in = "被使用于"
+    legacy_contains = "包含"
+    legacy_peer = "平级"
 
 
 class LinkTypeEnum(str, Enum):
-    primary = "主要描述"
-    indirect = "间接提及"
+    """实体-知识块关联类型。"""
+    primary = "primary"
+    mention = "mention"
+    evidence = "evidence"
+    table_source = "table_source"
+    # --- 旧版兼容别名 ---
+    legacy_primary = "主要描述"
+    legacy_indirect = "间接提及"
 
 
 class DocCategoryEnum(str, Enum):
@@ -262,6 +311,11 @@ class EntityCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, description="实体名称")
     entity_type: EntityTypeEnum = Field(..., description="实体类型")
     doc_category: Optional[DocCategoryEnum] = Field(None, description="所属文档分类")
+    canonical_name: Optional[str] = Field(None, description="归一化名称")
+    description: Optional[str] = Field(None, description="实体描述")
+    properties_json: Optional[str] = Field(None, description="扩展属性JSON")
+    confidence: Optional[float] = Field(None, description="置信度")
+    review_status: Optional[str] = Field(None, description="审核状态")
 
 
 class EntityCreateResponse(BaseModel):
@@ -269,6 +323,11 @@ class EntityCreateResponse(BaseModel):
     name: str
     entity_type: EntityTypeEnum
     doc_category: Optional[DocCategoryEnum] = None
+    canonical_name: Optional[str] = None
+    description: Optional[str] = None
+    properties_json: Optional[str] = None
+    confidence: Optional[float] = None
+    review_status: Optional[str] = None
     created_by: str
     created_at: str
     created: bool = Field(..., description="是否为新创建的实体")
@@ -278,6 +337,11 @@ class EntityUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, description="实体名称")
     entity_type: Optional[EntityTypeEnum] = Field(None, description="实体类型")
     doc_category: Optional[DocCategoryEnum] = Field(None, description="所属文档分类")
+    canonical_name: Optional[str] = Field(None, description="归一化名称")
+    description: Optional[str] = Field(None, description="实体描述")
+    properties_json: Optional[str] = Field(None, description="扩展属性JSON")
+    confidence: Optional[float] = Field(None, description="置信度")
+    review_status: Optional[str] = Field(None, description="审核状态")
 
 
 class EntityResponse(BaseModel):
@@ -285,6 +349,11 @@ class EntityResponse(BaseModel):
     name: str
     entity_type: EntityTypeEnum
     doc_category: Optional[DocCategoryEnum] = None
+    canonical_name: Optional[str] = None
+    description: Optional[str] = None
+    properties_json: Optional[str] = None
+    confidence: Optional[float] = None
+    review_status: Optional[str] = None
     created_by: str
     created_at: str
 
@@ -293,6 +362,11 @@ class RelationCreateRequest(BaseModel):
     source_id: str = Field(..., description="源实体 ID")
     target_id: str = Field(..., description="目标实体 ID")
     relation_type: RelationTypeEnum = Field(..., description="关系类型")
+    properties_json: Optional[str] = Field("{}", description="扩展属性JSON")
+    confidence: Optional[float] = Field(None, description="置信度")
+    evidence_text: Optional[str] = Field("", description="证据链文本")
+    source_chunk_id: Optional[str] = Field("", description="关联chunk ID")
+    review_status: Optional[str] = Field(None, description="审核状态")
 
 
 class RelationResponse(BaseModel):
@@ -300,6 +374,11 @@ class RelationResponse(BaseModel):
     source_id: str
     target_id: str
     relation_type: RelationTypeEnum
+    properties_json: Optional[str] = None
+    confidence: Optional[float] = None
+    evidence_text: Optional[str] = None
+    source_chunk_id: Optional[str] = None
+    review_status: Optional[str] = None
     created_by: str
     created_at: str
     created: Optional[bool] = None

@@ -32,7 +32,17 @@ class RetrievalQualityConfig:
 
 
 @dataclass
+class StructuredRetrievalConfig:
+    """结构化与表格检索加权控制配置"""
+    enabled: bool = True
+    table_boost: float = 0.03
+    table_header_boost: float = 0.01
+    section_match_boost: float = 0.02
+
+
+@dataclass
 class ContextBudgetConfig:
+
     """Context 自动裁剪配置（Token 预算控制）"""
     enabled: bool = True
     # 模型上下文窗口大小（tokens），切换模型时同步修改
@@ -86,6 +96,18 @@ class QueryPlannerConfig:
     max_expanded_queries: int = 8
     neighbor_window: int = 2
     max_neighbors_per_source: int = 6
+
+
+@dataclass
+class GraphRetrievalConfig:
+    """Evidence-backed knowledge graph retrieval settings (Phase C)."""
+    enabled: bool = False
+    min_link_confidence: float = 0.75
+    min_entity_confidence: float = 0.7
+    min_relation_confidence: float = 0.7
+    max_entities: int = 16
+    max_chunks: int = 24
+    graph_weight: float = 1.25
 
 
 class Config:
@@ -172,6 +194,16 @@ class Config:
             max_neighbors_per_source=int(_get("query_planner", "max_neighbors_per_source", "6")),
         )
 
+        self.graph_retrieval = GraphRetrievalConfig(
+            enabled=_get("graph_retrieval", "enabled", "false").lower() == "true",
+            min_link_confidence=float(_get("graph_retrieval", "min_link_confidence", "0.75")),
+            min_entity_confidence=float(_get("graph_retrieval", "min_entity_confidence", "0.7")),
+            min_relation_confidence=float(_get("graph_retrieval", "min_relation_confidence", "0.7")),
+            max_entities=int(_get("graph_retrieval", "max_entities", "16")),
+            max_chunks=int(_get("graph_retrieval", "max_chunks", "24")),
+            graph_weight=float(_get("graph_retrieval", "graph_weight", "1.25")),
+        )
+
         self.cache = CacheConfig(
             embedding_cache_enabled=_get("cache", "embedding_cache_enabled", "true").lower() == "true",
             embedding_cache_capacity=int(_get("cache", "embedding_cache_capacity", "10000")),
@@ -203,6 +235,14 @@ class Config:
             compression_model=_get("retrieval_quality", "compression_model", "qwen2.5:7b"),
             max_compressed_chunk_chars=int(_get("retrieval_quality", "max_compressed_chunk_chars", "800")),
             debug_log_enabled=_get("retrieval_quality", "debug_log_enabled", "true").lower() == "true",
+        )
+
+        # ---- 结构化与表格检索加权配置 ----
+        self.structured_retrieval = StructuredRetrievalConfig(
+            enabled=_get("structured_retrieval", "enabled", "true").lower() == "true",
+            table_boost=float(_get("structured_retrieval", "table_boost", "0.03")),
+            table_header_boost=float(_get("structured_retrieval", "table_header_boost", "0.01")),
+            section_match_boost=float(_get("structured_retrieval", "section_match_boost", "0.02")),
         )
 
         # ---- Context 自动裁剪 (Token 预算控制) ----

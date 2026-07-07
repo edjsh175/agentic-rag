@@ -76,6 +76,10 @@ class UnstructuredChapterLoader:
                 if self._is_docx_toc_paragraph(block):
                     continue
                 heading_level = self._extract_docx_heading_level(block)
+                if heading_level is None:
+                    heading_level = self._is_conservative_heading_fallback(block)
+                    if heading_level is not None:
+                        logger.info("Heuristic heading detected: %s (level=%d)", text, heading_level)
                 if heading_level is not None:
                     collector.handle_heading(text, heading_level)
                 else:
@@ -143,6 +147,72 @@ class UnstructuredChapterLoader:
             if match:
                 return int(match.group(1))
         return None
+
+    @classmethod
+    def _is_conservative_heading_fallback(cls, paragraph: Paragraph) -> int | None:
+        text = paragraph.text.strip()
+        if not text:
+            return None
+
+        # 1. 单行且长度限制
+        if "\n" in text or len(text) > 50:
+            return None
+
+        # 2. 不能以特定标点符号结尾
+        if text.endswith((".", "。", "?", "？", "!", "！", ";", "；", ":", "：")):
+            return None
+
+        # 3. 匹配编号标题模式
+        patterns = [
+            r"^\d+(?:\.\d+)*\s+\S+",                      # e.g., 1.2.3 管线点表
+            r"^第[一二三四五六七八九十百]+[章章节回]\s*\S*",      # e.g., 第一章 数据规范
+            r"^[一二三四五六七八九十百]+[、\s]\s*\S+",           # e.g., 一、 发布流程
+            r"^[（(][一二三四五六七八九十百]+[）)]\s*\S*",        # e.g., （一）数据规范 或 (一) 数据规范
+        ]
+
+        is_numbered = False
+        for pattern in patterns:
+            if re.match(pattern, text):
+                is_numbered = True
+                break
+
+        if is_numbered:
+            return cls._infer_heading_level(text)
+
+        # 4. 或者是段落中 runs 存在加粗/大字号特征（对于无编号文本，条件要更严苛，避免将普通强调文本误判为章节标题）
+        runs = getattr(paragraph, "runs", [])
+        if runs and len(text) <= 25:
+            has_text_runs = [r for r in runs if r.text.strip()]
+            if has_text_runs:
+                all_bold = all(r.bold for r in has_text_runs)
+                has_large_font = False
+                for r in has_text_runs:
+                    if r.font and r.font.size and getattr(r.font.size, "pt", 0) >= 12:
+                        has_large_font = True
+                # 大字号（>= 12pt）或者极短的加粗（<= 20字符）才判定为标题
+                if has_large_font or (all_bold and len(text) <= 20):
+                    return cls._infer_heading_level(text)
+
+        return None
+
+    @staticmethod
+    def _infer_heading_level(text: str) -> int:
+        text = text.strip()
+        match = re.match(r"^(\d+(?:\.\d+)*)", text)
+        if match:
+            parts = match.group(1).split(".")
+            return min(6, len(parts))
+
+        if re.match(r"^第[一二三四五六七八九十百]+章", text):
+            return 1
+        if re.match(r"^第[一二三四五六七八九十百]+[章节]", text):
+            return 2
+        if re.match(r"^[一二三四五六七八九十百]+[、]", text):
+            return 2
+        if re.match(r"^[（(][一二三四五六七八九十百]+[）)]", text):
+            return 3
+
+        return 3
 
     @staticmethod
     def _is_docx_toc_paragraph(paragraph: Paragraph) -> bool:

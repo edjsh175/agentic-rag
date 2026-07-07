@@ -168,7 +168,13 @@ class DirectoryScanner:
     def _collect_files(self, directory: Path) -> list[Path]:
         """递归收集所有匹配扩展名的文件"""
         exts = {f".{t}" for t in self._cfg.watch_file_types}
-        return [p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in exts]
+        return [
+            p for p in directory.rglob("*")
+            if p.is_file()
+            and p.suffix.lower() in exts
+            and not p.name.startswith("~$")
+            and not p.name.startswith(".")
+        ]
 
     def _process(self, file_path: Path, base: Path) -> str:
         """处理单个文件，返回状态: new / skipped / error"""

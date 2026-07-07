@@ -53,6 +53,16 @@ fetch_k = 20
 ; MMR 多样性权重（0=纯多样，1=纯相关），0.7 表示偏相关性
 lambda_mult = 0.7
 
+[graph_retrieval]
+; Phase C 图谱增强检索。黄金图谱 apply 且 full quality 通过前保持关闭。
+enabled = false
+min_link_confidence = 0.75
+min_entity_confidence = 0.7
+min_relation_confidence = 0.7
+max_entities = 16
+max_chunks = 24
+graph_weight = 1.25
+
 [scanner]
 ; 监视目录：支持绝对路径，自动递归遍历所有子目录
 ; Linux 部署示例：
@@ -101,3 +111,11 @@ enabled = true
 max_raw_rounds = 20
 min_raw_rounds = 8
 failure_cooldown_seconds = 300
+
+
+[structured_retrieval]
+; 表格与结构化检索加权配置
+enabled = true
+table_boost = 0.03
+table_header_boost = 0.01
+section_match_boost = 0.02

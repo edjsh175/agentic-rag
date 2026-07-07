@@ -11,6 +11,7 @@ import re
 import json
 import time
 import logging
+from dataclasses import replace
 
 import httpx
 from langchain_ollama import ChatOllama
@@ -237,6 +238,20 @@ class RagChain:
         from rag_knowledge.services.query_planner import QueryPlanner
         self._query_planner = QueryPlanner(cfg)
 
+        # ---- Knowledge graph retrieval (Phase C, disabled by default) ----
+        self._graph_cfg = cfg.graph_retrieval
+        self._graph_retriever = None
+        if self._graph_cfg.enabled:
+            from rag_knowledge.services.graph_retrieval import GraphRetriever
+            self._graph_retriever = GraphRetriever(
+                store=self._store,
+                min_link_confidence=self._graph_cfg.min_link_confidence,
+                min_entity_confidence=self._graph_cfg.min_entity_confidence,
+                min_relation_confidence=self._graph_cfg.min_relation_confidence,
+                max_entities=self._graph_cfg.max_entities,
+                max_chunks=self._graph_cfg.max_chunks,
+            )
+
         # ---- 重排序器 (Phase 4) ----
         self._reranker_enabled = cfg.reranker_enabled
         self._reranker_type = cfg.reranker_type
@@ -272,6 +287,43 @@ class RagChain:
         except Exception as exc:
             logger.warning("chunk hit telemetry write failed: %s", exc)
 
+    def _prepare_graph_plan(self, question, plan, kb_name=None, doc_category=None, review_status="approved"):
+        retriever = getattr(self, "_graph_retriever", None)
+        if retriever is None:
+            return plan, None, []
+        started = time.perf_counter()
+        try:
+            context, docs = retriever.retrieve(
+                question,
+                plan.intent,
+                queries=plan.queries,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+            )
+            excluded = tuple(sorted({item for linked in context.linked_entities for item in linked.excluded_entity_ids}))
+            enriched = replace(
+                plan,
+                linked_entities=context.linked_entities,
+                graph_queries=context.retrieval_queries,
+                graph_chunk_ids=context.chunk_ids,
+                excluded_entity_ids=excluded,
+                graph_revision=f"{retriever.revision()}:{getattr(getattr(self, '_graph_cfg', None), 'graph_weight', 1.25)}",
+                graph_fallback_reason=context.fallback_reason,
+            )
+        except Exception as exc:
+            logger.warning("graph retrieval failed, fallback to standard retrieval: %s", exc)
+            return plan, None, []
+        logger.info(
+            "graph_retrieval | linked=%s chunks=%d relations=%d fallback=%s elapsed=%.3fs",
+            [item.canonical_name for item in context.linked_entities],
+            len(context.chunk_ids),
+            len(context.relation_ids),
+            context.fallback_reason or "none",
+            time.perf_counter() - started,
+        )
+        return enriched, context, docs
+
     # ------------------------------------------------------------------
     # 检索 + 上下文构建（同步，流式/非流式共用）
     # ------------------------------------------------------------------
@@ -300,6 +352,10 @@ class RagChain:
         top_k_override: int | None = None,
         candidate_k_override: int | None = None,
         expand_neighbors: bool = False,
+        graph_docs: list[Document] | None = None,
+        graph_excluded_chunk_ids: tuple[str, ...] = (),
+        graph_entity_ids: tuple[str, ...] = (),
+        graph_revision: str = "",
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         cache = getattr(self, "_query_cache", None)
@@ -314,6 +370,9 @@ class RagChain:
             top_k_override=top_k_override,
             candidate_k_override=candidate_k_override,
             expand_neighbors=expand_neighbors,
+            graph_enabled=graph_docs is not None,
+            graph_entity_ids=graph_entity_ids,
+            graph_revision=graph_revision,
         )
 
         if cache is not None:
@@ -323,6 +382,10 @@ class RagChain:
                 return cached["source_docs"], cached["context"]
             logger.debug("query cache miss | key=%s", cache_key[:8])
 
+        graph_uncached_kwargs = {}
+        if graph_docs is not None:
+            graph_uncached_kwargs["graph_docs"] = graph_docs
+            graph_uncached_kwargs["graph_excluded_chunk_ids"] = graph_excluded_chunk_ids
         source_docs, context = await self._aretrieve_uncached(
             rewritten_query,
             kb_name=kb_name,
@@ -334,6 +397,7 @@ class RagChain:
             top_k_override=top_k_override,
             candidate_k_override=candidate_k_override,
             expand_neighbors=expand_neighbors,
+            **graph_uncached_kwargs,
         )
 
         if cache is not None:
@@ -352,6 +416,8 @@ class RagChain:
         top_k_override: int | None = None,
         candidate_k_override: int | None = None,
         expand_neighbors: bool = False,
+        graph_docs: list[Document] | None = None,
+        graph_excluded_chunk_ids: tuple[str, ...] = (),
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -407,6 +473,17 @@ class RagChain:
                     time.perf_counter() - started,
                 )
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
+
+        if graph_docs is not None:
+            from rag_knowledge.services.graph_retrieval import GraphRetriever
+            graph_weight = getattr(getattr(self, "_graph_cfg", None), "graph_weight", 1.25)
+            docs = GraphRetriever.fuse(
+                docs,
+                graph_docs,
+                top_k=candidate_top_k,
+                graph_weight=graph_weight,
+                excluded_chunk_ids=graph_excluded_chunk_ids,
+            )
 
         docs = await self._postprocess_docs(
             question,
@@ -802,12 +879,15 @@ class RagChain:
         plan_top_k: int | None = None,
         plan_candidate_k: int | None = None,
         expand_neighbors: bool = False,
+        graph_docs: list[Document] | None = None,
+        graph_weight: float = 1.25,
+        graph_excluded_chunk_ids: tuple[str, ...] = (),
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
 
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
-        if len(query_texts) <= 1:
+        if len(query_texts) <= 1 and graph_docs is None:
             # ???????
             return self._retrieve(
                 query_texts[0] if query_texts else "",
@@ -835,6 +915,15 @@ class RagChain:
             top_k=retrieval_top_k,
             candidate_k=plan_candidate_k,
         )
+        if graph_docs is not None:
+            from rag_knowledge.services.graph_retrieval import GraphRetriever
+            docs = GraphRetriever.fuse(
+                docs,
+                graph_docs,
+                top_k=plan_candidate_k or plan_top_k or self._retrieval_k,
+                graph_weight=graph_weight,
+                excluded_chunk_ids=graph_excluded_chunk_ids,
+            )
         docs = self._postprocess_docs_sync(
             q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
         )
@@ -861,12 +950,25 @@ class RagChain:
         plan_top_k: int | None = None,
         plan_candidate_k: int | None = None,
         expand_neighbors: bool = False,
+        graph_docs: list[Document] | None = None,
+        graph_entity_ids: tuple[str, ...] = (),
+        graph_revision: str = "",
+        graph_weight: float = 1.25,
+        graph_excluded_chunk_ids: tuple[str, ...] = (),
     ) -> tuple[list[dict], str]:
         """异步多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
         if len(query_texts) <= 1:
             single_q = query_texts[0] if query_texts else ""
+            graph_cache_kwargs = {}
+            if graph_docs is not None:
+                graph_cache_kwargs = {
+                    "graph_docs": graph_docs,
+                    "graph_entity_ids": graph_entity_ids,
+                    "graph_revision": graph_revision,
+                    "graph_excluded_chunk_ids": graph_excluded_chunk_ids,
+                }
             return await self._aretrieve_with_cache(
                 rewritten_query=single_q,
                 kb_name=kb_name,
@@ -878,6 +980,7 @@ class RagChain:
                 top_k_override=plan_top_k,
                 candidate_k_override=plan_candidate_k,
                 expand_neighbors=expand_neighbors,
+                **graph_cache_kwargs,
             )
 
         q = query_texts[0]
@@ -893,6 +996,15 @@ class RagChain:
             top_k=retrieval_top_k,
             candidate_k=plan_candidate_k,
         )
+        if graph_docs is not None:
+            from rag_knowledge.services.graph_retrieval import GraphRetriever
+            docs = GraphRetriever.fuse(
+                docs,
+                graph_docs,
+                top_k=plan_candidate_k or plan_top_k or self._retrieval_k,
+                graph_weight=graph_weight,
+                excluded_chunk_ids=graph_excluded_chunk_ids,
+            )
         docs = await self._postprocess_docs(
             q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
         )
@@ -1147,7 +1259,6 @@ class RagChain:
               agent_prompt: str | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
-        enable_rerank = deep_mode
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -1162,7 +1273,18 @@ class RagChain:
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
-            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
+            plan = self._plan_retrieval(q, queries, force_rerank=True)
+            plan, graph_context, graph_docs = self._prepare_graph_plan(
+                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+            )
+            graph_kwargs = {}
+            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
+                if graph_context.fallback_reason is None and graph_docs:
+                    graph_kwargs = {
+                        "graph_docs": graph_docs,
+                        "graph_weight": self._graph_cfg.graph_weight,
+                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
+                    }
             source_docs, context = self._retrieve_multi(
                 plan.queries, kb_name=kb_name, doc_category=doc_category,
                 rerank=plan.enable_rerank,
@@ -1170,6 +1292,7 @@ class RagChain:
                 plan_top_k=plan.top_k,
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
+                **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
 
@@ -1212,7 +1335,7 @@ class RagChain:
             ) or "无匹配"
             logger.info(
                 "查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
-                len(source_docs), elapsed, deep_mode, enable_rerank, thinking, src_info
+                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking, src_info
             )
 
             if not answer.strip():
@@ -1236,7 +1359,6 @@ class RagChain:
                      agent_prompt: str | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
-        enable_rerank = deep_mode
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -1250,7 +1372,20 @@ class RagChain:
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
-            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
+            plan = self._plan_retrieval(q, queries, force_rerank=True)
+            plan, graph_context, graph_docs = self._prepare_graph_plan(
+                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+            )
+            graph_kwargs = {}
+            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
+                if graph_context.fallback_reason is None and graph_docs:
+                    graph_kwargs = {
+                        "graph_docs": graph_docs,
+                        "graph_entity_ids": tuple(item.entity_id for item in plan.linked_entities),
+                        "graph_revision": plan.graph_revision,
+                        "graph_weight": self._graph_cfg.graph_weight,
+                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
+                    }
             source_docs, context = await self._aretrieve_multi_uncached(
                 plan.queries,
                 kb_name=kb_name,
@@ -1260,6 +1395,7 @@ class RagChain:
                 plan_top_k=plan.top_k,
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
+                **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
 
@@ -1300,7 +1436,7 @@ class RagChain:
             ) or "无匹配"
             logger.info(
                 "异步查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
-                len(source_docs), elapsed, deep_mode, enable_rerank, thinking, src_info
+                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking, src_info
             )
 
             if not answer_content.strip():
@@ -1325,7 +1461,6 @@ class RagChain:
                             agent_prompt: str | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
-        enable_rerank = deep_mode
 
         if not q:
             yield {"type": "token", "data": "请输入有效的问题"}
@@ -1347,7 +1482,20 @@ class RagChain:
         try:
             yield {"type": "status", "data": "正在检索知识库..."}
             queries = self._build_retrieval_query_specs(q, history)
-            plan = self._plan_retrieval(q, queries, force_rerank=enable_rerank)
+            plan = self._plan_retrieval(q, queries, force_rerank=True)
+            plan, graph_context, graph_docs = self._prepare_graph_plan(
+                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+            )
+            graph_kwargs = {}
+            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
+                if graph_context.fallback_reason is None and graph_docs:
+                    graph_kwargs = {
+                        "graph_docs": graph_docs,
+                        "graph_entity_ids": tuple(item.entity_id for item in plan.linked_entities),
+                        "graph_revision": plan.graph_revision,
+                        "graph_weight": self._graph_cfg.graph_weight,
+                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
+                    }
             if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
                 source_docs, context = await self._aretrieve_multi_uncached(
                     plan.queries,
@@ -1358,8 +1506,16 @@ class RagChain:
                     plan_top_k=plan.top_k,
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
+                    **graph_kwargs,
                 )
             else:
+                sync_graph_kwargs = {}
+                if graph_kwargs:
+                    sync_graph_kwargs = {
+                        "graph_docs": graph_docs,
+                        "graph_weight": self._graph_cfg.graph_weight,
+                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
+                    }
                 source_docs, context = self._retrieve_multi(
                     plan.queries, kb_name=kb_name, doc_category=doc_category,
                     rerank=plan.enable_rerank,
@@ -1367,6 +1523,7 @@ class RagChain:
                     plan_top_k=plan.top_k,
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
+                    **sync_graph_kwargs,
                 )
             self._record_chunk_hit_query(source_docs)
 
@@ -1453,7 +1610,7 @@ class RagChain:
 
             logger.info(
                 "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
-                len(source_docs), deep_mode, enable_rerank, thinking
+                len(source_docs), deep_mode, plan.enable_rerank, thinking
             )
 
             yield {

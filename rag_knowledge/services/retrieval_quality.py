@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 _TABLE_QUERY_HINTS = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
 _TABLE_CONTENT_HINTS = ("字段名", "说明")
+_TABLE_SECTION_TERMS = ("点表", "线表", "面表")
 
 
 class RetrievalQualityStrategy:
@@ -29,6 +30,7 @@ class RetrievalQualityStrategy:
 
     def __init__(self, config: Config):
         self._cfg = config.retrieval_quality
+        self._cfg_structured = getattr(config, "structured_retrieval", None)
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -44,19 +46,31 @@ class RetrievalQualityStrategy:
 
         返回：处理后的 Document 列表，按 quality_score 降序
         """
-        if not self._cfg.enabled:
-            return docs
-
         if not docs:
             return docs
 
-        debug = self._cfg.debug_log_enabled
+        # Check if structured retrieval boost is enabled.
+        # Fallback if self._cfg_structured is not loaded (e.g. mocked in raw unit tests).
+        cfg_structured = getattr(self, "_cfg_structured", None)
+        if cfg_structured is None:
+            if not self._cfg.enabled:
+                return docs
+            struct_enabled = True
+        else:
+            struct_enabled = getattr(cfg_structured, "enabled", True)
 
-        # 1. 统一分数
-        docs = self._normalize_scores(docs)
+        # We normalize scores if EITHER structured boost is enabled OR quality filters are enabled
+        if struct_enabled or self._cfg.enabled:
+            docs = self._normalize_scores(docs)
 
         # 1.5 表格类问题增强
-        docs = self._boost_table_chunks(query, docs)
+        if struct_enabled:
+            docs = self._boost_table_chunks(query, docs)
+
+        if not self._cfg.enabled:
+            return docs
+
+        debug = self._cfg.debug_log_enabled
 
         # 2. 相似度阈值过滤
         if self._cfg.score_threshold_enabled:
@@ -86,16 +100,26 @@ class RetrievalQualityStrategy:
         if not normalized_query or not any(hint in normalized_query for hint in _TABLE_QUERY_HINTS):
             return docs
 
+        table_boost = getattr(self._cfg_structured, "table_boost", 0.03) if self._cfg_structured else 0.03
+        table_header_boost = getattr(self._cfg_structured, "table_header_boost", 0.01) if self._cfg_structured else 0.01
+        section_match_boost = getattr(self._cfg_structured, "section_match_boost", 0.02) if self._cfg_structured else 0.02
+
         for doc in docs:
             metadata = doc.metadata or {}
             bonus = 0.0
             if metadata.get("content_type") == "table":
-                bonus += 0.12
+                bonus += table_boost
             if metadata.get("chunking_method") == "table":
-                bonus += 0.06
+                bonus += table_boost * 0.5
             page_content = doc.page_content or ""
             if all(hint in page_content for hint in _TABLE_CONTENT_HINTS):
-                bonus += 0.04
+                bonus += table_header_boost
+
+            searchable_text = metadata.get("searchable_text") or page_content
+            for term in _TABLE_SECTION_TERMS:
+                if term in normalized_query and term in searchable_text:
+                    bonus += section_match_boost
+
             if bonus <= 0:
                 continue
             metadata["table_query_boost"] = round(bonus, 4)

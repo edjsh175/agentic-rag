@@ -79,25 +79,25 @@ class RetrievalStrategy:
             )
         elif actual_method == "hybrid":
             docs = self._retrieve_hybrid(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
             docs = self._retrieve_vector(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="similarity", top_k=top_k,
             )
         else:
             # 默认 mmr
             docs = self._retrieve_vector(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="mmr", top_k=top_k,
             )
-        return self._apply_structured_query_boost(question, docs)
+        return docs
 
     async def aretrieve(
         self,
@@ -127,24 +127,24 @@ class RetrievalStrategy:
             )
         elif actual_method == "hybrid":
             docs = await self._aretrieve_hybrid(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
             docs = await self._aretrieve_vector(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="similarity", top_k=top_k,
             )
         else:
             docs = await self._aretrieve_vector(
-                retrieval_query, kb_name=kb_name,
+                question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="mmr", top_k=top_k,
             )
-        return self._apply_structured_query_boost(question, docs)
+        return docs
 
     @staticmethod
     def _augment_structured_query(query: str) -> str:
@@ -158,40 +158,8 @@ class RetrievalStrategy:
         return f"{normalized}{_STRUCTURED_QUERY_SUFFIX}"
 
     def _apply_structured_query_boost(self, query: str, docs: list[Document]) -> list[Document]:
-        normalized_query = (query or "").strip()
-        if not normalized_query or not docs:
-            return docs
-        if not any(hint in normalized_query for hint in _TABLE_QUERY_HINTS):
-            return docs
-
-        boosted_docs: list[Document] = []
-        for doc in docs:
-            metadata = dict(doc.metadata or {})
-            bonus = 0.0
-            if metadata.get("content_type") == "table":
-                bonus += 0.012
-            if metadata.get("chunking_method") == "table":
-                bonus += 0.006
-            page_content = doc.page_content or ""
-            if all(hint in page_content for hint in _TABLE_CONTENT_HINTS):
-                bonus += 0.004
-            searchable_text = metadata.get("searchable_text") or page_content
-            for term in _TABLE_SECTION_TERMS:
-                if term in normalized_query and term in searchable_text:
-                    bonus += 0.01
-            if bonus > 0:
-                metadata["structured_query_boost"] = round(bonus, 4)
-                metadata["retrieval_sort_score"] = self._raw_retrieval_score(metadata) + bonus
-            else:
-                metadata["retrieval_sort_score"] = self._raw_retrieval_score(metadata)
-            doc.metadata = metadata
-            boosted_docs.append(doc)
-
-        return sorted(
-            boosted_docs,
-            key=lambda d: float(d.metadata.get("retrieval_sort_score", 0.0)),
-            reverse=True,
-        )
+        # Legacy no-op helper: structured query boost is now unified in RetrievalQualityStrategy.
+        return docs
 
     @staticmethod
     def _raw_retrieval_score(metadata: dict) -> float:
@@ -451,13 +419,14 @@ class RetrievalStrategy:
             )
 
         candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        augmented_query = self._augment_structured_query(question)
         vector_docs = self._retrieve_vector(
             question, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
             search_type="similarity", top_k=candidate_k,
         )
         bm25_docs = self._retrieve_bm25(
-            question, kb_name=kb_name,
+            augmented_query, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
             top_k=candidate_k,
         )
@@ -526,6 +495,7 @@ class RetrievalStrategy:
             )
 
         candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        augmented_query = self._augment_structured_query(question)
         started = time.perf_counter()
         vector_docs, bm25_docs = await asyncio.gather(
             self._aretrieve_vector(
@@ -534,7 +504,7 @@ class RetrievalStrategy:
                 search_type="similarity", top_k=candidate_k,
             ),
             self._aretrieve_bm25(
-                question, kb_name=kb_name,
+                augmented_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=candidate_k,
             ),
