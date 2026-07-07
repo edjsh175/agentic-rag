@@ -20,6 +20,9 @@ from rag_knowledge.config import Config
 
 logger = logging.getLogger(__name__)
 
+_TABLE_QUERY_HINTS = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
+_TABLE_CONTENT_HINTS = ("字段名", "说明")
+
 
 class RetrievalQualityStrategy:
     """检索后处理质量控制"""
@@ -52,6 +55,9 @@ class RetrievalQualityStrategy:
         # 1. 统一分数
         docs = self._normalize_scores(docs)
 
+        # 1.5 表格类问题增强
+        docs = self._boost_table_chunks(query, docs)
+
         # 2. 相似度阈值过滤
         if self._cfg.score_threshold_enabled:
             docs = self._filter_by_score(docs)
@@ -73,6 +79,34 @@ class RetrievalQualityStrategy:
             )
 
         return docs
+
+    def _boost_table_chunks(self, query: str, docs: list[Document]) -> list[Document]:
+        """Apply a small structured-data bonus for table-oriented queries."""
+        normalized_query = (query or "").strip()
+        if not normalized_query or not any(hint in normalized_query for hint in _TABLE_QUERY_HINTS):
+            return docs
+
+        for doc in docs:
+            metadata = doc.metadata or {}
+            bonus = 0.0
+            if metadata.get("content_type") == "table":
+                bonus += 0.12
+            if metadata.get("chunking_method") == "table":
+                bonus += 0.06
+            page_content = doc.page_content or ""
+            if all(hint in page_content for hint in _TABLE_CONTENT_HINTS):
+                bonus += 0.04
+            if bonus <= 0:
+                continue
+            metadata["table_query_boost"] = round(bonus, 4)
+            metadata["quality_score"] = float(metadata.get("quality_score", 0.0)) + bonus
+            doc.metadata = metadata
+
+        return sorted(
+            docs,
+            key=lambda d: float(d.metadata.get("quality_score", 0.0)),
+            reverse=True,
+        )
 
     # ------------------------------------------------------------------
     # 1. 分数归一化

@@ -24,6 +24,10 @@ from langchain_ollama import OllamaEmbeddings
 
 from rag_knowledge.config import Config
 from rag_knowledge.models.document import FileCategory
+from rag_knowledge.models.structured_document import (
+    build_searchable_text,
+    render_section_prefix,
+)
 from rag_knowledge.services.semantic_chunker import SemanticChunker, SemanticChunkingError
 from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader, SUPPORTED_EXTS
 
@@ -324,7 +328,12 @@ class FileLoader:
                             metadata={
                                 "source": path.name,
                                 "sheet": sheet_name,
+                                "section_title": sheet_name,
+                                "section_path": sheet_name,
+                                "heading_level": 1,
+                                "element_order": len(docs) + 1,
                                 "content_type": "table",
+                                "chunking_method": "table",
                                 "table_source": "excel",
                             },
                         ))
@@ -354,7 +363,12 @@ class FileLoader:
                             metadata={
                                 "source": path.name,
                                 "sheet": sheet.name,
+                                "section_title": sheet.name,
+                                "section_path": sheet.name,
+                                "heading_level": 1,
+                                "element_order": len(docs) + 1,
                                 "content_type": "table",
+                                "chunking_method": "table",
                                 "table_source": "excel",
                             },
                         ))
@@ -462,6 +476,58 @@ class FileLoader:
         if len(lines) == 1 and len(compact) < 16 and not VERSION_HINT_RE.search(stripped):
             return True
 
+        for line in lines:
+            for token in re.split(r"\s+", line):
+                compact_token = token.strip()
+                if len(compact_token) < 40:
+                    continue
+                has_ascii_letters = any(char.isascii() and char.isalpha() for char in compact_token)
+                has_non_ascii = any(not char.isascii() for char in compact_token)
+                if has_ascii_letters and has_non_ascii:
+                    return True
+            compact_line = "".join(char for char in line if not char.isspace())
+            if len(compact_line) < 32:
+                continue
+            ascii_letters = sum(1 for char in compact_line if char.isascii() and char.isalpha())
+            cjk_chars = sum(1 for char in compact_line if "\u3400" <= char <= "\u9fff")
+            other_non_ascii = sum(
+                1
+                for char in compact_line
+                if not char.isascii()
+                and not ("\u3400" <= char <= "\u9fff")
+                and char not in "，。；：！？、（）《》【】“”‘’—…￥"
+            )
+            if ascii_letters >= 4 and cjk_chars >= 4 and other_non_ascii >= 4:
+                return True
+
+        non_space_chars = [char for char in stripped if not char.isspace()]
+        if len(non_space_chars) >= 24:
+            readable = sum(1 for char in non_space_chars if FileLoader._is_readable_text_char(char))
+            if readable / len(non_space_chars) < 0.35:
+                return True
+            longest_unreadable_run = 0
+            current_unreadable_run = 0
+            for char in stripped:
+                if char.isspace() or FileLoader._is_readable_text_char(char):
+                    current_unreadable_run = 0
+                    continue
+                current_unreadable_run += 1
+                longest_unreadable_run = max(longest_unreadable_run, current_unreadable_run)
+            if longest_unreadable_run >= 12:
+                return True
+
+        return False
+
+    @staticmethod
+    def _is_readable_text_char(char: str) -> bool:
+        if not char:
+            return False
+        if char.isascii():
+            return char.isalnum() or char in ".,;:!?()[]{}<>/-_#%&*+=@'\"\\|`~$"
+        if "\u3400" <= char <= "\u9fff":
+            return True
+        if char in "，。；：！？、（）《》【】“”‘’—…￥":
+            return True
         return False
 
     # ------------------------------------------------------------------
@@ -738,7 +804,7 @@ class FileLoader:
         out_docs = []
         for doc in docs:
             out_docs.extend(self._split_markdown_preserving_blocks(doc))
-        return out_docs
+        return [self._finalize_structured_chunk(doc) for doc in out_docs]
 
     def _split_markdown_preserving_blocks(self, doc: Document) -> list[Document]:
         """将单个文档（Markdown/Excel 表格/普通文本）按结构保护切分"""
@@ -770,6 +836,35 @@ class FileLoader:
                 out_docs.extend(self._split_plain_text_block(temp_doc))
 
         return out_docs
+
+    @staticmethod
+    def _finalize_structured_chunk(doc: Document) -> Document:
+        """Render section prefixes and stable searchable_text for final stored chunks."""
+        metadata = dict(doc.metadata or {})
+        body = (doc.page_content or "").strip()
+        if not body:
+            doc.metadata = metadata
+            return doc
+
+        section_path = metadata.get("section_path")
+        if isinstance(section_path, str):
+            section_parts = [part.strip() for part in section_path.split(">") if part.strip()]
+        elif isinstance(section_path, (list, tuple)):
+            section_parts = [str(part).strip() for part in section_path if str(part).strip()]
+            metadata["section_path"] = " > ".join(section_parts)
+        else:
+            section_parts = []
+            metadata.setdefault("section_path", "")
+
+        prefix = render_section_prefix(section_parts)
+        doc.page_content = f"{prefix}\n\n{body}" if prefix else body
+        metadata["searchable_text"] = build_searchable_text(
+            section_parts,
+            body,
+            metadata.get("content_type"),
+        )
+        doc.metadata = metadata
+        return doc
 
     def _split_plain_text_block(self, doc: Document) -> list[Document]:
         if getattr(self, "_semantic_chunking_enabled", False) and getattr(self, "_semantic_chunker", None) is not None:
@@ -902,7 +997,12 @@ class FileLoader:
                 }
             )]
 
-        if len(table_text) <= self._chunk_size:
+        keep_whole_docx_table = (
+            str(metadata.get("source", "")).lower().endswith(".docx")
+            and len(table_text) <= max(self._chunk_size * 4, 4096)
+        )
+
+        if len(table_text) <= self._chunk_size or keep_whole_docx_table:
             return [Document(
                 page_content=table_text,
                 metadata={

@@ -16,6 +16,11 @@ from rag_knowledge.repository.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
+_TABLE_QUERY_HINTS = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
+_TABLE_CONTENT_HINTS = ("字段名", "说明")
+_TABLE_SECTION_TERMS = ("点表", "线表", "面表")
+_STRUCTURED_QUERY_SUFFIX = " 字段名 说明 数据结构"
+
 
 class RetrievalStrategy:
     """检索策略调度器"""
@@ -57,6 +62,7 @@ class RetrievalStrategy:
           candidate_k: 覆盖 hybrid 每路候选池大小
         """
         actual_method = method or self._cfg.retrieval_strategy
+        retrieval_query = self._augment_structured_query(question)
         logger.info("检索策略: %s | kb=%s", actual_method, kb_name or "auto")
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
@@ -66,31 +72,32 @@ class RetrievalStrategy:
             )
 
         if actual_method == "bm25":
-            return self._retrieve_bm25(
-                question, kb_name=kb_name,
+            docs = self._retrieve_bm25(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
             )
         elif actual_method == "hybrid":
-            return self._retrieve_hybrid(
-                question, kb_name=kb_name,
+            docs = self._retrieve_hybrid(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
-            return self._retrieve_vector(
-                question, kb_name=kb_name,
+            docs = self._retrieve_vector(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="similarity", top_k=top_k,
             )
         else:
             # 默认 mmr
-            return self._retrieve_vector(
-                question, kb_name=kb_name,
+            docs = self._retrieve_vector(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="mmr", top_k=top_k,
             )
+        return self._apply_structured_query_boost(question, docs)
 
     async def aretrieve(
         self,
@@ -103,6 +110,7 @@ class RetrievalStrategy:
         candidate_k: int | None = None,
     ) -> list[Document]:
         actual_method = method or self._cfg.retrieval_strategy
+        retrieval_query = self._augment_structured_query(question)
         logger.info("async 检索策略: %s | kb=%s", actual_method, kb_name or "auto")
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
@@ -112,29 +120,88 @@ class RetrievalStrategy:
             )
 
         if actual_method == "bm25":
-            return await self._aretrieve_bm25(
-                question, kb_name=kb_name,
+            docs = await self._aretrieve_bm25(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
             )
-        if actual_method == "hybrid":
-            return await self._aretrieve_hybrid(
-                question, kb_name=kb_name,
+        elif actual_method == "hybrid":
+            docs = await self._aretrieve_hybrid(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
-        if actual_method == "similarity":
-            return await self._aretrieve_vector(
-                question, kb_name=kb_name,
+        elif actual_method == "similarity":
+            docs = await self._aretrieve_vector(
+                retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="similarity", top_k=top_k,
             )
-        return await self._aretrieve_vector(
-            question, kb_name=kb_name,
-            doc_category=doc_category, review_status=review_status,
-            search_type="mmr", top_k=top_k,
+        else:
+            docs = await self._aretrieve_vector(
+                retrieval_query, kb_name=kb_name,
+                doc_category=doc_category, review_status=review_status,
+                search_type="mmr", top_k=top_k,
+            )
+        return self._apply_structured_query_boost(question, docs)
+
+    @staticmethod
+    def _augment_structured_query(query: str) -> str:
+        normalized = (query or "").strip()
+        if not normalized:
+            return normalized
+        if not any(hint in normalized for hint in _TABLE_QUERY_HINTS):
+            return normalized
+        if all(term in normalized for term in _TABLE_CONTENT_HINTS):
+            return normalized
+        return f"{normalized}{_STRUCTURED_QUERY_SUFFIX}"
+
+    def _apply_structured_query_boost(self, query: str, docs: list[Document]) -> list[Document]:
+        normalized_query = (query or "").strip()
+        if not normalized_query or not docs:
+            return docs
+        if not any(hint in normalized_query for hint in _TABLE_QUERY_HINTS):
+            return docs
+
+        boosted_docs: list[Document] = []
+        for doc in docs:
+            metadata = dict(doc.metadata or {})
+            bonus = 0.0
+            if metadata.get("content_type") == "table":
+                bonus += 0.012
+            if metadata.get("chunking_method") == "table":
+                bonus += 0.006
+            page_content = doc.page_content or ""
+            if all(hint in page_content for hint in _TABLE_CONTENT_HINTS):
+                bonus += 0.004
+            searchable_text = metadata.get("searchable_text") or page_content
+            for term in _TABLE_SECTION_TERMS:
+                if term in normalized_query and term in searchable_text:
+                    bonus += 0.01
+            if bonus > 0:
+                metadata["structured_query_boost"] = round(bonus, 4)
+                metadata["retrieval_sort_score"] = self._raw_retrieval_score(metadata) + bonus
+            else:
+                metadata["retrieval_sort_score"] = self._raw_retrieval_score(metadata)
+            doc.metadata = metadata
+            boosted_docs.append(doc)
+
+        return sorted(
+            boosted_docs,
+            key=lambda d: float(d.metadata.get("retrieval_sort_score", 0.0)),
+            reverse=True,
         )
+
+    @staticmethod
+    def _raw_retrieval_score(metadata: dict) -> float:
+        for key in ("rerank_score", "rrf_score", "similarity_score", "score"):
+            if key in metadata:
+                try:
+                    return float(metadata[key])
+                except (TypeError, ValueError):
+                    continue
+        return 0.0
 
     # ------------------------------------------------------------------
     # 多查询检索（Multi-query Retrieval）

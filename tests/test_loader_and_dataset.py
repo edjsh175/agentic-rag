@@ -53,6 +53,24 @@ class LoaderCleaningTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertIn("pm2 start", result[0].page_content)
 
+    def test_low_information_detects_garbled_old_doc_text(self):
+        FileLoader = _load_file_loader()
+        garbled = (
+            "̀Ĥꐓ£ꐔ£愁Ĥ摧ඪRጀࣦࣺࣤ࣪࣬ࣼࣾलऴशसऺ़ाीूॺॼॾ"
+            "鮉鮪뗗篗筲흜魊ȣ脈樃⿌ࠆᄁ脈栖揭lࡕ洁H渄H甄Ĉ"
+        )
+        self.assertTrue(FileLoader._is_low_information(garbled))
+
+    def test_low_information_detects_chunks_with_long_garbled_runs(self):
+        FileLoader = _load_file_loader()
+        mixed = (
+            "Description=TongWeb Server\n"
+            "After=database.target\n"
+            "[Servi散൝祔数昽牯楫杮唍敳㵲潲瑯䔍癮物湯敭瑮∽䅊䅖䡟䵏㵅䅊䅖䡟䵏彅䅖䥒呁≅倍䑉楆敬"
+            "执行/data/tong/TongWeb7/bin目录下的installservice.sh\n"
+        )
+        self.assertTrue(FileLoader._is_low_information(mixed))
+
 
 class HardCaseDatasetTests(unittest.TestCase):
     def test_build_hardcase_dataset_expands_each_question(self):

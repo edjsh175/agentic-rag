@@ -357,6 +357,8 @@ class RagChain:
         final_top_k = top_k_override or self._retrieval_k
         candidate_top_k = candidate_k_override or self._reranker_candidate_k
         strategy_top_k = candidate_top_k if enable_rerank else top_k_override
+        if not enable_rerank and self._is_table_oriented_query(question):
+            strategy_top_k = max(final_top_k, 12)
 
         if kb_name:
             docs = await self._strategy.aretrieve(
@@ -454,6 +456,8 @@ class RagChain:
 
         docs = await asyncio.to_thread(self._quality.apply, question, docs)
         docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
+        if target_top_k is not None and len(docs) > target_top_k:
+            docs = docs[:target_top_k]
         return docs
 
     @staticmethod
@@ -501,6 +505,8 @@ class RagChain:
         final_top_k = top_k_override or self._retrieval_k
         candidate_top_k = candidate_k_override or self._reranker_candidate_k
         strategy_top_k = candidate_top_k if enable_rerank else top_k_override
+        if not enable_rerank and self._is_table_oriented_query(question):
+            strategy_top_k = max(final_top_k, 12)
 
         if kb_name:
             docs = self._strategy.retrieve(
@@ -928,6 +934,8 @@ class RagChain:
 
         docs = self._quality.apply(question, docs)
         docs = self._compress_retrieved_docs(question, docs)
+        if target_top_k is not None and len(docs) > target_top_k:
+            docs = docs[:target_top_k]
         return docs
 
     def _expand_neighbor_chunks(
@@ -1027,6 +1035,20 @@ class RagChain:
 
     def _route_query(self, question: str) -> str | None:
         """判断问题应检索哪个知识库，返回 kb_name 或 None（不确定/兜底搜全部）"""
+        normalized = (question or "").strip()
+        if normalized:
+            attachment_hints = (
+                "手册", "规范", "要求", "字段", "配置", "发布", "工具", "服务",
+                "PipelineBuilder", "DOMBuilder", "DEMBuilder", "TINBuilder",
+                "ModelBuilder", "UEModelBuilder", "ObliqueModelBuilder",
+                "StampTools", "StampServer", "StampWebRTC",
+            )
+            published_hints = ("博客", "新闻", "公告", "资讯", "经验分享", "CSDN")
+            if any(hint in normalized for hint in published_hints):
+                return "已发布文章"
+            if any(hint in normalized for hint in attachment_hints):
+                return "文章附件"
+
         try:
             route_options = dict(_HELPER_OPTIONS, num_predict=16)
             resp = httpx.post(
@@ -1047,6 +1069,14 @@ class RagChain:
         except Exception as e:
             logger.warning("Query 路由失败，兜底搜全部: %s", e)
         return None
+
+    @staticmethod
+    def _is_table_oriented_query(question: str) -> bool:
+        normalized = (question or "").strip()
+        if not normalized:
+            return False
+        hints = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
+        return any(hint in normalized for hint in hints)
 
     @staticmethod
     def _build_messages(question: str, context: str, history: list | None = None,

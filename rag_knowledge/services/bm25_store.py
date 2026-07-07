@@ -74,7 +74,11 @@ class BM25Store:
         results: list[Document] = []
         for idx, score in ranked:
             if score <= 0:
-                doc_terms = {token for token in jieba.cut(self._docs[idx].page_content) if token.strip()}
+                search_text = (
+                    self._metadatas[idx].get("searchable_text")
+                    or self._docs[idx].page_content
+                )
+                doc_terms = {token for token in jieba.cut(search_text) if token.strip()}
                 if not query_terms.intersection(doc_terms):
                     continue
             meta = self._metadatas[idx]
@@ -136,10 +140,11 @@ class BM25Store:
 
         indexed_rows: list[tuple[str, str, dict, list[str]]] = []
         for doc_id, doc, meta in zip(ids, documents, metadatas):
-            tokens = self._tokenize(doc)
+            normalized_meta = dict(meta or {})
+            searchable_text = normalized_meta.get("searchable_text") or doc
+            tokens = self._tokenize(searchable_text)
             if not tokens:
                 continue
-            normalized_meta = dict(meta or {})
             normalized_meta.setdefault("chunk_id", doc_id)
             indexed_rows.append((doc_id, doc, normalized_meta, tokens))
 
