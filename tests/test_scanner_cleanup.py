@@ -102,6 +102,32 @@ class ScannerCleanupTests(unittest.TestCase):
 
         query_cache_stub.clear_query_cache.assert_called_once_with()
 
+    def test_collect_files_filters_temporary_and_hidden_files(self):
+        module = _load_scanner_module()
+        scanner = object.__new__(module.DirectoryScanner)
+        scanner._cfg = SimpleNamespace(
+            watch_file_types=["pdf", "docx", "doc", "txt", "md"]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            # Create valid file
+            (base / "valid.docx").write_text("content", encoding="utf-8")
+            # Create temporary lock file
+            (base / "~$valid.docx").write_text("content", encoding="utf-8")
+            # Create dot file
+            (base / ".hidden.txt").write_text("content", encoding="utf-8")
+            # Create unsupported file type
+            (base / "valid.zip").write_text("content", encoding="utf-8")
+
+            files = scanner._collect_files(base)
+            file_names = {p.name for p in files}
+
+            self.assertIn("valid.docx", file_names)
+            self.assertNotIn("~$valid.docx", file_names)
+            self.assertNotIn(".hidden.txt", file_names)
+            self.assertNotIn("valid.zip", file_names)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -111,6 +111,16 @@ class QueryPlannerTests(unittest.TestCase):
 
         self.assertTrue(plan.enable_rerank)
 
+    def test_plan_exposes_empty_graph_fields_before_phase_c_enrichment(self):
+        plan = self.planner.plan("DOMBuilder config types")
+
+        self.assertEqual(plan.linked_entities, ())
+        self.assertEqual(plan.graph_queries, ())
+        self.assertEqual(plan.graph_chunk_ids, ())
+        self.assertEqual(plan.excluded_entity_ids, ())
+        self.assertEqual(plan.graph_revision, "")
+        self.assertIsNone(plan.graph_fallback_reason)
+
 
 if __name__ == "__main__":
     unittest.main()

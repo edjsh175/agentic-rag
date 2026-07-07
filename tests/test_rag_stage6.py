@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 from rag_knowledge.models.api import QueryRequest
+from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity
 
 try:
     from rag_knowledge.api import routes
@@ -35,6 +36,158 @@ def _planner_stub(top_k=4, candidate_k=12, enable_rerank=False, expand_neighbors
 
 
 class RagStage6Tests(unittest.TestCase):
+    def test_multi_retrieval_fuses_graph_documents_before_postprocessing(self):
+        from langchain_core.documents import Document
+
+        chain = object.__new__(RagChain)
+        chain._reranker = object()
+        chain._strategy = MagicMock()
+        chain._strategy.retrieve_many.return_value = [
+            Document(page_content="wrong", metadata={"chunk_id": "wrong"}),
+            Document(page_content="pipeline", metadata={"chunk_id": "pipeline"}),
+        ]
+        captured = []
+        chain._postprocess_docs_sync = lambda question, docs, *args, **kwargs: captured.extend(docs) or docs
+        chain._normalize_source = lambda content, metadata, index: {"content": content, "metadata": metadata}
+        chain._format_context = lambda docs: "ctx"
+
+        chain._retrieve_multi(
+            ["question", "stage"],
+            rerank=True,
+            plan_top_k=2,
+            plan_candidate_k=4,
+            graph_docs=[Document(page_content="pipeline", metadata={"chunk_id": "pipeline"})],
+            graph_weight=1.25,
+        )
+
+        self.assertEqual([doc.metadata["chunk_id"] for doc in captured], ["pipeline", "wrong"])
+
+    def test_graph_plan_enrichment_is_disabled_without_retriever(self):
+        chain = object.__new__(RagChain)
+        chain._graph_retriever = None
+        plan = type("Plan", (), {"intent": "procedure"})()
+
+        enriched, context, docs = chain._prepare_graph_plan("question", plan)
+
+        self.assertIs(enriched, plan)
+        self.assertIsNone(context)
+        self.assertEqual(docs, [])
+
+    def test_graph_plan_enrichment_adds_context_and_documents(self):
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        linked = LinkedEntity("e1", "PipelineBuilder", "Tool", 0.96, "alias_exact", ("e2",))
+        context = GraphContext(
+            linked_entities=(linked,),
+            expanded_entity_ids=("e1",),
+            chunk_ids=("c1",),
+            retrieval_queries=("PipelineBuilder", "工程设置"),
+        )
+        graph_doc = type("Doc", (), {})()
+        chain = object.__new__(RagChain)
+        chain._graph_retriever = MagicMock()
+        chain._graph_retriever.retrieve.return_value = (context, [graph_doc])
+        chain._graph_retriever.revision.return_value = "rev-1"
+        plan = RetrievalPlan("procedure", [], 8, 24, True, True, 0.9)
+
+        enriched, returned_context, docs = chain._prepare_graph_plan("question", plan)
+
+        self.assertEqual(enriched.graph_queries, ("PipelineBuilder", "工程设置"))
+        self.assertEqual(enriched.graph_chunk_ids, ("c1",))
+        self.assertEqual(enriched.excluded_entity_ids, ("e2",))
+        self.assertEqual(enriched.graph_revision, "rev-1:1.25")
+        self.assertIs(returned_context, context)
+        self.assertEqual(docs, [graph_doc])
+
+    def test_graph_plan_enrichment_falls_back_when_revision_lookup_fails(self):
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        chain = object.__new__(RagChain)
+        chain._graph_retriever = MagicMock()
+        chain._graph_retriever.retrieve.side_effect = RuntimeError("graph unavailable")
+        plan = RetrievalPlan("definition", [], 4, 12, True, False, 0.9)
+
+        enriched, context, docs = chain._prepare_graph_plan("question", plan)
+
+        self.assertIs(enriched, plan)
+        self.assertIsNone(context)
+        self.assertEqual(docs, [])
+
+    def test_query_methods_fallback_gracefully_when_graph_retrieval_fails(self):
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        chain = object.__new__(RagChain)
+        chain._graph_cfg = type("Config", (), {"graph_weight": 1.25})()
+        chain._graph_retriever = MagicMock()
+        chain._graph_retriever.retrieve.side_effect = RuntimeError("db offline")
+
+        chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._plan_retrieval = lambda question, queries, force_rerank=False: RetrievalPlan("definition", [], 4, 12, True, False, 0.9)
+        chain._retrieve_multi = MagicMock(return_value=([], ""))
+        chain._record_chunk_hit_query = MagicMock()
+        chain._allow_general_knowledge = False
+
+        res = chain.query("question", allow_general_knowledge=False)
+        self.assertEqual(res["source_documents"], [])
+        chain._retrieve_multi.assert_called_once_with(
+            [], kb_name=None, doc_category=None,
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+        )
+
+        chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
+        res_async = asyncio.run(
+            chain.aquery("question", allow_general_knowledge=False)
+        )
+        self.assertEqual(res_async["source_documents"], [])
+        chain._aretrieve_multi_uncached.assert_awaited_once_with(
+            [], kb_name=None, doc_category=None,
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+        )
+
+        chain._query_cache = object()
+        chain._aretrieve_uncached = object()
+        async def collect():
+            return [event async for event in chain.stream_query("question", allow_general_knowledge=False)]
+
+        events = asyncio.run(collect())
+        self.assertTrue(any(e.get("type") == "sources" and e.get("data") == [] for e in events))
+
+    def test_graph_enabled_with_no_linked_entity_matches_disabled(self):
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        # Mock dependencies on RagChain
+        chain = object.__new__(RagChain)
+        chain._graph_cfg = type("Config", (), {"graph_weight": 1.25})()
+
+        # Scenario A: Graph enabled but retrieve returns no_linked_entity fallback
+        chain._graph_retriever = MagicMock()
+        chain._graph_retriever.retrieve.return_value = (
+            type("Ctx", (), {"fallback_reason": "no_linked_entity", "excluded_chunk_ids": ()})(),
+            []
+        )
+        chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._plan_retrieval = lambda question, queries, force_rerank=False: RetrievalPlan("definition", [], 4, 12, True, False, 0.9)
+        chain._retrieve_multi = MagicMock(return_value=([{"content": "result"}], "result_ctx"))
+        chain._record_chunk_hit_query = MagicMock()
+        chain._allow_general_knowledge = False
+
+        res_enabled = chain.query("question", allow_general_knowledge=False)
+        chain._retrieve_multi.assert_called_once_with(
+            [], kb_name=None, doc_category=None,
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+        )
+
+        # Scenario B: Graph disabled (_graph_retriever is None)
+        chain._graph_retriever = None
+        chain._retrieve_multi.reset_mock()
+        res_disabled = chain.query("question", allow_general_knowledge=False)
+
+        self.assertEqual(res_enabled, res_disabled)
+        chain._retrieve_multi.assert_called_once_with(
+            [], kb_name=None, doc_category=None,
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+        )
+
     def test_multi_retrieval_passes_query_weights_and_labels_to_strategy(self):
         chain = object.__new__(RagChain)
         chain._reranker = None
@@ -281,7 +434,7 @@ class RagStage6Tests(unittest.TestCase):
             expand_neighbors=False,
         )
 
-    def test_aquery_keeps_rerank_disabled_when_thinking_false_or_none(self):
+    def test_aquery_always_requests_rerank_when_thinking_false_or_none(self):
         for thinking in (False, None):
             with self.subTest(thinking=thinking):
                 chain = object.__new__(RagChain)
@@ -302,7 +455,7 @@ class RagStage6Tests(unittest.TestCase):
                     ["question"],
                     kb_name=None,
                     doc_category=None,
-                    rerank=False,
+                    rerank=True,
                     web_search=False,
                     plan_top_k=4,
                     plan_candidate_k=12,
@@ -340,7 +493,7 @@ class RagStage6Tests(unittest.TestCase):
             expand_neighbors=False,
         )
 
-    def test_stream_query_keeps_rerank_disabled_when_thinking_false_or_none(self):
+    def test_stream_query_always_requests_rerank_when_thinking_false_or_none(self):
         for thinking in (False, None):
             with self.subTest(thinking=thinking):
                 chain = object.__new__(RagChain)
@@ -367,7 +520,7 @@ class RagStage6Tests(unittest.TestCase):
                     ["question"],
                     kb_name=None,
                     doc_category=None,
-                    rerank=False,
+                    rerank=True,
                     web_search=False,
                     plan_top_k=4,
                     plan_candidate_k=12,
@@ -393,7 +546,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._build_llm = lambda model: type(
             "LlmStub",
             (),
-            {"invoke": lambda self, messages: type("Resp", (), {"content": "answer [1]"})()},
+            {"open": None, "invoke": lambda self, messages: type("Resp", (), {"content": "answer [1]"})()},
         )()
         chain._build_messages = lambda *args, **kwargs: [{"role": "user", "content": "question"}]
         chain._filter_cited_sources = lambda answer, source_docs: source_docs
@@ -420,6 +573,33 @@ class RagStage6Tests(unittest.TestCase):
                 for call in info_log.call_args_list
             )
         )
+
+    def test_query_always_requests_rerank_when_thinking_false_or_none(self):
+        for thinking in (False, None):
+            with self.subTest(thinking=thinking):
+                chain = object.__new__(RagChain)
+                chain._allow_general_knowledge = False
+                chain._build_retrieval_query_specs = lambda question, history: ["question"]
+                chain._query_planner = _planner_stub(enable_rerank=False)
+                chain._retrieve_multi = MagicMock(return_value=([], ""))
+
+                result = chain.query(
+                    "question",
+                    thinking=thinking,
+                    allow_general_knowledge=False,
+                )
+
+                self.assertEqual(result["source_documents"], [])
+                chain._retrieve_multi.assert_called_once_with(
+                    ["question"],
+                    kb_name=None,
+                    doc_category=None,
+                    rerank=True,
+                    web_search=False,
+                    plan_top_k=4,
+                    plan_candidate_k=12,
+                    expand_neighbors=False,
+                )
 
     def test_query_uses_planner_parameters_for_retrieval(self):
         chain = object.__new__(RagChain)

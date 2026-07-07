@@ -5,6 +5,30 @@ from rag_knowledge.services.query_cache import QueryCache
 
 
 class QueryCacheTests(unittest.TestCase):
+    def test_graph_context_participates_in_cache_key(self):
+        base = dict(
+            rewritten_query="管线发布工具如何使用",
+            kb_name=None,
+            doc_category=None,
+            review_status="approved",
+            method="hybrid",
+            rerank=True,
+            web_search=False,
+        )
+
+        pipeline = QueryCache.make_key(
+            **base, graph_enabled=True, graph_entity_ids=("pipeline",), graph_revision="r1"
+        )
+        service = QueryCache.make_key(
+            **base, graph_enabled=True, graph_entity_ids=("service",), graph_revision="r1"
+        )
+        revised = QueryCache.make_key(
+            **base, graph_enabled=True, graph_entity_ids=("pipeline",), graph_revision="r2"
+        )
+        disabled = QueryCache.make_key(**base, graph_enabled=False)
+
+        self.assertEqual(len({pipeline, service, revised, disabled}), 4)
+
     def test_disabled_cache_never_returns_entries(self):
         cache = QueryCache(enabled=False, ttl_seconds=60, capacity=10)
         key = QueryCache.make_key(

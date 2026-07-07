@@ -31,7 +31,10 @@ class RetrievalStrategyStructuredBoostTests(unittest.TestCase):
         )
 
     def test_table_oriented_queries_boost_table_chunks(self):
-        strategy = RetrievalStrategy()
+        from rag_knowledge.config import Config
+        from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
+        cfg = Config()
+        strategy = RetrievalQualityStrategy(cfg)
         docs = [
             Document(
                 page_content="# PipelineBuilder > 数据规范 > 管线点表\n\n记录管线特征和附属设施信息。",
@@ -54,13 +57,16 @@ class RetrievalStrategyStructuredBoostTests(unittest.TestCase):
             ),
         ]
 
-        result = strategy._apply_structured_query_boost("管线点表规范", docs)
+        result = strategy.apply("管线点表规范", docs)
 
         self.assertEqual(result[0].metadata.get("chunk_id"), "table")
-        self.assertGreater(result[0].metadata.get("structured_query_boost", 0.0), 0.0)
+        self.assertGreater(result[0].metadata.get("table_query_boost", 0.0), 0.0)
 
     def test_point_table_query_prefers_point_table_over_other_tables(self):
-        strategy = RetrievalStrategy()
+        from rag_knowledge.config import Config
+        from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
+        cfg = Config()
+        strategy = RetrievalQualityStrategy(cfg)
         docs = [
             Document(
                 page_content="# PipelineBuilder > 数据规范 > 管线面表：\n\n| 字段名 | 说明 |\n| --- | --- |\n| 管面编号 | 唯一标识码 |",
@@ -84,7 +90,7 @@ class RetrievalStrategyStructuredBoostTests(unittest.TestCase):
             ),
         ]
 
-        result = strategy._apply_structured_query_boost("PipelineBuilder 管线点表字段要求", docs)
+        result = strategy.apply("PipelineBuilder 管线点表字段要求", docs)
 
         self.assertEqual(result[0].metadata.get("chunk_id"), "point_table")
 

@@ -8,7 +8,8 @@ class DependencySmokeTests(unittest.TestCase):
         from rank_bm25 import BM25Okapi
         
         # 2. Embedding / Reranking
-        import FlagEmbedding
+        import pytest
+        FlagEmbedding = pytest.importorskip("FlagEmbedding")
         
         # 3. Document parsers (including PDF image extractor)
         import fitz  # PyMuPDF

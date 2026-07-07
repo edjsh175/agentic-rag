@@ -82,14 +82,42 @@ def _import_routes_module():
 
 
 class _ModuleIsolationMixin:
+    def setUp(self):
+        self._original_modules = {
+            name: sys.modules.get(name)
+            for name in _STUBBED_MODULES
+        }
+        super().setUp()
+
     def tearDown(self):
         global _INJECTED_UNSTRUCTURED_LOADER
         for name in _STUBBED_MODULES:
-            sys.modules.pop(name, None)
+            original = self._original_modules.get(name)
+            if original is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = original
         if _INJECTED_UNSTRUCTURED_LOADER:
             sys.modules.pop("rag_knowledge.services.unstructured_loader", None)
             _INJECTED_UNSTRUCTURED_LOADER = False
         super().tearDown()
+
+
+def test_module_isolation_restores_original_vector_store_module():
+    original = importlib.import_module("rag_knowledge.repository.vector_store")
+
+    class Probe(_ModuleIsolationMixin, unittest.TestCase):
+        def runTest(self):
+            pass
+
+    probe = Probe()
+    probe.setUp()
+    _stub_vector_store_module()
+    try:
+        probe.tearDown()
+        assert sys.modules.get("rag_knowledge.repository.vector_store") is original
+    finally:
+        sys.modules["rag_knowledge.repository.vector_store"] = original
 
 
 class IndexedFileCleanupTests(_ModuleIsolationMixin, unittest.TestCase):
