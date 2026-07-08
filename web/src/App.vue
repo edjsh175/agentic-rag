@@ -30,6 +30,20 @@ import 'github-markdown-css/github-markdown.css'
         </svg>
         审核工作台
       </RouterLink>
+      <RouterLink class="nav-btn" to="/admin/graph">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <circle cx="12" cy="4" r="3"/>
+          <circle cx="4" cy="12" r="3"/>
+          <circle cx="20" cy="12" r="3"/>
+          <circle cx="12" cy="20" r="3"/>
+          <line x1="12" y1="7" x2="12" y2="9"/>
+          <line x1="12" y1="15" x2="12" y2="17"/>
+          <line x1="7" y1="12" x2="9" y2="12"/>
+          <line x1="15" y1="12" x2="17" y2="12"/>
+        </svg>
+        图谱管理
+      </RouterLink>
     </nav>
 
     <!-- 视图容器 -->

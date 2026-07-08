@@ -52,6 +52,11 @@ class KnowledgeGraphService:
                 label=e["name"],
                 type=e["entity_type"],
                 doc_category=e.get("doc_category") or None,
+                canonical_name=e.get("canonical_name") or None,
+                description=e.get("description") or None,
+                properties_json=e.get("properties_json") or None,
+                confidence=e.get("confidence"),
+                review_status=e.get("review_status") or None,
             )
             for e in entities
         ]
@@ -67,6 +72,10 @@ class KnowledgeGraphService:
                         source=r["source_entity_id"],
                         target=r["target_entity_id"],
                         label=r["relation_type"],
+                        confidence=r.get("confidence"),
+                        review_status=r.get("review_status") or None,
+                        source_chunk_id=r.get("source_chunk_id") or None,
+                        evidence_text=r.get("evidence_text") or None,
                     )
                 )
 

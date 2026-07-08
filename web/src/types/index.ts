@@ -205,3 +205,41 @@ export interface BlogPostList {
   posts: BlogPostItem[]
   posts_dir: string
 }
+
+export interface GraphNode {
+  id: string
+  label: string
+  type: string
+  doc_category?: string | null
+  canonical_name?: string | null
+  description?: string | null
+  properties_json?: string | null
+  confidence?: number | null
+  review_status?: string | null
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  label: string
+  confidence?: number | null
+  review_status?: string | null
+  source_chunk_id?: string | null
+  evidence_text?: string | null
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export interface EntityChunkDetail {
+  chunk_id: string
+  file_name: string
+  section_title: string
+  link_type: string
+  content_preview: string
+  content: string
+}
+

@@ -1,0 +1,1902 @@
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { getGraphData, getEntityChunks, deleteEntity, deleteRelation, deleteEntityChunkLink } from '../api'
+import type { GraphNode, GraphEdge, EntityChunkDetail } from '../types'
+import { DOC_CATEGORIES } from '../types'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import {
+  createGraphLayout,
+  type GraphLayoutController,
+  type LayoutNode,
+} from '../utils/graphLayout'
+
+// 颜色映射系统
+const colors: Record<string, string> = {
+  Product: '#a855f7',      // 紫色
+  Tool: '#3b82f6',         // 蓝色
+  Service: '#10b981',      // 绿色
+  Module: '#14b8a6',       // 青色
+  DataTable: '#f59e0b',    // 橙黄色
+  Field: '#06b6d4',        // 浅蓝色
+  ConfigItem: '#64748b',   // 灰色
+  Format: '#ec4899',       // 粉色
+  Document: '#059669',     // 深绿色
+  Section: '#6366f1',      // 靛蓝色
+  Procedure: '#f97316',    // 橘橙色
+  Step: '#fb923c',         // 浅橙色
+  Error: '#ef4444',        // 红色
+  Solution: '#22c55e',     // 翠绿色
+  Default: '#94a3b8'
+}
+
+// 物理节点接口扩展
+interface VisualNode extends GraphNode {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  fx?: number | null
+  fy?: number | null
+}
+
+// 可视化边接口
+interface VisualEdge extends GraphEdge {}
+
+// UI 状态
+const loading = ref(false)
+const errorMsg = ref('')
+const graphData = ref<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] })
+
+// 过滤状态
+const searchQuery = ref('')
+const selectedCategory = ref<string>('all')
+const selectedTypes = ref<Record<string, boolean>>({
+  Product: true,
+  Tool: true,
+  Service: true,
+  Module: true,
+  DataTable: true,
+  Field: false, // 字段通常很多，默认关闭，避免布局混乱
+  ConfigItem: true,
+  Format: true,
+  Document: false, // 文档很多，默认关闭
+  Section: false, // 章节很多，默认关闭
+  Procedure: true,
+  Step: true,
+  Error: true,
+  Solution: true
+})
+
+// 可选的实体类型列表
+const availableTypes = Object.keys(selectedTypes.value)
+
+// 画布引用与视口状态
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const canvasWidth = ref(800)
+const canvasHeight = ref(600)
+const panX = ref(0)
+const panY = ref(0)
+const scale = ref(1.0)
+
+// 图谱布局状态
+const visualNodes = ref<VisualNode[]>([])
+const visualEdges = ref<VisualEdge[]>([])
+let graphLayout: GraphLayoutController | null = null
+
+// 选中与交互状态
+const selectedNodeId = ref<string | null>(null)
+const hoveredNodeId = ref<string | null>(null)
+const draggedNodeId = ref<string | null>(null)
+const isRightSidebarOpen = ref(false)
+const detailsTab = ref<'relations' | 'chunks'>('relations')
+
+// 选中实体详情
+const selectedNode = computed(() => {
+  return visualNodes.value.find(n => n.id === selectedNodeId.value) || null
+})
+
+// 节点 ID 到节点的快速映射表，用于快速根据 ID 寻找真实实体名称
+const nodeMap = computed(() => {
+  return new Map(visualNodes.value.map(n => [n.id, n]))
+})
+
+// 清除当前图谱和面板的选中高亮状态
+const clearSelection = () => {
+  selectedNodeId.value = null
+  isRightSidebarOpen.value = false
+  evidenceChunks.value = []
+  expandedChunkId.value = null
+  loadingChunks.value = false
+}
+
+// 一跳邻居节点集合
+const neighborNodeIds = computed(() => {
+  if (!selectedNodeId.value) return new Set<string>()
+  const neighbors = new Set<string>()
+  visualEdges.value.forEach(edge => {
+    if (edge.source === selectedNodeId.value) neighbors.add(edge.target)
+    if (edge.target === selectedNodeId.value) neighbors.add(edge.source)
+  })
+  return neighbors
+})
+
+// 当前节点的所有关系连接
+const selectedNodeRelations = computed(() => {
+  if (!selectedNodeId.value) return []
+  return visualEdges.value.filter(
+    edge => edge.source === selectedNodeId.value || edge.target === selectedNodeId.value
+  )
+})
+
+// 原文证据 Chunks 状态与加载
+const evidenceChunks = ref<EntityChunkDetail[]>([])
+const loadingChunks = ref(false)
+const expandedChunkId = ref<string | null>(null)
+
+// 删除确认模态框状态
+const isDeleteEntityModalOpen = ref(false)
+const deleteConfirmationInput = ref('')
+const isDeleting = ref(false)
+
+// 过滤后的节点（左侧列表展示）
+const filteredNodesList = computed(() => {
+  return visualNodes.value.filter(node => {
+    const matchSearch = node.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+                        (node.canonical_name || '').toLowerCase().includes(searchQuery.value.toLowerCase())
+    const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
+    const matchType = selectedTypes.value[node.type] !== false
+    return matchSearch && matchCategory && matchType
+  })
+})
+
+// 加载图谱数据
+const fetchGraph = async () => {
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    const data = await getGraphData(selectedCategory.value)
+    graphData.value = data
+    
+    // 初始化物理仿真节点
+    const existingNodeMap = new Map(visualNodes.value.map(n => [n.id, n]))
+    const cx = canvasWidth.value / 2
+    const cy = canvasHeight.value / 2
+
+    visualNodes.value = data.nodes.map((node, idx) => {
+      const existing = existingNodeMap.get(node.id)
+      if (existing) {
+        return {
+          ...node,
+          x: existing.x,
+          y: existing.y,
+          vx: existing.vx,
+          vy: existing.vy
+        }
+      }
+      // 圆形发散初始位置
+      const angle = (idx / (data.nodes.length || 1)) * Math.PI * 2
+      const radius = 180 + Math.random() * 250
+      return {
+        ...node,
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        vx: 0,
+        vy: 0
+      }
+    })
+
+    // 根据过滤显示节点确定需要可视化的边，避免孤立边
+    updateVisualSubGraph()
+    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'initial')
+  } catch (err: any) {
+    errorMsg.value = err.message || '加载图谱数据失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+// 依据用户过滤条件筛选出可见的子图节点和边
+const updateVisualSubGraph = () => {
+  const activeNodeIds = new Set(filteredNodesList.value.map(n => n.id))
+  
+  // 筛选可见的边，两端节点必须都在可见集合中
+  visualEdges.value = graphData.value.edges.filter(edge => {
+    return activeNodeIds.has(edge.source) && activeNodeIds.has(edge.target)
+  })
+}
+
+// 类型与搜索过滤只增量调整当前子图，避免扰动原有布局
+watch([selectedTypes, searchQuery], () => {
+  updateVisualSubGraph()
+  graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
+}, { deep: true })
+
+watch(selectedCategory, () => {
+  fetchGraph()
+})
+
+// 监听过滤后的节点列表，如果当前选中的实体被隐藏，则自动清除选中状态，防止图谱异常灰化
+watch(filteredNodesList, (nodes) => {
+  if (!selectedNodeId.value) return
+  const stillVisible = nodes.some(node => node.id === selectedNodeId.value)
+  if (!stillVisible) {
+    clearSelection()
+  }
+})
+
+// Canvas 渲染绘图逻辑
+const drawGraph = () => {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // 确保 backing store 的大小与高清屏的像素比（DPI）相匹配
+  const ratio = window.devicePixelRatio || 1
+  const container = containerRef.value
+  if (container) {
+    const expectedWidth = Math.round(container.clientWidth * ratio)
+    const expectedHeight = Math.round(container.clientHeight * ratio)
+    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
+      canvas.width = expectedWidth
+      canvas.height = expectedHeight
+      canvasWidth.value = container.clientWidth
+      canvasHeight.value = container.clientHeight
+    }
+  }
+  
+  // 清空画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  ctx.save()
+  // 应用高清 DPI 缩放
+  ctx.scale(ratio, ratio)
+  
+  // 应用平移和缩放变换
+  ctx.translate(panX.value, panY.value)
+  ctx.scale(scale.value, scale.value)
+  
+  const nodes = filteredNodesList.value
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  
+  // 是否有高亮节点
+  const hasSelection = selectedNodeId.value !== null
+  const selectedId = selectedNodeId.value
+  const neighbors = neighborNodeIds.value
+  
+  // --- 1. 绘制关系连线 ---
+  visualEdges.value.forEach(edge => {
+    const n1 = nodeMap.get(edge.source)
+    const n2 = nodeMap.get(edge.target)
+    if (!n1 || !n2) return
+    
+    let isHighlighted = false
+    let isFaded = false
+    
+    if (hasSelection) {
+      if (edge.source === selectedId || edge.target === selectedId) {
+        isHighlighted = true
+      } else {
+        isFaded = true
+      }
+    } else if (hoveredNodeId.value && (edge.source === hoveredNodeId.value || edge.target === hoveredNodeId.value)) {
+      isHighlighted = true
+    }
+    
+    const isSectionEdge = n1.type === 'Section' || n2.type === 'Section'
+    drawEdge(ctx, n1, n2, edge.label, isHighlighted, isFaded, isSectionEdge)
+  })
+  
+  // --- 2. 绘制实体节点 ---
+  nodes.forEach(node => {
+    let isSelected = false
+    let isNeighbor = false
+    let isFaded = false
+    
+    if (hasSelection) {
+      if (node.id === selectedId) {
+        isSelected = true
+      } else if (neighbors.has(node.id)) {
+        isNeighbor = true
+      } else {
+        isFaded = true
+      }
+    } else if (hoveredNodeId.value === node.id) {
+      isNeighbor = true
+    }
+    
+    drawNode(ctx, node, isSelected, isNeighbor, isFaded)
+  })
+  
+  ctx.restore()
+}
+
+// 绘制单条边
+const drawEdge = (
+  ctx: CanvasRenderingContext2D,
+  n1: VisualNode,
+  n2: VisualNode,
+  label: string,
+  isHighlighted: boolean,
+  isFaded: boolean,
+  isSectionEdge: boolean
+) => {
+  const nodeRadius = 22
+  const arrowSize = 6
+  
+  const dx = n2.x - n1.x
+  const dy = n2.y - n1.y
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  if (dist < 10) return
+  
+  const ux = dx / dist
+  const uy = dy / dist
+  
+  // 连线端点偏置到节点边缘，避开内部重合
+  const sourceBorderX = n1.x + ux * nodeRadius
+  const sourceBorderY = n1.y + uy * nodeRadius
+  const targetBorderX = n2.x - ux * nodeRadius
+  const targetBorderY = n2.y - uy * nodeRadius
+  
+  ctx.beginPath()
+  ctx.moveTo(sourceBorderX, sourceBorderY)
+  ctx.lineTo(targetBorderX, targetBorderY)
+  ctx.strokeStyle = isHighlighted
+    ? '#a855f7'
+    : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.07)' : '#cbd5e1'))
+  ctx.lineWidth = isHighlighted ? 2.2 : (isSectionEdge ? 0.55 : 0.8)
+  ctx.stroke()
+  
+  // 绘制箭头
+  ctx.beginPath()
+  ctx.moveTo(targetBorderX, targetBorderY)
+  ctx.lineTo(
+    targetBorderX - ux * arrowSize + uy * (arrowSize / 1.4),
+    targetBorderY - uy * arrowSize - ux * (arrowSize / 1.4)
+  )
+  ctx.lineTo(
+    targetBorderX - ux * arrowSize - uy * (arrowSize / 1.4),
+    targetBorderY - uy * arrowSize + ux * (arrowSize / 1.4)
+  )
+  ctx.closePath()
+  ctx.fillStyle = isHighlighted
+    ? '#a855f7'
+    : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.1)' : '#94a3b8'))
+  ctx.fill()
+  
+  // 选中节点的一跳关系边永远显示关系标签，其余普通边保持隐藏，避免噪点
+  const shouldDrawLabel = isHighlighted
+  if (shouldDrawLabel) {
+    const midX = (sourceBorderX + targetBorderX) / 2
+    const midY = (sourceBorderY + targetBorderY) / 2
+    
+    ctx.save()
+    ctx.translate(midX, midY)
+    
+    let angle = Math.atan2(dy, dx)
+    // 旋转文本，避免倒挂
+    if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+      angle += Math.PI
+    }
+    ctx.rotate(angle)
+    
+    ctx.font = isHighlighted ? 'bold 9px sans-serif' : '9px sans-serif'
+    ctx.fillStyle = isHighlighted ? '#7e22ce' : (isFaded ? 'rgba(148, 163, 184, 0.3)' : '#64748b')
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(label, 0, -2)
+    ctx.restore()
+  }
+}
+
+// 绘制单个节点
+const drawNode = (
+  ctx: CanvasRenderingContext2D,
+  node: VisualNode,
+  isSelected: boolean,
+  isNeighbor: boolean,
+  isFaded: boolean
+) => {
+  const nodeRadius = 22
+  const fill = colors[node.type] || colors.Default
+  
+  ctx.save()
+  // 如果当前属于被遮罩淡出状态，则整体应用低透明度，彻底降噪
+  if (isFaded) {
+    ctx.globalAlpha = 0.45
+  }
+  
+  ctx.beginPath()
+  ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
+  ctx.fillStyle = fill
+  ctx.fill()
+  
+  // 描边画圆
+  ctx.beginPath()
+  ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
+  ctx.strokeStyle = isSelected ? '#a855f7' : (isNeighbor ? '#818cf8' : '#ffffff')
+  ctx.lineWidth = isSelected ? 3.5 : (isNeighbor ? 2.5 : 1.5)
+  ctx.stroke()
+  
+  if (isSelected && !isFaded) {
+    ctx.shadowColor = 'rgba(168, 85, 247, 0.45)'
+    ctx.shadowBlur = 10
+  }
+  
+  // 写实体类型首字母缩写
+  ctx.font = 'bold 9px monospace'
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(node.type.substring(0, 2).toUpperCase(), node.x, node.y)
+  
+  // 节点名称文字
+  ctx.font = isSelected ? 'bold 11px sans-serif' : '10px sans-serif'
+  ctx.fillStyle = isSelected ? '#1e293b' : (isFaded ? '#94a3b8' : '#334155')
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  
+  let labelText = node.label
+  if (labelText.length > 10) {
+    labelText = labelText.substring(0, 8) + '...'
+  }
+  ctx.fillText(labelText, node.x, node.y + nodeRadius + 5)
+  
+  ctx.restore()
+}
+
+// 转换物理鼠标位置到图谱坐标位置
+const getGraphCoords = (e: MouseEvent) => {
+  const canvas = canvasRef.value
+  if (!canvas) return { x: 0, y: 0 }
+  const rect = canvas.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+  const mouseY = e.clientY - rect.top
+  return {
+    x: (mouseX - panX.value) / scale.value,
+    y: (mouseY - panY.value) / scale.value
+  }
+}
+
+// 鼠标按下：拖拽画布或选中/拽移节点
+let isPanning = false
+let startPanX = 0
+let startPanY = 0
+
+const handleMouseDown = (e: MouseEvent) => {
+  const coords = getGraphCoords(e)
+  const clickedNode = findNodeAt(coords.x, coords.y)
+  
+  if (clickedNode) {
+    draggedNodeId.value = clickedNode.id
+    graphLayout?.beginNodeDrag(clickedNode.id)
+    selectedNodeId.value = clickedNode.id
+    isRightSidebarOpen.value = true
+    detailsTab.value = 'relations'
+    expandedChunkId.value = null
+    evidenceChunks.value = []
+  } else {
+    clearSelection()
+    isPanning = true
+    startPanX = e.clientX - panX.value
+    startPanY = e.clientY - panY.value
+  }
+}
+
+// 鼠标移动
+const handleMouseMove = (e: MouseEvent) => {
+  const coords = getGraphCoords(e)
+  
+  if (draggedNodeId.value) {
+    const node = visualNodes.value.find(n => n.id === draggedNodeId.value)
+    if (node) {
+      graphLayout?.moveNode(node.id, coords.x, coords.y)
+    }
+  } else if (isPanning) {
+    panX.value = e.clientX - startPanX
+    panY.value = e.clientY - startPanY
+  } else {
+    const hoverNode = findNodeAt(coords.x, coords.y)
+    hoveredNodeId.value = hoverNode ? hoverNode.id : null
+  }
+  drawGraph()
+}
+
+// 鼠标放开
+const handleMouseUp = () => {
+  if (draggedNodeId.value) graphLayout?.endNodeDrag(draggedNodeId.value)
+  draggedNodeId.value = null
+  isPanning = false
+  drawGraph()
+}
+
+// 滚轮缩放
+const handleWheel = (e: WheelEvent) => {
+  e.preventDefault()
+  const canvas = canvasRef.value
+  if (!canvas) return
+  
+  const rect = canvas.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+  const mouseY = e.clientY - rect.top
+  
+  const graphX = (mouseX - panX.value) / scale.value
+  const graphY = (mouseY - panY.value) / scale.value
+  
+  const zoomIntensity = 0.08
+  const nextScale = e.deltaY < 0 
+    ? scale.value * (1 + zoomIntensity)
+    : scale.value / (1 + zoomIntensity)
+    
+  scale.value = Math.max(0.12, Math.min(3.5, nextScale))
+  panX.value = mouseX - graphX * scale.value
+  panY.value = mouseY - graphY * scale.value
+  drawGraph()
+}
+
+// 寻找特定坐标下的节点
+const findNodeAt = (x: number, y: number) => {
+  const nodeRadius = 22
+  const nodes = filteredNodesList.value
+  return nodes.find(n => {
+    const dx = n.x - x
+    const dy = n.y - y
+    return dx * dx + dy * dy < nodeRadius * nodeRadius
+  })
+}
+
+// 左侧节点列表点击定位
+const selectAndFocusNode = (nodeId: string) => {
+  selectedNodeId.value = nodeId
+  isRightSidebarOpen.value = true
+  detailsTab.value = 'relations'
+  expandedChunkId.value = null
+  evidenceChunks.value = []
+  
+  const node = visualNodes.value.find(n => n.id === nodeId)
+  if (node && canvasRef.value) {
+    // 平滑移动使节点置于画布中央
+    panX.value = canvasWidth.value / 2 - node.x * scale.value
+    panY.value = canvasHeight.value / 2 - node.y * scale.value
+    drawGraph()
+  }
+}
+
+// 重置视口缩放平移
+const resetView = () => {
+  scale.value = 1.0
+  panX.value = 0
+  panY.value = 0
+  drawGraph()
+}
+
+const restartLayout = () => graphLayout?.restartLayout()
+
+// 拉取某个实体的证据 Chunks (懒加载)，增加请求归属检查防串
+const loadEvidenceChunks = async (entityId: string) => {
+  loadingChunks.value = true
+  try {
+    const chunks = await getEntityChunks(entityId)
+    if (selectedNodeId.value === entityId) {
+      evidenceChunks.value = chunks
+    }
+  } catch (err: any) {
+    if (selectedNodeId.value === entityId) {
+      errorMsg.value = err.message || '加载证据关联失败'
+    }
+  } finally {
+    if (selectedNodeId.value === entityId) {
+      loadingChunks.value = false
+    }
+  }
+}
+
+// 监听详情卡片切换 Tab 并加载数据
+watch([selectedNodeId, detailsTab], () => {
+  if (selectedNodeId.value && detailsTab.value === 'chunks') {
+    loadEvidenceChunks(selectedNodeId.value)
+  }
+})
+
+// 删除关系连线
+const handleDeleteRelation = async (relationId: string) => {
+  if (!confirm('确认要删除这条关系连接吗？这将永久从知识图谱中移除该边。')) return
+  try {
+    await deleteRelation(relationId)
+    // 本地移除边，同步刷新画面
+    graphData.value.edges = graphData.value.edges.filter(edge => edge.id !== relationId)
+    visualEdges.value = visualEdges.value.filter(edge => edge.id !== relationId)
+    updateVisualSubGraph()
+  } catch (err: any) {
+    alert('删除关系失败：' + err.message)
+  }
+}
+
+// 解除 Chunks 与实体的证据链接关系
+const handleUnlinkChunk = async (chunkId: string) => {
+  if (!selectedNodeId.value) return
+  if (!confirm('确定要解除该实体与当前原文片段的关联链吗？')) return
+  try {
+    await deleteEntityChunkLink(selectedNodeId.value, chunkId)
+    evidenceChunks.value = evidenceChunks.value.filter(item => item.chunk_id !== chunkId)
+  } catch (err: any) {
+    alert('解除证据链失败：' + err.message)
+  }
+}
+
+// 删除实体（强确认逻辑）
+const initiateDeleteEntity = () => {
+  deleteConfirmationInput.value = ''
+  isDeleteEntityModalOpen.value = true
+}
+
+const confirmDeleteEntity = async () => {
+  if (!selectedNode.value) return
+  if (deleteConfirmationInput.value !== selectedNode.value.label) {
+    alert('输入的名称不匹配，请重新输入实体名确认！')
+    return
+  }
+  
+  isDeleting.value = true
+  try {
+    await deleteEntity(selectedNode.value.id)
+    
+    // 移除本地数据中的实体及所有关联边
+    const deletedId = selectedNode.value.id
+    graphData.value.nodes = graphData.value.nodes.filter(n => n.id !== deletedId)
+    graphData.value.edges = graphData.value.edges.filter(e => e.source !== deletedId && e.target !== deletedId)
+    
+    visualNodes.value = visualNodes.value.filter(n => n.id !== deletedId)
+    
+    clearSelection()
+    isDeleteEntityModalOpen.value = false
+    
+    // 重置缩放和平移，使视口回归中心
+    panX.value = 0
+    panY.value = 0
+    scale.value = 1.0
+    
+    updateVisualSubGraph()
+    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
+    alert('实体删除成功')
+  } catch (err: any) {
+    alert('删除实体失败：' + err.message)
+  } finally {
+    isDeleting.value = false
+  }
+}
+
+// Markdown 原文证据展示转换渲染
+const renderMarkdown = (content: string) => {
+  const raw = marked.parse(content, { async: false }) as string
+  return DOMPurify.sanitize(raw)
+}
+
+// 画布尺寸自动适配监听
+const containerRef = ref<HTMLDivElement | null>(null)
+const handleResize = () => {
+  const container = containerRef.value
+  if (container) {
+    canvasWidth.value = container.clientWidth
+    canvasHeight.value = container.clientHeight
+    const canvas = canvasRef.value
+    if (canvas) {
+      const ratio = window.devicePixelRatio || 1
+      canvas.width = Math.round(container.clientWidth * ratio)
+      canvas.height = Math.round(container.clientHeight * ratio)
+    }
+  }
+}
+
+onMounted(() => {
+  handleResize()
+  graphLayout = createGraphLayout({
+    width: canvasWidth.value,
+    height: canvasHeight.value,
+    onTick: drawGraph,
+  })
+  window.addEventListener('resize', handleResize)
+  fetchGraph()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  graphLayout?.destroy()
+  graphLayout = null
+})
+</script>
+
+<template>
+  <div class="kg-container">
+    <!-- 左侧过滤器和列表 -->
+    <aside class="kg-left-panel">
+      <div class="panel-header">
+        <h3>实体过滤筛选</h3>
+      </div>
+      
+      <div class="panel-body scrollable">
+        <!-- 搜索 -->
+        <div class="filter-group">
+          <label>实体检索</label>
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="搜索实体名称..." 
+            class="filter-input"
+          />
+        </div>
+        
+        <!-- 数据分类 -->
+        <div class="filter-group">
+          <label>所属分类 (doc_category)</label>
+          <select v-model="selectedCategory" class="filter-select">
+            <option value="all">全部分类</option>
+            <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">
+              {{ cat }}
+            </option>
+          </select>
+        </div>
+        
+        <!-- 实体类型多选 -->
+        <div class="filter-group">
+          <label>展示实体类型</label>
+          <div class="checkbox-list">
+            <div 
+              v-for="type in availableTypes" 
+              :key="type" 
+              class="checkbox-item"
+            >
+              <input 
+                type="checkbox" 
+                :id="`type-${type}`" 
+                v-model="selectedTypes[type]"
+              />
+              <label :for="`type-${type}`" class="checkbox-label">
+                <span 
+                  class="type-dot" 
+                  :style="{ backgroundColor: colors[type] || colors.Default }"
+                ></span>
+                {{ type }}
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 实体列表展示 -->
+        <div class="entity-list-section">
+          <label>筛选结果 ({{ filteredNodesList.length }} 个实体)</label>
+          <ul class="entity-ul">
+            <li 
+              v-for="node in filteredNodesList" 
+              :key="node.id" 
+              class="entity-li"
+              :class="{ active: selectedNodeId === node.id }"
+              @click="selectAndFocusNode(node.id)"
+            >
+              <span 
+                class="type-tag" 
+                :style="{ backgroundColor: colors[node.type] || colors.Default }"
+              >
+                {{ node.type.substring(0, 2).toUpperCase() }}
+              </span>
+              <span class="entity-name">{{ node.label }}</span>
+            </li>
+            <li v-if="filteredNodesList.length === 0" class="empty-list">
+              无匹配的实体
+            </li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 中间可视化工作画布 -->
+    <main class="kg-center-panel">
+      <!-- 状态与统计栏 -->
+      <header class="kg-toolbar">
+        <div class="kg-stats">
+          <span class="stats-badge">
+            <strong>{{ graphData.nodes.length }}</strong> 实体 / <strong>{{ graphData.edges.length }}</strong> 关系
+          </span>
+          <span v-if="selectedCategory !== 'all'" class="category-badge">
+            当前分类: {{ selectedCategory }}
+          </span>
+        </div>
+        
+        <div class="kg-controls">
+          <button @click="resetView" class="icon-btn" title="复位视图">
+            复位布局
+          </button>
+          <button 
+            @click="restartLayout" 
+            class="icon-btn"
+            title="重新计算整张图的布局"
+          >
+            重新布局
+          </button>
+        </div>
+      </header>
+
+      <!-- 画布容器 -->
+      <div class="canvas-container" ref="containerRef">
+        <canvas 
+          ref="canvasRef" 
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseUp"
+          @wheel="handleWheel"
+        ></canvas>
+        
+        <div v-if="loading" class="canvas-overlay">
+          <div class="loader"></div>
+          <span>加载中...</span>
+        </div>
+        <div v-if="errorMsg" class="canvas-overlay error">
+          <span>⚠️ 加载出错: {{ errorMsg }}</span>
+          <button @click="fetchGraph" class="retry-btn">重试</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 右侧实体详情面板 -->
+    <aside 
+      class="kg-right-panel" 
+      :class="{ open: isRightSidebarOpen && selectedNode }"
+    >
+      <div v-if="selectedNode" class="panel-layout">
+        <header class="right-header">
+          <div class="header-main">
+            <span 
+              class="type-badge" 
+              :style="{ backgroundColor: colors[selectedNode.type] || colors.Default }"
+            >
+              {{ selectedNode.type }}
+            </span>
+            <button @click="clearSelection" class="close-btn">&times;</button>
+          </div>
+          <h2>{{ selectedNode.label }}</h2>
+          <p class="category-meta" v-if="selectedNode.doc_category">
+            分类: {{ selectedNode.doc_category }}
+          </p>
+        </header>
+
+        <!-- 详细元数据属性 -->
+        <div class="metadata-card" v-if="selectedNode.canonical_name || selectedNode.review_status">
+          <div class="meta-row" v-if="selectedNode.canonical_name">
+            <span class="meta-label">规范名称:</span>
+            <span class="meta-val">{{ selectedNode.canonical_name }}</span>
+          </div>
+          <div class="meta-row" v-if="selectedNode.review_status">
+            <span class="meta-label">审核状态:</span>
+            <span 
+              class="status-tag"
+              :class="selectedNode.review_status"
+            >
+              {{ selectedNode.review_status === 'approved' ? '已审核' : (selectedNode.review_status === 'rejected' ? '已拒绝' : '待审核') }}
+            </span>
+          </div>
+          <div class="meta-row" v-if="selectedNode.confidence !== undefined && selectedNode.confidence !== null">
+            <span class="meta-label">置信度:</span>
+            <span class="meta-val">{{ selectedNode.confidence.toFixed(2) }}</span>
+          </div>
+          <div class="meta-row description" v-if="selectedNode.description">
+            <span class="meta-label">实体说明:</span>
+            <p class="meta-text">{{ selectedNode.description }}</p>
+          </div>
+        </div>
+
+        <!-- 详情 Tab 菜单 -->
+        <nav class="detail-tabs">
+          <button 
+            :class="{ active: detailsTab === 'relations' }" 
+            @click="detailsTab = 'relations'"
+          >
+            关系连接 ({{ selectedNodeRelations.length }})
+          </button>
+          <button 
+            :class="{ active: detailsTab === 'chunks' }" 
+            @click="detailsTab = 'chunks'"
+          >
+            原文证据
+          </button>
+        </nav>
+
+        <!-- Tab 内容容器 -->
+        <div class="tab-content scrollable">
+          <!-- 关系连线展示 -->
+          <div v-if="detailsTab === 'relations'" class="tab-pane">
+            <ul class="relation-ul">
+              <li 
+                v-for="rel in selectedNodeRelations" 
+                :key="rel.id" 
+                class="relation-li"
+              >
+                <!-- 指向指示 -->
+                <div class="relation-path">
+                  <span 
+                    class="node-link" 
+                    @click="selectAndFocusNode(rel.source)"
+                    :class="{ current: rel.source === selectedNode.id }"
+                    :title="rel.source === selectedNode.id ? '当前实体' : '源端实体'"
+                  >
+                    {{ nodeMap.get(rel.source)?.label || rel.source }}
+                  </span>
+                  <span class="rel-arrow">
+                    ── <strong>{{ rel.label }}</strong> ──&gt;
+                  </span>
+                  <span 
+                    class="node-link" 
+                    @click="selectAndFocusNode(rel.target)"
+                    :class="{ current: rel.target === selectedNode.id }"
+                    :title="rel.target === selectedNode.id ? '当前实体' : '目标实体'"
+                  >
+                    {{ nodeMap.get(rel.target)?.label || rel.target }}
+                  </span>
+                </div>
+                <!-- 关系的源信息与删除 -->
+                <div class="relation-footer">
+                  <span class="rel-meta" v-if="rel.evidence_text">
+                    证据: "{{ rel.evidence_text.substring(0, 25) }}..."
+                  </span>
+                  <button 
+                    @click="handleDeleteRelation(rel.id)" 
+                    class="delete-text-btn"
+                  >
+                    删除边
+                  </button>
+                </div>
+              </li>
+              <li v-if="selectedNodeRelations.length === 0" class="empty-tab">
+                当前实体无任何关系连接。
+              </li>
+            </ul>
+          </div>
+
+          <!-- 证据 Chunk 展示 -->
+          <div v-else class="tab-pane">
+            <div v-if="loadingChunks" class="tab-loader">
+              <div class="loader-sm"></div>
+              <span>加载证据片段...</span>
+            </div>
+            
+            <div v-else class="chunks-container">
+              <div 
+                v-for="chunk in evidenceChunks" 
+                :key="chunk.chunk_id" 
+                class="chunk-card"
+              >
+                <header class="chunk-card-header">
+                  <div class="chunk-title-sec">
+                    <h4>{{ chunk.file_name }}</h4>
+                    <p class="chunk-path" v-if="chunk.section_title">
+                      章节: {{ chunk.section_title }}
+                    </p>
+                  </div>
+                  <span class="chunk-type">{{ chunk.link_type }}</span>
+                </header>
+
+                <div class="chunk-preview-text">
+                  {{ chunk.content_preview }}
+                </div>
+
+                <!-- Markdown 详情折叠 -->
+                <div 
+                  v-if="expandedChunkId === chunk.chunk_id" 
+                  class="chunk-markdown markdown-body"
+                  v-html="renderMarkdown(chunk.content)"
+                ></div>
+
+                <footer class="chunk-card-footer">
+                  <button 
+                    @click="expandedChunkId = expandedChunkId === chunk.chunk_id ? null : chunk.chunk_id" 
+                    class="action-text-btn"
+                  >
+                    {{ expandedChunkId === chunk.chunk_id ? '收起原文' : '查看完整原文' }}
+                  </button>
+                  <button 
+                    @click="handleUnlinkChunk(chunk.chunk_id)" 
+                    class="delete-text-btn"
+                  >
+                    解除关联
+                  </button>
+                </footer>
+              </div>
+              <div v-if="evidenceChunks.length === 0" class="empty-tab">
+                当前实体未建立与任何 Chunk 的证据关联。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 删除实体卡片底座 -->
+        <footer class="panel-footer">
+          <button @click="initiateDeleteEntity" class="danger-btn">
+            删除当前实体
+          </button>
+        </footer>
+      </div>
+    </aside>
+
+    <!-- 级联删除实体确认模态弹窗 -->
+    <div 
+      class="modal-backdrop" 
+      v-if="isDeleteEntityModalOpen && selectedNode"
+    >
+      <div class="modal-card">
+        <header class="modal-header">
+          <h3>⚠️ 高危操作：级联删除实体</h3>
+          <button @click="isDeleteEntityModalOpen = false" class="close-btn">&times;</button>
+        </header>
+        <div class="modal-body">
+          <p class="warning-text">
+            删除实体 <strong>“{{ selectedNode.label }}”</strong> 将会连带删除它所关联的<strong>全部关系边（{{ selectedNodeRelations.length }} 条）</strong>以及<strong>证据链关联记录</strong>，此操作为物理删除且<strong>不可恢复</strong>。
+          </p>
+          <p class="prompt-text">
+            请输入实体名称 <strong>{{ selectedNode.label }}</strong> 确认此删除操作：
+          </p>
+          <input 
+            type="text" 
+            v-model="deleteConfirmationInput" 
+            class="modal-input"
+            :placeholder="selectedNode.label"
+          />
+        </div>
+        <footer class="modal-footer">
+          <button 
+            @click="isDeleteEntityModalOpen = false" 
+            class="secondary-btn"
+          >
+            取消
+          </button>
+          <button 
+            @click="confirmDeleteEntity" 
+            class="danger-confirm-btn"
+            :disabled="deleteConfirmationInput !== selectedNode.label || isDeleting"
+          >
+            {{ isDeleting ? '正在删除...' : '确认并级联删除' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* 全局页面三栏结构 */
+.kg-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+/* 一级滚动栏定义 */
+.scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* 左侧过滤面板 */
+.kg-left-panel {
+  width: 290px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.02);
+}
+
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.panel-body {
+  flex: 1;
+  padding: 16px 20px;
+}
+
+.filter-group {
+  margin-bottom: 20px;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.filter-input:focus {
+  border-color: #3b82f6;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+}
+
+.checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #f1f5f9;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-item input {
+  cursor: pointer;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.type-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.entity-list-section {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+}
+
+.entity-list-section label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.entity-ul {
+  list-style: none;
+}
+
+.entity-li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  margin-bottom: 3px;
+}
+
+.entity-li:hover {
+  background: #f1f5f9;
+}
+
+.entity-li.active {
+  background: #eff6ff;
+}
+
+.type-tag {
+  font-size: 8px;
+  font-family: monospace;
+  font-weight: bold;
+  color: #ffffff;
+  padding: 2px 4px;
+  border-radius: 4px;
+  min-width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.entity-name {
+  font-size: 12px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty-list {
+  padding: 16px 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* 中部可视化面板 */
+.kg-center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+.kg-toolbar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.kg-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-badge {
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.category-badge {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #e0e7ff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.kg-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.icon-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.icon-btn.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.canvas-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #f8fafc;
+}
+
+.canvas-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 覆盖层 */
+.canvas-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.canvas-overlay.error {
+  background: rgba(254, 242, 242, 0.9);
+  color: #ef4444;
+}
+
+.retry-btn {
+  padding: 6px 16px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: #dc2626;
+}
+
+.loader {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 右侧详情面板 */
+.kg-right-panel {
+  width: 380px;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  box-shadow: -1px 0 4px rgba(0, 0, 0, 0.02);
+}
+
+.kg-right-panel.open {
+  transform: translateX(0);
+}
+
+.panel-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.right-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.type-badge {
+  font-size: 10px;
+  color: white;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #475569;
+}
+
+.right-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  word-break: break-all;
+}
+
+.category-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* 元数据卡片 */
+.metadata-card {
+  margin: 16px 24px 0;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.meta-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.meta-row.description {
+  flex-direction: column;
+  margin-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 8px;
+}
+
+.meta-label {
+  width: 70px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.meta-val {
+  color: #334155;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.status-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.status-tag.approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-tag.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-tag.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.meta-text {
+  color: #475569;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+/* Tab 选项卡 */
+.detail-tabs {
+  display: flex;
+  margin: 16px 24px 0;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.detail-tabs button {
+  flex: 1;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  font-weight: 500;
+}
+
+.detail-tabs button.active {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.detail-tabs button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+}
+
+/* Tab 内容 */
+.tab-content {
+  flex: 1;
+  padding: 16px 24px;
+}
+
+.tab-pane {
+  min-height: 100%;
+}
+
+.tab-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.loader-sm {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #cbd5e1;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+}
+
+.empty-tab {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 30px 0;
+}
+
+/* 关系连接列表 */
+.relation-ul {
+  list-style: none;
+}
+
+.relation-li {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: #ffffff;
+}
+
+.relation-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.node-link {
+  color: #3b82f6;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.node-link:hover {
+  text-decoration: underline;
+}
+
+.node-link.current {
+  color: #64748b;
+  cursor: default;
+  font-weight: normal;
+}
+
+.node-link.current:hover {
+  text-decoration: none;
+}
+
+.rel-arrow {
+  color: #94a3b8;
+}
+
+.relation-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed #f1f5f9;
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+.rel-meta {
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.action-text-btn, .delete-text-btn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: #3b82f6;
+  cursor: pointer;
+}
+
+.action-text-btn:hover {
+  text-decoration: underline;
+}
+
+.delete-text-btn {
+  color: #ef4444;
+}
+
+.delete-text-btn:hover {
+  text-decoration: underline;
+}
+
+/* 证据片段卡片 */
+.chunks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chunk-card {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.chunk-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.chunk-title-sec h4 {
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.chunk-path {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.chunk-type {
+  font-size: 9px;
+  color: #4f46e5;
+  background: #eeebff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.chunk-preview-text {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border-left: 2px solid #cbd5e1;
+}
+
+.chunk-markdown {
+  font-size: 12px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+  margin-top: 12px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.chunk-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* 面板底部按钮 */
+.panel-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+  background: #ffffff;
+}
+
+.danger-btn {
+  width: 100%;
+  padding: 10px 0;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.danger-btn:hover {
+  background: #fee2e2;
+}
+
+/* 确认模态框样式 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-card {
+  width: 440px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fee2e2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: 15px;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.warning-text {
+  font-size: 13px;
+  color: #dc2626;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.prompt-text {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.modal-input:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.1);
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.secondary-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  background: #f8fafc;
+}
+
+.danger-confirm-btn {
+  padding: 8px 16px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger-confirm-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.danger-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 适配移动端 */
+@media (max-width: 1024px) {
+  .kg-container {
+    flex-direction: column;
+  }
+  .kg-left-panel {
+    width: 100%;
+    height: 250px;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .kg-right-panel {
+    position: fixed;
+    top: 50px;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 380px;
+  }
+}
+</style>

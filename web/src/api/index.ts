@@ -18,6 +18,8 @@ import type {
   ReviewStatus,
   Stats,
   ScanResult,
+  GraphData,
+  EntityChunkDetail,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -423,3 +425,39 @@ export async function deleteServerChat(fingerprint: string) {
     headers: { 'X-Device-Fingerprint': fingerprint },
   })
 }
+
+// ============================================================
+// 知识图谱管理 API
+// ============================================================
+
+/** 获取知识图谱数据 */
+export async function getGraphData(docCategory?: string) {
+  const query = docCategory && docCategory !== 'all'
+    ? `?doc_category=${encodeURIComponent(docCategory)}`
+    : ''
+  return getJSON<GraphData>(`/admin/knowledge_graph/data${query}`)
+}
+
+/** 获取实体关联的证据 Chunk */
+export async function getEntityChunks(entityId: string) {
+  return getJSON<EntityChunkDetail[]>(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/chunks`)
+}
+
+/** 删除实体（级联删除关系和链接） */
+export async function deleteEntity(entityId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}`)
+  return data
+}
+
+/** 删除特定关系边 */
+export async function deleteRelation(relationId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/relations/${encodeURIComponent(relationId)}`)
+  return data
+}
+
+/** 解除实体与 Chunks 的证据关联 */
+export async function deleteEntityChunkLink(entityId: string, chunkId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/chunks/${encodeURIComponent(chunkId)}`)
+  return data
+}
+

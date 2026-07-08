@@ -403,6 +403,11 @@ class GraphNode(BaseModel):
     label: str
     type: str
     doc_category: Optional[str] = None
+    canonical_name: Optional[str] = None
+    description: Optional[str] = None
+    properties_json: Optional[str] = None
+    confidence: Optional[float] = None
+    review_status: Optional[str] = None
 
 
 class GraphEdge(BaseModel):
@@ -410,6 +415,10 @@ class GraphEdge(BaseModel):
     source: str
     target: str
     label: str
+    confidence: Optional[float] = None
+    review_status: Optional[str] = None
+    source_chunk_id: Optional[str] = None
+    evidence_text: Optional[str] = None
 
 
 class GraphDataResponse(BaseModel):
