@@ -17,6 +17,7 @@ from typing import Set
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class RetrievalQualityStrategy:
         # 1.5 表格类问题增强
         if struct_enabled:
             docs = self._boost_table_chunks(query, docs)
+        docs = RetrievalIntentResolver.default().resolve(query).apply_quality_scores(docs)
 
         if not self._cfg.enabled:
             return docs
@@ -122,7 +124,8 @@ class RetrievalQualityStrategy:
 
             if bonus <= 0:
                 continue
-            metadata["table_query_boost"] = round(bonus, 4)
+            if bonus > 0:
+                metadata["table_query_boost"] = round(bonus, 4)
             metadata["quality_score"] = float(metadata.get("quality_score", 0.0)) + bonus
             doc.metadata = metadata
 

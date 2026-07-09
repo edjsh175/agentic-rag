@@ -9,7 +9,18 @@
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from rag_knowledge.services.query_contextualizer import QueryContextualizer
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="query-contextualizer.db",
+        chroma_name="query-contextualizer-chroma",
+        data_dir_name="query-contextualizer-data",
+    )
 
 
 class QueryContextualizerTests(unittest.TestCase):

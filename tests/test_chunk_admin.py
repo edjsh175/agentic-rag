@@ -16,6 +16,15 @@ from rag_knowledge.services.chunk_admin import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="chunk-admin.db",
+        chroma_name="chunk-admin-chroma",
+        data_dir_name="chunk-admin-data",
+    )
+
+
 class StoreStub:
     def __init__(self, source):
         self.source = source

@@ -268,14 +268,19 @@ class QueryContextualizer:
 
         # 尝试 LLM
         try:
-            return self._contextualize_via_llm(
+            res = self._contextualize_via_llm(
                 q, history_text, sources_text, last_user
             )
         except Exception as e:
             logger.warning("LLM 上下文化失败，回退到启发式: %s", e)
+            res = self._contextualize_heuristic(q, history_text, last_user)
 
-        # 回退到启发式
-        return self._contextualize_heuristic(q, history_text, last_user)
+        # 统一进行实体保护
+        from rag_knowledge.services.query_entity_guard import protect_rewritten_query, protect_query_list
+        res["standalone_query"] = protect_rewritten_query(q, res["standalone_query"], last_user)
+        res["search_queries"] = protect_query_list(q, res["search_queries"], last_user)
+
+        return res
 
     def build_multi_queries(
         self,
@@ -319,6 +324,7 @@ class QueryContextualizer:
                 candidates.append(RetrievalQuery(sq, "search", 0.6))
                 break
 
+        last_user = self._last_user_question(history)
         source_anchors: list[str] = []
         if use_history_anchors:
             source_anchors = self._build_source_anchor_queries(
@@ -327,20 +333,21 @@ class QueryContextualizer:
             for anchor in source_anchors:
                 if anchor:
                     candidates.append(RetrievalQuery(anchor, "source_anchor", 0.3))
-            last_user = self._last_user_question(history)
             if last_user and last_user != q:
                 candidates.append(RetrievalQuery(last_user, "last_user", 0.3))
 
         seen: set[str] = set()
         result: list[RetrievalQuery] = []
+        from rag_knowledge.services.query_entity_guard import protect_rewritten_query
         for candidate in candidates:
             text = candidate.text.strip()
             if not text or len(text) < 2:
                 continue
-            normalized = text.lower()
+            protected_text = protect_rewritten_query(q, text, last_user)
+            normalized = protected_text.casefold()
             if normalized not in seen:
                 seen.add(normalized)
-                result.append(RetrievalQuery(text, candidate.kind, candidate.weight))
+                result.append(RetrievalQuery(protected_text, candidate.kind, candidate.weight))
 
         logger.info(
             "query_context | dependent=%s confidence=%.2f heuristic_dependent=%s "

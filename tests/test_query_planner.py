@@ -1,8 +1,19 @@
 import unittest
 from unittest.mock import MagicMock
 
+import pytest
+
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 from rag_knowledge.services.query_planner import QueryPlanner
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="query-planner.db",
+        chroma_name="query-planner-chroma",
+        data_dir_name="query-planner-data",
+    )
 
 
 class QueryPlannerTests(unittest.TestCase):

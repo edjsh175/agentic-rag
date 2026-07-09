@@ -13,6 +13,7 @@ from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class RetrievalStrategy:
         """
         actual_method = method or self._cfg.retrieval_strategy
         retrieval_query = self._augment_structured_query(question)
+        effective_top_k = self._intent_candidate_top_k(question, top_k)
         logger.info("检索策略: %s | kb=%s", actual_method, kb_name or "auto")
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
@@ -75,27 +77,27 @@ class RetrievalStrategy:
             docs = self._retrieve_bm25(
                 retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                top_k=top_k,
+                top_k=effective_top_k,
             )
         elif actual_method == "hybrid":
             docs = self._retrieve_hybrid(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                top_k=top_k,
+                top_k=effective_top_k,
                 candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
             docs = self._retrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                search_type="similarity", top_k=top_k,
+                search_type="similarity", top_k=effective_top_k,
             )
         else:
             # 默认 mmr
             docs = self._retrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                search_type="mmr", top_k=top_k,
+                search_type="mmr", top_k=effective_top_k,
             )
         return docs
 
@@ -111,6 +113,7 @@ class RetrievalStrategy:
     ) -> list[Document]:
         actual_method = method or self._cfg.retrieval_strategy
         retrieval_query = self._augment_structured_query(question)
+        effective_top_k = self._intent_candidate_top_k(question, top_k)
         logger.info("async 检索策略: %s | kb=%s", actual_method, kb_name or "auto")
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
@@ -123,26 +126,26 @@ class RetrievalStrategy:
             docs = await self._aretrieve_bm25(
                 retrieval_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                top_k=top_k,
+                top_k=effective_top_k,
             )
         elif actual_method == "hybrid":
             docs = await self._aretrieve_hybrid(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                top_k=top_k,
+                top_k=effective_top_k,
                 candidate_k=candidate_k,
             )
         elif actual_method == "similarity":
             docs = await self._aretrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                search_type="similarity", top_k=top_k,
+                search_type="similarity", top_k=effective_top_k,
             )
         else:
             docs = await self._aretrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
-                search_type="mmr", top_k=top_k,
+                search_type="mmr", top_k=effective_top_k,
             )
         return docs
 
@@ -151,11 +154,21 @@ class RetrievalStrategy:
         normalized = (query or "").strip()
         if not normalized:
             return normalized
+        plan = RetrievalIntentResolver.default().resolve(normalized)
+        expanded = plan.expand_query(normalized)
         if not any(hint in normalized for hint in _TABLE_QUERY_HINTS):
-            return normalized
+            return expanded
         if all(term in normalized for term in _TABLE_CONTENT_HINTS):
-            return normalized
-        return f"{normalized}{_STRUCTURED_QUERY_SUFFIX}"
+            return expanded
+        expanded_terms = set(expanded.split())
+        suffix_terms = [term for term in _STRUCTURED_QUERY_SUFFIX.split() if term not in expanded_terms]
+        if not suffix_terms:
+            return expanded
+        return f"{expanded} {' '.join(suffix_terms)}"
+
+    @staticmethod
+    def _intent_candidate_top_k(query: str, top_k: int | None) -> int | None:
+        return RetrievalIntentResolver.default().resolve(query or "").effective_top_k(top_k)
 
     def _apply_structured_query_boost(self, query: str, docs: list[Document]) -> list[Document]:
         # Legacy no-op helper: structured query boost is now unified in RetrievalQualityStrategy.

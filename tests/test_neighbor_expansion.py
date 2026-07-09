@@ -1,9 +1,20 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from langchain_core.documents import Document
 
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.rag import RagChain
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="neighbor-expansion.db",
+        chroma_name="neighbor-expansion-chroma",
+        data_dir_name="neighbor-expansion-data",
+    )
 
 
 class NeighborExpansionTests(unittest.TestCase):

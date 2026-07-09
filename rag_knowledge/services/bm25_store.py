@@ -62,8 +62,8 @@ class BM25Store:
             logger.warning("BM25 索引为空，返回空结果")
             return []
 
-        # jieba 分词
-        tokenized_query = [token for token in jieba.cut(query) if token.strip()]
+        # 使用统一的分词函数（内部使用 casefold()）
+        tokenized_query = self._tokenize(query)
         query_terms = set(tokenized_query)
 
         # BM25 打分 → (index, score) 列表，按分数降序
@@ -78,7 +78,7 @@ class BM25Store:
                     self._metadatas[idx].get("searchable_text")
                     or self._docs[idx].page_content
                 )
-                doc_terms = {token for token in jieba.cut(search_text) if token.strip()}
+                doc_terms = set(self._tokenize(search_text))
                 if not query_terms.intersection(doc_terms):
                     continue
             meta = self._metadatas[idx]
@@ -166,7 +166,7 @@ class BM25Store:
 
     @staticmethod
     def _tokenize(text: str) -> list[str]:
-        normalized = (text or "").strip()
+        normalized = (text or "").strip().casefold()
         if not normalized:
             return []
 

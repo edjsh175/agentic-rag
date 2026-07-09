@@ -5,6 +5,7 @@
 """
 import unittest
 
+import pytest
 from langchain_core.documents import Document
 
 from rag_knowledge.config import RetrievalQualityConfig
@@ -39,6 +40,15 @@ def _doc(content: str, score: float = 0.5, **meta) -> Document:
     metadata["score"] = score
     metadata["quality_score"] = score
     return Document(page_content=content, metadata=metadata)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="retrieval-quality.db",
+        chroma_name="retrieval-quality-chroma",
+        data_dir_name="retrieval-quality-data",
+    )
 
 
 # ------------------------------------------------------------------

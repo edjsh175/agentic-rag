@@ -9,6 +9,7 @@ from typing import Callable
 
 from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 
 from . import (
     ConfigBlockExtractor,
@@ -44,6 +45,7 @@ class GraphBuilder:
     def _load_chunks() -> list[dict]:
         from rag_knowledge.repository.vector_store import VectorStore
 
+        KnowledgeBaseConsistencyService().assert_consistent()
         data = VectorStore().get_chunk_stats_source()
         return [
             {"chunk_id": str(chunk_id), "content": content or "", "metadata": metadata or {}}
@@ -194,6 +196,7 @@ class GraphCandidateApplier:
                         "UPDATE extraction_candidates SET status = 'applied', applied_target_id = ?, applied_at = ? WHERE id = ?",
                         (target_id or "", self.db._now(), candidate["id"]),
                     )
+                GraphSpecialRuleRestorer(self.db).apply(conn)
                 conn.execute(
                     "UPDATE extraction_batches SET status = 'applied', applied_at = ? WHERE id = ?",
                     (self.db._now(), batch_id),
@@ -306,6 +309,80 @@ class GraphCandidateApplier:
              payload.get("section_path") or "", payload.get("evidence_text") or "", payload.get("source") or "", self.db._now()),
         )
         return link_id
+
+
+class GraphSpecialRuleRestorer:
+    """Restore graph-level disambiguation rules that are not recoverable from chunk extraction alone."""
+
+    DIFFERENT_FROM_RULES = (
+        ("PipelineBuilder", "管线发布服务"),
+        ("PipelineBuilder", "PipelinePublishConfig"),
+    )
+
+    ALIAS_RULES = (
+        ("PipelineBuilder", "管线发布工具"),
+    )
+
+    def __init__(self, db: RelationalDB | None = None):
+        self.db = db or RelationalDB()
+
+    def apply(self, conn: sqlite3.Connection) -> None:
+        self._restore_aliases(conn)
+        self._restore_different_from(conn)
+
+    def _restore_aliases(self, conn: sqlite3.Connection) -> None:
+        for entity_name, alias in self.ALIAS_RULES:
+            entity = self._lookup_entity(conn, entity_name)
+            if entity is None:
+                continue
+            existing = conn.execute(
+                "SELECT id FROM aliases WHERE entity_id = ? AND alias = ?",
+                (entity["id"], alias),
+            ).fetchone()
+            if existing:
+                continue
+            conn.execute(
+                "INSERT INTO aliases (id, entity_id, alias, confidence, source_chunk_id, evidence_text, review_status, created_at) "
+                "VALUES (?, ?, ?, 1.0, '', ?, 'approved', ?)",
+                (
+                    self.db._uid(),
+                    entity["id"],
+                    alias,
+                    f"special_rule:{entity_name}:alias",
+                    self.db._now(),
+                ),
+            )
+
+    def _restore_different_from(self, conn: sqlite3.Connection) -> None:
+        for source_name, target_name in self.DIFFERENT_FROM_RULES:
+            source = self._lookup_entity(conn, source_name)
+            target = self._lookup_entity(conn, target_name)
+            if source is None or target is None:
+                continue
+            existing = conn.execute(
+                "SELECT id FROM relations WHERE source_entity_id = ? AND target_entity_id = ? AND relation_type = 'different_from'",
+                (source["id"], target["id"]),
+            ).fetchone()
+            if existing:
+                continue
+            conn.execute(
+                "INSERT INTO relations (id, source_entity_id, target_entity_id, relation_type, properties_json, confidence, evidence_text, source_chunk_id, review_status, created_by, created_at) "
+                "VALUES (?, ?, ?, 'different_from', '{}', 1.0, ?, '', 'approved', 'rule:special_relations', ?)",
+                (
+                    self.db._uid(),
+                    source["id"],
+                    target["id"],
+                    f"special_rule:{source_name}:different_from:{target_name}",
+                    self.db._now(),
+                ),
+            )
+
+    @staticmethod
+    def _lookup_entity(conn: sqlite3.Connection, name: str) -> sqlite3.Row | None:
+        return conn.execute(
+            "SELECT id, name, entity_type FROM entities WHERE name = ?",
+            (normalize_entity_name(name),),
+        ).fetchone()
 
 
 class GraphQualityService:

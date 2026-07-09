@@ -243,6 +243,20 @@ __all__ = [
     "RelationCandidate", "SectionPathExtractor", "TableFieldExtractor",
 ]
 
-from .pipeline import BuildBatchResult, GraphBuilder, GraphCandidateApplier, GraphQualityService, QualityReport
+from .pipeline import (
+    BuildBatchResult,
+    GraphBuilder,
+    GraphCandidateApplier,
+    GraphQualityService,
+    GraphSpecialRuleRestorer,
+    QualityReport,
+)
 
-__all__ += ["BuildBatchResult", "GraphBuilder", "GraphCandidateApplier", "GraphQualityService", "QualityReport"]
+__all__ += [
+    "BuildBatchResult",
+    "GraphBuilder",
+    "GraphCandidateApplier",
+    "GraphQualityService",
+    "GraphSpecialRuleRestorer",
+    "QualityReport",
+]

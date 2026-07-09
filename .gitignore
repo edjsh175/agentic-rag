@@ -42,7 +42,8 @@ scrapingImages/
 scrape_article/
 
 # Runtime data directory (anchored to root; preserves rag_knowledge/data/)
-/data/
+/data/*
+!/data/retrieval_intent_profiles.json
 
 # IDE settings
 .idea/

@@ -6,6 +6,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 
 _INJECTED_UNSTRUCTURED_LOADER = False
 
@@ -24,6 +25,15 @@ def _load_scanner_module():
         _INJECTED_UNSTRUCTURED_LOADER = True
     sys.modules.pop("rag_knowledge.services.scanner", None)
     return importlib.import_module("rag_knowledge.services.scanner")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="scanner-cleanup.db",
+        chroma_name="scanner-cleanup-chroma",
+        data_dir_name="scanner-cleanup-data",
+    )
 
 
 class ScannerCleanupTests(unittest.TestCase):

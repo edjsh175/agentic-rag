@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import logging
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -23,6 +24,21 @@ class LinkedEntity:
 
 
 @dataclass(frozen=True)
+class GraphGuardContext:
+    linked_entity_ids: tuple[str, ...] = ()
+    linked_names: tuple[str, ...] = ()
+    linked_aliases: tuple[str, ...] = ()
+    linked_doc_categories: tuple[str, ...] = ()
+    excluded_entity_ids: tuple[str, ...] = ()
+    excluded_names: tuple[str, ...] = ()
+    excluded_aliases: tuple[str, ...] = ()
+    excluded_doc_categories: tuple[str, ...] = ()
+    excluded_chunk_ids: tuple[str, ...] = ()
+    strict_exclusion: bool = False
+    question_mentions_excluded: bool = False
+
+
+@dataclass(frozen=True)
 class GraphContext:
     linked_entities: tuple[LinkedEntity, ...] = ()
     expanded_entity_ids: tuple[str, ...] = ()
@@ -31,6 +47,195 @@ class GraphContext:
     retrieval_queries: tuple[str, ...] = ()
     excluded_chunk_ids: tuple[str, ...] = ()
     fallback_reason: str | None = None
+    guard: GraphGuardContext | None = None
+
+
+class GraphEntityGuard:
+    """Build guard context used by graph-aware fusion without mixing it into retrieval flow."""
+
+    def __init__(self, db: RelationalDB | None = None):
+        self.db = db or RelationalDB()
+
+    def build(self, question: str, intent: str, linked: tuple[LinkedEntity, ...], context: GraphContext) -> GraphGuardContext:
+        linked_entity_ids = tuple(item.entity_id for item in linked)
+        linked_names: list[str] = []
+        linked_aliases: list[str] = []
+        linked_doc_categories: list[str] = []
+
+        for item in linked:
+            entity = self.db.get_entity(item.entity_id)
+            if entity:
+                linked_names.append(entity.get("canonical_name") or entity["name"])
+                if entity.get("doc_category"):
+                    linked_doc_categories.append(entity["doc_category"])
+                aliases = [
+                    alias["alias"]
+                    for alias in self.db.list_aliases(item.entity_id)
+                    if alias.get("review_status") == "approved"
+                ]
+                linked_aliases.extend(aliases)
+
+        excluded_entity_ids = tuple(sorted({entity_id for item in linked for entity_id in item.excluded_entity_ids}))
+        excluded_names: list[str] = []
+        excluded_aliases: list[str] = []
+        excluded_doc_categories: list[str] = []
+
+        for entity_id in excluded_entity_ids:
+            entity = self.db.get_entity(entity_id)
+            if entity:
+                excluded_names.append(entity.get("canonical_name") or entity["name"])
+                if entity.get("doc_category"):
+                    excluded_doc_categories.append(entity["doc_category"])
+                aliases = [
+                    alias["alias"]
+                    for alias in self.db.list_aliases(entity_id)
+                    if alias.get("review_status") == "approved"
+                ]
+                excluded_aliases.extend(aliases)
+
+        question_cf = question.casefold()
+        question_mentions_excluded = any(
+            name and name.casefold() in question_cf
+            for name in [*excluded_names, *excluded_aliases]
+        )
+
+        strict_exclusion = (
+            len(linked) == 1
+            and linked[0].confidence >= 0.9
+            and intent != "comparison"
+            and not question_mentions_excluded
+        )
+
+        return GraphGuardContext(
+            linked_entity_ids=linked_entity_ids,
+            linked_names=tuple(sorted(set(linked_names))),
+            linked_aliases=tuple(sorted(set(linked_aliases))),
+            linked_doc_categories=tuple(sorted(set(linked_doc_categories))),
+            excluded_entity_ids=excluded_entity_ids,
+            excluded_names=tuple(sorted(set(excluded_names))),
+            excluded_aliases=tuple(sorted(set(excluded_aliases))),
+            excluded_doc_categories=tuple(sorted(set(excluded_doc_categories))),
+            excluded_chunk_ids=context.excluded_chunk_ids,
+            strict_exclusion=strict_exclusion,
+            question_mentions_excluded=question_mentions_excluded,
+        )
+
+
+class GraphFusionScorer:
+    """Own graph-aware fusion scoring and exclusion heuristics."""
+
+    @staticmethod
+    def fuse(
+        retrieval_docs: list[Document],
+        graph_docs: list[Document],
+        *,
+        top_k: int,
+        graph_weight: float = 1.25,
+        rrf_k: int = 60,
+        excluded_chunk_ids: tuple[str, ...] = (),
+        exclusion_weight: float = 0.35,
+        graph_guard: GraphGuardContext | dict | None = None,
+    ) -> list[Document]:
+        guard_linked_names = ()
+        guard_linked_aliases = ()
+        guard_linked_doc_categories = ()
+        guard_excluded_doc_categories = ()
+        guard_excluded_names = ()
+        guard_excluded_chunk_ids = excluded_chunk_ids
+        strict_exclusion = False
+        question_mentions_excluded = False
+
+        if graph_guard is not None:
+            if isinstance(graph_guard, dict):
+                guard_linked_names = graph_guard.get("linked_names", ())
+                guard_linked_aliases = graph_guard.get("linked_aliases", ())
+                guard_linked_doc_categories = graph_guard.get("linked_doc_categories", ())
+                guard_excluded_doc_categories = graph_guard.get("excluded_doc_categories", ())
+                guard_excluded_names = graph_guard.get("excluded_names", ())
+                guard_excluded_chunk_ids = graph_guard.get("excluded_chunk_ids", excluded_chunk_ids)
+                strict_exclusion = graph_guard.get("strict_exclusion", False)
+                question_mentions_excluded = graph_guard.get("question_mentions_excluded", False)
+            else:
+                guard_linked_names = getattr(graph_guard, "linked_names", ())
+                guard_linked_aliases = getattr(graph_guard, "linked_aliases", ())
+                guard_linked_doc_categories = getattr(graph_guard, "linked_doc_categories", ())
+                guard_excluded_doc_categories = getattr(graph_guard, "excluded_doc_categories", ())
+                guard_excluded_names = getattr(graph_guard, "excluded_names", ())
+                guard_excluded_chunk_ids = getattr(graph_guard, "excluded_chunk_ids", excluded_chunk_ids)
+                strict_exclusion = getattr(graph_guard, "strict_exclusion", False)
+                question_mentions_excluded = getattr(graph_guard, "question_mentions_excluded", False)
+
+        fused: dict[str, dict] = {}
+        for label, weight, docs in (
+            ("retrieval", 1.0, retrieval_docs),
+            ("graph", graph_weight, graph_docs),
+        ):
+            for rank, doc in enumerate(docs, start=1):
+                chunk_id = str(doc.metadata.get("chunk_id") or "")
+                if not chunk_id:
+                    continue
+
+                if strict_exclusion and chunk_id in guard_excluded_chunk_ids:
+                    continue
+
+                meta = doc.metadata or {}
+                doc_cat = meta.get("doc_category") or ""
+                section_path = meta.get("section_path") or ""
+                content = doc.page_content or ""
+                source = meta.get("source") or ""
+
+                is_excluded_cat_and_name = False
+                if doc_cat in guard_excluded_doc_categories:
+                    text_to_check = f"{section_path} {content} {source}"
+                    for name in guard_excluded_names:
+                        if name and name.lower() in text_to_check.lower():
+                            is_excluded_cat_and_name = True
+                            break
+
+                multiplier = 1.0
+                if not question_mentions_excluded and chunk_id in guard_excluded_chunk_ids:
+                    multiplier *= 0.15
+                if not question_mentions_excluded and is_excluded_cat_and_name:
+                    multiplier *= 0.2
+
+                mentions_linked = False
+                text_to_check_linked = f"{section_path} {content} {source}"
+                for target in [*guard_linked_names, *guard_linked_aliases]:
+                    if target and target.lower() in text_to_check_linked.lower():
+                        mentions_linked = True
+                        break
+                if mentions_linked:
+                    multiplier *= 1.5
+
+                if label == "graph":
+                    multiplier *= 1.2
+                if doc_cat in guard_linked_doc_categories:
+                    multiplier *= 1.1
+
+                effective_weight = weight * multiplier
+                if label == "retrieval" and chunk_id in guard_excluded_chunk_ids and not strict_exclusion and not graph_guard:
+                    effective_weight *= exclusion_weight
+
+                entry = fused.setdefault(
+                    chunk_id,
+                    {"doc": doc, "score": 0.0, "best_rank": rank, "labels": []},
+                )
+                entry["score"] += effective_weight / (rrf_k + rank)
+                entry["best_rank"] = min(entry["best_rank"], rank)
+                if label not in entry["labels"]:
+                    entry["labels"].append(label)
+
+        ranked = sorted(
+            fused.items(),
+            key=lambda item: (-item[1]["score"], item[1]["best_rank"], item[0]),
+        )
+        result: list[Document] = []
+        for _, entry in ranked[:top_k]:
+            doc = entry["doc"]
+            doc.metadata["rrf_score"] = entry["score"]
+            doc.metadata["matched_query_kinds"] = entry["labels"]
+            result.append(doc)
+        return result
 
 
 class EntityLinker:
@@ -47,12 +252,43 @@ class EntityLinker:
         self.db = db or RelationalDB()
         self.min_confidence = min_confidence
 
+    @staticmethod
+    def _question_contains_name(question: str, name: str, *, case_sensitive: bool) -> bool:
+        if not question or not name:
+            return False
+        if case_sensitive:
+            return name in question
+        return name.casefold() in question.casefold()
+
+    def _explicit_tier(
+        self,
+        *,
+        entity: dict,
+        method: str,
+        q_kind: str,
+        original_question: str | None,
+    ) -> int:
+        if q_kind in ("last_user", "source_anchor"):
+            return 1
+        if method != "name_exact" or not original_question:
+            return 2
+
+        candidate_names = [
+            entity.get("name") or "",
+            entity.get("canonical_name") or "",
+        ]
+        if any(self._question_contains_name(original_question, name, case_sensitive=True) for name in candidate_names):
+            return 4
+        if any(self._question_contains_name(original_question, name, case_sensitive=False) for name in candidate_names):
+            return 3
+        return 2
+
     def link(self, question: str, intent: str) -> tuple[LinkedEntity, ...]:
         """Backward compatibility for single string question linking."""
         from rag_knowledge.services.query_contextualizer import RetrievalQuery
-        return self.link_queries([RetrievalQuery(question, "original", 1.0)], intent)
+        return self.link_queries([RetrievalQuery(question, "original", 1.0)], intent, original_question=question)
 
-    def link_queries(self, queries: list[any], intent: str) -> tuple[LinkedEntity, ...]:
+    def link_queries(self, queries: list[Any], intent: str, original_question: str | None = None) -> tuple[LinkedEntity, ...]:
         """Resolve entities across multiple contextualized queries with overlap and tie-breaker handling."""
         all_linked: dict[str, LinkedEntity] = {}
         max_links = 3 if intent == "comparison" else 1
@@ -99,44 +335,65 @@ class EntityLinker:
                         else:
                             candidates[alias["entity_id"]] = (score, "alias_exact", start_idx, end_idx)
 
-            # 3. 意图类型得分微调
+            # 3. 意图类型得分微调与优先级判断
             preferred = self._INTENT_TYPES.get(intent, set())
-            ranked: list[tuple[float, str, str, int, int]] = []
+            ranked: list[tuple[int, float, str, str, int, int]] = []
+
             for entity_id, (score, method, start, end) in candidates.items():
                 entity = by_id[entity_id]
                 adjusted = score + (0.01 if entity["entity_type"] in preferred else 0.0)
-                ranked.append((adjusted, entity_id, method, start, end))
+                q_kind = q_spec.kind if hasattr(q_spec, "kind") else "original"
+                tier = self._explicit_tier(
+                    entity=entity,
+                    method=method,
+                    q_kind=q_kind,
+                    original_question=original_question,
+                )
+                ranked.append((tier, adjusted, entity_id, method, start, end))
 
-            valid_candidates = [c for c in ranked if c[0] >= self.min_confidence]
+            # 4. 显式实体优先过滤 (filter_entity_candidates)
+            if original_question and ranked:
+                from rag_knowledge.services.query_entity_guard import filter_entity_candidates
+                candidate_names = [by_id[c[2]]["name"] for c in ranked]
+                filtered_names = filter_entity_candidates(original_question, candidate_names)
+                filtered_names_set = set(filtered_names)
+                ranked = [c for c in ranked if by_id[c[2]]["name"] in filtered_names_set]
 
-            # 4. 冲突消歧 (Overlapping ties are ambiguous)
+            valid_candidates = [c for c in ranked if c[1] >= self.min_confidence]
+
+            # 5. 冲突消歧 (Overlapping ties are ambiguous)
             ambiguous_ids = set()
             for i, c1 in enumerate(valid_candidates):
                 for j, c2 in enumerate(valid_candidates):
                     if i != j:
                         # 检查区间 [start, end) 是否重叠
-                        overlap = max(c1[3], c2[3]) < min(c1[4], c2[4])
-                        if overlap and c1[0] == c2[0]:
-                            ambiguous_ids.add(c1[1])
-                            ambiguous_ids.add(c2[1])
+                        overlap = max(c1[4], c2[4]) < min(c1[5], c2[5])
+                        if overlap and c1[0] == c2[0] and c1[1] == c2[1]:
+                            ambiguous_ids.add(c1[2])
+                            ambiguous_ids.add(c2[2])
 
-            non_ambiguous = [c for c in valid_candidates if c[1] not in ambiguous_ids]
-            # 按分数降序，span长度降序，实体名升序排列
-            non_ambiguous.sort(key=lambda item: (-item[0], -(item[4] - item[3]), by_id[item[1]]["name"]))
+            non_ambiguous = [c for c in valid_candidates if c[2] not in ambiguous_ids]
+            # 排序：优先级从高到低，分数从高到低，span长度从长到短，实体名长度从长到短
+            non_ambiguous.sort(key=lambda item: (
+                -item[0],
+                -item[1],
+                -(item[5] - item[4]),
+                -len(by_id[item[2]]["name"])
+            ))
 
-            # 5. 贪婪过滤重叠匹配
-            selected: list[tuple[float, str, str, int, int]] = []
+            # 6. 贪婪过滤重叠匹配
+            selected: list[tuple[int, float, str, str, int, int]] = []
             for c in non_ambiguous:
                 overlap = False
                 for s in selected:
-                    if max(c[3], s[3]) < min(c[4], s[4]):
+                    if max(c[4], s[4]) < min(c[5], s[5]):
                         overlap = True
                         break
                 if not overlap:
                     selected.append(c)
 
-            # 6. 生成 LinkedEntity 并收集 excluded 关系
-            for adjusted, entity_id, method, start, end in selected[:max_links]:
+            # 7. 生成 LinkedEntity 并收集 excluded 关系
+            for tier, adjusted, entity_id, method, start, end in selected[:max_links]:
                 if entity_id not in all_linked:
                     entity = by_id[entity_id]
                     excluded: set[str] = set()
@@ -239,6 +496,7 @@ class GraphExpander:
         if not linked_entities:
             return GraphContext(fallback_reason="no_linked_entity")
 
+        initial_entity_ids = {linked.entity_id for linked in linked_entities}
         excluded = {item for linked in linked_entities for item in linked.excluded_entity_ids}
         ordered_entities = list(dict.fromkeys(linked.entity_id for linked in linked_entities))
         visited = set(ordered_entities)
@@ -278,7 +536,11 @@ class GraphExpander:
                     if other not in visited and len(visited) < self.max_entities:
                         visited.add(other)
                         ordered_entities.append(other)
-                        next_frontier.append(other)
+                        can_expand_next = True
+                        if relation["relation_type"] == "belongs_to" and from_type != "Product":
+                            can_expand_next = False
+                        if can_expand_next:
+                            next_frontier.append(other)
             frontier = next_frontier
             if not frontier:
                 break
@@ -289,8 +551,15 @@ class GraphExpander:
         queries: list[str] = []
         for entity_id in entity_ids:
             entity = self.db.get_entity(entity_id)
-            if entity and entity["name"] not in queries:
+            is_metadata_only_product = (
+                entity
+                and entity.get("entity_type") == "Product"
+                and entity_id not in initial_entity_ids
+            )
+            if entity and not is_metadata_only_product and entity["name"] not in queries:
                 queries.append(entity["name"])
+            if is_metadata_only_product:
+                continue
             for link in self.db.list_links(entity_id=entity_id):
                 chunk_id = link["chunk_id"]
                 if chunk_id not in chunk_ids and len(chunk_ids) < self.max_chunks:
@@ -349,12 +618,13 @@ class GraphRetriever:
             min_entity_confidence=min_ent_conf,
             min_relation_confidence=min_relation_confidence,
         )
+        self.guard_builder = GraphEntityGuard(self.db)
 
     def retrieve(
         self,
         question: str,
         intent: str,
-        queries: list[any] | None = None,
+        queries: list[Any] | None = None,
         kb_name: str | None = None,
         doc_category: str | None = None,
         review_status: str | None = "approved",
@@ -364,8 +634,13 @@ class GraphRetriever:
                 from rag_knowledge.services.query_contextualizer import RetrievalQuery
                 queries = [RetrievalQuery(question, "original", 1.0)]
 
-            linked = self.linker.link_queries(queries, intent)
+            linked = self.linker.link_queries(queries, intent, original_question=question)
             context = self.expander.expand(linked, intent)
+            context = replace(
+                context,
+                guard=self.guard_builder.build(question, intent, linked, context),
+            )
+
             if not context.chunk_ids:
                 return context, []
             collection = self.store.get_chroma()._collection
@@ -470,35 +745,15 @@ class GraphRetriever:
         rrf_k: int = 60,
         excluded_chunk_ids: tuple[str, ...] = (),
         exclusion_weight: float = 0.35,
+        graph_guard: GraphGuardContext | dict | None = None,
     ) -> list[Document]:
-        fused: dict[str, dict] = {}
-        for label, weight, docs in (
-            ("retrieval", 1.0, retrieval_docs),
-            ("graph", graph_weight, graph_docs),
-        ):
-            for rank, doc in enumerate(docs, start=1):
-                chunk_id = str(doc.metadata.get("chunk_id") or "")
-                if not chunk_id:
-                    continue
-                entry = fused.setdefault(
-                    chunk_id,
-                    {"doc": doc, "score": 0.0, "best_rank": rank, "labels": []},
-                )
-                effective_weight = weight
-                if label == "retrieval" and chunk_id in excluded_chunk_ids:
-                    effective_weight *= exclusion_weight
-                entry["score"] += effective_weight / (rrf_k + rank)
-                entry["best_rank"] = min(entry["best_rank"], rank)
-                if label not in entry["labels"]:
-                    entry["labels"].append(label)
-        ranked = sorted(
-            fused.items(),
-            key=lambda item: (-item[1]["score"], item[1]["best_rank"], item[0]),
+        return GraphFusionScorer.fuse(
+            retrieval_docs,
+            graph_docs,
+            top_k=top_k,
+            graph_weight=graph_weight,
+            rrf_k=rrf_k,
+            excluded_chunk_ids=excluded_chunk_ids,
+            exclusion_weight=exclusion_weight,
+            graph_guard=graph_guard,
         )
-        result: list[Document] = []
-        for _, entry in ranked[:top_k]:
-            doc = entry["doc"]
-            doc.metadata["rrf_score"] = entry["score"]
-            doc.metadata["matched_query_kinds"] = entry["labels"]
-            result.append(doc)
-        return result

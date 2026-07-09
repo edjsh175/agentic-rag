@@ -202,6 +202,13 @@ class QueryPlanner:
 
         intent, confidence = self._classify_intent(q)
         queries = self._expand_queries(q, base, intent)
+        from rag_knowledge.services.query_entity_guard import protect_rewritten_query
+        protected_queries = []
+        for query in queries:
+            protected_text = protect_rewritten_query(q, query.text)
+            protected_queries.append(RetrievalQuery(protected_text, query.kind, query.weight))
+        queries = self._dedupe_queries(protected_queries)
+
         top_k, candidate_k, rerank_for_intent = self._params_for_intent(intent)
         enable_rerank = bool(force_rerank or rerank_for_intent)
         expand_neighbors = intent in {"procedure", "deployment"}

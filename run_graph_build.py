@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.graph_extraction import GraphBuilder, GraphCandidateApplier, GraphQualityService
+from rag_knowledge.services.graph_text_migration import GraphTextMigration
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     apply_cmd = sub.add_parser("apply")
     apply_cmd.add_argument("--batch", required=True)
+
+    sub.add_parser("repair-text")
 
     quality = sub.add_parser("quality")
     target = quality.add_mutually_exclusive_group(required=True)
@@ -103,6 +106,10 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
     if args.command == "apply":
         GraphCandidateApplier(db).apply(args.batch)
         _print({"batch_id": args.batch, "status": "applied"})
+        return 0
+
+    if args.command == "repair-text":
+        _print(GraphTextMigration(db).apply())
         return 0
 
     quality = GraphQualityService(db)

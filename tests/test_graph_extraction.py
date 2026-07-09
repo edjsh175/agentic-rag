@@ -1,11 +1,13 @@
 from rag_knowledge.services.graph_extraction import (
     ConfigBlockExtractor,
-    SectionPathExtractor,
-    TableFieldExtractor,
     GraphBuilder,
     GraphCandidateApplier,
     GraphQualityService,
+    GraphSpecialRuleRestorer,
+    SectionPathExtractor,
+    TableFieldExtractor,
 )
+from rag_knowledge.config import Config
 from rag_knowledge.repository.relational_db import RelationalDB
 
 
@@ -144,12 +146,8 @@ def test_config_block_extractor_accepts_strict_directive_in_docx_text_chunk():
     assert result.entity("PipelinePublishConfig") is not None
 
 
-def test_v3_staging_batch_deduplicates_candidates(tmp_path, monkeypatch):
-    from rag_knowledge.config import Config
-
-    db_path = tmp_path / "graph-v3.db"
-    monkeypatch.setattr(Config(), "relational_db_path", db_path)
-    RelationalDB._instance = None
+def test_v3_staging_batch_deduplicates_candidates(isolated_storage, monkeypatch):
+    isolated_storage(db_name="graph-v3.db", data_dir_name="graph-v3-data", chroma_name="graph-v3-chroma")
     db = RelationalDB()
 
     batch_id = db.create_extraction_batch("incremental", {"chunk_ids": ["c1"]}, "snapshot-1")
@@ -162,11 +160,8 @@ def test_v3_staging_batch_deduplicates_candidates(tmp_path, monkeypatch):
     assert len(db.list_extraction_candidates(batch_id)) == 1
 
 
-def test_batch_can_only_be_approved_after_candidates_are_reviewed(tmp_path, monkeypatch):
-    from rag_knowledge.config import Config
-
-    monkeypatch.setattr(Config(), "relational_db_path", tmp_path / "review.db")
-    RelationalDB._instance = None
+def test_batch_can_only_be_approved_after_candidates_are_reviewed(isolated_storage):
+    isolated_storage(db_name="review.db", data_dir_name="review-data", chroma_name="review-chroma")
     db = RelationalDB()
     batch_id = db.create_extraction_batch("full", {}, "snapshot")
     candidate_id = db.add_extraction_candidate(
@@ -184,16 +179,13 @@ def test_batch_can_only_be_approved_after_candidates_are_reviewed(tmp_path, monk
     assert db.get_extraction_batch(batch_id)["status"] == "approved"
 
 
-def make_db(tmp_path, monkeypatch, name="builder.db"):
-    from rag_knowledge.config import Config
-
-    monkeypatch.setattr(Config(), "relational_db_path", tmp_path / name)
-    RelationalDB._instance = None
+def make_db(isolated_storage, name="builder.db", data_dir_name="graph-data", chroma_name="graph-chroma"):
+    isolated_storage(db_name=name, data_dir_name=data_dir_name, chroma_name=chroma_name)
     return RelationalDB()
 
 
-def test_graph_builder_stages_all_candidate_kinds(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_graph_builder_stages_all_candidate_kinds(isolated_storage):
+    db = make_db(isolated_storage, name="builder.db", data_dir_name="builder-data", chroma_name="builder-chroma")
     chunks = [
         chunk(
             content=(
@@ -223,8 +215,8 @@ def test_graph_builder_stages_all_candidate_kinds(tmp_path, monkeypatch):
     assert result.stats["chunks"] == 2
 
 
-def test_build_full_reuses_snapshot_unless_force_rebuild(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_build_full_reuses_snapshot_unless_force_rebuild(isolated_storage):
+    db = make_db(isolated_storage, name="reuse.db", data_dir_name="reuse-data", chroma_name="reuse-chroma")
     chunks = [chunk(source="manual.docx", doc_category="StampTools", section_path="DOMBuilder")]
     builder = GraphBuilder(db=db, chunk_source=lambda: chunks)
 
@@ -238,8 +230,8 @@ def test_build_full_reuses_snapshot_unless_force_rebuild(tmp_path, monkeypatch):
     assert db.get_extraction_batch(rebuilt.batch_id) is not None
 
 
-def test_incremental_build_reports_missing_chunk_ids(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_incremental_build_reports_missing_chunk_ids(isolated_storage):
+    db = make_db(isolated_storage, name="incremental.db", data_dir_name="incremental-data", chroma_name="incremental-chroma")
     builder = GraphBuilder(db=db, chunk_source=lambda: [chunk(chunk_id="c1")])
 
     result = builder.build_incremental(["c1", "missing"])
@@ -251,8 +243,8 @@ def test_incremental_build_reports_missing_chunk_ids(tmp_path, monkeypatch):
     assert any(item["payload"]["code"] == "missing_chunk" for item in diagnostics)
 
 
-def test_entity_candidates_are_semantically_deduplicated_and_keep_evidence(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_entity_candidates_are_semantically_deduplicated_and_keep_evidence(isolated_storage):
+    db = make_db(isolated_storage, name="dedupe.db", data_dir_name="dedupe-data", chroma_name="dedupe-chroma")
     chunks = [
         chunk(chunk_id="c1", source="manual.docx", doc_category="StampTools", section_path="PipelineBuilder > 工程设置"),
         chunk(chunk_id="c2", source="manual.docx", doc_category="StampTools", section_path="PipelineBuilder > 数据设置"),
@@ -268,8 +260,8 @@ def test_entity_candidates_are_semantically_deduplicated_and_keep_evidence(tmp_p
     assert {item["source_chunk_id"] for item in pipeline_entities[0]["payload"]["evidences"]} == {"c1", "c2"}
 
 
-def test_approved_batch_applies_entities_relations_fields_and_links_atomically(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_approved_batch_applies_entities_relations_fields_and_links_atomically(isolated_storage):
+    db = make_db(isolated_storage, name="apply.db", data_dir_name="apply-data", chroma_name="apply-chroma")
     chunks = [chunk(
         content="| 字段名 | 说明 |\n|---|---|\n| 管点编号 | 唯一识别码，必要字段 |",
         source="StampTools用户手册.docx",
@@ -291,11 +283,49 @@ def test_approved_batch_applies_entities_relations_fields_and_links_atomically(t
     assert field["doc_category"] == "StampTools"
     assert db.get_relation_by_details(pipeline["id"], table["id"], "has_table")
     assert db.get_link_by_entity_chunk(field["id"], "c1")
+    assert any(item["alias"] == "管线发布工具" for item in db.list_aliases(pipeline["id"]))
     assert db.get_extraction_batch(batch.batch_id)["status"] == "applied"
 
 
-def test_apply_rolls_back_whole_batch_on_type_conflict(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_special_rule_restorer_recovers_different_from_and_alias(isolated_storage):
+    db = make_db(isolated_storage, name="special.db", data_dir_name="special-data", chroma_name="special-chroma")
+    pipeline = db.create_entity("PipelineBuilder", "Tool", "StampTools")
+    db.create_entity("管线发布服务", "Service", "StampServer")
+    db.create_entity("PipelinePublishConfig", "ConfigItem", "StampServer")
+
+    with db._get_conn() as conn:
+        GraphSpecialRuleRestorer(db).apply(conn)
+
+    aliases = {item["alias"] for item in db.list_aliases(pipeline)}
+    related = {
+        (item["source_name"], item["relation_type"], item["target_name"])
+        for item in db.list_relations(entity_id=pipeline, review_status="approved")
+    }
+
+    assert "管线发布工具" in aliases
+    assert ("PipelineBuilder", "different_from", "管线发布服务") in related
+    assert ("PipelineBuilder", "different_from", "PipelinePublishConfig") in related
+
+
+def test_special_rule_restorer_is_idempotent(isolated_storage):
+    db = make_db(isolated_storage, name="special-idempotent.db", data_dir_name="special-idem-data", chroma_name="special-idem-chroma")
+    db.create_entity("PipelineBuilder", "Tool", "StampTools")
+    db.create_entity("管线发布服务", "Service", "StampServer")
+    db.create_entity("PipelinePublishConfig", "ConfigItem", "StampServer")
+
+    with db._get_conn() as conn:
+        restorer = GraphSpecialRuleRestorer(db)
+        restorer.apply(conn)
+        restorer.apply(conn)
+
+    aliases = [item for item in db.list_aliases() if item["alias"] == "管线发布工具"]
+    relations = [item for item in db.list_relations(review_status="approved") if item["relation_type"] == "different_from"]
+    assert len(aliases) == 1
+    assert len(relations) == 2
+
+
+def test_apply_rolls_back_whole_batch_on_type_conflict(isolated_storage):
+    db = make_db(isolated_storage, name="conflict.db", data_dir_name="conflict-data", chroma_name="conflict-chroma")
     db.create_entity("PipelineBuilder", "Product")
     batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
     candidate_id = db.add_extraction_candidate(
@@ -317,14 +347,14 @@ def test_apply_rolls_back_whole_batch_on_type_conflict(tmp_path, monkeypatch):
     assert db.get_extraction_batch(batch_id)["status"] == "failed"
 
 
-def test_quality_service_validates_golden_graph(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_quality_service_validates_golden_graph(isolated_storage):
+    db = make_db(isolated_storage, name="quality.db", data_dir_name="quality-data", chroma_name="quality-chroma")
     report = GraphQualityService(db).inspect_graph()
     assert "missing_golden_entity:PipelineBuilder" in report.errors
 
 
-def test_partial_graph_quality_skips_golden_gate(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_partial_graph_quality_skips_golden_gate(isolated_storage):
+    db = make_db(isolated_storage, name="partial-quality.db", data_dir_name="partial-quality-data", chroma_name="partial-quality-chroma")
 
     report = GraphQualityService(db).inspect_graph(profile="partial")
 
@@ -332,8 +362,8 @@ def test_partial_graph_quality_skips_golden_gate(tmp_path, monkeypatch):
     assert not any(error.startswith("missing_golden_") for error in report.errors)
 
 
-def test_batch_quality_rejects_approved_entity_without_approved_evidence_link(tmp_path, monkeypatch):
-    db = make_db(tmp_path, monkeypatch)
+def test_batch_quality_rejects_approved_entity_without_approved_evidence_link(isolated_storage):
+    db = make_db(isolated_storage, name="batch-quality.db", data_dir_name="batch-quality-data", chroma_name="batch-quality-chroma")
     batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
     entity_id = db.add_extraction_candidate(
         batch_id,
@@ -367,11 +397,11 @@ def test_batch_quality_rejects_approved_entity_without_approved_evidence_link(tm
     assert db.get_extraction_batch(batch_id)["status"] == "failed"
 
 
-def test_graph_build_cli_exports_reviewable_batch(tmp_path, monkeypatch):
+def test_graph_build_cli_exports_reviewable_batch(isolated_storage, tmp_path):
     import json
     import run_graph_build
 
-    db = make_db(tmp_path, monkeypatch)
+    db = make_db(isolated_storage, name="cli-export.db", data_dir_name="cli-export-data", chroma_name="cli-export-chroma")
     batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
     db.add_extraction_candidate(
         batch_id, "entity", "fp", {"name": "DOMBuilder", "entity_type": "Tool"}, "c1", "DOMBuilder"
@@ -386,19 +416,19 @@ def test_graph_build_cli_exports_reviewable_batch(tmp_path, monkeypatch):
     assert payload["candidates"][0]["payload"]["name"] == "DOMBuilder"
 
 
-def test_graph_build_cli_quality_returns_nonzero_for_failed_gate(tmp_path, monkeypatch):
+def test_graph_build_cli_quality_returns_nonzero_for_failed_gate(isolated_storage):
     import run_graph_build
 
-    db = make_db(tmp_path, monkeypatch)
+    db = make_db(isolated_storage, name="cli-quality.db", data_dir_name="cli-quality-data", chroma_name="cli-quality-chroma")
     assert run_graph_build.main(["quality", "--graph"], db=db) == 1
     assert run_graph_build.main(["quality", "--graph", "--profile", "partial"], db=db) == 0
 
 
-def test_graph_build_cli_review_reports_invalid_candidate_ids(tmp_path, monkeypatch, capsys):
+def test_graph_build_cli_review_reports_invalid_candidate_ids(isolated_storage, capsys):
     import json
     import run_graph_build
 
-    db = make_db(tmp_path, monkeypatch)
+    db = make_db(isolated_storage, name="cli-review.db", data_dir_name="cli-review-data", chroma_name="cli-review-chroma")
     batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
     candidate_id = db.add_extraction_candidate(
         batch_id, "entity", "fp", {"name": "DOMBuilder", "entity_type": "Tool"}

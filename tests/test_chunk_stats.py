@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import types
+import pytest
 
 _INJECTED_MODULES = []
 
@@ -48,6 +49,15 @@ def tearDownModule():
 from rag_knowledge.api import routes
 from rag_knowledge.models.api import QueryRequest
 from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="chunk-stats.db",
+        chroma_name="chunk-stats-chroma",
+        data_dir_name="chunk-stats-data",
+    )
 
 
 class _StoreStub:

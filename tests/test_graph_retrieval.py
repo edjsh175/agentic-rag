@@ -7,10 +7,8 @@ from rag_knowledge.services.graph_retrieval import EntityLinker, GraphExpander, 
 
 
 @pytest.fixture
-def graph_db(tmp_path, monkeypatch):
-    cfg = Config()
-    monkeypatch.setattr(cfg, "relational_db_path", tmp_path / "graph-retrieval.db")
-    RelationalDB._instance = None
+def graph_db(isolated_storage):
+    isolated_storage(db_name="graph-retrieval.db")
     db = RelationalDB()
 
     pipeline = db.create_entity("PipelineBuilder", "Tool", doc_category="StampTools")
@@ -209,6 +207,24 @@ def test_followup_question_links_via_contextualized_query(graph_db):
     assert linked[0].canonical_name == "PipelineBuilder"
 
 
+def test_explicit_tier_uses_original_question_string_matching(graph_db):
+    from rag_knowledge.services.query_contextualizer import RetrievalQuery
+
+    queries = [
+        RetrievalQuery("  PipelineBuilder   怎么配置？  ", "standalone", 0.8),
+    ]
+
+    linked = EntityLinker(graph_db).link_queries(
+        queries,
+        "config",
+        original_question="pipelinebuilder怎么配置？",
+    )
+
+    assert len(linked) == 1
+    assert linked[0].canonical_name == "PipelineBuilder"
+    assert linked[0].confidence >= 0.98
+
+
 def test_revision_token_changes_when_aliases_or_links_change(graph_db):
     retriever = GraphRetriever(graph_db, store=object())
     r1 = retriever.revision()
@@ -224,18 +240,15 @@ def test_revision_token_changes_when_aliases_or_links_change(graph_db):
     assert r2 != r3
 
 
-def test_full_chain_pipeline_integration(tmp_path, monkeypatch):
+def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
     # 1. Isolate database
     from rag_knowledge.config import Config
     from rag_knowledge.services.graph_extraction import GraphBuilder, GraphCandidateApplier
     from rag_knowledge.services.rag import RagChain
     
-    cfg = Config()
-    test_db_path = tmp_path / "integration-full.db"
-    monkeypatch.setattr(cfg, "relational_db_path", test_db_path)
+    cfg, _, _, _ = isolated_storage(db_name="integration-full.db")
     monkeypatch.setattr(cfg.graph_retrieval, "enabled", True)
-    
-    RelationalDB._instance = None
+
     db = RelationalDB()
     
     # 2. Add raw chunks to mock source
@@ -352,5 +365,106 @@ def test_full_chain_pipeline_integration(tmp_path, monkeypatch):
     monkeypatch.setattr(chain._query_planner, "plan", lambda *args, **kwargs: mock_plan)
     
     resp = chain.query("PipelineBuilder配置在哪？")
-    assert any(doc.get("metadata", {}).get("chunk_id") == "c-config" for doc in resp["source_documents"])
+    retrieved_ids = {doc.get("metadata", {}).get("chunk_id") for doc in resp["source_documents"]}
+    assert "c-tool" in retrieved_ids
+    assert "c-config" not in retrieved_ids
 
+
+def test_belongs_to_product_expansion_limit(graph_db):
+    # 1. Create a section under StampTools (Product)
+    product = graph_db.get_entity_by_name("StampTools")
+    product_section = graph_db.create_entity("StampTools 运行环境", "Section", doc_category="StampTools")
+    graph_db.create_relation(product["id"], product_section, "defined_in", review_status="approved")
+    graph_db.create_link(product_section, "chunk-product-env", evidence_text="运行环境")
+
+    # 2. Run linker & expander
+    linker = EntityLinker(graph_db)
+    linked = linker.link("管线发布工具如何使用？", "procedure")
+    assert len(linked) == 1
+    assert linked[0].canonical_name == "PipelineBuilder"
+
+    expander = GraphExpander(graph_db)
+    context = expander.expand(linked, "procedure")
+
+    # 3. Assert that StampTools is visited, but product_section is not (due to child -> Product expansion limit)
+    assert product["id"] in context.expanded_entity_ids
+    assert product_section not in context.expanded_entity_ids
+    assert "chunk-product-env" not in context.chunk_ids
+
+
+def test_fuse_strict_exclusion_on_regression(graph_db):
+    # 1. Create a link for the excluded entity "管线发布服务"
+    service = graph_db.get_entity_by_name("管线发布服务")
+    graph_db.create_link(service["id"], "chunk-service-deploy", evidence_text="部署管线发布服务")
+
+    # 2. Retrieve with a question that does NOT mention "管线发布服务"
+    class Collection:
+        def get(self, ids, include):
+            return {
+                "ids": ids,
+                "documents": ["PipelineBuilder 内容", "Service 内容"],
+                "metadatas": [{"chunk_id": "chunk-pipeline", "doc_category": "StampTools"}, {"chunk_id": "chunk-service-deploy", "doc_category": "StampServer"}],
+            }
+    mock_store = type("Store", (), {"get_chroma": lambda self: type("Chroma", (), {"_collection": Collection()})()})()
+    retriever = GraphRetriever(graph_db, store=mock_store)
+    context, _ = retriever.retrieve("管线发布工具如何使用？", "procedure")
+
+    assert context.guard is not None
+    assert context.guard.strict_exclusion is True
+    assert context.guard.question_mentions_excluded is False
+    assert "chunk-service-deploy" in context.guard.excluded_chunk_ids
+
+    # 3. Call fuse and verify strict exclusion skips the chunk
+    standard = [
+        Document(page_content="PipelineBuilder data settings", metadata={"chunk_id": "chunk-pipeline"}),
+        Document(page_content="Service deployment config", metadata={"chunk_id": "chunk-service-deploy"}),
+    ]
+    fused = GraphRetriever.fuse(standard, [], top_k=2, graph_guard=context.guard)
+    assert [doc.metadata["chunk_id"] for doc in fused] == ["chunk-pipeline"]
+
+
+def test_fuse_no_strict_exclusion_on_comparison(graph_db):
+    # 1. Create a link for the excluded entity "管线发布服务"
+    service = graph_db.get_entity_by_name("管线发布服务")
+    graph_db.create_link(service["id"], "chunk-service-deploy", evidence_text="部署管线发布服务")
+
+    # 2. Retrieve with a comparison question or question mentioning the excluded name
+    class Collection:
+        def get(self, ids, include):
+            return {
+                "ids": ids,
+                "documents": ["PipelineBuilder 内容", "Service 内容"],
+                "metadatas": [{"chunk_id": "chunk-pipeline", "doc_category": "StampTools"}, {"chunk_id": "chunk-service-deploy", "doc_category": "StampServer"}],
+            }
+    mock_store = type("Store", (), {"get_chroma": lambda self: type("Chroma", (), {"_collection": Collection()})()})()
+    retriever = GraphRetriever(graph_db, store=mock_store)
+    context, _ = retriever.retrieve("管线发布工具和管线发布服务有什么区别？", "comparison")
+
+    assert context.guard is not None
+    assert context.guard.strict_exclusion is False
+    assert context.guard.question_mentions_excluded is True
+
+    # 3. Call fuse and verify the chunk is NOT skipped
+    standard = [
+        Document(page_content="PipelineBuilder data settings", metadata={"chunk_id": "chunk-pipeline"}),
+        Document(page_content="Service deployment config", metadata={"chunk_id": "chunk-service-deploy"}),
+    ]
+    fused = GraphRetriever.fuse(standard, [], top_k=2, graph_guard=context.guard)
+    assert "chunk-service-deploy" in [doc.metadata["chunk_id"] for doc in fused]
+
+
+def test_product_own_links_excluded_from_graph_chunks(graph_db):
+    product = graph_db.get_entity_by_name("StampTools")
+    graph_db.create_link(product["id"], "chunk-product-overview", evidence_text="工具概述")
+
+    linker = EntityLinker(graph_db)
+    linked = linker.link("管线发布工具如何使用？", "procedure")
+    assert len(linked) == 1
+    assert linked[0].canonical_name == "PipelineBuilder"
+
+    expander = GraphExpander(graph_db)
+    context = expander.expand(linked, "procedure")
+
+    assert product["id"] in context.expanded_entity_ids
+    assert "chunk-product-overview" not in context.chunk_ids
+    assert "StampTools" not in context.retrieval_queries

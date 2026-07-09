@@ -56,7 +56,7 @@
 
 ### 当前阶段：检索能力优化 + 交付前查漏补缺
 
-正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-06：检索优化主线已基本完成，交付前查漏补缺正在收口；已新增 Chunk 统计接口、chunk 命中统计、对话式查询上下文化/多查询召回、审核状态更新后的 BM25 同步、同步/异步检索路径完全统一。剩余重点是 Git/SVN 交付清理、Excel 复杂真实文件测试和交付文档口径一致。
+正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-08：检索优化主线已完成，知识库一致性/受控重建/测试隔离/图谱重建已收口；已新增受控重建协调器、知识库一致性检测、图谱乱码迁移、QueryEntityGuard、pytest 测试隔离体系（`isolated_storage` + integration 排除 + live-path 熔断器）。剩余重点是 Git/SVN 交付清理和交付文档口径一致。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
@@ -163,7 +163,15 @@ rag_python/
 │       ├── reranker.py             # 重排序器（Cross-Encoder，BGE/Qwen3）
 │       ├── retrieval_quality.py    # 检索后处理质量控制（Phase 5：分数归一化、Jaccard去重、动态TopK）
 │       ├── blog_crawler.py         # 多平台博客爬虫（CSDN/博客园/掘金/微信公众号）
-│       └── blog_syncer.py          # 博客发布系统同步（API → 本地文件）
+│       ├── blog_syncer.py          # 博客发布系统同步（API → 本地文件）
+│       ├── knowledge_base_consistency.py # 知识库一致性检测（file_index ↔ Chroma）
+│       ├── rebuild_coordinator.py  # 受控重建协调器（单实例锁 + stale lock 检测 + 一致性断言）
+│       ├── graph_text_migration.py # 图谱乱码文本迁移（mojibake → 中文修复）
+│       ├── query_entity_guard.py   # 查询实体守卫（追问场景实体锚定与过滤）
+│       ├── graph_extraction/       # 知识图谱提取（Phase B 确定性规则管线）
+│       │   ├── pipeline.py         # 提取管线（SectionPath/TableField/ConfigBlock → 候选 → 审核 → 应用）
+│       │   └── __init__.py
+│       └── graph_retrieval.py      # 图谱检索（实体扩展 + 文档融合 + 守卫过滤）
 │
 ├── web/                            # 前端（Vue 3 + TypeScript + Vite）
 │   ├── src/
@@ -429,6 +437,10 @@ docker run -p 10605:10605 rag-knowledge
 - **评估命令**：始终使用 `.\venv\Scripts\python.exe run_eval_full.py`，不要使用 `python run_eval_full.py`
 - **重建后评估**：重建会生成全新的 chunk ID；旧的 `eval_dataset.json` 和难例集随即失效，必须基于新向量库重新生成
 - **数据库维护**：执行离线重建、迁移或诊断前先停止后端和其他评估进程，确认没有进程占用 `chroma_db`
+- **受控重建**：`RebuildCoordinator.run()` 提供完整的带锁重建流程（备份 → clear → reset → scan → 一致性断言 → BM25 重建），替代手动逐步操作。也可通过 `POST /rebuild` 触发。重建锁文件 `data/rebuild.lock` 记录 PID，异常退出后下次重建自动检测并清理 stale lock
+- **图谱重建**：知识库一致性通过后，按顺序执行：`run_graph_build.py extract --force-rebuild` → `review --batch <id> --approve-all` → `apply --batch <id>` → `quality --graph`。图谱提取前会调用 `assert_consistent()`，不一致时拒绝执行
+- **图谱乱码修复**：`run_graph_build.py repair-text` 修复关系图谱中的 mojibake 中文标签
+- **测试隔离**：`pytest` 默认排除 `@pytest.mark.integration` 测试（`addopts = -m "not integration"`）。`isolated_storage` fixture 将全部 8 个运行时路径指向 `tmp_path`。`Config._assert_test_paths_are_isolated()` 在 pytest 下检测到正式路径时直接抛错，除非设置 `ALLOW_LIVE_STORAGE_IN_TESTS=1`。需接触正式库的集成测试显式运行 `pytest -m integration`
 
 ### 2026-07-01 Chroma 环境混用事故
 
@@ -454,6 +466,10 @@ docker run -p 10605:10605 rag-knowledge
 - **元数据**：每个 chunk 携带 section_title / section_path / section_index / chunk_in_section / review_status / doc_category / geo_wkt
 - **评估体系**：`rag_knowledge/evaluation/` 提供测试集构建（LLM 合成）+ 检索指标计算（Recall@K/MRR/Hit）+ 多策略 ablations 对比
 - **数据迁移**：`review_status` 字段为后期添加，现有 chunk 通过一次性脚本设为 `"approved"`；新 chunk 默认为 `"pending"`
+- **知识库一致性检测**：`KnowledgeBaseConsistencyService.audit()` 交叉对比 `file_index.json` 与 Chroma collection 的 chunk ID，输出一致的 `summary` 和 `files` 报告；`assert_consistent()` 不一致时抛出 `KnowledgeBaseConsistencyError`
+- **受控重建**：`RebuildCoordinator` 使用 `os.O_CREAT | os.O_EXCL` 文件锁防止并发重建，Windows 下通过 `OpenProcess` 检测 stale PID 自动清理遗留锁。流程：备份 → 写入 running 状态 → clear/reset/scan → 一致性断言 → BM25 重建 → 清理状态文件
+- **图谱确定性提取**：Phase B 使用规则管线（`SectionPathExtractor` → `TableFieldExtractor` → `ConfigBlockExtractor`），候选按 `[kind, identity_payload]` SHA-256 指纹去重，通过 review/apply 两阶段审批写入关系数据库。`GraphBuilder.build_full()` 启动前调用 `KnowledgeBaseConsistencyService.assert_consistent()`
+- **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据
 
 ## Prompt 与回答规范
 

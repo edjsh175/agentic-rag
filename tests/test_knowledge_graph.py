@@ -17,16 +17,12 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def test_setup(tmp_path, monkeypatch):
+def test_setup(isolated_storage, monkeypatch):
     """Isolate DB and file_index for each test case."""
-    cfg = Config()
-    
-    # 1. Isolate relational db path
-    test_db = tmp_path / "test_rag_relational.db"
-    monkeypatch.setattr(cfg, "relational_db_path", test_db)
-    
-    # 2. Isolate data directory (for file_index.json lookup)
-    monkeypatch.setattr(cfg, "data_dir", tmp_path)
+    _, _, _, data_dir = isolated_storage(
+        db_name="test_rag_relational.db",
+        data_dir_name="kg-data",
+    )
     
     # 3. Create dummy file_index.json
     file_index_content = {
@@ -42,11 +38,10 @@ def test_setup(tmp_path, monkeypatch):
             }
         }
     }
-    file_index_file = tmp_path / "file_index.json"
+    file_index_file = data_dir / "file_index.json"
     file_index_file.write_text(json.dumps(file_index_content, ensure_ascii=False), encoding="utf-8")
     
     # 4. Reset RelationalDB singleton to force connection initialization on the new path
-    RelationalDB._instance = None
     db = RelationalDB()
     
     yield db

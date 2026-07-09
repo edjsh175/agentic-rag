@@ -9,8 +9,17 @@ from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.services.rag import RagChain
+from rag_knowledge.services.retrieval_intent import section_matches_expected as _section_matches_expected
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def _allow_live_storage_for_integration(monkeypatch):
+    monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
+    Config._instance = None
+    VectorStore._instance = None
+    BM25Store._instance = None
 
 
 def _setup_regression_env(test_case):
@@ -32,6 +41,16 @@ def _setup_regression_env(test_case):
     BM25Store().rebuild()
     clear_query_cache()
     return chroma, count
+
+
+class SectionFamilyMatcherTests(unittest.TestCase):
+    def test_point_data_child_section_matches_point_table_parent_expectation(self):
+        self.assertTrue(
+            _section_matches_expected(
+                "PipelineBuilder > 数据规范 > 点数据结构",
+                "PipelineBuilder > 数据规范 > 管线点表",
+            )
+        )
 
 
 @pytest.mark.integration
@@ -74,7 +93,7 @@ class RetrievalRegressionIntegrationTests(unittest.TestCase):
                         continue
 
                     actual_section = meta.get("section_path", "")
-                    if expected_section and expected_section not in actual_section:
+                    if not _section_matches_expected(actual_section, expected_section):
                         continue
 
                     content = doc.page_content or ""
@@ -164,7 +183,7 @@ class RagChainRetrievalRegressionTests(unittest.TestCase):
                         continue
 
                     actual_section = meta.get("section_path", "")
-                    if expected_section and expected_section not in actual_section:
+                    if not _section_matches_expected(actual_section, expected_section):
                         continue
 
                     content = doc.get("content", "")

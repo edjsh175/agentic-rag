@@ -52,8 +52,10 @@ from rag_knowledge.services.chunk_admin import (
     REVIEW_STATUSES,
     RetrievalRefreshError,
 )
+from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.query_cache import clear_query_cache
+from rag_knowledge.services.rebuild_coordinator import RebuildCoordinator
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
 from rag_knowledge.models.api import (
@@ -411,6 +413,12 @@ def scan_index():
     return _scanner.get_index() if _scanner else {"total_files": 0, "files": []}
 
 
+@router.get("/audit/consistency")
+def audit_consistency(source: str | None = None):
+    """只读知识库一致性审计。"""
+    return KnowledgeBaseConsistencyService().audit(source=source)
+
+
 @router.get("/admin/chunks", response_model=AdminChunkListResponse)
 def admin_chunks(
     review_status: str = "pending",
@@ -540,29 +548,16 @@ def rebuild_knowledge():
 
     注意：此操作不可逆，执行后所有已有问答数据将被清空
     """
-    from rag_knowledge.repository.vector_store import VectorStore
     try:
-        # 清空向量数据库
-        VectorStore().clear()
-        _invalidate_retrieval_caches("rebuild_clear")
-        logger.info("向量数据库已清空")
-
-        # 清空文件索引（同时重置 scanner 内存缓存，避免跳过）
         if _scanner:
-            _scanner.reset_index()
-            logger.info("文件索引已重置")
-
-        # 重新扫描
-        if _scanner:
-            result = _scanner.scan()
-            _rebuild_bm25()
-            _invalidate_retrieval_caches("rebuild_scan")
-            return {
-                "message": "知识库已重建",
-                "new_files": result["new_files"],
-                "skipped_files": result["skipped_files"],
-                "errors": result["errors"],
-            }
+            return RebuildCoordinator(
+                cfg=_cfg,
+                store=VectorStore(),
+                scanner=_scanner,
+                consistency_service=KnowledgeBaseConsistencyService(),
+                invalidate_retrieval_caches=_invalidate_retrieval_caches,
+                rebuild_bm25=_rebuild_bm25,
+            ).run()
         return {"message": "知识库已清空，但扫描器未初始化"}
     except Exception as e:
         logger.error("重建失败: %s", e)

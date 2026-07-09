@@ -748,6 +748,57 @@ class RagStage6Tests(unittest.TestCase):
         # Assert no Chroma attribute exists or was called
         self.assertFalse(hasattr(chain, "_store"))
 
+    def test_build_messages_injects_entity_hints(self):
+        from unittest.mock import patch, MagicMock
+        from rag_knowledge.services.rag import RagChain
+        from rag_knowledge.services.graph_retrieval import LinkedEntity
+
+        linked = LinkedEntity(
+            entity_id="entity-123",
+            canonical_name="PipelineBuilder",
+            entity_type="Tool",
+            confidence=0.95,
+            match_method="exact",
+            excluded_entity_ids=("entity-456",)
+        )
+
+        mock_db = MagicMock()
+        mock_db.get_entity.side_effect = lambda eid: {
+            "id": "entity-123",
+            "name": "PipelineBuilder",
+            "canonical_name": "PipelineBuilder",
+            "entity_type": "Tool",
+            "doc_category": "StampTools"
+        } if eid == "entity-123" else {
+            "id": "entity-456",
+            "name": "管线发布服务",
+            "canonical_name": "管线发布服务",
+            "entity_type": "Service",
+            "doc_category": "StampServer"
+        }
+
+        mock_db.list_aliases.return_value = [{"alias": "管线发布工具", "review_status": "approved"}]
+        mock_db.list_relations.return_value = [{
+            "source_entity_id": "entity-123",
+            "target_entity_id": "entity-456",
+            "relation_type": "different_from"
+        }]
+
+        with patch("rag_knowledge.repository.relational_db.RelationalDB", return_value=mock_db):
+            messages = RagChain._build_messages(
+                question="test query",
+                context="context doc",
+                linked_entities=(linked,)
+            )
+
+        system_content = messages[0]["content"]
+        self.assertIn("## 当前检索实体提示（仅用于消歧，不作为事实来源）", system_content)
+        self.assertIn("PipelineBuilder", system_content)
+        self.assertIn("管线发布工具", system_content)
+        self.assertIn("不要将 PipelineBuilder 与以下相似但不同的实体混同", system_content)
+        self.assertIn("管线发布服务，类型 Service，分类 StampServer", system_content)
+        self.assertIn("实体提示仅用于帮助区分相似实体，不能替代知识库事实", system_content)
+
 
 if __name__ == "__main__":
     unittest.main()

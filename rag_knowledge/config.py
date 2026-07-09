@@ -295,8 +295,50 @@ class Config:
 
         # ---- 博客发布接口（addRag） ----
         self.blog_add_rag_url = _get("blog_publish", "add_rag_url", "http://127.0.0.1:8080/zslt/system/article/addRag")
+        self._assert_test_paths_are_isolated(root)
 
         # ---- 创建必要目录 ----
         for d in [self.chroma_dir, self.data_dir, self.log_dir, self.blog_posts_dir, self.blog_crawl_dir, self.blog_publish_dir, self.crawl_image_dir]:
             d.mkdir(parents=True, exist_ok=True)
         self.watch_dir.mkdir(parents=True, exist_ok=True)
+
+    def _assert_test_paths_are_isolated(self, root: Path) -> None:
+        if not os.getenv("PYTEST_CURRENT_TEST"):
+            return
+        if os.getenv("ALLOW_LIVE_STORAGE_IN_TESTS") == "1":
+            return
+
+        live_paths = {
+            "chroma_dir": root / "chroma_db",
+            "relational_db_path": root / "data" / "rag_relational.db",
+            "data_dir": root / "data",
+            "log_dir": root / "logs",
+            "watch_dir": root / "watch_directory",
+            "blog_posts_dir": root / "blog_posts",
+            "blog_crawl_dir": root / "scrape_article",
+            "crawl_image_dir": root / "scrapingImages",
+            "blog_publish_dir": (root / "watch_directory") / "已发布文章",
+        }
+        actual_paths = {
+            "chroma_dir": self.chroma_dir,
+            "relational_db_path": self.relational_db_path,
+            "data_dir": self.data_dir,
+            "log_dir": self.log_dir,
+            "watch_dir": self.watch_dir,
+            "blog_posts_dir": self.blog_posts_dir,
+            "blog_crawl_dir": self.blog_crawl_dir,
+            "crawl_image_dir": self.crawl_image_dir,
+            "blog_publish_dir": self.blog_publish_dir,
+        }
+
+        violations = [
+            name
+            for name, actual in actual_paths.items()
+            if Path(actual).resolve() == live_paths[name].resolve()
+        ]
+        if violations:
+            violation_list = ", ".join(sorted(violations))
+            raise RuntimeError(
+                "pytest refused to use a live storage path without "
+                f"ALLOW_LIVE_STORAGE_IN_TESTS=1: {violation_list}"
+            )

@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
@@ -23,6 +24,15 @@ def _docs(count: int) -> list[Document]:
         Document(page_content=f"doc-{i}", metadata={"chunk_id": str(i)})
         for i in range(count)
     ]
+
+
+@pytest.fixture(autouse=True)
+def _isolated_test_storage(isolated_storage):
+    isolated_storage(
+        db_name="reranker.db",
+        chroma_name="reranker-chroma",
+        data_dir_name="reranker-data",
+    )
 
 
 class RerankerUnitTests(unittest.TestCase):
