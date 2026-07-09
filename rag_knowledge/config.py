@@ -110,6 +110,20 @@ class GraphRetrievalConfig:
     graph_weight: float = 1.25
 
 
+@dataclass
+class GraphLLMExtractorConfig:
+    """LLM semantic graph extraction config (MVP-4)."""
+    enabled: bool = False
+    provider: str = "ollama"
+    model: str = "qwen3:30b"
+    temperature: float = 0.0
+    max_retries: int = 2
+    min_confidence: float = 0.60
+    auto_approve_confidence: float = 0.90
+    prompt_version: str = "v1"
+    extractor_version: str = "v1"
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -295,6 +309,20 @@ class Config:
 
         # ---- 博客发布接口（addRag） ----
         self.blog_add_rag_url = _get("blog_publish", "add_rag_url", "http://127.0.0.1:8080/zslt/system/article/addRag")
+
+        # ---- LLM 语义图谱抽取 (MVP-4) ----
+        self.graph_extraction_llm = GraphLLMExtractorConfig(
+            enabled=_get("graph_extraction.llm", "enabled", "false").lower() == "true",
+            provider=_get("graph_extraction.llm", "provider", "ollama"),
+            model=_get("graph_extraction.llm", "model", "qwen3:30b"),
+            temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
+            max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
+            min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
+            auto_approve_confidence=float(_get("graph_extraction.llm", "auto_approve_confidence", "0.90")),
+            prompt_version=_get("graph_extraction.llm", "prompt_version", "v1"),
+            extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
+        )
+
         self._assert_test_paths_are_isolated(root)
 
         # ---- 创建必要目录 ----

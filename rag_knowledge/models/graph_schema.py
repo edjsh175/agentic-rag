@@ -43,6 +43,10 @@ class EntityType(str, Enum):
     error = "Error"
     solution = "Solution"
 
+    # LLM/Ontology extension
+    environment_component = "EnvironmentComponent"
+    command = "Command"
+
 
 # =====================================================================
 # 关系类型枚举
@@ -71,6 +75,12 @@ class RelationType(str, Enum):
     has_step = "has_step"            # Procedure -> Step
     causes = "causes"               # Error -> 症状/后果
     solved_by = "solved_by"         # Error -> Solution
+
+    # LLM/Ontology extension
+    depends_on = "depends_on"
+    has_procedure = "has_procedure"
+    runs_command = "runs_command"
+    configured_by = "configured_by"
 
 
 # =====================================================================
@@ -119,6 +129,8 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.data_table, EntityType.tool),
         (EntityType.config_item, EntityType.service),
         (EntityType.config_item, EntityType.tool),
+        (EntityType.environment_component, EntityType.product),
+        (EntityType.environment_component, EntityType.tool),
     ],
     RelationType.has_table: [
         (EntityType.tool, EntityType.data_table),
@@ -145,6 +157,29 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
     ],
     RelationType.solved_by: [
         (EntityType.error, EntityType.solution),
+    ],
+    RelationType.depends_on: [
+        (EntityType.tool, EntityType.environment_component),
+        (EntityType.tool, EntityType.tool),
+        (EntityType.tool, EntityType.service),
+        (EntityType.service, EntityType.environment_component),
+        (EntityType.service, EntityType.tool),
+        (EntityType.service, EntityType.service),
+        (EntityType.environment_component, EntityType.environment_component),
+    ],
+    RelationType.has_procedure: [
+        (EntityType.tool, EntityType.procedure),
+        (EntityType.service, EntityType.procedure),
+        (EntityType.product, EntityType.procedure),
+    ],
+    RelationType.runs_command: [
+        (EntityType.step, EntityType.command),
+        (EntityType.procedure, EntityType.command),
+    ],
+    RelationType.configured_by: [
+        (EntityType.tool, EntityType.config_item),
+        (EntityType.service, EntityType.config_item),
+        (EntityType.environment_component, EntityType.config_item),
     ],
 }
 

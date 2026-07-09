@@ -55,16 +55,16 @@ class GraphBuilder:
         ]
 
     def build_full(self, force_rebuild: bool = False, limit: int | None = None,
-                   doc_categories: list[str] | None = None) -> BuildBatchResult:
+                   doc_categories: list[str] | None = None, include_llm: bool = False) -> BuildBatchResult:
         chunks = self._chunk_source()
         if doc_categories:
             allowed = set(doc_categories)
             chunks = [item for item in chunks if str((item.get("metadata") or {}).get("doc_category") or "") in allowed]
         if limit is not None:
             chunks = chunks[:limit]
-        return self._build("full", chunks, {"limit": limit, "doc_categories": doc_categories or [], "force_rebuild": force_rebuild})
+        return self._build("full", chunks, {"limit": limit, "doc_categories": doc_categories or [], "force_rebuild": force_rebuild, "include_llm": include_llm}, include_llm=include_llm)
 
-    def build_incremental(self, chunk_ids: list[str]) -> BuildBatchResult:
+    def build_incremental(self, chunk_ids: list[str], include_llm: bool = False) -> BuildBatchResult:
         wanted = set(chunk_ids)
         chunks = [item for item in self._chunk_source() if str(item.get("chunk_id") or "") in wanted]
         matched = {str(item.get("chunk_id") or "") for item in chunks}
@@ -72,18 +72,20 @@ class GraphBuilder:
         return self._build(
             "incremental",
             chunks,
-            {"chunk_ids": sorted(wanted)},
+            {"chunk_ids": sorted(wanted), "include_llm": include_llm},
             extra_stats={
                 "requested_chunks": len(wanted),
                 "matched_chunks": len(matched),
                 "missing_chunks": missing,
             },
             missing_chunk_ids=missing,
+            include_llm=include_llm,
         )
 
     def _build(self, mode: str, chunks: list[dict], filters: dict,
                extra_stats: dict | None = None,
-               missing_chunk_ids: list[str] | None = None) -> BuildBatchResult:
+               missing_chunk_ids: list[str] | None = None,
+               include_llm: bool = False) -> BuildBatchResult:
         snapshot = hashlib.sha256(json.dumps(chunks, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
         force_rebuild = bool(filters.get("force_rebuild"))
         if mode == "full":
@@ -96,19 +98,31 @@ class GraphBuilder:
                         (snapshot, mode),
                     )
                 else:
+                    filters_json = json.dumps(filters, ensure_ascii=False, sort_keys=True)
                     existing = conn.execute(
                         "SELECT id, stats_json FROM extraction_batches "
-                        "WHERE source_snapshot_hash = ? AND mode = ? AND status NOT IN ('failed', 'rejected', 'superseded') "
+                        "WHERE source_snapshot_hash = ? AND mode = ? AND filters_json = ? AND status NOT IN ('failed', 'rejected', 'superseded') "
                         "ORDER BY created_at DESC LIMIT 1",
-                        (snapshot, mode),
+                        (snapshot, mode, filters_json),
                     ).fetchone()
                     if existing:
                         return BuildBatchResult(str(existing["id"]), json.loads(existing["stats_json"] or "{}"))
+
+        from .llm_extractor import LLMGraphExtractor
+        from rag_knowledge.config import Config
+        cfg = Config()
+        actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
+        llm_extractor = LLMGraphExtractor() if actual_include_llm else None
+
         batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
-        counts = {"chunks": len(chunks), "entity": 0, "relation": 0, "field": 0, "link": 0, "diagnostic": 0}
+        counts = {"chunks": len(chunks), "entity": 0, "relation": 0, "alias": 0, "field": 0, "link": 0, "diagnostic": 0}
         counts.update(extra_stats or {})
-        candidate_ids: dict[str, set[str]] = {kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic")}
+        candidate_ids: dict[str, set[str]] = {kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic", "alias")}
+        rule_candidate_ids = set()
+        llm_candidate_ids = set()
+
         for chunk in chunks:
+            # 1. Rules extractors
             context = SectionPathExtractor().extract(chunk)
             combined = ExtractionResult()
             combined.extend(context)
@@ -135,6 +149,82 @@ class GraphBuilder:
                     if kind == "diagnostic":
                         self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
                     candidate_ids[kind].add(candidate_id)
+                    rule_candidate_ids.add(candidate_id)
+
+            # 2. LLM semantic extractor
+            if actual_include_llm and llm_extractor:
+                llm_result = llm_extractor.extract(chunk)
+                for kind, items in (
+                    ("entity", llm_result.entities),
+                    ("relation", llm_result.relations),
+                    ("diagnostic", llm_result.diagnostics),
+                ):
+                    for item in items:
+                        payload = asdict(item)
+                        source_chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+                        evidence = str(payload.get("evidence_text") or "")
+                        if kind in {"entity", "relation"}:
+                            payload["evidences"] = [{"source_chunk_id": source_chunk_id, "evidence_text": evidence}]
+                        
+                        payload["created_by"] = "llm:schema_extractor"
+                        if kind == "entity":
+                            props = payload.get("properties") or {}
+                            payload["created_by"] = props.get("created_by", "llm:schema_extractor")
+                            payload["confidence"] = props.get("confidence", 1.0)
+                            payload["prompt_version"] = props.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
+                            payload["extractor_version"] = props.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
+                            payload["properties"] = {
+                                **props,
+                                "created_by": payload["created_by"],
+                                "confidence": payload["confidence"],
+                                "prompt_version": payload["prompt_version"],
+                                "extractor_version": payload["extractor_version"],
+                            }
+                        elif kind == "relation":
+                            meta = {}
+                            if hasattr(llm_result, "relation_metadata"):
+                                key = (payload["source_name"], payload["relation_type"], payload["target_name"])
+                                meta = llm_result.relation_metadata.get(key) or {}
+                            payload["confidence"] = meta.get("confidence", 1.0)
+                            payload["prompt_version"] = meta.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
+                            payload["extractor_version"] = meta.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
+                            payload["properties"] = {
+                                "created_by": "llm:schema_extractor",
+                                "confidence": payload["confidence"],
+                                "prompt_version": payload["prompt_version"],
+                                "extractor_version": payload["extractor_version"],
+                            }
+                        
+                        identity_payload = self._identity_payload(kind, payload)
+                        fingerprint = hashlib.sha256(
+                            json.dumps([kind, identity_payload], ensure_ascii=False, sort_keys=True).encode()
+                        ).hexdigest()
+                        candidate_id = self.db.add_extraction_candidate(
+                            batch_id, kind, fingerprint, payload, source_chunk_id, evidence
+                        )
+                        if kind == "diagnostic":
+                            self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
+                        candidate_ids[kind].add(candidate_id)
+                        llm_candidate_ids.add(candidate_id)
+
+                # Custom handling of aliases in LLM result
+                for alias_item in getattr(llm_result, "aliases", []):
+                    payload = dict(alias_item)
+                    source_chunk_id = str(payload.get("source_chunk_id") or "")
+                    evidence = str(payload.get("evidence_text") or "")
+                    payload["created_by"] = "llm:schema_extractor"
+                    payload["prompt_version"] = cfg.graph_extraction_llm.prompt_version
+                    payload["extractor_version"] = cfg.graph_extraction_llm.extractor_version
+                    identity_payload = self._identity_payload("alias", payload)
+                    fingerprint = hashlib.sha256(
+                        json.dumps(["alias", identity_payload], ensure_ascii=False, sort_keys=True).encode()
+                    ).hexdigest()
+                    candidate_id = self.db.add_extraction_candidate(
+                        batch_id, "alias", fingerprint, payload, source_chunk_id, evidence
+                    )
+                    candidate_ids["alias"].add(candidate_id)
+                    llm_candidate_ids.add(candidate_id)
+
         for missing_chunk_id in missing_chunk_ids or []:
             payload = {"code": "missing_chunk", "message": f"chunk not found: {missing_chunk_id}", "chunk_id": missing_chunk_id}
             fingerprint = hashlib.sha256(
@@ -145,8 +235,13 @@ class GraphBuilder:
             )
             self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload["message"])
             candidate_ids["diagnostic"].add(candidate_id)
+            rule_candidate_ids.add(candidate_id)
+
         for kind, ids in candidate_ids.items():
             counts[kind] = len(ids)
+        counts["rule_candidates"] = len(rule_candidate_ids)
+        counts["llm_candidates"] = len(llm_candidate_ids)
+
         with self.db._get_conn() as conn:
             conn.execute(
                 "UPDATE extraction_batches SET stats_json = ? WHERE id = ?",
@@ -301,10 +396,11 @@ class GraphCandidateApplier:
         relation_id = self.db._uid()
         confidence = float(payload.get("confidence", 1.0))
         created_by = payload.get("created_by") or "rule:phase_b"
+        properties = json.dumps(payload.get("properties") or {}, ensure_ascii=False, sort_keys=True)
         conn.execute(
-            "INSERT INTO relations (id, source_entity_id, target_entity_id, relation_type, confidence, evidence_text, source_chunk_id, review_status, created_by, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?)",
-            (relation_id, source["id"], target["id"], relation_type, confidence, payload.get("evidence_text") or "", payload.get("source_chunk_id") or "", created_by, self.db._now()),
+            "INSERT INTO relations (id, source_entity_id, target_entity_id, relation_type, properties_json, confidence, evidence_text, source_chunk_id, review_status, created_by, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?)",
+            (relation_id, source["id"], target["id"], relation_type, properties, confidence, payload.get("evidence_text") or "", payload.get("source_chunk_id") or "", created_by, self.db._now()),
         )
         return relation_id
 

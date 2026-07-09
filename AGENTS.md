@@ -72,7 +72,6 @@
 - ✅ 对话式查询上下文化：`query_contextualizer.py` 已支持基于历史消息和上一轮来源的独立问题改写、多查询召回、来源锚点查询，LLM 失败时使用启发式降级
 - ✅ Chunk 命中统计：`chunk_hit_telemetry.py` 已记录问答返回来源的 chunk 命中次数，为 `/stats/chunks` 提供线上命中分布
 - ✅ 审核状态同步：`/review/status` 更新 Chroma metadata 后会重建 BM25 索引并清空查询缓存，避免 pending/approved/rejected 状态在关键词检索中滞后
-- ✅ 知识图谱语义抽取 MVP — 已于 2026-07-09 完成；支持 Graph Audit、Stale Link Cleanup、Export Manual Facts、LLM Graph Extractor 基础版（提供置信度、证据和 Schema 校验），以及 pipeline 融合与正式库 properties_json 写入
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓
 
 ### 核心功能
@@ -121,7 +120,7 @@ rag_python/
 ├── config-prod.ini                 # 生产配置文件
 ├── Dockerfile                      # Docker 部署
 ├── requirements.txt                # Python 依赖
-├── CLAUDE.md                       # 项目说明
+├── AGENTS.md                       # 项目说明
 │
 ├── rag_knowledge/                  # 后端主包
 │   ├── __init__.py                 # 包信息
@@ -169,13 +168,8 @@ rag_python/
 │       ├── rebuild_coordinator.py  # 受控重建协调器（单实例锁 + stale lock 检测 + 一致性断言）
 │       ├── graph_text_migration.py # 图谱乱码文本迁移（mojibake → 中文修复）
 │       ├── query_entity_guard.py   # 查询实体守卫（追问场景实体锚定与过滤）
-│       ├── graph_audit.py          # 图谱审计服务（18个指标计算与报告生成）
-│       ├── graph_cleanup.py        # Stale 关系/实体链接链接清理服务
-│       ├── graph_manual_export.py  # 手工/种子事实导出（映射为 canonical 名字）
 │       ├── graph_extraction/       # 知识图谱提取（Phase B 确定性规则管线）
-│       │   ├── pipeline.py         # 提取管线（规则 + LLM 候选提取）
-│       │   ├── llm_extractor.py    # LLM 语义抽取器（提供置信度、证据和 Schema 校验）
-│       │   ├── prompts/            # LLM 抽取提示词模板
+│       │   ├── pipeline.py         # 提取管线（SectionPath/TableField/ConfigBlock → 候选 → 审核 → 应用）
 │       │   └── __init__.py
 │       └── graph_retrieval.py      # 图谱检索（实体扩展 + 文档融合 + 守卫过滤）
 │

@@ -19,6 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("--doc-category", action="append", dest="doc_categories")
     extract.add_argument("--chunk-id", action="append", dest="chunk_ids")
     extract.add_argument("--force-rebuild", action="store_true")
+    extract.add_argument("--include-llm", action="store_true")
 
     listing = sub.add_parser("list")
     listing.add_argument("--batch")
@@ -46,6 +47,16 @@ def build_parser() -> argparse.ArgumentParser:
     target.add_argument("--batch")
     target.add_argument("--graph", action="store_true")
     quality.add_argument("--profile", choices=("partial", "full"), default="full")
+
+    audit = sub.add_parser("audit")
+    audit.add_argument("--output-json", default="data/graph_audit_report.json")
+    audit.add_argument("--output-md", default="data/graph_audit_report.md")
+
+    cleanup = sub.add_parser("cleanup-stale-links")
+    cleanup.add_argument("--dry-run", action="store_true")
+
+    export_man = sub.add_parser("export-manual")
+    export_man.add_argument("--output", default="data/manual_graph_facts.json")
     return parser
 
 
@@ -60,9 +71,9 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
     if args.command == "extract":
         builder = GraphBuilder(db=db, chunk_source=chunk_source)
         result = (
-            builder.build_incremental(args.chunk_ids)
+            builder.build_incremental(args.chunk_ids, include_llm=args.include_llm)
             if args.chunk_ids
-            else builder.build_full(args.force_rebuild, args.limit, args.doc_categories)
+            else builder.build_full(args.force_rebuild, args.limit, args.doc_categories, include_llm=args.include_llm)
         )
         _print({"batch_id": result.batch_id, "stats": result.stats})
         return 0
@@ -110,6 +121,39 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
 
     if args.command == "repair-text":
         _print(GraphTextMigration(db).apply())
+        return 0
+
+    if args.command == "audit":
+        from rag_knowledge.services.graph_audit import GraphAuditService
+        service = GraphAuditService(db)
+        report = service.generate_reports(args.output_json, args.output_md)
+        _print({
+            "status": "completed",
+            "total_entities": report["total_entities"],
+            "total_relations": report["total_relations"],
+            "stale_links": report["stale_link_count"],
+            "orphan_entities": report["orphan_entity_count"],
+            "output_json": args.output_json,
+            "output_md": args.output_md
+        })
+        return 0
+
+    if args.command == "cleanup-stale-links":
+        from rag_knowledge.services.graph_cleanup import GraphCleanupService
+        service = GraphCleanupService(db)
+        result = service.cleanup_stale_links(args.dry_run)
+        _print(result)
+        return 0
+
+    if args.command == "export-manual":
+        from rag_knowledge.services.graph_manual_export import GraphManualFactExporter
+        exporter = GraphManualFactExporter(db)
+        summary = exporter.export_manual(args.output)
+        _print({
+            "status": "completed",
+            "output": args.output,
+            "summary": summary
+        })
         return 0
 
     quality = GraphQualityService(db)
