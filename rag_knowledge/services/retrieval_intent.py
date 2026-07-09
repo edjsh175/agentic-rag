@@ -30,12 +30,14 @@ class RetrievalIntentPlan:
 
     def expand_query(self, query: str) -> str:
         terms = []
-        seen = set((query or "").split())
+        normalized_query = _normalize_text(query)
+        seen = {_normalize_text(part) for part in (query or "").split() if part}
         for profile in self.profiles:
             for term in profile.recall_terms:
-                if term and term not in seen:
+                normalized_term = _normalize_text(term)
+                if term and normalized_term not in seen and normalized_term not in normalized_query:
                     terms.append(term)
-                    seen.add(term)
+                    seen.add(normalized_term)
         if not terms:
             return query
         return f"{query} {' '.join(terms)}"
@@ -77,13 +79,13 @@ class RetrievalIntentResolver:
         return cls(load_intent_profiles())
 
     def resolve(self, query: str, top_k: int | None = None) -> RetrievalIntentPlan:
-        normalized = query or ""
+        normalized = _normalize_text(query)
         matched = []
         for profile in self._profiles:
             if not _profile_matches_query(profile, normalized):
                 continue
             matched.append(profile)
-        return RetrievalIntentPlan(tuple(matched), normalized)
+        return RetrievalIntentPlan(tuple(matched), query or "")
 
 
 def default_profiles_path() -> Path:
@@ -136,7 +138,7 @@ def _profile_from_dict(item: dict) -> RetrievalIntentProfile:
     profile_id = item.get("id")
     if not profile_id:
         raise ValueError("retrieval intent profile requires id")
-    return RetrievalIntentProfile(
+    profile = RetrievalIntentProfile(
         id=str(profile_id),
         entity_aliases=_as_tuple(item.get("entity_aliases")),
         intent_terms=_as_tuple(item.get("intent_terms")),
@@ -147,6 +149,8 @@ def _profile_from_dict(item: dict) -> RetrievalIntentProfile:
         sibling_penalty_groups=tuple(_as_tuple(group) for group in item.get("sibling_penalty_groups", [])),
         candidate_min_k=int(item["candidate_min_k"]) if item.get("candidate_min_k") else None,
     )
+    _validate_profile(profile)
+    return profile
 
 
 def _as_tuple(value) -> tuple[str, ...]:
@@ -154,40 +158,64 @@ def _as_tuple(value) -> tuple[str, ...]:
         return ()
     if isinstance(value, str):
         return (value,)
-    return tuple(str(item) for item in value if str(item))
+    return tuple(dict.fromkeys(str(item) for item in value if str(item)))
+
+
+def _validate_profile(profile: RetrievalIntentProfile) -> None:
+    if not profile.entity_aliases and not profile.intent_terms:
+        raise ValueError(
+            f"retrieval intent profile '{profile.id}' requires entity_aliases or intent_terms"
+        )
+    if profile.candidate_min_k is not None and profile.candidate_min_k <= 0:
+        raise ValueError(
+            f"retrieval intent profile '{profile.id}' requires candidate_min_k > 0"
+        )
+    preferred = {_normalize_text(source) for source in profile.preferred_sources}
+    fallback = {_normalize_text(source) for source in profile.fallback_sources}
+    overlap = preferred & fallback
+    if overlap:
+        raise ValueError(
+            f"retrieval intent profile '{profile.id}' has overlapping preferred_sources and fallback_sources: {sorted(overlap)}"
+        )
 
 
 def _profile_matches_query(profile: RetrievalIntentProfile, query: str) -> bool:
-    if profile.entity_aliases and not any(alias in query for alias in profile.entity_aliases):
+    if profile.entity_aliases and not any(_normalize_text(alias) in query for alias in profile.entity_aliases):
         return False
-    if profile.intent_terms and not any(term in query for term in profile.intent_terms):
+    if profile.intent_terms and not any(_normalize_text(term) in query for term in profile.intent_terms):
         return False
     return bool(profile.entity_aliases or profile.intent_terms)
 
 
 def _score_profile_doc(query: str, profile: RetrievalIntentProfile, doc: Document) -> tuple[float, float]:
     metadata = doc.metadata or {}
-    doc_text = _doc_match_text(doc)
-    source_text = " ".join(
+    doc_text = _normalize_text(_doc_match_text(doc))
+    source_text = _normalize_text(" ".join(
         [
             metadata.get("source") or "",
             metadata.get("file_name") or "",
             metadata.get("doc_category") or "",
         ]
-    )
+    ))
     bonus = 0.0
     penalty = 0.0
 
-    if any(alias in doc_text for alias in profile.entity_aliases):
+    entity_hit = any(_normalize_text(alias) in doc_text for alias in profile.entity_aliases)
+    intent_hit = any(_normalize_text(term) in doc_text for term in profile.intent_terms)
+    section_hit = _matches_section_family(metadata.get("section_path") or "", profile.section_families)
+    recall_hit = any(_normalize_text(term) in doc_text for term in profile.recall_terms)
+    anchored = entity_hit or intent_hit or section_hit or recall_hit
+
+    if entity_hit:
         bonus += 0.04
-    if any(term in doc_text for term in profile.intent_terms):
+    if intent_hit:
         bonus += 0.04
-    if any(source in source_text for source in profile.preferred_sources):
+    if anchored and any(_normalize_text(source) in source_text for source in profile.preferred_sources):
         bonus += 0.08
-    if any(source in source_text for source in profile.fallback_sources):
+    if anchored and any(_normalize_text(source) in source_text for source in profile.fallback_sources):
         penalty += 0.03
 
-    if _matches_section_family(metadata.get("section_path") or "", profile.section_families):
+    if section_hit:
         bonus += 0.08
     if _matches_sibling_outside_target(doc_text, profile):
         penalty += 0.04
@@ -213,6 +241,8 @@ def _matches_section_family(section_path: str, section_families: tuple[tuple[str
 
 
 def _section_alias_matches(section_path: str, alias: str) -> bool:
+    section_path = _normalize_text(section_path)
+    alias = _normalize_text(alias)
     if not section_path or not alias:
         return False
     if section_path == alias:
@@ -222,9 +252,16 @@ def _section_alias_matches(section_path: str, alias: str) -> bool:
 
 
 def _matches_sibling_outside_target(text: str, profile: RetrievalIntentProfile) -> bool:
-    target_terms = {alias for family in profile.section_families for alias in family}
+    target_terms = {_normalize_text(alias) for family in profile.section_families for alias in family}
+    if any(term in text for term in target_terms):
+        return False
     for group in profile.sibling_penalty_groups:
         for term in group:
-            if term not in target_terms and term in text:
+            normalized_term = _normalize_text(term)
+            if normalized_term not in target_terms and normalized_term in text:
                 return True
     return False
+
+
+def _normalize_text(value: str | None) -> str:
+    return (value or "").casefold()

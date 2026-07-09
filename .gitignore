@@ -44,6 +44,7 @@ scrape_article/
 # Runtime data directory (anchored to root; preserves rag_knowledge/data/)
 /data/*
 !/data/retrieval_intent_profiles.json
+!/data/structured_retrieval_regression.json
 
 # IDE settings
 .idea/

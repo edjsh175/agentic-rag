@@ -111,3 +111,72 @@ def compute_batch(
         for key, val in item.items():
             totals[key] = totals.get(key, 0.0) + val
     return {key: val / n for key, val in totals.items()}
+
+
+def content_match(
+    retrieved_metadata: dict,
+    retrieved_content: str,
+    expected_target: dict,
+) -> bool:
+    """chunk_id 不匹配时的降级判断。
+
+    匹配优先级：
+    1. content_fingerprint 精确匹配
+    2. source + section_path 双匹配
+    3. keywords 子集命中率 >= 60%
+    """
+    import hashlib
+
+    # 1. fingerprint
+    fp = expected_target.get("content_fingerprint", "")
+    if fp and retrieved_content:
+        actual_fp = hashlib.sha256(retrieved_content.encode("utf-8")).hexdigest()[:16]
+        if actual_fp == fp:
+            return True
+
+    # 2. source + section_path
+    exp_source = (expected_target.get("source") or "").replace("\\", "/")
+    exp_section = expected_target.get("section_path") or ""
+    if exp_source and exp_section:
+        actual_source = (retrieved_metadata.get("source") or "").replace("\\", "/")
+        actual_section = (
+            retrieved_metadata.get("section_path")
+            or retrieved_metadata.get("section_title")
+            or ""
+        )
+        source_ok = actual_source == exp_source or actual_source.endswith(f"/{exp_source}")
+        section_ok = actual_section == exp_section or exp_section in actual_section
+        if source_ok and section_ok:
+            keywords = expected_target.get("keywords") or []
+            if keywords and retrieved_content:
+                content_lower = retrieved_content.casefold()
+                hits = sum(1 for kw in keywords if kw.casefold() in content_lower)
+                return len(keywords) > 0 and (hits / len(keywords) >= 0.6)
+            return True
+
+    # 3. keywords
+    keywords = expected_target.get("keywords") or []
+    if keywords and retrieved_content:
+        content_lower = retrieved_content.casefold()
+        hits = sum(1 for kw in keywords if kw.casefold() in content_lower)
+        if len(keywords) > 0 and hits / len(keywords) >= 0.6:
+            return True
+
+    return False
+
+
+def is_match_v2(
+    retrieved_id: str,
+    retrieved_metadata: dict,
+    retrieved_content: str,
+    relevant_ids: set[str],
+    expected_targets: list[dict],
+) -> bool:
+    """chunk_id 优先匹配，失败则尝试 content_match 降级。"""
+    if retrieved_id in relevant_ids:
+        return True
+    return any(
+        content_match(retrieved_metadata, retrieved_content, target)
+        for target in expected_targets
+    )
+

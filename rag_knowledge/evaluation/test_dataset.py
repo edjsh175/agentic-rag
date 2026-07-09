@@ -21,6 +21,7 @@ import time
 import logging
 import random
 import re
+import hashlib
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -56,6 +57,18 @@ _TYPO_REWRITES = [
     ("驱动", "驱东"),
     ("部署", "部属"),
 ]
+
+
+def _extract_keywords(text: str, top_n: int = 5) -> list[str]:
+    """用 jieba 提取高频关键词。"""
+    import jieba
+    words = [w for w in jieba.cut(text) if len(w) >= 2]
+    freq: dict[str, int] = {}
+    for w in words:
+        freq[w] = freq.get(w, 0) + 1
+    sorted_words = sorted(freq, key=freq.get, reverse=True)
+    return sorted_words[:top_n]
+
 
 # ----------------------------------------------------------------
 # 用 LLM 从 chunk 内容生成问题
@@ -241,13 +254,25 @@ class TestDatasetBuilder:
                 llm_model=cfg.llm_model,
             )
 
+            content_fp = hashlib.sha256(chunk_text.encode("utf-8")).hexdigest()[:16]
+            section_path = metadata.get("section_path", "") or metadata.get("section_title", "")
+            source_val = metadata.get("source", "")
+            chunk_keywords = _extract_keywords(chunk_text, top_n=5)
+
             for q in questions:
                 dataset.append({
                     "question": q,
                     "relevant_chunk_ids": [chunk_id],
+                    "chunk_ids": [chunk_id],
                     "kb_name": metadata.get("kb_name", ""),
                     "doc_category": metadata.get("doc_category", ""),
-                    "source": metadata.get("source", ""),
+                    "source": source_val,
+                    "expected_targets": [{
+                        "source": source_val,
+                        "section_path": section_path,
+                        "keywords": chunk_keywords,
+                        "content_fingerprint": content_fp,
+                    }],
                 })
 
             logger.info(

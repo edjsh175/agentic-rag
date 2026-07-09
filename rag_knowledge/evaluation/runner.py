@@ -21,6 +21,10 @@ from rag_knowledge.evaluation.test_dataset import load_dataset, get_dataset_stat
 logger = logging.getLogger(__name__)
 
 
+class DatasetStaleError(Exception):
+    """Raised when the evaluation dataset is stale relative to current KB."""
+
+
 class EvaluationRunner:
     """评估运行器"""
 
@@ -33,10 +37,26 @@ class EvaluationRunner:
     # 数据集
     # ------------------------------------------------------------------
 
-    def load(self) -> List[dict]:
+    def load(self, *, skip_health_check: bool = False) -> List[dict]:
         self._dataset = load_dataset(self._dataset_path)
         logger.info("已加载测试数据集: %d 条", len(self._dataset))
+        if not skip_health_check:
+            self._check_health()
         return self._dataset
+
+    def _check_health(self) -> None:
+        """Run dataset health check; BLOCK -> raise, WARN -> log."""
+        from rag_knowledge.evaluation.dataset_health import check_eval_dataset_health
+        report = check_eval_dataset_health(self._dataset_path)
+        if report.status == "BLOCK":
+            raise DatasetStaleError(
+                f"Dataset {report.dataset} is stale: "
+                f"chunk_health={report.chunk_health:.0%}, "
+                f"invalid_questions={report.invalid_questions}. "
+                f"Run recalibration before proceeding."
+            )
+        for warning in report.warnings:
+            logger.warning("Dataset health warning: %s", warning)
 
     @property
     def dataset(self) -> List[dict]:
@@ -79,7 +99,8 @@ class EvaluationRunner:
 
         for i, item in enumerate(self._dataset):
             question = item["question"]
-            relevant = set(item.get("relevant_chunk_ids", []))
+            relevant = set(item.get("chunk_ids") or item.get("relevant_chunk_ids") or [])
+            expected_targets = item.get("expected_targets") or []
             kb_name = item.get("kb_name") or None
 
             t0 = time.time()
@@ -98,6 +119,20 @@ class EvaluationRunner:
                 # 提取 chunk_id
                 retrieved_ids = [doc["metadata"].get("chunk_id", "") for doc in source_docs]
                 retrieved_ids = [rid for rid in retrieved_ids if rid]
+
+                # content-based 降级：chunk_id 全失效时用 expected_targets 补救
+                if expected_targets and not (set(retrieved_ids[:max(k_values)]) & relevant):
+                    from rag_knowledge.evaluation.metrics import is_match_v2
+                    matched_ids = set()
+                    for doc in source_docs:
+                        doc_id = doc["metadata"].get("chunk_id", "")
+                        if doc_id and is_match_v2(
+                            doc_id, doc.get("metadata", {}),
+                            doc.get("content", ""), relevant, expected_targets,
+                        ):
+                            matched_ids.add(doc_id)
+                    if matched_ids:
+                        relevant = matched_ids
 
             except Exception as e:
                 logger.warning("检索失败 [%d]: %s — %s", i, question[:40], e)
