@@ -74,6 +74,8 @@ class ExtractionResult:
     fields: list[FieldCandidate] = field(default_factory=list)
     links: list[ChunkLinkCandidate] = field(default_factory=list)
     diagnostics: list[ExtractionDiagnostic] = field(default_factory=list)
+    relation_metadata: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)
+    aliases: list[dict[str, Any]] = field(default_factory=list)
 
     def entity(self, name: str) -> EntityCandidate | None:
         return next((item for item in self.entities if item.name == name), None)
@@ -87,11 +89,12 @@ class ExtractionResult:
         )
 
     def extend(self, other: "ExtractionResult") -> None:
-        for attr in ("entities", "relations", "fields", "links", "diagnostics"):
+        for attr in ("entities", "relations", "fields", "links", "diagnostics", "aliases"):
             current = getattr(self, attr)
             for item in getattr(other, attr):
                 if item not in current:
                     current.append(item)
+        self.relation_metadata.update(other.relation_metadata)
 
 
 def _parts(chunk: dict) -> tuple[str, str, str, str, str, dict]:

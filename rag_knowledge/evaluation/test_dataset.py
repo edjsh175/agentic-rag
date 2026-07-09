@@ -199,6 +199,7 @@ def build_hardcase_dataset(dataset: List[dict]) -> List[dict]:
 
 class TestDatasetBuilder:
     """从知识库中自动构建测试数据集"""
+    __test__ = False
 
     def __init__(self, questions_per_chunk: int = 3, max_chunks: int = 200):
         """

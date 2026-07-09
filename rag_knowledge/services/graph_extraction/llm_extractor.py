@@ -12,7 +12,6 @@ from rag_knowledge.config import Config
 from . import (
     EntityCandidate,
     RelationCandidate,
-    ChunkLinkCandidate,
     ExtractionDiagnostic,
     ExtractionResult
 )
@@ -355,8 +354,6 @@ class LLMGraphExtractor:
             )
 
             # Store metadata
-            if not hasattr(result, "relation_metadata"):
-                result.relation_metadata = {}
             key = (src, rtype, tgt)
             result.relation_metadata[key] = {
                 "confidence": conf,
@@ -438,12 +435,6 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            # We can represent aliases by extending the result object or mapping them manually.
-            # In our candidate list, aliases can be added as a custom mapping.
-            # We'll save them to a private field on ExtractionResult or handle them directly.
-            # Since ExtractionResult has no aliases field by default, we'll store them in a custom attribute `aliases`
-            if not hasattr(result, "aliases"):
-                result.aliases = []
             result.aliases.append({
                 "entity_name": ent,
                 "alias": alias,
