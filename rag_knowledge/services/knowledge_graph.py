@@ -20,6 +20,7 @@ from rag_knowledge.models.api import (
     RelationResponse,
     EntityChunkLinkResponse,
     EntityChunkDetailResponse,
+    GraphAliasItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -319,6 +320,86 @@ class KnowledgeGraphService:
 
     def unlink_entity_chunk(self, entity_id: str, chunk_id: str) -> bool:
         self.db.delete_link_by_entity_chunk(entity_id, chunk_id)
+        return True
+
+    def list_entity_aliases(self, entity_id: str) -> list[GraphAliasItem]:
+        entity = self.db.get_entity(entity_id)
+        if not entity:
+            raise KeyError("Entity not found")
+        return [
+            GraphAliasItem(
+                id=row["id"],
+                entity_id=row["entity_id"],
+                alias=row["alias"],
+                confidence=row.get("confidence"),
+                source_chunk_id=row.get("source_chunk_id") or None,
+                evidence_text=row.get("evidence_text") or None,
+                review_status=row.get("review_status") or None,
+                created_at=row["created_at"],
+            )
+            for row in self.db.list_aliases(entity_id)
+        ]
+
+    def create_entity_alias(
+        self,
+        entity_id: str,
+        alias: str,
+        confidence: Optional[float] = None,
+        evidence_text: Optional[str] = None,
+        source_chunk_id: Optional[str] = None,
+        review_status: Optional[str] = None,
+    ) -> GraphAliasItem:
+        entity = self.db.get_entity(entity_id)
+        if not entity:
+            raise KeyError("Entity not found")
+
+        alias_value = alias.strip()
+        if not alias_value:
+            raise ValueError("Alias cannot be empty")
+
+        for row in self.db.list_aliases(entity_id):
+            if row["alias"] == alias_value:
+                return GraphAliasItem(
+                    id=row["id"],
+                    entity_id=row["entity_id"],
+                    alias=row["alias"],
+                    confidence=row.get("confidence"),
+                    source_chunk_id=row.get("source_chunk_id") or None,
+                    evidence_text=row.get("evidence_text") or None,
+                    review_status=row.get("review_status") or None,
+                    created_at=row["created_at"],
+                    created=False,
+                )
+
+        alias_id = self.db.create_alias(
+            entity_id=entity_id,
+            alias=alias_value,
+            confidence=confidence if confidence is not None else 1.0,
+            source_chunk_id=source_chunk_id or "",
+            evidence_text=evidence_text or "",
+            review_status=review_status or "approved",
+        )
+        if not alias_id:
+            raise RuntimeError("Failed to create alias")
+
+        created = next((row for row in self.db.list_aliases(entity_id) if row["id"] == alias_id), None)
+        if not created:
+            raise RuntimeError("Failed to retrieve created alias")
+
+        return GraphAliasItem(
+            id=created["id"],
+            entity_id=created["entity_id"],
+            alias=created["alias"],
+            confidence=created.get("confidence"),
+            source_chunk_id=created.get("source_chunk_id") or None,
+            evidence_text=created.get("evidence_text") or None,
+            review_status=created.get("review_status") or None,
+            created_at=created["created_at"],
+            created=True,
+        )
+
+    def delete_alias(self, alias_id: str) -> bool:
+        self.db.delete_alias(alias_id)
         return True
 
     def list_entity_chunks(self, entity_id: str) -> list[EntityChunkDetailResponse]:

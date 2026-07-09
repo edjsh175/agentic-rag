@@ -434,3 +434,76 @@ class EntityChunkDetailResponse(BaseModel):
     content_preview: str
     content: str
 
+
+class GraphAliasCreateRequest(BaseModel):
+    alias: str = Field(..., min_length=1, description="Alias value")
+    confidence: Optional[float] = Field(None, description="Alias confidence")
+    evidence_text: Optional[str] = Field(None, description="Evidence text")
+    source_chunk_id: Optional[str] = Field(None, description="Source chunk id")
+    review_status: Optional[str] = Field(None, description="Review status")
+
+
+class GraphAliasItem(BaseModel):
+    id: str
+    entity_id: str
+    alias: str
+    confidence: Optional[float] = None
+    source_chunk_id: Optional[str] = None
+    evidence_text: Optional[str] = None
+    review_status: Optional[str] = None
+    created_at: str
+    created: Optional[bool] = None
+
+
+class GraphCandidateBatch(BaseModel):
+    id: str
+    mode: str
+    status: str
+    created_at: str
+    reviewed_at: Optional[str] = None
+    applied_at: Optional[str] = None
+    error_text: Optional[str] = None
+    filters: dict = Field(default_factory=dict)
+    stats: dict = Field(default_factory=dict)
+
+
+class GraphCandidateItem(BaseModel):
+    id: str
+    batch_id: str
+    candidate_kind: str
+    status: str
+    payload: dict = Field(default_factory=dict)
+    evidence_text: Optional[str] = None
+    source_chunk_id: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    applied_at: Optional[str] = None
+    applied_target_id: Optional[str] = None
+    created_at: str
+
+
+class GraphCandidateReviewRequest(BaseModel):
+    approve_all: bool = False
+    approve_ids: list[str] = Field(default_factory=list)
+    reject_ids: list[str] = Field(default_factory=list)
+    reason: Optional[str] = None
+
+
+class GraphCandidateReviewResponse(BaseModel):
+    batch_id: str
+    updated_candidates: int
+    batch_status: str
+
+
+class GraphCandidateApplyResponse(BaseModel):
+    batch_id: str
+    status: str
+    applied_candidates: int
+
+
+class GraphQualityResponse(BaseModel):
+    ok: bool
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    stats: dict = Field(default_factory=dict)
+

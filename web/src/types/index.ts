@@ -234,6 +234,39 @@ export interface GraphData {
   edges: GraphEdge[]
 }
 
+export interface GraphEntityUpsert {
+  name: string
+  entity_type: string
+  doc_category?: string | null
+  canonical_name?: string | null
+  description?: string | null
+  properties_json?: string | null
+  confidence?: number | null
+  review_status?: string | null
+}
+
+export interface GraphEntityUpdate {
+  name?: string
+  entity_type?: string
+  doc_category?: string | null
+  canonical_name?: string | null
+  description?: string | null
+  properties_json?: string | null
+  confidence?: number | null
+  review_status?: string | null
+}
+
+export interface GraphRelationCreate {
+  source_id: string
+  target_id: string
+  relation_type: string
+  properties_json?: string | null
+  confidence?: number | null
+  evidence_text?: string | null
+  source_chunk_id?: string | null
+  review_status?: string | null
+}
+
 export interface EntityChunkDetail {
   chunk_id: string
   file_name: string
@@ -241,5 +274,78 @@ export interface EntityChunkDetail {
   link_type: string
   content_preview: string
   content: string
+}
+
+export interface GraphAliasItem {
+  id: string
+  entity_id: string
+  alias: string
+  confidence?: number | null
+  source_chunk_id?: string | null
+  evidence_text?: string | null
+  review_status?: string | null
+  created_at: string
+  created?: boolean
+}
+
+export interface GraphAliasCreateRequest {
+  alias: string
+  confidence?: number | null
+  evidence_text?: string | null
+  source_chunk_id?: string | null
+  review_status?: string | null
+}
+
+export interface GraphCandidateBatch {
+  id: string
+  mode: string
+  status: string
+  created_at: string
+  reviewed_at?: string | null
+  applied_at?: string | null
+  error_text?: string | null
+  filters: Record<string, any>
+  stats: Record<string, any>
+}
+
+export interface GraphCandidateItem {
+  id: string
+  batch_id: string
+  candidate_kind: string
+  status: 'pending' | 'approved' | 'rejected' | 'applied' | string
+  payload: Record<string, any>
+  evidence_text?: string | null
+  source_chunk_id?: string | null
+  rejection_reason?: string | null
+  reviewed_at?: string | null
+  applied_at?: string | null
+  applied_target_id?: string | null
+  created_at: string
+}
+
+export interface GraphCandidateReviewRequest {
+  approve_all?: boolean
+  approve_ids?: string[]
+  reject_ids?: string[]
+  reason?: string | null
+}
+
+export interface GraphCandidateReviewResponse {
+  batch_id: string
+  updated_candidates: number
+  batch_status: string
+}
+
+export interface GraphCandidateApplyResponse {
+  batch_id: string
+  status: string
+  applied_candidates: number
+}
+
+export interface GraphQualityReport {
+  ok: boolean
+  errors: string[]
+  warnings: string[]
+  stats: Record<string, any>
 }
 

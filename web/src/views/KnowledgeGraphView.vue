@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { getGraphData, getEntityChunks, deleteEntity, deleteRelation, deleteEntityChunkLink } from '../api'
-import type { GraphNode, GraphEdge, EntityChunkDetail } from '../types'
+import {
+  getGraphData,
+  getEntityChunks,
+  deleteEntity,
+  deleteRelation,
+  deleteEntityChunkLink,
+  createGraphEntity,
+  updateGraphEntity,
+  createGraphRelation,
+  linkEntityChunk,
+  listEntityAliases,
+  createEntityAlias,
+  deleteEntityAlias,
+} from '../api'
+import type { GraphNode, GraphEdge, EntityChunkDetail, GraphAliasItem } from '../types'
 import { DOC_CATEGORIES } from '../types'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -60,7 +73,7 @@ const selectedTypes = ref<Record<string, boolean>>({
   Field: false, // 字段通常很多，默认关闭，避免布局混乱
   ConfigItem: true,
   Format: true,
-  Document: false, // 文档很多，默认关闭
+  Document: true,
   Section: false, // 章节很多，默认关闭
   Procedure: true,
   Step: true,
@@ -70,6 +83,12 @@ const selectedTypes = ref<Record<string, boolean>>({
 
 // 可选的实体类型列表
 const availableTypes = Object.keys(selectedTypes.value)
+const relationTypes = [
+  'belongs_to', 'has_table', 'has_field', 'defined_in', 'different_from',
+  'uses_config', 'supports_format', 'produces', 'consumes', 'requires',
+  'has_step', 'causes', 'solved_by', 'has_section', 'has_chunk',
+]
+const linkTypes = ['primary', 'mention', 'evidence', 'table_source']
 
 // 画布引用与视口状态
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -139,13 +158,60 @@ const isDeleteEntityModalOpen = ref(false)
 const deleteConfirmationInput = ref('')
 const isDeleting = ref(false)
 
+const aliases = ref<GraphAliasItem[]>([])
+const aliasesLoading = ref(false)
+const aliasInput = ref('')
+const aliasSaving = ref(false)
+
+const isEntityModalOpen = ref(false)
+const entityModalMode = ref<'create' | 'edit'>('create')
+const entityForm = ref({
+  name: '',
+  entity_type: 'Tool',
+  doc_category: '',
+  canonical_name: '',
+  description: '',
+  confidence: '1',
+  review_status: 'approved',
+})
+const entitySaving = ref(false)
+
+const isRelationModalOpen = ref(false)
+const relationForm = ref({
+  source_id: '',
+  target_id: '',
+  relation_type: 'belongs_to',
+  confidence: '1',
+  evidence_text: '',
+})
+const relationSaving = ref(false)
+
+const chunkLinkInput = ref('')
+const chunkLinkSaving = ref(false)
+
 // 过滤后的节点（左侧列表展示）
 const filteredNodesList = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const directlyMatchedIds = new Set<string>()
+  if (query) {
+    graphData.value.nodes.forEach(node => {
+      const matchSearch = node.label.toLowerCase().includes(query) ||
+                          (node.canonical_name || '').toLowerCase().includes(query)
+      if (matchSearch) directlyMatchedIds.add(node.id)
+    })
+  }
+  const searchNeighborIds = new Set<string>(directlyMatchedIds)
+  if (query) {
+    graphData.value.edges.forEach(edge => {
+      if (directlyMatchedIds.has(edge.source)) searchNeighborIds.add(edge.target)
+      if (directlyMatchedIds.has(edge.target)) searchNeighborIds.add(edge.source)
+    })
+  }
+
   return visualNodes.value.filter(node => {
-    const matchSearch = node.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                        (node.canonical_name || '').toLowerCase().includes(searchQuery.value.toLowerCase())
+    const matchSearch = !query || searchNeighborIds.has(node.id)
     const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
-    const matchType = selectedTypes.value[node.type] !== false
+    const matchType = query ? matchSearch : selectedTypes.value[node.type] !== false
     return matchSearch && matchCategory && matchType
   })
 })
@@ -592,10 +658,169 @@ const loadEvidenceChunks = async (entityId: string) => {
   }
 }
 
+const loadAliases = async (entityId: string) => {
+  aliasesLoading.value = true
+  try {
+    const items = await listEntityAliases(entityId)
+    if (selectedNodeId.value === entityId) {
+      aliases.value = items
+    }
+  } catch (err: any) {
+    if (selectedNodeId.value === entityId) {
+      errorMsg.value = err.message || '加载 aliases 失败'
+    }
+  } finally {
+    if (selectedNodeId.value === entityId) {
+      aliasesLoading.value = false
+    }
+  }
+}
+
+const openCreateEntityModal = () => {
+  entityModalMode.value = 'create'
+  entityForm.value = {
+    name: '',
+    entity_type: 'Tool',
+    doc_category: selectedCategory.value === 'all' ? '' : selectedCategory.value,
+    canonical_name: '',
+    description: '',
+    confidence: '1',
+    review_status: 'approved',
+  }
+  isEntityModalOpen.value = true
+}
+
+const openEditEntityModal = () => {
+  if (!selectedNode.value) return
+  entityModalMode.value = 'edit'
+  entityForm.value = {
+    name: selectedNode.value.label,
+    entity_type: selectedNode.value.type,
+    doc_category: selectedNode.value.doc_category || '',
+    canonical_name: selectedNode.value.canonical_name || '',
+    description: selectedNode.value.description || '',
+    confidence: String(selectedNode.value.confidence ?? 1),
+    review_status: selectedNode.value.review_status || 'approved',
+  }
+  isEntityModalOpen.value = true
+}
+
+const saveEntity = async () => {
+  entitySaving.value = true
+  try {
+    const payload = {
+      name: entityForm.value.name,
+      entity_type: entityForm.value.entity_type,
+      doc_category: entityForm.value.doc_category || null,
+      canonical_name: entityForm.value.canonical_name || null,
+      description: entityForm.value.description || null,
+      confidence: Number(entityForm.value.confidence || 1),
+      review_status: entityForm.value.review_status || null,
+    }
+    if (entityModalMode.value === 'create') {
+      const created = await createGraphEntity(payload)
+      selectedNodeId.value = created.id
+      isRightSidebarOpen.value = true
+    } else if (selectedNodeId.value) {
+      await updateGraphEntity(selectedNodeId.value, payload)
+    }
+    isEntityModalOpen.value = false
+    await fetchGraph()
+    if (selectedNodeId.value) {
+      await loadAliases(selectedNodeId.value)
+    }
+  } catch (err: any) {
+    alert('保存实体失败：' + err.message)
+  } finally {
+    entitySaving.value = false
+  }
+}
+
+const openRelationModal = () => {
+  relationForm.value = {
+    source_id: selectedNodeId.value || '',
+    target_id: '',
+    relation_type: 'belongs_to',
+    confidence: '1',
+    evidence_text: '',
+  }
+  isRelationModalOpen.value = true
+}
+
+const saveRelation = async () => {
+  relationSaving.value = true
+  try {
+    await createGraphRelation({
+      source_id: relationForm.value.source_id,
+      target_id: relationForm.value.target_id,
+      relation_type: relationForm.value.relation_type,
+      confidence: Number(relationForm.value.confidence || 1),
+      evidence_text: relationForm.value.evidence_text || null,
+    })
+    isRelationModalOpen.value = false
+    await fetchGraph()
+  } catch (err: any) {
+    alert('保存关系失败：' + err.message)
+  } finally {
+    relationSaving.value = false
+  }
+}
+
+const addAlias = async () => {
+  if (!selectedNodeId.value || !aliasInput.value.trim()) return
+  aliasSaving.value = true
+  try {
+    await createEntityAlias(selectedNodeId.value, {
+      alias: aliasInput.value.trim(),
+      review_status: 'approved',
+    })
+    aliasInput.value = ''
+    await loadAliases(selectedNodeId.value)
+  } catch (err: any) {
+    alert('新增 alias 失败：' + err.message)
+  } finally {
+    aliasSaving.value = false
+  }
+}
+
+const removeAlias = async (aliasId: string) => {
+  if (!confirm('确认删除这个 alias 吗？')) return
+  try {
+    await deleteEntityAlias(aliasId)
+    if (selectedNodeId.value) {
+      await loadAliases(selectedNodeId.value)
+    }
+  } catch (err: any) {
+    alert('删除 alias 失败：' + err.message)
+  }
+}
+
+const addChunkLink = async () => {
+  if (!selectedNodeId.value || !chunkLinkInput.value.trim()) return
+  chunkLinkSaving.value = true
+  try {
+    await linkEntityChunk(selectedNodeId.value, chunkLinkInput.value.trim(), linkTypes[0])
+    chunkLinkInput.value = ''
+    await loadEvidenceChunks(selectedNodeId.value)
+  } catch (err: any) {
+    alert('关联 Chunk 失败：' + err.message)
+  } finally {
+    chunkLinkSaving.value = false
+  }
+}
+
 // 监听详情卡片切换 Tab 并加载数据
 watch([selectedNodeId, detailsTab], () => {
   if (selectedNodeId.value && detailsTab.value === 'chunks') {
     loadEvidenceChunks(selectedNodeId.value)
+  }
+})
+
+watch(selectedNodeId, (entityId) => {
+  aliases.value = []
+  aliasInput.value = ''
+  if (entityId) {
+    loadAliases(entityId)
   }
 })
 
@@ -804,6 +1029,12 @@ onUnmounted(() => {
         </div>
         
         <div class="kg-controls">
+          <button @click="openCreateEntityModal" class="icon-btn" data-test="open-create-entity">
+            新建实体
+          </button>
+          <button @click="openRelationModal" class="icon-btn" data-test="open-create-relation">
+            新建关系
+          </button>
           <button @click="resetView" class="icon-btn" title="复位视图">
             复位布局
           </button>
@@ -853,7 +1084,10 @@ onUnmounted(() => {
             >
               {{ selectedNode.type }}
             </span>
-            <button @click="clearSelection" class="close-btn">&times;</button>
+            <div class="header-actions">
+              <button @click="openEditEntityModal" class="mini-btn" data-test="open-edit-entity">编辑实体</button>
+              <button @click="clearSelection" class="close-btn">&times;</button>
+            </div>
           </div>
           <h2>{{ selectedNode.label }}</h2>
           <p class="category-meta" v-if="selectedNode.doc_category">
@@ -884,6 +1118,31 @@ onUnmounted(() => {
             <span class="meta-label">实体说明:</span>
             <p class="meta-text">{{ selectedNode.description }}</p>
           </div>
+        </div>
+
+        <div class="metadata-card alias-card">
+          <div class="alias-head">
+            <span class="meta-label">Aliases</span>
+            <span class="meta-val" v-if="aliasesLoading">加载中...</span>
+          </div>
+          <div class="alias-create-row">
+            <input
+              v-model="aliasInput"
+              class="filter-input compact-input"
+              placeholder="新增 alias"
+              data-test="alias-input"
+            />
+            <button class="mini-btn" :disabled="aliasSaving" @click="addAlias" data-test="add-alias">
+              添加
+            </button>
+          </div>
+          <ul class="alias-list">
+            <li v-for="alias in aliases" :key="alias.id" class="alias-item">
+              <span>{{ alias.alias }}</span>
+              <button class="delete-text-btn" @click="removeAlias(alias.id)">删除</button>
+            </li>
+            <li v-if="!aliasesLoading && aliases.length === 0" class="empty-inline">暂无 alias</li>
+          </ul>
         </div>
 
         <!-- 详情 Tab 菜单 -->
@@ -961,6 +1220,17 @@ onUnmounted(() => {
             </div>
             
             <div v-else class="chunks-container">
+              <div class="chunk-link-form">
+                <input
+                  v-model="chunkLinkInput"
+                  class="filter-input compact-input"
+                  placeholder="输入 chunk_id 建立证据关联"
+                  data-test="chunk-link-input"
+                />
+                <button class="mini-btn" :disabled="chunkLinkSaving" @click="addChunkLink" data-test="add-chunk-link">
+                  关联
+                </button>
+              </div>
               <div 
                 v-for="chunk in evidenceChunks" 
                 :key="chunk.chunk_id" 
@@ -1055,6 +1325,71 @@ onUnmounted(() => {
             :disabled="deleteConfirmationInput !== selectedNode.label || isDeleting"
           >
             {{ isDeleting ? '正在删除...' : '确认并级联删除' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" v-if="isEntityModalOpen">
+      <div class="modal-card">
+        <header class="modal-header">
+          <h3>{{ entityModalMode === 'create' ? '新建实体' : '编辑实体' }}</h3>
+          <button @click="isEntityModalOpen = false" class="close-btn">&times;</button>
+        </header>
+        <div class="modal-body form-body">
+          <label class="form-label">名称</label>
+          <input v-model="entityForm.name" class="modal-input" data-test="entity-name" />
+          <label class="form-label">类型</label>
+          <select v-model="entityForm.entity_type" class="filter-select" data-test="entity-type">
+            <option v-for="type in availableTypes" :key="type" :value="type">{{ type }}</option>
+          </select>
+          <label class="form-label">分类</label>
+          <select v-model="entityForm.doc_category" class="filter-select">
+            <option value="">未设置</option>
+            <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+          </select>
+          <label class="form-label">规范名</label>
+          <input v-model="entityForm.canonical_name" class="modal-input" />
+          <label class="form-label">说明</label>
+          <textarea v-model="entityForm.description" class="modal-textarea"></textarea>
+        </div>
+        <footer class="modal-footer">
+          <button @click="isEntityModalOpen = false" class="secondary-btn">取消</button>
+          <button @click="saveEntity" class="danger-confirm-btn" :disabled="entitySaving" data-test="save-entity">
+            {{ entitySaving ? '保存中...' : '保存实体' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" v-if="isRelationModalOpen">
+      <div class="modal-card">
+        <header class="modal-header">
+          <h3>新建关系</h3>
+          <button @click="isRelationModalOpen = false" class="close-btn">&times;</button>
+        </header>
+        <div class="modal-body form-body">
+          <label class="form-label">源实体</label>
+          <select v-model="relationForm.source_id" class="filter-select">
+            <option value="">请选择</option>
+            <option v-for="node in graphData.nodes" :key="`source-${node.id}`" :value="node.id">{{ node.label }}</option>
+          </select>
+          <label class="form-label">目标实体</label>
+          <select v-model="relationForm.target_id" class="filter-select" data-test="relation-target">
+            <option value="">请选择</option>
+            <option v-for="node in graphData.nodes" :key="`target-${node.id}`" :value="node.id">{{ node.label }}</option>
+          </select>
+          <label class="form-label">关系类型</label>
+          <select v-model="relationForm.relation_type" class="filter-select">
+            <option v-for="type in relationTypes" :key="type" :value="type">{{ type }}</option>
+          </select>
+          <label class="form-label">证据说明</label>
+          <input v-model="relationForm.evidence_text" class="modal-input" />
+        </div>
+        <footer class="modal-footer">
+          <button @click="isRelationModalOpen = false" class="secondary-btn">取消</button>
+          <button @click="saveRelation" class="danger-confirm-btn" :disabled="relationSaving" data-test="save-relation">
+            {{ relationSaving ? '保存中...' : '保存关系' }}
           </button>
         </footer>
       </div>
@@ -1415,6 +1750,12 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .type-badge {
   font-size: 10px;
   color: white;
@@ -1434,6 +1775,21 @@ onUnmounted(() => {
 
 .close-btn:hover {
   color: #475569;
+}
+
+.mini-btn {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mini-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .right-header h2 {
@@ -1514,6 +1870,56 @@ onUnmounted(() => {
   color: #475569;
   line-height: 1.4;
   margin-top: 4px;
+}
+
+.alias-card {
+  margin-top: 12px;
+}
+
+.alias-head,
+.alias-create-row,
+.alias-item,
+.chunk-link-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alias-head,
+.chunk-link-form {
+  justify-content: space-between;
+}
+
+.alias-create-row,
+.chunk-link-form {
+  margin-top: 10px;
+}
+
+.compact-input {
+  flex: 1;
+}
+
+.alias-list {
+  list-style: none;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alias-item {
+  justify-content: space-between;
+  font-size: 12px;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.empty-inline {
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 /* Tab 选项卡 */
@@ -1809,6 +2215,18 @@ onUnmounted(() => {
   padding: 20px;
 }
 
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+}
+
 .warning-text {
   font-size: 13px;
   color: #dc2626;
@@ -1834,6 +2252,17 @@ onUnmounted(() => {
 .modal-input:focus {
   border-color: #ef4444;
   box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.1);
+}
+
+.modal-textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
 }
 
 .modal-footer {

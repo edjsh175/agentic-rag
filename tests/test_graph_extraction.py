@@ -287,6 +287,34 @@ def test_approved_batch_applies_entities_relations_fields_and_links_atomically(i
     assert db.get_extraction_batch(batch.batch_id)["status"] == "applied"
 
 
+def test_apply_backfills_entity_evidence_from_legacy_candidate(isolated_storage):
+    db = make_db(isolated_storage, name="legacy-evidence.db", data_dir_name="legacy-evidence-data", chroma_name="legacy-evidence-chroma")
+    batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
+    candidate_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "doc",
+        {
+            "name": "manual.docx",
+            "entity_type": "Document",
+            "doc_category": "StampServer",
+            "source_chunk_id": "c1",
+            "evidence_text": "manual.docx",
+        },
+        "c1",
+        "manual.docx",
+    )
+    db.review_extraction_candidates(batch_id, [candidate_id], "approved")
+    db.set_extraction_batch_status(batch_id, "approved")
+
+    GraphCandidateApplier(db).apply(batch_id)
+
+    entity = db.get_entity_by_name("manual.docx")
+    assert entity is not None
+    assert db.get_link_by_entity_chunk(entity["id"], "c1") is not None
+    assert db.get_extraction_batch(batch_id)["status"] == "applied"
+
+
 def test_special_rule_restorer_recovers_different_from_and_alias(isolated_storage):
     db = make_db(isolated_storage, name="special.db", data_dir_name="special-data", chroma_name="special-chroma")
     pipeline = db.create_entity("PipelineBuilder", "Tool", "StampTools")

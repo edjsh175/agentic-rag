@@ -56,8 +56,10 @@ from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsi
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.services.rebuild_coordinator import RebuildCoordinator
+from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
+from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateApplier, GraphQualityService
 from rag_knowledge.models.api import (
     LinkTypeEnum,
     EntityCreateRequest,
@@ -70,6 +72,14 @@ from rag_knowledge.models.api import (
     EntityChunkLinkResponse,
     GraphDataResponse,
     EntityChunkDetailResponse,
+    GraphAliasCreateRequest,
+    GraphAliasItem,
+    GraphCandidateBatch,
+    GraphCandidateItem,
+    GraphCandidateReviewRequest,
+    GraphCandidateReviewResponse,
+    GraphCandidateApplyResponse,
+    GraphQualityResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -908,6 +918,47 @@ def _parse_front_matter(file_path: Path) -> dict:
 # 知识图谱 (Knowledge Graph) APIs
 # =====================================================================
 
+def _effective_candidate_batch_status(batch: dict, candidates: list[dict]) -> str:
+    non_diagnostics = [item for item in candidates if item["candidate_kind"] != "diagnostic"]
+    if non_diagnostics and all(item["status"] == "applied" for item in non_diagnostics):
+        return "applied"
+    return batch["status"]
+
+
+def _serialize_candidate_batch(batch: dict, db: RelationalDB) -> GraphCandidateBatch:
+    candidates = db.list_extraction_candidates(batch["id"])
+    effective_status = _effective_candidate_batch_status(batch, candidates)
+    stats = json.loads(batch.get("stats_json") or "{}")
+    stats.setdefault("total", len(candidates))
+    for candidate_status in ("pending", "approved", "rejected", "applied"):
+        stats.setdefault(candidate_status, sum(1 for item in candidates if item["status"] == candidate_status))
+    return GraphCandidateBatch(
+        id=batch["id"],
+        mode=batch["mode"],
+        status=effective_status,
+        created_at=batch["created_at"],
+        reviewed_at=batch.get("reviewed_at") or None,
+        applied_at=batch.get("applied_at") or None,
+        error_text=batch.get("error_text") or None,
+        filters=json.loads(batch.get("filters_json") or "{}"),
+        stats=stats,
+    )
+
+
+def _sync_batch_status_after_review(db: RelationalDB, batch_id: str) -> str:
+    candidates = db.list_extraction_candidates(batch_id)
+    non_diagnostics = [item for item in candidates if item["candidate_kind"] != "diagnostic"]
+    if non_diagnostics and all(item["status"] == "applied" for item in non_diagnostics):
+        db.set_extraction_batch_status(batch_id, "applied")
+        return "applied"
+    if non_diagnostics and all(item["status"] in {"approved", "applied"} for item in non_diagnostics):
+        db.set_extraction_batch_status(batch_id, "approved")
+        return "approved"
+    if candidates and all(item["status"] in {"approved", "rejected", "applied"} for item in candidates):
+        db.set_extraction_batch_status(batch_id, "rejected")
+        return "rejected"
+    return (db.get_extraction_batch(batch_id) or {}).get("status", "draft")
+
 @router.get("/admin/knowledge_graph/data", response_model=GraphDataResponse)
 def get_graph_data(doc_category: Optional[str] = None):
     """获取知识图谱的节点和边"""
@@ -915,6 +966,53 @@ def get_graph_data(doc_category: Optional[str] = None):
         return KnowledgeGraphService().list_graph_data(doc_category=doc_category)
     except Exception as e:
         logger.error("Failed to list graph data: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/knowledge_graph/entities/{entity_id}/aliases", response_model=list[GraphAliasItem])
+def list_entity_aliases(entity_id: str):
+    """获取实体别名列表。"""
+    try:
+        return KnowledgeGraphService().list_entity_aliases(entity_id)
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to list aliases: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/entities/{entity_id}/aliases", response_model=GraphAliasItem, status_code=201)
+def create_entity_alias(entity_id: str, req: GraphAliasCreateRequest, response: Response):
+    """为实体创建别名。"""
+    try:
+        res = KnowledgeGraphService().create_entity_alias(
+            entity_id=entity_id,
+            alias=req.alias,
+            confidence=req.confidence,
+            evidence_text=req.evidence_text,
+            source_chunk_id=req.source_chunk_id,
+            review_status=req.review_status,
+        )
+        if res.created is False:
+            response.status_code = 200
+        return res
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to create alias: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/aliases/{alias_id}")
+def delete_alias(alias_id: str):
+    """删除实体别名。"""
+    try:
+        KnowledgeGraphService().delete_alias(alias_id)
+        return {"success": True, "message": "Alias 删除成功"}
+    except Exception as e:
+        logger.error("Failed to delete alias: %s", e)
         raise HTTPException(500, detail=str(e))
 
 
@@ -1060,4 +1158,141 @@ def list_entity_chunks(entity_id: str):
         raise HTTPException(404, detail=str(e))
     except Exception as e:
         logger.error("Failed to list chunks for entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/graph-candidates/batches", response_model=list[GraphCandidateBatch])
+def list_graph_candidate_batches(status: Optional[str] = None):
+    """列出图谱候选批次。"""
+    try:
+        db = RelationalDB()
+        batches = [_serialize_candidate_batch(batch, db) for batch in db.list_extraction_batches("")]
+        if status:
+            batches = [batch for batch in batches if batch.status == status]
+        return batches
+    except Exception as e:
+        logger.error("Failed to list graph candidate batches: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/graph-candidates/batches/{batch_id}/candidates", response_model=list[GraphCandidateItem])
+def list_graph_candidate_items(batch_id: str, status: Optional[str] = None):
+    """列出批次候选明细。"""
+    try:
+        db = RelationalDB()
+        batch = db.get_extraction_batch(batch_id)
+        if not batch:
+            raise HTTPException(404, detail="Batch not found")
+        return [
+            GraphCandidateItem(
+                id=item["id"],
+                batch_id=item["batch_id"],
+                candidate_kind=item["candidate_kind"],
+                status=item["status"],
+                payload=item["payload"],
+                evidence_text=item.get("evidence_text") or None,
+                source_chunk_id=item.get("source_chunk_id") or None,
+                rejection_reason=item.get("rejection_reason") or None,
+                reviewed_at=item.get("reviewed_at") or None,
+                applied_at=item.get("applied_at") or None,
+                applied_target_id=item.get("applied_target_id") or None,
+                created_at=item["created_at"],
+            )
+            for item in db.list_extraction_candidates(batch_id, status or "")
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to list graph candidates: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/graph-candidates/batches/{batch_id}/review", response_model=GraphCandidateReviewResponse)
+def review_graph_candidates(batch_id: str, req: GraphCandidateReviewRequest):
+    """审批图谱候选。"""
+    try:
+        db = RelationalDB()
+        batch = db.get_extraction_batch(batch_id)
+        if not batch:
+            raise HTTPException(404, detail="Batch not found")
+
+        pending = db.list_extraction_candidates(batch_id, "pending")
+        candidate_ids = {item["id"] for item in pending}
+        diagnostic_ids = {item["id"] for item in pending if item["candidate_kind"] == "diagnostic"}
+
+        updated = 0
+        reject_ids = [cid for cid in req.reject_ids if cid in candidate_ids]
+        if reject_ids:
+            updated += db.review_extraction_candidates(batch_id, reject_ids, "rejected", req.reason or "")
+
+        if req.approve_all:
+            approve_ids = sorted(candidate_ids - diagnostic_ids - set(reject_ids))
+        else:
+            approve_ids = [
+                cid for cid in req.approve_ids
+                if cid in candidate_ids and cid not in diagnostic_ids and cid not in set(reject_ids)
+            ]
+        if approve_ids:
+            updated += db.review_extraction_candidates(batch_id, approve_ids, "approved", "")
+
+        batch_status = _sync_batch_status_after_review(db, batch_id)
+        return GraphCandidateReviewResponse(
+            batch_id=batch_id,
+            updated_candidates=updated,
+            batch_status=batch_status,
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to review graph candidates: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/graph-candidates/batches/{batch_id}/apply", response_model=GraphCandidateApplyResponse)
+def apply_graph_candidates(batch_id: str):
+    """应用已批准的图谱候选。"""
+    try:
+        db = RelationalDB()
+        batch = db.get_extraction_batch(batch_id)
+        if not batch:
+            raise HTTPException(404, detail="Batch not found")
+        if batch["status"] != "approved":
+            raise HTTPException(400, detail="Only approved batches can be applied")
+        approved_count = len(db.list_extraction_candidates(batch_id, "approved"))
+        GraphCandidateApplier(db).apply(batch_id)
+        return GraphCandidateApplyResponse(
+            batch_id=batch_id,
+            status="applied",
+            applied_candidates=approved_count,
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to apply graph candidates: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/graph-candidates/batches/{batch_id}/quality", response_model=GraphQualityResponse)
+def inspect_graph_candidate_batch(batch_id: str):
+    """查看批次质量检查结果。"""
+    try:
+        db = RelationalDB()
+        batch = db.get_extraction_batch(batch_id)
+        if not batch:
+            raise HTTPException(404, detail="Batch not found")
+        report = GraphQualityService(db).inspect_batch(batch_id)
+        return GraphQualityResponse(
+            ok=report.ok,
+            errors=report.errors,
+            warnings=report.warnings,
+            stats=report.stats,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to inspect graph candidate batch: %s", e)
         raise HTTPException(500, detail=str(e))

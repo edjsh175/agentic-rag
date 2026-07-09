@@ -30,6 +30,14 @@ import 'github-markdown-css/github-markdown.css'
         </svg>
         审核工作台
       </RouterLink>
+      <RouterLink class="nav-btn" to="/admin/graph-candidates">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 12l2 2 4-4"/>
+          <path d="M21 12c0 4.97-4.03 9-9 9S3 16.97 3 12 7.03 3 12 3c2.12 0 4.07.73 5.62 1.96"/>
+          <path d="M16 5h5v5"/>
+        </svg>
+        图谱候选审批
+      </RouterLink>
       <RouterLink class="nav-btn" to="/admin/graph">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/>

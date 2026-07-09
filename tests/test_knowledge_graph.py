@@ -356,3 +356,167 @@ def test_get_graph_data(test_setup):
     assert len(data_filtered["edges"]) == 1
     assert data_filtered["edges"][0]["source"] == e1_id
     assert data_filtered["edges"][0]["target"] == e2_id
+
+
+def test_alias_crud_and_idempotency(test_setup):
+    """Alias APIs should support listing, creating, deduping and deleting."""
+    db = test_setup
+    entity_id = db.create_entity("PipelineBuilder", "Tool", "StampTools")
+
+    resp_create = client.post(
+        f"/admin/knowledge_graph/entities/{entity_id}/aliases",
+        json={"alias": "管线发布工具"},
+    )
+    assert resp_create.status_code == 201
+    created = resp_create.json()
+    assert created["entity_id"] == entity_id
+    assert created["alias"] == "管线发布工具"
+    assert created["created"] is True
+
+    resp_dup = client.post(
+        f"/admin/knowledge_graph/entities/{entity_id}/aliases",
+        json={"alias": "管线发布工具"},
+    )
+    assert resp_dup.status_code == 200
+    duplicate = resp_dup.json()
+    assert duplicate["id"] == created["id"]
+    assert duplicate["created"] is False
+
+    resp_list = client.get(f"/admin/knowledge_graph/entities/{entity_id}/aliases")
+    assert resp_list.status_code == 200
+    aliases = resp_list.json()
+    assert len(aliases) == 1
+    assert aliases[0]["alias"] == "管线发布工具"
+    assert aliases[0]["review_status"] == "approved"
+
+    resp_delete = client.delete(f"/admin/knowledge_graph/aliases/{created['id']}")
+    assert resp_delete.status_code == 200
+    assert resp_delete.json()["success"] is True
+
+    resp_list_empty = client.get(f"/admin/knowledge_graph/entities/{entity_id}/aliases")
+    assert resp_list_empty.status_code == 200
+    assert resp_list_empty.json() == []
+
+
+def test_graph_candidate_batch_list_review_and_apply(test_setup):
+    """Candidate review APIs should expose batches, support review, quality and apply."""
+    db = test_setup
+    batch_id = db.create_extraction_batch("profile_sync", {"profile_id": "profile-a"}, "snapshot-a")
+    entity_candidate_id = db.add_extraction_candidate(
+        batch_id=batch_id,
+        candidate_kind="entity",
+        fingerprint="entity-fp",
+        payload={
+            "name": "PipelineBuilder",
+            "entity_type": "Tool",
+            "doc_category": "StampTools",
+            "created_by": "rule:profile_sync",
+            "confidence": 0.8,
+        },
+        evidence_text="profile:profile-a:entity_aliases",
+    )
+    alias_candidate_id = db.add_extraction_candidate(
+        batch_id=batch_id,
+        candidate_kind="alias",
+        fingerprint="alias-fp",
+        payload={
+            "entity_name": "PipelineBuilder",
+            "alias": "管线发布工具",
+            "created_by": "rule:profile_sync",
+            "confidence": 0.8,
+            "evidence_text": "profile:profile-a:entity_aliases",
+            "source_chunk_id": "",
+        },
+        evidence_text="profile:profile-a:entity_aliases",
+    )
+    diagnostic_candidate_id = db.add_extraction_candidate(
+        batch_id=batch_id,
+        candidate_kind="diagnostic",
+        fingerprint="diag-fp",
+        payload={"code": "generic_term", "message": "skip generic term"},
+        evidence_text="skip generic term",
+    )
+    db.review_extraction_candidates(batch_id, [diagnostic_candidate_id], "rejected", "skip generic term")
+
+    resp_batches = client.get("/admin/graph-candidates/batches")
+    assert resp_batches.status_code == 200
+    batches = resp_batches.json()
+    assert len(batches) == 1
+    assert batches[0]["id"] == batch_id
+    assert batches[0]["mode"] == "profile_sync"
+    assert batches[0]["status"] == "draft"
+    assert batches[0]["stats"]["total"] == 3
+    assert batches[0]["stats"]["pending"] == 2
+
+    resp_candidates = client.get(f"/admin/graph-candidates/batches/{batch_id}/candidates")
+    assert resp_candidates.status_code == 200
+    candidates = resp_candidates.json()
+    assert [item["candidate_kind"] for item in candidates] == ["entity", "alias", "diagnostic"]
+    assert candidates[2]["status"] == "rejected"
+
+    resp_review = client.post(
+        f"/admin/graph-candidates/batches/{batch_id}/review",
+        json={"approve_ids": [entity_candidate_id, alias_candidate_id]},
+    )
+    assert resp_review.status_code == 200
+    review_data = resp_review.json()
+    assert review_data["updated_candidates"] == 2
+    assert review_data["batch_status"] == "approved"
+
+    resp_quality = client.get(f"/admin/graph-candidates/batches/{batch_id}/quality")
+    assert resp_quality.status_code == 200
+    quality = resp_quality.json()
+    assert quality["ok"] is True
+    assert quality["errors"] == []
+
+    resp_apply = client.post(f"/admin/graph-candidates/batches/{batch_id}/apply")
+    assert resp_apply.status_code == 200
+    apply_data = resp_apply.json()
+    assert apply_data["batch_id"] == batch_id
+    assert apply_data["status"] == "applied"
+
+    entity = db.get_entity_by_name("PipelineBuilder")
+    assert entity is not None
+    aliases = db.list_aliases(entity["id"])
+    assert len(aliases) == 1
+    assert aliases[0]["alias"] == "管线发布工具"
+
+
+    resp_review_applied = client.post(
+        f"/admin/graph-candidates/batches/{batch_id}/review",
+        json={"approve_all": True},
+    )
+    assert resp_review_applied.status_code == 200
+    assert resp_review_applied.json()["batch_status"] == "applied"
+    assert db.get_extraction_batch(batch_id)["status"] == "applied"
+
+    db.set_extraction_batch_status(batch_id, "rejected")
+    resp_repaired_batches = client.get("/admin/graph-candidates/batches")
+    assert resp_repaired_batches.status_code == 200
+    assert resp_repaired_batches.json()[0]["status"] == "applied"
+
+    resp_applied_batches = client.get("/admin/graph-candidates/batches?status=applied")
+    assert resp_applied_batches.status_code == 200
+    assert resp_applied_batches.json()[0]["id"] == batch_id
+
+
+def test_graph_candidate_apply_rejects_non_approved_batch(test_setup):
+    """Apply should reject batches that were not fully approved."""
+    db = test_setup
+    batch_id = db.create_extraction_batch("profile_sync", {"profile_id": "profile-b"}, "snapshot-b")
+    db.add_extraction_candidate(
+        batch_id=batch_id,
+        candidate_kind="entity",
+        fingerprint="entity-fp-2",
+        payload={
+            "name": "PendingEntity",
+            "entity_type": "Tool",
+            "doc_category": "StampTools",
+            "created_by": "rule:profile_sync",
+        },
+        evidence_text="profile:profile-b:entity_aliases",
+    )
+
+    resp = client.post(f"/admin/graph-candidates/batches/{batch_id}/apply")
+    assert resp.status_code == 400
+    assert "approved" in resp.json()["detail"]

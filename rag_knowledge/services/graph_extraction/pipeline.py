@@ -158,6 +158,7 @@ class GraphBuilder:
     def _identity_payload(kind: str, payload: dict) -> dict:
         keys_by_kind = {
             "entity": ("name", "entity_type"),
+            "alias": ("entity_name", "alias"),
             "relation": ("source_name", "relation_type", "target_name"),
             "field": ("table_name", "field_name"),
             "link": ("entity_name", "chunk_id", "link_type"),
@@ -168,7 +169,7 @@ class GraphBuilder:
 
 
 class GraphCandidateApplier:
-    ORDER = {"entity": 0, "relation": 1, "field": 2, "link": 3}
+    ORDER = {"entity": 0, "alias": 1, "relation": 2, "field": 3, "link": 4}
 
     def __init__(self, db: RelationalDB | None = None):
         self.db = db or RelationalDB()
@@ -208,6 +209,8 @@ class GraphCandidateApplier:
     def _apply_one(self, conn: sqlite3.Connection, kind: str, payload: dict) -> str:
         if kind == "entity":
             return self._entity(conn, payload)
+        if kind == "alias":
+            return self._alias(conn, payload)
         if kind == "relation":
             return self._relation(conn, payload)
         if kind == "field":
@@ -222,16 +225,58 @@ class GraphCandidateApplier:
         if row:
             if row["entity_type"] != payload["entity_type"]:
                 raise ValueError(f"entity type conflict: {name}")
-            return str(row["id"])
+            entity_id = str(row["id"])
+            if payload.get("source_chunk_id"):
+                self._link(conn, {
+                    "entity_name": name,
+                    "chunk_id": payload["source_chunk_id"],
+                    "link_type": "evidence",
+                    "evidence_text": payload.get("evidence_text") or "",
+                })
+            return entity_id
         entity_id = self.db._uid()
         properties = json.dumps(payload.get("properties") or {}, ensure_ascii=False, sort_keys=True)
         now = self.db._now()
+        confidence = float(payload.get("confidence", 1.0))
+        created_by = payload.get("created_by") or "rule:phase_b"
         conn.execute(
             "INSERT INTO entities (id, name, canonical_name, entity_type, properties_json, doc_category, confidence, review_status, created_by, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, 1.0, 'approved', 'rule:phase_b', ?, ?)",
-            (entity_id, name, name, payload["entity_type"], properties, payload.get("doc_category") or "", now, now),
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)",
+            (entity_id, name, name, payload["entity_type"], properties, payload.get("doc_category") or "", confidence, created_by, now, now),
         )
+        if payload.get("source_chunk_id"):
+            self._link(conn, {
+                "entity_name": name,
+                "chunk_id": payload["source_chunk_id"],
+                "link_type": "evidence",
+                "evidence_text": payload.get("evidence_text") or "",
+            })
         return entity_id
+
+    def _alias(self, conn: sqlite3.Connection, payload: dict) -> str:
+        entity = self._lookup_entity(conn, payload["entity_name"])
+        alias = normalize_entity_name(payload["alias"])
+        existing = conn.execute(
+            "SELECT id FROM aliases WHERE entity_id = ? AND alias = ?",
+            (entity["id"], alias),
+        ).fetchone()
+        if existing:
+            return str(existing["id"])
+        alias_id = self.db._uid()
+        conn.execute(
+            "INSERT INTO aliases (id, entity_id, alias, confidence, source_chunk_id, evidence_text, review_status, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'approved', ?)",
+            (
+                alias_id,
+                entity["id"],
+                alias,
+                float(payload.get("confidence", 1.0)),
+                payload.get("source_chunk_id") or "",
+                payload.get("evidence_text") or "",
+                self.db._now(),
+            ),
+        )
+        return alias_id
 
     @staticmethod
     def _lookup_entity(conn: sqlite3.Connection, name: str) -> sqlite3.Row:
@@ -254,10 +299,12 @@ class GraphCandidateApplier:
         if existing:
             return str(existing["id"])
         relation_id = self.db._uid()
+        confidence = float(payload.get("confidence", 1.0))
+        created_by = payload.get("created_by") or "rule:phase_b"
         conn.execute(
             "INSERT INTO relations (id, source_entity_id, target_entity_id, relation_type, confidence, evidence_text, source_chunk_id, review_status, created_by, created_at) "
-            "VALUES (?, ?, ?, ?, 1.0, ?, ?, 'approved', 'rule:phase_b', ?)",
-            (relation_id, source["id"], target["id"], relation_type, payload.get("evidence_text") or "", payload.get("source_chunk_id") or "", self.db._now()),
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?)",
+            (relation_id, source["id"], target["id"], relation_type, confidence, payload.get("evidence_text") or "", payload.get("source_chunk_id") or "", created_by, self.db._now()),
         )
         return relation_id
 
@@ -417,7 +464,8 @@ class GraphQualityService:
             if item["candidate_kind"] != "entity":
                 continue
             payload = item["payload"]
-            if payload["name"] not in approved_link_names:
+            has_candidate_evidence = payload["name"] in approved_link_names or bool(payload.get("source_chunk_id"))
+            if payload.get("created_by") != "rule:profile_sync" and not has_candidate_evidence:
                 error = f"missing_evidence:{payload['name']}"
                 if error not in report.errors:
                     report.errors.append(error)
@@ -433,7 +481,10 @@ class GraphQualityService:
                 entity_types.setdefault(row["name"], row["entity_type"])
         for item in approved:
             kind, payload = item["candidate_kind"], item["payload"]
-            if kind == "relation":
+            if kind == "alias":
+                if payload["entity_name"] not in entity_types:
+                    report.errors.append(f"missing_alias_entity:{payload['entity_name']}")
+            elif kind == "relation":
                 source_type = entity_types.get(payload["source_name"])
                 target_type = entity_types.get(payload["target_name"])
                 if not source_type or not target_type:

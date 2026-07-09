@@ -20,6 +20,17 @@ import type {
   ScanResult,
   GraphData,
   EntityChunkDetail,
+  GraphAliasItem,
+  GraphAliasCreateRequest,
+  GraphCandidateBatch,
+  GraphCandidateItem,
+  GraphCandidateReviewRequest,
+  GraphCandidateReviewResponse,
+  GraphCandidateApplyResponse,
+  GraphQualityReport,
+  GraphEntityUpsert,
+  GraphEntityUpdate,
+  GraphRelationCreate,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -459,5 +470,60 @@ export async function deleteRelation(relationId: string) {
 export async function deleteEntityChunkLink(entityId: string, chunkId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/chunks/${encodeURIComponent(chunkId)}`)
   return data
+}
+
+export async function createGraphEntity(payload: GraphEntityUpsert) {
+  return postJSON<any>('/admin/knowledge_graph/entities', payload)
+}
+
+export async function updateGraphEntity(entityId: string, payload: GraphEntityUpdate) {
+  const { data } = await http.patch(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}`, payload)
+  return data
+}
+
+export async function createGraphRelation(payload: GraphRelationCreate) {
+  return postJSON<any>('/admin/knowledge_graph/relations', payload)
+}
+
+export async function linkEntityChunk(entityId: string, chunkId: string, linkType: string) {
+  return postJSON<any>(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/chunks`, {
+    chunk_id: chunkId,
+    link_type: linkType,
+  })
+}
+
+export async function listEntityAliases(entityId: string) {
+  return getJSON<GraphAliasItem[]>(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/aliases`)
+}
+
+export async function createEntityAlias(entityId: string, payload: GraphAliasCreateRequest) {
+  return postJSON<GraphAliasItem>(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/aliases`, payload)
+}
+
+export async function deleteEntityAlias(aliasId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/aliases/${encodeURIComponent(aliasId)}`)
+  return data
+}
+
+export async function listGraphCandidateBatches(status?: string) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  return getJSON<GraphCandidateBatch[]>(`/admin/graph-candidates/batches${query}`)
+}
+
+export async function listGraphCandidateItems(batchId: string, status?: string) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  return getJSON<GraphCandidateItem[]>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/candidates${query}`)
+}
+
+export async function reviewGraphCandidates(batchId: string, payload: GraphCandidateReviewRequest) {
+  return postJSON<GraphCandidateReviewResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/review`, payload)
+}
+
+export async function applyGraphCandidateBatch(batchId: string) {
+  return postJSON<GraphCandidateApplyResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/apply`)
+}
+
+export async function getGraphCandidateQuality(batchId: string) {
+  return getJSON<GraphQualityReport>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/quality`)
 }
 
