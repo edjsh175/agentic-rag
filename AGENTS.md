@@ -430,7 +430,7 @@ docker run -p 10605:10605 rag-knowledge
 ## 常见操作
 
 - **添加文档**：放入 watch_directory/已发布文章/ 或 watch_directory/upload/，等待定时扫描，或手动调用 POST /scan
-- **重建知识库**：替换向量模型后，调用 `GET /rebuild`
+- **重建知识库**：替换向量模型后，调用 `POST /rebuild`（须 `confirmation=REBUILD_KNOWLEDGE_BASE`）
 - **切换模型**：前端下拉框选择，嵌入模型切换后需重建知识库
 - **清空对话**：前端垃圾桶按钮，只清除前端缓存，不影响向量库
 - **查看日志**：`logs/rag.log`（全部）、`logs/rag_error.log`（WARNING+，保留 30 天）
@@ -441,6 +441,7 @@ docker run -p 10605:10605 rag-knowledge
 - **图谱重建**：知识库一致性通过后，按顺序执行：`run_graph_build.py extract --force-rebuild` → `review --batch <id> --approve-all` → `apply --batch <id>` → `quality --graph`。图谱提取前会调用 `assert_consistent()`，不一致时拒绝执行
 - **图谱乱码修复**：`run_graph_build.py repair-text` 修复关系图谱中的 mojibake 中文标签
 - **测试隔离**：`pytest` 默认排除 `@pytest.mark.integration` 测试（`addopts = -m "not integration"`）。`isolated_storage` fixture 将全部 8 个运行时路径指向 `tmp_path`。`Config._assert_test_paths_are_isolated()` 在 pytest 下检测到正式路径时直接抛错，除非设置 `ALLOW_LIVE_STORAGE_IN_TESTS=1`。需接触正式库的集成测试显式运行 `pytest -m integration`
+- **交付门禁检查**：`.\venv\Scripts\python.exe scripts/check_repo_hygiene.py` — 只读检查工作树清洁度、禁止 `NUL`/`*.tmp`/`_debug` 垃圾、`data/domain_catalog.json` 已跟踪；交付提交前须 exit 0
 
 ### 2026-07-01 Chroma 环境混用事故
 
