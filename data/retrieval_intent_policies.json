@@ -1,0 +1,38 @@
+[
+  {
+    "id": "pipeline_point_table",
+    "entity_ref": "管线点表",
+    "intent_terms": [],
+    "query_hints": ["点数据结构", "管点编号", "地面高程"],
+    "preferred_doc_categories": ["StampTools"],
+    "fallback_doc_categories": [],
+    "candidate_min_k": null
+  },
+  {
+    "id": "pipeline_line_table",
+    "entity_ref": "管线线表",
+    "intent_terms": [],
+    "query_hints": ["线表数据结构", "管线编号"],
+    "preferred_doc_categories": ["StampTools"],
+    "fallback_doc_categories": [],
+    "candidate_min_k": null
+  },
+  {
+    "id": "pipeline_face_table",
+    "entity_ref": "管线面表",
+    "intent_terms": [],
+    "query_hints": ["面表数据结构", "管面编号"],
+    "preferred_doc_categories": ["StampTools"],
+    "fallback_doc_categories": [],
+    "candidate_min_k": null
+  },
+  {
+    "id": "dom_builder_publish",
+    "entity_ref": "DOMBuilder",
+    "intent_terms": ["发布", "publish"],
+    "query_hints": [],
+    "preferred_doc_categories": ["StampTools"],
+    "fallback_doc_categories": ["StampServer"],
+    "candidate_min_k": 8
+  }
+]

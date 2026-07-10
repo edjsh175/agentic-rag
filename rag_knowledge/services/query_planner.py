@@ -175,6 +175,7 @@ class RetrievalPlan:
     excluded_entity_ids: tuple[str, ...] = ()
     graph_revision: str = ""
     graph_fallback_reason: str | None = None
+    intent_plan: object | None = None
 
 
 class QueryPlanner:

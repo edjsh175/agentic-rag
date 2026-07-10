@@ -287,6 +287,12 @@ def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
     assert tool_ent and config_ent
     assert tool_ent["entity_type"] == "Tool"
     assert config_ent["entity_type"] == "ConfigItem"
+    db.create_relation(
+        tool_ent["id"],
+        config_ent["id"],
+        "different_from",
+        created_by="test:disambiguation",
+    )
     
     # 3. Setup mock vector store
     class MockChromaCollection:

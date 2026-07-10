@@ -4,6 +4,12 @@ from pathlib import Path
 from rag_knowledge.repository.relational_db import RelationalDB
 
 
+def _legacy_profiles_path(data_dir: Path) -> Path:
+    path = data_dir / "migrations" / "retrieval_intent_profiles_v1.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _write_profiles(path: Path) -> None:
     profiles = [
         {
@@ -31,7 +37,7 @@ def test_profile_sync_preview_extracts_aliases_relations_and_diagnostics(isolate
         data_dir_name="profile-preview-data",
         chroma_name="profile-preview-chroma",
     )
-    _write_profiles(data_dir / "retrieval_intent_profiles.json")
+    _write_profiles(_legacy_profiles_path(data_dir))
 
     from rag_knowledge.services.profile_graph_sync import ProfileGraphSyncService
 
@@ -62,13 +68,30 @@ def test_profile_sync_preview_extracts_aliases_relations_and_diagnostics(isolate
     assert any(item.code == "generic_recall_term" and item.term == "说明" for item in profile.diagnostics)
 
 
+def test_profile_sync_suggest_policies_maps_doc_categories(isolated_storage):
+    _, _, _, data_dir = isolated_storage(
+        db_name="profile-policy.db",
+        data_dir_name="profile-policy-data",
+        chroma_name="profile-policy-chroma",
+    )
+    _write_profiles(_legacy_profiles_path(data_dir))
+
+    from rag_knowledge.services.profile_graph_sync import ProfileGraphSyncService
+
+    policies = ProfileGraphSyncService().suggest_policies()
+
+    assert policies[0]["id"] == "pipeline_point_table"
+    assert policies[0]["preferred_doc_categories"] == ["StampTools"]
+    assert "preferred_sources" not in policies[0]
+
+
 def test_profile_sync_apply_creates_pending_batch_and_alias_candidates(isolated_storage):
     _, _, _, data_dir = isolated_storage(
         db_name="profile-apply.db",
         data_dir_name="profile-apply-data",
         chroma_name="profile-apply-chroma",
     )
-    _write_profiles(data_dir / "retrieval_intent_profiles.json")
+    _write_profiles(_legacy_profiles_path(data_dir))
     db = RelationalDB()
 
     from rag_knowledge.services.profile_graph_sync import ProfileGraphSyncService
@@ -91,7 +114,7 @@ def test_profile_sync_apply_can_preapprove_candidates_and_batch(isolated_storage
         data_dir_name="profile-approve-data",
         chroma_name="profile-approve-chroma",
     )
-    _write_profiles(data_dir / "retrieval_intent_profiles.json")
+    _write_profiles(_legacy_profiles_path(data_dir))
     db = RelationalDB()
 
     from rag_knowledge.services.profile_graph_sync import ProfileGraphSyncService
@@ -111,7 +134,7 @@ def test_profile_sync_apply_is_idempotent_after_graph_apply(isolated_storage):
         data_dir_name="profile-idempotent-data",
         chroma_name="profile-idempotent-chroma",
     )
-    _write_profiles(data_dir / "retrieval_intent_profiles.json")
+    _write_profiles(_legacy_profiles_path(data_dir))
     db = RelationalDB()
 
     from rag_knowledge.services.graph_extraction import GraphCandidateApplier
@@ -141,7 +164,7 @@ def test_profile_sync_cli_supports_dry_run_and_apply(isolated_storage, capsys):
         data_dir_name="profile-cli-data",
         chroma_name="profile-cli-chroma",
     )
-    _write_profiles(data_dir / "retrieval_intent_profiles.json")
+    _write_profiles(_legacy_profiles_path(data_dir))
     db = RelationalDB()
 
     import sync_profiles_to_graph
@@ -154,6 +177,7 @@ def test_profile_sync_cli_supports_dry_run_and_apply(isolated_storage, capsys):
     assert dry_run_exit == 0
     assert dry_run_payload["mode"] == "dry-run"
     assert dry_run_payload["profiles"][0]["profile_id"] == "pipeline_point_table"
+    assert dry_run_payload["suggested_policies"][0]["id"] == "pipeline_point_table"
     assert apply_exit == 0
     assert apply_payload["mode"] == "apply"
     assert apply_payload["review_status"] == "pending"

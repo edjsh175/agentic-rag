@@ -43,7 +43,9 @@ scrape_article/
 
 # Runtime data directory (anchored to root; preserves rag_knowledge/data/)
 /data/*
-!/data/retrieval_intent_profiles.json
+!/data/retrieval_intent_policies.json
+!/data/migrations/
+!/data/migrations/retrieval_intent_profiles_v1.json
 !/data/structured_retrieval_regression.json
 !/data/domain_catalog.json
 

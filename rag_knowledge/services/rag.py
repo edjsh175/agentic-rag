@@ -29,6 +29,7 @@ from rag_knowledge.services.query_contextualizer import (
     get_contextualizer,
 )
 from rag_knowledge.services.web_search import WebSearch
+from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +304,11 @@ class RagChain:
                 review_status=review_status,
             )
             excluded = tuple(sorted({item for linked in context.linked_entities for item in linked.excluded_entity_ids}))
+            resolver = getattr(self, "_intent_resolver", None) or RetrievalIntentResolver.default()
+            intent_plan = resolver.refine_from_graph(
+                resolver.resolve(question),
+                canonical_names=tuple(item.canonical_name for item in context.linked_entities),
+            )
             enriched = replace(
                 plan,
                 linked_entities=context.linked_entities,
@@ -311,6 +317,7 @@ class RagChain:
                 excluded_entity_ids=excluded,
                 graph_revision=f"{retriever.revision()}:{getattr(getattr(self, '_graph_cfg', None), 'graph_weight', 1.25)}",
                 graph_fallback_reason=context.fallback_reason,
+                intent_plan=intent_plan,
             )
         except Exception as exc:
             logger.warning("graph retrieval failed, fallback to standard retrieval: %s", exc)

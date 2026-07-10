@@ -10,7 +10,7 @@ from rag_knowledge.models.graph_schema import normalize_entity_name, validate_re
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.graph_extraction.pipeline import BuildBatchResult
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
-from rag_knowledge.services.retrieval_intent import RetrievalIntentProfile, load_intent_profiles
+from rag_knowledge.services.retrieval_intent import RetrievalIntentProfile, load_legacy_intent_profiles
 
 GENERIC_FIELD_TERMS = {"字段名", "字段名称", "说明", "数据", "配置", "路径"}
 STRONG_CONFIDENCE = 0.8
@@ -90,7 +90,7 @@ class ProfileSyncPreview:
 class ProfileGraphSyncService:
     def __init__(self, db: RelationalDB | None = None, profiles: Iterable[RetrievalIntentProfile] | None = None):
         self.db = db or RelationalDB()
-        self._profiles = tuple(profiles) if profiles is not None else load_intent_profiles()
+        self._profiles = tuple(profiles) if profiles is not None else load_legacy_intent_profiles()
         self._catalog = DomainCatalogLoader()
 
     def preview(self, profile_id: str | None = None) -> ProfileSyncPreview:
@@ -200,25 +200,24 @@ class ProfileGraphSyncService:
                     self._append_entity(result, entity_seen, relation.target_name, target_type, relation.evidence_text)
                 self._append_relation(result, relation_seen, relation)
 
-        for relation in self._extract_strategy_relations(profile, canonical_name, canonical_type, owner_name):
-            source_type = self._infer_entity_type(relation.source_name, profile)
-            target_type = self._infer_entity_type(relation.target_name, profile)
-            ok, reason = validate_relation(source_type, relation.relation_type, target_type)
-            if not ok:
-                result.diagnostics.append(
-                    ProfileSyncDiagnostic(
-                        "illegal_strategy_relation",
-                        reason,
-                        profile.id,
-                        relation.target_name,
-                    )
-                )
-                continue
-            result.weak_relations.append(relation)
-            if not self._entity_exists(relation.target_name):
-                self._append_entity(result, entity_seen, relation.target_name, target_type, relation.evidence_text)
-
         return result
+
+    def suggest_policies(self, profile_id: str | None = None) -> list[dict]:
+        policies = []
+        for profile in self._select_profiles(profile_id):
+            entity_ref = normalize_entity_name(profile.entity_aliases[0]) if profile.entity_aliases else ""
+            policies.append(
+                {
+                    "id": profile.id,
+                    "entity_ref": entity_ref,
+                    "intent_terms": list(profile.intent_terms),
+                    "query_hints": list(profile.recall_terms),
+                    "preferred_doc_categories": list(profile.preferred_sources),
+                    "fallback_doc_categories": list(profile.fallback_sources),
+                    "candidate_min_k": profile.candidate_min_k,
+                }
+            )
+        return policies
 
     def _stage_candidates(self, batch_id: str, kind: str, profile_id: str, items: list, review_status: str) -> int:
         count = 0
@@ -405,39 +404,6 @@ class ProfileGraphSyncService:
                         )
                     )
         return relations
-
-    def _extract_strategy_relations(
-        self,
-        profile: RetrievalIntentProfile,
-        canonical_name: str,
-        canonical_type: str,
-        owner_name: str,
-    ) -> list[ProfileSyncRelationCandidate]:
-        if not canonical_name:
-            return []
-        if canonical_type == "DataTable" and owner_name:
-            return []
-        result: list[ProfileSyncRelationCandidate] = []
-        for field_name, sources in (
-            ("preferred_sources", profile.preferred_sources),
-            ("fallback_sources", profile.fallback_sources),
-        ):
-            for source in sources:
-                target = normalize_entity_name(source)
-                if not target:
-                    continue
-                result.append(
-                    ProfileSyncRelationCandidate(
-                        source_name=canonical_name,
-                        relation_type="belongs_to",
-                        target_name=target,
-                        confidence=WEAK_CONFIDENCE,
-                        evidence_text=f"profile:{profile.id}:{field_name}",
-                        created_by=PROFILE_CREATED_BY,
-                        metadata={"profile_id": profile.id, "source_field": field_name, "strategy_derived": True},
-                    )
-                )
-        return result
 
     def _build_alias_map(self, profiles: Iterable[RetrievalIntentProfile]) -> dict[str, str]:
         alias_map: dict[str, str] = {}
