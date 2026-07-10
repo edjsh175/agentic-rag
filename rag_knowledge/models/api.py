@@ -1,5 +1,5 @@
 """API 请求与响应数据模型。"""
-from typing import Optional
+from typing import Literal, Optional
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -54,6 +54,10 @@ class ScanResponse(BaseModel):
     new_files: int
     skipped_files: int
     errors: int
+
+
+class RebuildRequest(BaseModel):
+    confirmation: Literal["REBUILD_KNOWLEDGE_BASE"]
 
 
 class StatsResponse(BaseModel):

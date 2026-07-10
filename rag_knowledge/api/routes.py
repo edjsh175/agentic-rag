@@ -35,6 +35,7 @@ from rag_knowledge.models.api import (
     ChunkStatsResponse,
     ReviewRequest,
     ReviewResponse,
+    RebuildRequest,
     ScanResponse,
     StatsResponse,
 )
@@ -55,7 +56,7 @@ from rag_knowledge.services.chunk_admin import (
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.query_cache import clear_query_cache
-from rag_knowledge.services.rebuild_coordinator import RebuildCoordinator
+from rag_knowledge.services.rebuild_coordinator import RebuildAlreadyRunningError, RebuildCoordinator
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
@@ -546,8 +547,8 @@ def set_embedding_model(model: str = Form(...)):
         raise HTTPException(500, detail=str(e))
 
 
-@router.api_route("/rebuild", methods=["GET", "POST"])
-def rebuild_knowledge():
+@router.post("/rebuild")
+def rebuild_knowledge(request: RebuildRequest):
     """
     重建知识库 —— 清空向量数据库 + 文件索引，然后全量重新扫描
 
@@ -558,20 +559,22 @@ def rebuild_knowledge():
 
     注意：此操作不可逆，执行后所有已有问答数据将被清空
     """
+    if _scanner is None:
+        raise HTTPException(status_code=503, detail="扫描器未初始化，未执行重建")
     try:
-        if _scanner:
-            return RebuildCoordinator(
-                cfg=_cfg,
-                store=VectorStore(),
-                scanner=_scanner,
-                consistency_service=KnowledgeBaseConsistencyService(),
-                invalidate_retrieval_caches=_invalidate_retrieval_caches,
-                rebuild_bm25=_rebuild_bm25,
-            ).run()
-        return {"message": "知识库已清空，但扫描器未初始化"}
-    except Exception as e:
-        logger.error("重建失败: %s", e)
-        raise HTTPException(500, detail=f"重建失败: {str(e)}")
+        return RebuildCoordinator(
+            cfg=_cfg,
+            store=VectorStore(),
+            scanner=_scanner,
+            consistency_service=KnowledgeBaseConsistencyService(),
+            invalidate_retrieval_caches=_invalidate_retrieval_caches,
+            rebuild_bm25=_rebuild_bm25,
+        ).run()
+    except RebuildAlreadyRunningError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("重建失败")
+        raise HTTPException(status_code=500, detail=f"重建失败: {exc}") from exc
 
 
 # ------------------------------------------------------------------

@@ -1,6 +1,16 @@
 from types import SimpleNamespace
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from rag_knowledge.api import routes
+from rag_knowledge.models.api import RebuildRequest
+
+
+def make_client() -> TestClient:
+    app = FastAPI()
+    app.include_router(routes.router)
+    return TestClient(app)
 
 
 def test_audit_consistency_route_delegates_to_service(monkeypatch):
@@ -16,6 +26,25 @@ def test_audit_consistency_route_delegates_to_service(monkeypatch):
     result = routes.audit_consistency(source="word/StampTools用户手册.docx")
 
     assert result == expected
+
+
+def test_rebuild_rejects_get():
+    assert make_client().get("/rebuild").status_code == 405
+
+
+def test_rebuild_requires_exact_confirmation():
+    response = make_client().post("/rebuild", json={"confirmation": "yes"})
+    assert response.status_code == 422
+
+
+def test_rebuild_returns_503_without_scanner(monkeypatch):
+    monkeypatch.setattr(routes, "_scanner", None)
+    response = make_client().post(
+        "/rebuild",
+        json={"confirmation": "REBUILD_KNOWLEDGE_BASE"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "扫描器未初始化，未执行重建"
 
 
 def test_rebuild_route_uses_rebuild_coordinator(monkeypatch):
@@ -43,6 +72,6 @@ def test_rebuild_route_uses_rebuild_coordinator(monkeypatch):
 
     monkeypatch.setattr(routes, "RebuildCoordinator", FakeCoordinator)
 
-    result = routes.rebuild_knowledge()
+    result = routes.rebuild_knowledge(RebuildRequest(confirmation="REBUILD_KNOWLEDGE_BASE"))
 
     assert result == expected
