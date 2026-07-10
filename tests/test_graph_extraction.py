@@ -49,6 +49,25 @@ def test_section_path_extractor_does_not_guess_unknown_tool():
     assert result.entity("神秘构建器") is None
 
 
+def test_graph_builder_normalizes_llm_aliases_in_one_batch(isolated_storage, monkeypatch):
+    from unittest.mock import patch
+    from rag_knowledge.services.graph_extraction import EntityCandidate, ExtractionResult
+
+    db = make_db(isolated_storage, name="normalizer.db", data_dir_name="normalizer-data", chroma_name="normalizer-chroma")
+    chunks = [chunk("c1", "Postgres"), chunk("c2", "PostgreSQL")]
+    llm_results = iter([
+        ExtractionResult(entities=[EntityCandidate("Postgres", "EnvironmentComponent", source_chunk_id="c1", evidence_text="Postgres")]),
+        ExtractionResult(entities=[EntityCandidate("PostgreSQL", "EnvironmentComponent", source_chunk_id="c2", evidence_text="PostgreSQL")]),
+    ])
+    with patch("rag_knowledge.services.graph_extraction.llm_extractor.LLMGraphExtractor.extract", side_effect=lambda _: next(llm_results)):
+        result = GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(include_llm=True)
+
+    entities = [item for item in db.list_extraction_candidates(result.batch_id) if item["candidate_kind"] == "entity"]
+    postgres = [item for item in entities if item["payload"].get("name") == "PostgreSQL"]
+    assert len(postgres) == 1
+    assert len(postgres[0]["payload"]["evidences"]) == 2
+
+
 def test_table_field_extractor_uses_scoped_fields_and_explicit_properties():
     section_result = SectionPathExtractor().extract(
         chunk(

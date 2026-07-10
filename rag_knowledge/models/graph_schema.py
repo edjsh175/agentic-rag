@@ -211,47 +211,9 @@ class ConfidenceRule:
 # 辅助分类词典
 # =====================================================================
 
-KNOWN_TOOL_NAMES: set[str] = {
-    "PipelineBuilder",
-    "ModelBuilder",
-    "ObliqueModelBuilder",
-    "TerrainBuilder",
-    "DEMBuilder",
-    "DOMBuilder",
-    "TINBuilder",
-    "TINIncise",
-    "UEModelBuilder",
-    "点云数据处理工具",
-}
-
-KNOWN_SERVICE_NAMES: set[str] = {
-    "管线发布服务", "管线分析服务", "管线更新服务", "管线查询服务",
-    "影像发布服务", "倾斜发布服务", "矢量瓦片服务", "矢量编辑服务",
-    "三维数据库服务", "三维搜索服务", "三维分析服务",
-    "三维数据库更新服务", "模型LOD发布服务", "部件发布服务",
-    "GRID发布服务", "ROAM发布服务", "地形切割服务",
-    "工程地质服务", "网络分析服务", "授权服务",
-    "Mesh转换服务", "GB28181服务配置",
-    "Apache数据服务", "Port服务",
-    "I3S服务配置", "3DTiles服务配置",
-}
-
-KNOWN_PRODUCT_NAMES: set[str] = {
-    "StampTools",
-    "StampServer",
-    "StampWebRTC",
-    "StampManager",
-    "StampNodeServer",
-}
-
 DATA_SPEC_KEYWORDS: set[str] = {"数据规范", "数据结构", "数据格式"}
 SERVICE_KEYWORDS: set[str] = {"服务部署", "服务配置", "Stamp服务部署"}
 ERROR_KEYWORDS: set[str] = {"常见错误", "故障排查", "错误处理", "问题解决"}
-DOC_CATEGORY_TO_PRODUCT: dict[str, str] = {
-    "StampTools": "StampTools",
-    "StampServer": "StampServer",
-    "StampWebRTC": "StampWebRTC",
-}
 
 
 # =====================================================================

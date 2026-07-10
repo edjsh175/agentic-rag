@@ -8,6 +8,7 @@ from pathlib import Path
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.graph_extraction import GraphBuilder, GraphCandidateApplier, GraphQualityService
 from rag_knowledge.services.graph_text_migration import GraphTextMigration
+from rag_knowledge.services.safe_rebuild import SafeRebuildDryRunService
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,10 +32,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     review = sub.add_parser("review")
     review.add_argument("--batch", required=True)
-    group = review.add_mutually_exclusive_group(required=True)
+    group = review.add_mutually_exclusive_group(required=False)
     group.add_argument("--approve-all", action="store_true")
     group.add_argument("--approve", nargs="+")
     group.add_argument("--reject", nargs="+")
+    review.add_argument("--summary", action="store_true")
+    review.add_argument("--approve-type")
+    review.add_argument("--approve-relation-type")
+    review.add_argument("--approve-confidence-above", type=float)
+    review.add_argument("--reject-confidence-below", type=float)
+    review.add_argument("--approve-source")
     review.add_argument("--reason", default="")
 
     apply_cmd = sub.add_parser("apply")
@@ -47,6 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
     target.add_argument("--batch")
     target.add_argument("--graph", action="store_true")
     quality.add_argument("--profile", choices=("partial", "full"), default="full")
+    quality.add_argument("--llm", action="store_true")
+
+    rebuild_safe = sub.add_parser("rebuild-safe")
+    rebuild_safe.add_argument("--dry-run", action="store_true", default=True)
+    rebuild_safe.add_argument("--output-json", default="data/rebuild_safe_dry_run_report.json")
+    rebuild_safe.add_argument("--output-md", default="data/rebuild_safe_dry_run_report.md")
 
     audit = sub.add_parser("audit")
     audit.add_argument("--output-json", default="data/graph_audit_report.json")
@@ -93,22 +106,35 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
 
     if args.command == "review":
         pending = db.list_extraction_candidates(args.batch, "pending")
+        if args.summary:
+            _print({"batch_id": args.batch, "summary": _review_summary(pending)})
+            return 0
         if args.approve_all:
             ids = [item["id"] for item in pending]
             status = "approved"
         elif args.approve:
             ids, status = args.approve, "approved"
-        else:
+        elif args.reject:
             ids, status = args.reject, "rejected"
+        elif any(getattr(args, name) is not None for name in ("approve_type", "approve_relation_type", "approve_confidence_above", "reject_confidence_below", "approve_source")):
+            selected = _filter_review_candidates(pending, args)
+            ids, status = [item["id"] for item in selected], "approved"
+        else:
+            raise ValueError("review requires an action or --summary")
+        requested_count = len(ids)
+        if status == "approved" and not args.approve:
+            unsafe = [item for item in pending if item["id"] in ids and not _safe_review_candidate(item)]
+            unsafe_ids = {item["id"] for item in unsafe}
+            ids = [candidate_id for candidate_id in ids if candidate_id not in unsafe_ids]
         updated = db.review_extraction_candidates(args.batch, ids, status, args.reason)
         remaining = db.list_extraction_candidates(args.batch, "pending")
         if not remaining:
             approved = db.list_extraction_candidates(args.batch, "approved")
             db.set_extraction_batch_status(args.batch, "approved" if approved else "rejected")
         _print({
-            "requested": len(ids),
+            "requested": requested_count,
             "updated": updated,
-            "missing_or_not_pending": len(ids) - updated,
+            "missing_or_not_pending": requested_count - updated,
             "status": status,
             "remaining_pending": len(remaining),
         })
@@ -156,10 +182,55 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         })
         return 0
 
-    quality = GraphQualityService(db)
-    report = quality.inspect_graph(profile=args.profile) if args.graph else quality.inspect_batch(args.batch)
-    _print({"ok": report.ok, "errors": report.errors, "warnings": report.warnings, "stats": report.stats})
-    return 0 if report.ok else 1
+    if args.command == "quality":
+        quality = GraphQualityService(db)
+        report = quality.inspect_graph(profile=args.profile) if args.graph else quality.inspect_llm_batch(args.batch) if args.llm else quality.inspect_batch(args.batch)
+        _print({"ok": report.ok, "errors": report.errors, "warnings": report.warnings, "stats": report.stats})
+        return 0 if report.ok else 1
+
+    if args.command == "rebuild-safe":
+        service = SafeRebuildDryRunService(db)
+        report = service.run(args.output_json, args.output_md)
+        _print({"status": "completed", "dry_run": True, "report": report})
+        return 0
+
+
+def _safe_review_candidate(item: dict) -> bool:
+    if item["candidate_kind"] in {"diagnostic", "alias"}:
+        return False
+    payload = item["payload"]
+    if not payload.get("evidence_text") and not payload.get("evidences"):
+        return False
+    if payload.get("resolution_action") == "diagnostic":
+        return False
+    return True
+
+
+def _filter_review_candidates(pending: list[dict], args) -> list[dict]:
+    selected = []
+    for item in pending:
+        payload = item["payload"]
+        if args.approve_type and payload.get("entity_type") != args.approve_type:
+            continue
+        if args.approve_relation_type and payload.get("relation_type") != args.approve_relation_type:
+            continue
+        confidence = float(payload.get("confidence", 0))
+        if args.approve_confidence_above is not None and confidence < args.approve_confidence_above:
+            continue
+        if args.reject_confidence_below is not None and confidence >= args.reject_confidence_below:
+            continue
+        if args.approve_source and args.approve_source not in str(payload.get("source", payload.get("source_chunk_id", ""))):
+            continue
+        selected.append(item)
+    return selected
+
+
+def _review_summary(pending: list[dict]) -> dict:
+    return {
+        "pending": len(pending),
+        "by_kind": {kind: sum(item["candidate_kind"] == kind for item in pending) for kind in {item["candidate_kind"] for item in pending}},
+        "by_entity_type": {kind: sum(item["payload"].get("entity_type") == kind for item in pending) for kind in {item["payload"].get("entity_type") for item in pending if item["payload"].get("entity_type")} },
+    }
 
 
 if __name__ == "__main__":

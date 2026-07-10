@@ -45,6 +45,8 @@ scrape_article/
 /data/*
 !/data/retrieval_intent_profiles.json
 !/data/structured_retrieval_regression.json
+!/data/domain_catalog.json
+
 
 # IDE settings
 .idea/

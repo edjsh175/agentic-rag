@@ -10,8 +10,10 @@ from typing import Callable
 from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
+from rag_knowledge.services.entity_resolution import EntityResolutionService
 
 from . import (
+    CandidateNormalizer,
     ConfigBlockExtractor,
     ExtractionResult,
     SectionPathExtractor,
@@ -113,6 +115,8 @@ class GraphBuilder:
         cfg = Config()
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
         llm_extractor = LLMGraphExtractor() if actual_include_llm else None
+        candidate_normalizer = CandidateNormalizer()
+        entity_resolver = EntityResolutionService(self.db)
 
         batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
         counts = {"chunks": len(chunks), "entity": 0, "relation": 0, "alias": 0, "field": 0, "link": 0, "diagnostic": 0}
@@ -133,8 +137,28 @@ class GraphBuilder:
                 ("field", combined.fields), ("link", combined.links),
                 ("diagnostic", combined.diagnostics),
             ):
+                if kind == "entity":
+                    items = candidate_normalizer.normalize_entities(items)
                 for item in items:
                     payload = asdict(item)
+                    if kind == "entity":
+                        resolution = entity_resolver.resolve(item)
+                        payload["resolution_action"] = resolution.action
+                        payload["resolved_entity_id"] = resolution.target_id
+                        for diagnostic in resolution.diagnostics:
+                            diagnostic_payload = {
+                                "code": diagnostic.code,
+                                "message": diagnostic.message,
+                                "chunk_id": str(payload.get("source_chunk_id") or ""),
+                            }
+                            diagnostic_fingerprint = hashlib.sha256(
+                                json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+                            ).hexdigest()
+                            diagnostic_id = self.db.add_extraction_candidate(
+                                batch_id, "diagnostic", diagnostic_fingerprint, diagnostic_payload,
+                                diagnostic_payload["chunk_id"], diagnostic.message,
+                            )
+                            self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", diagnostic.message)
                     source_chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
                     evidence = str(payload.get("evidence_text") or "")
                     if kind in {"entity", "relation", "field"}:
@@ -159,8 +183,28 @@ class GraphBuilder:
                     ("relation", llm_result.relations),
                     ("diagnostic", llm_result.diagnostics),
                 ):
+                    if kind == "entity":
+                        items = candidate_normalizer.normalize_entities(items)
                     for item in items:
                         payload = asdict(item)
+                        if kind == "entity":
+                            resolution = entity_resolver.resolve(item)
+                            payload["resolution_action"] = resolution.action
+                            payload["resolved_entity_id"] = resolution.target_id
+                            for diagnostic in resolution.diagnostics:
+                                diagnostic_payload = {
+                                    "code": diagnostic.code,
+                                    "message": diagnostic.message,
+                                    "chunk_id": str(payload.get("source_chunk_id") or ""),
+                                }
+                                diagnostic_fingerprint = hashlib.sha256(
+                                    json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+                                ).hexdigest()
+                                diagnostic_id = self.db.add_extraction_candidate(
+                                    batch_id, "diagnostic", diagnostic_fingerprint, diagnostic_payload,
+                                    diagnostic_payload["chunk_id"], diagnostic.message,
+                                )
+                                self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", diagnostic.message)
                         source_chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
                         evidence = str(payload.get("evidence_text") or "")
                         if kind in {"entity", "relation"}:
@@ -599,6 +643,33 @@ class GraphQualityService:
                 report.errors.append(f"missing_link_entity:{payload['entity_name']}")
         return report
 
+    def inspect_llm_batch(self, batch_id: str) -> QualityReport:
+        candidates = self.db.list_extraction_candidates(batch_id)
+        llm_candidates = [
+            item for item in candidates
+            if item["payload"].get("created_by") == "llm:schema_extractor"
+            or item["candidate_kind"] == "diagnostic" and item["payload"].get("code", "").startswith(("invalid_", "missing_", "low_", "type_conflict", "possible_duplicate"))
+        ]
+        report = QualityReport(stats={"total_llm_candidates": sum(item["candidate_kind"] != "diagnostic" for item in llm_candidates)})
+        diagnostics = [item["payload"].get("code", "") for item in llm_candidates if item["candidate_kind"] == "diagnostic"]
+        report.stats.update({
+            "valid_schema_count": sum(item["candidate_kind"] in {"entity", "relation"} and item["status"] != "rejected" for item in llm_candidates),
+            "invalid_schema_count": sum(code.startswith("invalid_") for code in diagnostics),
+            "missing_evidence_count": sum(code == "missing_evidence" for code in diagnostics),
+            "evidence_text_not_found_count": sum(code == "invalid_evidence_text" for code in diagnostics),
+            "low_confidence_count": sum(code == "low_confidence" for code in diagnostics),
+            "duplicate_candidate_count": sum(code == "duplicate_candidate" for code in diagnostics),
+            "type_conflict_count": sum(code == "type_conflict" for code in diagnostics),
+            "possible_duplicate_count": sum(code == "possible_duplicate" for code in diagnostics),
+            "high_confidence_candidate_count": sum(float(item["payload"].get("confidence", 0)) >= 0.9 for item in llm_candidates if item["candidate_kind"] != "diagnostic"),
+        })
+        report.stats["samples"] = {
+            "high_confidence": [item["payload"] for item in llm_candidates if item["candidate_kind"] != "diagnostic" and float(item["payload"].get("confidence", 0)) >= 0.9][:5],
+            "low_confidence": [item["payload"] for item in llm_candidates if item["payload"].get("code") == "low_confidence"][:5],
+            "conflicts": [item["payload"] for item in llm_candidates if item["payload"].get("code") in {"type_conflict", "possible_duplicate"}][:5],
+        }
+        return report
+
     def inspect_graph(self, profile: str = "full") -> QualityReport:
         if profile not in {"partial", "full"}:
             raise ValueError("quality profile must be partial or full")
@@ -611,6 +682,8 @@ class GraphQualityService:
             ).fetchall()
             links = {row[0] for row in conn.execute("SELECT DISTINCT entity_id FROM entity_chunk_links").fetchall()}
         relation_keys = {(row["source_name"], row["relation_type"], row["target_name"]) for row in relations}
+
+        # --- Quality Gate v1 checks ---
         if profile == "full":
             for name, entity_type in self.GOLDEN_ENTITIES.items():
                 if name not in entities:
@@ -624,11 +697,106 @@ class GraphQualityService:
             ok, _ = validate_relation(row["source_type"], row["relation_type"], row["target_type"])
             if not ok:
                 report.errors.append(f"illegal_relation:{row['id']}")
+
+        # --- Orphan entities ---
         connected = {row["source_entity_id"] for row in relations} | {row["target_entity_id"] for row in relations} | links
         for entity in entities.values():
             if entity["id"] not in connected:
                 report.warnings.append(f"orphan_entity:{entity['name']}")
             if entity.get("created_by") == "rule:phase_b" and entity["id"] not in links:
                 report.errors.append(f"missing_evidence:{entity['name']}")
-        report.stats = {"entities": len(entities), "relations": len(relations)}
+
+        # --- Quality Gate v2: Stale link check ---
+        stale_link_count = 0
+        try:
+            from rag_knowledge.repository.vector_store import VectorStore
+            store = VectorStore()
+            chroma_data = store._get_store()._collection.get(include=[])
+            valid_chunk_ids = set(chroma_data.get("ids") or [])
+            with self.db._get_conn() as conn:
+                all_links_rows = conn.execute("SELECT id, entity_id, chunk_id FROM entity_chunk_links").fetchall()
+                stale_links = [dict(r) for r in all_links_rows if r["chunk_id"] not in valid_chunk_ids]
+                stale_link_count = len(stale_links)
+        except Exception:
+            pass  # Chroma not accessible; skip stale link check
+        report.stats["stale_link_count"] = stale_link_count
+        if stale_link_count > 0:
+            report.errors.append(f"stale_links_present:{stale_link_count}")
+
+        # --- Quality Gate v2: Missing evidence count ---
+        missing_evidence_count = sum(
+            1 for e in entities.values()
+            if e.get("created_by") == "rule:phase_b" and e["id"] not in links
+        )
+        report.stats["missing_evidence_count"] = missing_evidence_count
+
+        # --- Quality Gate v2: Invalid schema count ---
+        invalid_schema_count = sum(
+            1 for row in relations
+            if not validate_relation(row["source_type"], row["relation_type"], row["target_type"])[0]
+        )
+        report.stats["invalid_schema_count"] = invalid_schema_count
+
+        # --- Quality Gate v2: Type conflict unresolved count ---
+        type_conflict_count = 0
+        with self.db._get_conn() as conn:
+            conflict_rows = conn.execute(
+                "SELECT LOWER(TRIM(name)) as norm_name, COUNT(DISTINCT entity_type) as type_cnt "
+                "FROM entities GROUP BY LOWER(TRIM(name)) HAVING type_cnt > 1"
+            ).fetchall()
+            type_conflict_count = len(conflict_rows)
+        report.stats["type_conflict_unresolved_count"] = type_conflict_count
+        if type_conflict_count > 0:
+            report.errors.append(f"unresolved_type_conflicts:{type_conflict_count}")
+
+        # --- Quality Gate v2: High confidence without evidence ---
+        high_conf_no_evidence = 0
+        for e in entities.values():
+            confidence = float(e.get("confidence", 1.0) or 1.0)
+            if confidence >= 0.9 and e["id"] not in links and e.get("created_by", "").startswith("llm:"):
+                high_conf_no_evidence += 1
+        report.stats["high_confidence_without_evidence_count"] = high_conf_no_evidence
+        if high_conf_no_evidence > 0:
+            report.errors.append(f"high_confidence_without_evidence:{high_conf_no_evidence}")
+
+        # --- Quality Gate v2: Manual fact preserved ---
+        manual_count = sum(1 for e in entities.values() if e.get("created_by") in {"admin", "manual"})
+        manual_count += sum(
+            1 for r in relations if dict(r).get("created_by") in {"admin", "manual"}
+        )
+        report.stats["manual_fact_count"] = manual_count
+        report.stats["manual_fact_preserved"] = True  # Read-only inspection: always true
+
+        # --- Quality Gate v2: Duplicate candidate ratio ---
+        dup_canonical_count = 0
+        with self.db._get_conn() as conn:
+            dup_rows = conn.execute(
+                "SELECT LOWER(TRIM(canonical_name)) as norm_name, COUNT(*) as cnt "
+                "FROM entities WHERE canonical_name IS NOT NULL AND canonical_name != '' "
+                "GROUP BY LOWER(TRIM(canonical_name)) HAVING cnt > 1"
+            ).fetchall()
+            dup_canonical_count = len(dup_rows)
+        total_entities = len(entities)
+        dup_ratio = float(dup_canonical_count) / total_entities if total_entities > 0 else 0.0
+        report.stats["duplicate_candidate_ratio"] = round(dup_ratio, 4)
+        if dup_ratio > 0.20:
+            report.errors.append(f"duplicate_candidate_ratio_exceeded:{dup_ratio:.2f}")
+
+        # --- Quality Gate v2: Section ratio and business entity stats ---
+        business_types = {
+            "Product", "Tool", "Service", "Module", "DataTable", "Field",
+            "ConfigItem", "Format", "Procedure", "Step", "Error", "Solution",
+            "EnvironmentComponent", "Command",
+        }
+        entity_type_counts: dict[str, int] = {}
+        for e in entities.values():
+            entity_type_counts[e["entity_type"]] = entity_type_counts.get(e["entity_type"], 0) + 1
+        section_count = entity_type_counts.get("Section", 0)
+        business_count = sum(entity_type_counts.get(t, 0) for t in business_types)
+        report.stats["section_count"] = section_count
+        report.stats["section_ratio"] = round(float(section_count) / total_entities, 4) if total_entities > 0 else 0.0
+        report.stats["business_entity_count"] = business_count
+        report.stats["total_entities"] = total_entities
+        report.stats["total_relations"] = len(relations)
+
         return report

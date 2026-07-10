@@ -6,15 +6,10 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Iterable
 
-from rag_knowledge.models.graph_schema import (
-    KNOWN_PRODUCT_NAMES,
-    KNOWN_SERVICE_NAMES,
-    KNOWN_TOOL_NAMES,
-    normalize_entity_name,
-    validate_relation,
-)
+from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.graph_extraction.pipeline import BuildBatchResult
+from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.retrieval_intent import RetrievalIntentProfile, load_intent_profiles
 
 GENERIC_FIELD_TERMS = {"字段名", "字段名称", "说明", "数据", "配置", "路径"}
@@ -96,6 +91,7 @@ class ProfileGraphSyncService:
     def __init__(self, db: RelationalDB | None = None, profiles: Iterable[RetrievalIntentProfile] | None = None):
         self.db = db or RelationalDB()
         self._profiles = tuple(profiles) if profiles is not None else load_intent_profiles()
+        self._catalog = DomainCatalogLoader()
 
     def preview(self, profile_id: str | None = None) -> ProfileSyncPreview:
         selected = self._select_profiles(profile_id)
@@ -486,11 +482,12 @@ class ProfileGraphSyncService:
         profile_aliases = {normalize_entity_name(item) for item in profile.entity_aliases}
         if normalized in profile_aliases and (profile.section_families or profile.sibling_penalty_groups):
             return "DataTable"
-        if normalized in KNOWN_TOOL_NAMES or normalized.endswith("Builder"):
+        resolved = self._catalog.resolve(normalized)
+        if resolved and resolved[1] == "Tool" or normalized.endswith("Builder"):
             return "Tool"
-        if normalized in KNOWN_SERVICE_NAMES or normalized.endswith("服务"):
+        if resolved and resolved[1] == "Service" or normalized.endswith("服务"):
             return "Service"
-        if normalized in KNOWN_PRODUCT_NAMES:
+        if resolved and resolved[1] == "Product":
             return "Product"
         if ">" in normalized:
             return "Section"

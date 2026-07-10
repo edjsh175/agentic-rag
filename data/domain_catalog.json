@@ -1,0 +1,53 @@
+{
+  "products": [
+    {"name": "StampTools", "aliases": [], "doc_categories": ["StampTools"]},
+    {"name": "StampServer", "aliases": [], "doc_categories": ["StampServer"]},
+    {"name": "StampWebRTC", "aliases": [], "doc_categories": ["StampWebRTC"]},
+    {"name": "StampManager", "aliases": [], "doc_categories": []},
+    {"name": "StampNodeServer", "aliases": [], "doc_categories": []}
+  ],
+  "tools": [
+    {"name": "PipelineBuilder", "aliases": ["管线发布工具"], "belongs_to": "StampTools"},
+    {"name": "ModelBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "ObliqueModelBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "TerrainBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "DEMBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "DOMBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "TINBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "TINIncise", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "UEModelBuilder", "aliases": [], "belongs_to": "StampTools"},
+    {"name": "点云数据处理工具", "aliases": [], "belongs_to": "StampTools"}
+  ],
+  "services": [
+    {"name": "管线发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "管线分析服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "管线更新服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "管线查询服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "影像发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "倾斜发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "矢量瓦片服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "矢量编辑服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "三维数据库服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "三维搜索服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "三维分析服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "三维数据库更新服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "模型LOD发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "部件发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "GRID发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "ROAM发布服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "地形切割服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "工程地质服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "网络分析服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "授权服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "Mesh转换服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "GB28181服务配置", "aliases": [], "belongs_to": "StampWebRTC"},
+    {"name": "Apache数据服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "Port服务", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "I3S服务配置", "aliases": [], "belongs_to": "StampServer"},
+    {"name": "3DTiles服务配置", "aliases": [], "belongs_to": "StampServer"}
+  ],
+  "environment_components": [
+    {"name": "PostgreSQL", "aliases": ["Postgres", "postgresql-16", "PostgreSQL数据库"]},
+    {"name": "Apache", "aliases": ["httpd"]}
+  ]
+}

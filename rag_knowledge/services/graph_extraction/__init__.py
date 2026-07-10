@@ -7,13 +7,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from rag_knowledge.models.graph_schema import (
-    DATA_SPEC_KEYWORDS,
-    DOC_CATEGORY_TO_PRODUCT,
-    KNOWN_SERVICE_NAMES,
-    KNOWN_TOOL_NAMES,
-    make_section_entity_name,
-)
+from rag_knowledge.models.graph_schema import DATA_SPEC_KEYWORDS, make_section_entity_name
+from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 
 
 @dataclass(frozen=True)
@@ -108,6 +103,9 @@ def _parts(chunk: dict) -> tuple[str, str, str, str, str, dict]:
 
 
 class SectionPathExtractor:
+    def __init__(self, catalog: DomainCatalogLoader | None = None):
+        self.catalog = catalog or DomainCatalogLoader()
+
     def extract(self, chunk: dict) -> ExtractionResult:
         chunk_id, content, source, category, path, metadata = _parts(chunk)
         result = ExtractionResult()
@@ -122,16 +120,15 @@ class SectionPathExtractor:
             result.entities.append(EntityCandidate(section_name, "Section", category, {"section_path": path}, chunk_id, evidence))
             result.relations.append(RelationCandidate(document_name, "has_section", section_name, chunk_id, evidence))
 
-        product = DOC_CATEGORY_TO_PRODUCT.get(category)
+        product = self.catalog.product_for_category(category)
         if product:
             result.entities.append(EntityCandidate(product, "Product", category, source_chunk_id=chunk_id, evidence_text=evidence))
 
         owners: list[tuple[str, str]] = []
         for part in parts:
-            if part in KNOWN_TOOL_NAMES:
-                owners.append((part, "Tool"))
-            elif part in KNOWN_SERVICE_NAMES:
-                owners.append((part, "Service"))
+            resolved = self.catalog.resolve(part)
+            if resolved and resolved[1] in {"Tool", "Service"}:
+                owners.append(resolved)
         for name, entity_type in owners:
             result.entities.append(EntityCandidate(name, entity_type, category, source_chunk_id=chunk_id, evidence_text=evidence))
             if product:
@@ -240,8 +237,58 @@ class ConfigBlockExtractor:
         return result
 
 
+class CandidateNormalizer:
+    def __init__(self, catalog: DomainCatalogLoader | None = None):
+        self.catalog = catalog or DomainCatalogLoader()
+
+    def normalize_entities(self, candidates: list[EntityCandidate]) -> list[EntityCandidate]:
+        merged: dict[tuple[str, str], EntityCandidate] = {}
+        evidences: dict[tuple[str, str], list[dict[str, str]]] = {}
+        for candidate in candidates:
+            cleaned_name = self._normalize_name(candidate.name)
+            resolved = self.catalog.resolve(cleaned_name)
+            name, entity_type = resolved or (cleaned_name, candidate.entity_type)
+            key = (self._key(name), entity_type)
+            evidence = {"source_chunk_id": candidate.source_chunk_id, "evidence_text": candidate.evidence_text}
+            if key not in merged:
+                merged[key] = EntityCandidate(
+                    name=name,
+                    entity_type=entity_type,
+                    doc_category=candidate.doc_category,
+                    properties=dict(candidate.properties),
+                    source_chunk_id=candidate.source_chunk_id,
+                    evidence_text=candidate.evidence_text,
+                )
+                evidences[key] = []
+            if any(evidence.values()) and evidence not in evidences[key]:
+                evidences[key].append(evidence)
+        result = []
+        for key, candidate in merged.items():
+            properties = dict(candidate.properties)
+            properties["evidences"] = evidences[key]
+            properties["fingerprint"] = self.fingerprint(candidate.name, candidate.entity_type)
+            result.append(EntityCandidate(
+                candidate.name, candidate.entity_type, candidate.doc_category,
+                properties, candidate.source_chunk_id, candidate.evidence_text,
+            ))
+        return result
+
+    @staticmethod
+    def _normalize_name(name: str) -> str:
+        return " ".join(name.strip().replace("（", "(").replace("）", ")").split())
+
+    @classmethod
+    def _key(cls, name: str) -> str:
+        return cls._normalize_name(name).casefold()
+
+    @classmethod
+    def fingerprint(cls, name: str, entity_type: str) -> str:
+        import hashlib
+        return hashlib.sha256(f"{entity_type}:{cls._key(name)}".encode("utf-8")).hexdigest()
+
+
 __all__ = [
-    "ChunkLinkCandidate", "ConfigBlockExtractor", "EntityCandidate",
+    "CandidateNormalizer", "ChunkLinkCandidate", "ConfigBlockExtractor", "EntityCandidate",
     "ExtractionDiagnostic", "ExtractionResult", "FieldCandidate",
     "RelationCandidate", "SectionPathExtractor", "TableFieldExtractor",
 ]
