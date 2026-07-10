@@ -76,7 +76,7 @@ def test_health_blocks_legacy_dataset_when_chunk_ids_are_stale(tmp_path):
     assert report.missing_chunk_ids == ["old-chunk"]
 
 
-def test_health_allows_stale_chunk_ids_when_expected_targets_match(tmp_path):
+def test_health_blocks_stale_ids_even_when_expected_targets_match(tmp_path):
     dataset_path = write_dataset(
         tmp_path,
         [{
@@ -99,8 +99,37 @@ def test_health_allows_stale_chunk_ids_when_expected_targets_match(tmp_path):
 
     report = check_eval_dataset_health(dataset_path, collection=collection)
 
-    assert report.status == "PASS"
-    assert report.chunk_health == 0.0
-    assert report.target_health == 1.0
+    assert report.status == "BLOCK"
     assert report.needs_chunk_id_refresh is True
-    assert report.invalid_questions == 0
+    assert report.target_health == 1.0
+
+
+def test_health_can_report_stale_ids_in_explicit_diagnostic_mode(tmp_path):
+    dataset_path = write_dataset(
+        tmp_path,
+        [{
+            "question": "如何启动服务？",
+            "chunk_ids": ["old-chunk"],
+            "expected_targets": [{
+                "source": "manual.md",
+                "section_path": "部署 > 启动",
+                "keywords": ["pm2 start"],
+            }],
+        }],
+    )
+    collection = FakeCollection([
+        {
+            "id": "new-chunk",
+            "document": "服务启动命令是 pm2 start app.js",
+            "metadata": {"source": "manual.md", "section_path": "部署 > 启动"},
+        }
+    ])
+
+    report = check_eval_dataset_health(
+        dataset_path,
+        collection=collection,
+        allow_stale_ids=True,
+    )
+
+    assert report.status == "PASS"
+    assert report.needs_chunk_id_refresh is True

@@ -39,6 +39,7 @@ def check_eval_dataset_health(
     dataset_path: str | Path,
     *,
     collection: Any | None = None,
+    allow_stale_ids: bool = False,
 ) -> DatasetHealthReport:
     """Check whether an eval dataset can be trusted against the current KB."""
     path = Path(dataset_path)
@@ -78,10 +79,14 @@ def check_eval_dataset_health(
     section_health = _ratio(target_stats["existing_sections"], target_stats["total_sections"])
     needs_refresh = bool(missing_ids and target_stats["matched_expected_targets"])
     status = "PASS" if invalid_questions == 0 else "BLOCK"
+    if needs_refresh and not allow_stale_ids:
+        status = "BLOCK"
     warnings = []
-    if needs_refresh:
+    if needs_refresh and allow_stale_ids:
         warnings.append("chunk ids are stale, but expected_targets still match current chunks")
-    if status == "BLOCK":
+    if needs_refresh and not allow_stale_ids:
+        warnings.append("chunk ids are stale; refresh dataset chunk ids before running retrieval eval")
+    if status == "BLOCK" and invalid_questions:
         warnings.append("dataset invalid; refresh or recalibrate before running retrieval A/B")
 
     return DatasetHealthReport(

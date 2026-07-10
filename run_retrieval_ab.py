@@ -16,6 +16,19 @@ DEFAULT_METHODS = [
 ]
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset")
+    parser.add_argument("--methods", nargs="+", default=DEFAULT_METHODS)
+    parser.add_argument("--output", default="data/retrieval_ab_results.json")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--allow-regression", action="store_true")
+    parser.add_argument("--allow-stale-ids", action="store_true")
+    parser.add_argument("--review-status", choices=("approved", "all"), default="approved")
+    parser.add_argument("--regression-threshold", type=float, default=0.01, help="Regression tolerance threshold")
+    return parser
+
+
 def detect_regressions(
     previous: dict | None,
     current: dict,
@@ -57,15 +70,8 @@ def build_regression_message(
     return message
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset")
-    parser.add_argument("--methods", nargs="+", default=DEFAULT_METHODS)
-    parser.add_argument("--output", default="data/retrieval_ab_results.json")
-    parser.add_argument("--force", action="store_true")
-    parser.add_argument("--fail-on-regression", action="store_true")
-    parser.add_argument("--regression-threshold", type=float, default=0.01, help="Regression tolerance threshold")
-    args = parser.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     output = Path(args.output)
     if output.exists():
@@ -75,7 +81,12 @@ def main() -> None:
 
     dataset_key = str(Path(args.dataset).as_posix())
     dataset_results = report["results"].setdefault(dataset_key, {})
-    runner = EvaluationRunner(args.dataset)
+    review_status = None if args.review_status == "all" else args.review_status
+    runner = EvaluationRunner(
+        args.dataset,
+        review_status=review_status,
+        allow_stale_ids=args.allow_stale_ids,
+    )
     runner.load()  # triggers dataset health check; BLOCK -> DatasetStaleError
 
     for method in args.methods:
@@ -85,8 +96,9 @@ def main() -> None:
         print(f"RUN {dataset_key} {method}", flush=True)
         previous_result = dataset_results.get(method)
         result = runner.run_ablation(methods=[method], k_values=[3, 5])[0]
+        result["regression_threshold"] = args.regression_threshold
         regressions = detect_regressions(previous_result, result, threshold=args.regression_threshold)
-        if regressions and args.fail_on_regression:
+        if regressions and not args.allow_regression:
             raise SystemExit(
                 build_regression_message(
                     dataset_key, method, regressions, previous_result, result
@@ -99,11 +111,12 @@ def main() -> None:
             json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         print(json.dumps(result, ensure_ascii=False), flush=True)
+    return 0
 
 
 if __name__ == "__main__":
     try:
-        main()
+        raise SystemExit(main())
     except DatasetStaleError as exc:
         print(f"BLOCKED: {exc}", file=sys.stderr)
         sys.exit(2)

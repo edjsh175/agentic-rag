@@ -1,4 +1,4 @@
-from run_retrieval_ab import build_regression_message, detect_regressions
+from run_retrieval_ab import build_regression_message, detect_regressions, main
 
 
 def test_detect_regressions_returns_empty_when_metrics_hold():
@@ -40,3 +40,44 @@ def test_detect_regressions_with_threshold():
     assert detect_regressions(previous, current, threshold=0.01) == [
         "recall@3 dropped from 0.6000 to 0.5850 (delta: 0.0150 > threshold: 0.0100)"
     ]
+
+
+def test_main_exits_on_regression_by_default(tmp_path, monkeypatch):
+    import json
+    import pytest
+
+    dataset_path = tmp_path / "eval.json"
+    dataset_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "ab_results.json"
+    dataset_key = dataset_path.as_posix()
+    output_path.write_text(
+        json.dumps({
+            "results": {
+                dataset_key: {
+                    "hybrid": {"recall@3": 0.9, "mrr": 0.8, "overall_hit_rate": 0.9},
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    class FakeRunner:
+        def __init__(self, dataset, *, review_status="approved", allow_stale_ids=False):
+            self._review_status = review_status
+
+        def load(self):
+            return []
+
+        def run_ablation(self, methods, k_values):
+            return [{"recall@3": 0.5, "mrr": 0.4, "overall_hit_rate": 0.5, "method": methods[0]}]
+
+    monkeypatch.setattr("run_retrieval_ab.EvaluationRunner", FakeRunner)
+
+    with pytest.raises(SystemExit, match="Regression detected"):
+        main([
+            str(dataset_path),
+            "--methods", "hybrid",
+            "--output", str(output_path),
+            "--force",
+            "--allow-stale-ids",
+        ])

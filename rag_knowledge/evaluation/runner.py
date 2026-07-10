@@ -28,10 +28,19 @@ class DatasetStaleError(Exception):
 class EvaluationRunner:
     """评估运行器"""
 
-    def __init__(self, dataset_path: str | Path):
+    def __init__(
+        self,
+        dataset_path: str | Path,
+        *,
+        review_status: str | None = "approved",
+        allow_stale_ids: bool = False,
+    ):
         self._dataset_path = Path(dataset_path)
         self._dataset: List[dict] = []
         self._rag = RagChain()
+        self._review_status = review_status
+        self._allow_stale_ids = allow_stale_ids
+        self._health_report = None
 
     # ------------------------------------------------------------------
     # 数据集
@@ -47,7 +56,11 @@ class EvaluationRunner:
     def _check_health(self) -> None:
         """Run dataset health check; BLOCK -> raise, WARN -> log."""
         from rag_knowledge.evaluation.dataset_health import check_eval_dataset_health
-        report = check_eval_dataset_health(self._dataset_path)
+        report = check_eval_dataset_health(
+            self._dataset_path,
+            allow_stale_ids=self._allow_stale_ids,
+        )
+        self._health_report = report
         if report.status == "BLOCK":
             raise DatasetStaleError(
                 f"Dataset {report.dataset} is stale: "
@@ -94,6 +107,7 @@ class EvaluationRunner:
 
         all_retrieved: List[List[str]] = []
         all_relevant: List[Set[str]] = []
+        content_fallback_hits: List[bool] = []
         total_time = 0.0
         hit_count = 0
 
@@ -109,7 +123,7 @@ class EvaluationRunner:
                     question,
                     kb_name=kb_name,
                     doc_category=item.get("doc_category") or None,
-                    review_status=None,  # 评估时不限制审核状态
+                    review_status=self._review_status,
                     method=method,
                     rerank=rerank,
                 )
@@ -120,10 +134,9 @@ class EvaluationRunner:
                 retrieved_ids = [doc["metadata"].get("chunk_id", "") for doc in source_docs]
                 retrieved_ids = [rid for rid in retrieved_ids if rid]
 
-                # content-based 降级：chunk_id 全失效时用 expected_targets 补救
+                matched_ids = set()
                 if expected_targets and not (set(retrieved_ids[:max(k_values)]) & relevant):
                     from rag_knowledge.evaluation.metrics import is_match_v2
-                    matched_ids = set()
                     for doc in source_docs:
                         doc_id = doc["metadata"].get("chunk_id", "")
                         if doc_id and is_match_v2(
@@ -131,13 +144,13 @@ class EvaluationRunner:
                             doc.get("content", ""), relevant, expected_targets,
                         ):
                             matched_ids.add(doc_id)
-                    if matched_ids:
-                        relevant = matched_ids
+                content_fallback_hits.append(bool(matched_ids))
 
             except Exception as e:
                 logger.warning("检索失败 [%d]: %s — %s", i, question[:40], e)
                 retrieved_ids = []
                 elapsed = 0
+                content_fallback_hits.append(False)
 
             # 检查是否命中（用于快速反馈）
             is_hit = bool(set(retrieved_ids[:max(k_values)]) & relevant) if k_values else True
@@ -160,6 +173,12 @@ class EvaluationRunner:
         metrics["avg_latency_ms"] = round(total_time / len(self._dataset) * 1000, 1) if self._dataset else 0
         metrics["total_questions"] = len(self._dataset)
         metrics["overall_hit_rate"] = round(hit_count / len(self._dataset), 4) if self._dataset else 0
+        metrics["content_fallback_hit_rate"] = round(
+            sum(content_fallback_hits) / len(content_fallback_hits), 4
+        ) if content_fallback_hits else 0.0
+        metrics["review_scope"] = "all" if self._review_status is None else self._review_status
+        if self._health_report is not None:
+            metrics["dataset_health"] = self._health_report.to_dict()
 
         return metrics
 
