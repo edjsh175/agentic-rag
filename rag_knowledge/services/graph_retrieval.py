@@ -596,12 +596,18 @@ class GraphRetriever:
         min_relation_confidence: float = 0.7,
         max_entities: int = 16,
         max_chunks: int = 24,
+        chunk_index_lookup=None,
     ):
         self.db = db or RelationalDB()
         if store is None:
             from rag_knowledge.repository.vector_store import VectorStore
             store = VectorStore()
         self.store = store
+        if chunk_index_lookup is None:
+            from rag_knowledge.config import Config
+            from rag_knowledge.services.chunk_index_lookup import ChunkIndexLookupService
+            chunk_index_lookup = ChunkIndexLookupService(Config().data_dir / "file_index.json")
+        self.chunk_index_lookup = chunk_index_lookup
 
         # Backward compatibility fallbacks
         min_ent_conf = min_entity_confidence
@@ -664,10 +670,10 @@ class GraphRetriever:
                 if doc_category and meta.get("doc_category") != doc_category:
                     continue
                 if kb_name:
-                    from rag_knowledge.services.chunk_admin import ChunkAdminService
-                    files = ChunkAdminService()._file_lookup()
-                    file_info = files.get(chunk_id, {})
-                    if file_info.get("kb_name") != kb_name:
+                    actual_kb_name = meta.get("kb_name")
+                    if not actual_kb_name:
+                        actual_kb_name = self.chunk_index_lookup.by_chunk_id(chunk_id).get("kb_name")
+                    if actual_kb_name != kb_name:
                         continue
                 doc_meta = dict(meta)
                 doc_meta["chunk_id"] = chunk_id

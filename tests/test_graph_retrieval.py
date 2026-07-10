@@ -181,10 +181,14 @@ def test_graph_evidence_with_kb_name_filtering(graph_db, monkeypatch):
             }
 
     store = type("Store", (), {"get_chroma": lambda self: type("Chroma", (), {"_collection": Collection()})()})()
-    retriever = GraphRetriever(graph_db, store=store)
 
-    from rag_knowledge.services.chunk_admin import ChunkAdminService
-    monkeypatch.setattr(ChunkAdminService, "_file_lookup", lambda self: {"chunk-pipeline": {"kb_name": "文章附件"}})
+    class LookupStub:
+        def by_chunk_id(self, chunk_id: str) -> dict:
+            if chunk_id == "chunk-pipeline":
+                return {"kb_name": "文章附件"}
+            return {}
+
+    retriever = GraphRetriever(graph_db, store=store, chunk_index_lookup=LookupStub())
 
     # With correct kb_name
     context, docs = retriever.retrieve("管线发布工具如何使用？", "procedure", kb_name="文章附件")
@@ -194,6 +198,26 @@ def test_graph_evidence_with_kb_name_filtering(graph_db, monkeypatch):
     context, docs = retriever.retrieve("管线发布工具如何使用？", "procedure", kb_name="other_kb")
     assert docs == []
     assert context.fallback_reason == "graph_evidence_filtered"
+
+
+def test_graph_evidence_prefers_chroma_kb_name_over_index(graph_db):
+    class Collection:
+        def get(self, ids, include):
+            return {
+                "ids": ids,
+                "documents": ["PipelineBuilder 内容"],
+                "metadatas": [{"chunk_id": ids[0], "kb_name": "文章附件"}],
+            }
+
+    store = type("Store", (), {"get_chroma": lambda self: type("Chroma", (), {"_collection": Collection()})()})()
+
+    class LookupStub:
+        def by_chunk_id(self, chunk_id: str) -> dict:
+            return {"kb_name": "other_kb"}
+
+    retriever = GraphRetriever(graph_db, store=store, chunk_index_lookup=LookupStub())
+    _, docs = retriever.retrieve("管线发布工具如何使用？", "procedure", kb_name="文章附件")
+    assert len(docs) == 1
 
 
 def test_followup_question_links_via_contextualized_query(graph_db):

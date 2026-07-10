@@ -9,6 +9,7 @@ from typing import Callable
 from rag_knowledge.config import Config
 from rag_knowledge.models.api import AdminChunkItem, AdminChunkListResponse, ReviewResponse
 from rag_knowledge.repository.vector_store import VectorStore
+from rag_knowledge.services.chunk_index_lookup import ChunkIndexLookupService
 from rag_knowledge.services.query_cache import clear_query_cache
 
 
@@ -113,6 +114,7 @@ class ChunkAdminService:
         self._store = store or VectorStore()
         self._file_index_path = file_index_path or (cfg.data_dir / "file_index.json")
         self._watch_dir = cfg.watch_dir
+        self._chunk_index_lookup = ChunkIndexLookupService(self._file_index_path)
         self._rebuild_bm25 = rebuild_bm25 or _default_rebuild_bm25
         self._clear_cache = clear_cache or clear_query_cache
 
@@ -123,7 +125,7 @@ class ChunkAdminService:
         ids = source.get("ids") or []
         documents = source.get("documents") or []
         metadatas = source.get("metadatas") or []
-        files = self._file_lookup()
+        files = self._chunk_index_lookup.all()
         filename_query = (filename or "").strip().casefold()
         items = []
         for chunk_id, content, metadata in zip(ids, documents, metadatas):
@@ -196,17 +198,7 @@ class ChunkAdminService:
             raise RetrievalRefreshError(str(refresh_error)) from refresh_error
 
     def _file_lookup(self) -> dict[str, dict]:
-        if not self._file_index_path.exists():
-            return {}
-        try:
-            payload = json.loads(self._file_index_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return {
-            str(chunk_id): entry
-            for entry in (payload.get("files") or {}).values()
-            for chunk_id in (entry.get("chunk_ids") or [])
-        }
+        return self._chunk_index_lookup.all()
 
     def _front_matter(self, file_path: str) -> dict[str, str]:
         if not file_path or not file_path.lower().endswith(".md"):
