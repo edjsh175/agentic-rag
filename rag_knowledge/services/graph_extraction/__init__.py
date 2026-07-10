@@ -298,7 +298,6 @@ from .pipeline import (
     GraphBuilder,
     GraphCandidateApplier,
     GraphQualityService,
-    GraphSpecialRuleRestorer,
     QualityReport,
 )
 
@@ -307,6 +306,5 @@ __all__ += [
     "GraphBuilder",
     "GraphCandidateApplier",
     "GraphQualityService",
-    "GraphSpecialRuleRestorer",
     "QualityReport",
 ]

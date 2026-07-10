@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -11,6 +12,16 @@ _CATEGORY_TYPES = {
     "services": "Service",
     "environment_components": "EnvironmentComponent",
 }
+
+
+@dataclass(frozen=True)
+class CatalogSeedEntity:
+    name: str
+    entity_type: str
+    category: str
+    aliases: list[str] = field(default_factory=list)
+    belongs_to: str = ""
+    different_from: list[str] = field(default_factory=list)
 
 
 class DomainCatalogLoader:
@@ -25,6 +36,7 @@ class DomainCatalogLoader:
         self._entries: dict[str, tuple[str, str]] = {}
         self._categories: dict[str, str] = {}
         self._owners: dict[str, str] = {}
+        self._seeds: list[CatalogSeedEntity] = []
         self._load(data)
 
     def _load(self, data: object) -> None:
@@ -41,17 +53,30 @@ class DomainCatalogLoader:
                 owner = item.get("belongs_to")
                 if owner is not None and (not isinstance(owner, str) or not owner.strip()):
                     raise ValueError(f"invalid belongs_to at {self.path}: {name}")
-                if isinstance(owner, str):
-                    self._owners[name] = owner.strip()
-                self._add(name, name, entity_type)
                 aliases = item.get("aliases", [])
                 if not isinstance(aliases, list) or not all(isinstance(alias, str) for alias in aliases):
                     raise ValueError(f"invalid aliases at {self.path}: {name}")
+                if isinstance(owner, str):
+                    self._owners[name] = owner.strip()
+                different_from = item.get("different_from", [])
+                if not isinstance(different_from, list) or not all(isinstance(value, str) for value in different_from):
+                    raise ValueError(f"invalid different_from at {self.path}: {name}")
+                self._add(name, name, entity_type)
                 for alias in aliases:
                     self._add(alias, name, entity_type)
                 for doc_category in item.get("doc_categories", []):
                     if isinstance(doc_category, str):
                         self._categories[doc_category] = name
+                self._seeds.append(
+                    CatalogSeedEntity(
+                        name=name,
+                        entity_type=entity_type,
+                        category=category,
+                        aliases=[alias.strip() for alias in aliases if isinstance(alias, str) and alias.strip()],
+                        belongs_to=owner.strip() if isinstance(owner, str) else "",
+                        different_from=[value.strip() for value in different_from if value.strip()],
+                    )
+                )
 
     def _add(self, key: str, canonical: str, entity_type: str) -> None:
         normalized = self.normalize_key(key)
@@ -79,3 +104,6 @@ class DomainCatalogLoader:
     def entries(self, entity_type: str | None = None) -> list[tuple[str, str]]:
         values = set(self._entries.values())
         return sorted(value for value in values if entity_type is None or value[1] == entity_type)
+
+    def seeds(self) -> list[CatalogSeedEntity]:
+        return list(self._seeds)

@@ -3,7 +3,6 @@ from rag_knowledge.services.graph_extraction import (
     GraphBuilder,
     GraphCandidateApplier,
     GraphQualityService,
-    GraphSpecialRuleRestorer,
     SectionPathExtractor,
     TableFieldExtractor,
 )
@@ -302,7 +301,6 @@ def test_approved_batch_applies_entities_relations_fields_and_links_atomically(i
     assert field["doc_category"] == "StampTools"
     assert db.get_relation_by_details(pipeline["id"], table["id"], "has_table")
     assert db.get_link_by_entity_chunk(field["id"], "c1")
-    assert any(item["alias"] == "管线发布工具" for item in db.list_aliases(pipeline["id"]))
     assert db.get_extraction_batch(batch.batch_id)["status"] == "applied"
 
 
@@ -334,41 +332,33 @@ def test_apply_backfills_entity_evidence_from_legacy_candidate(isolated_storage)
     assert db.get_extraction_batch(batch_id)["status"] == "applied"
 
 
-def test_special_rule_restorer_recovers_different_from_and_alias(isolated_storage):
-    db = make_db(isolated_storage, name="special.db", data_dir_name="special-data", chroma_name="special-chroma")
-    pipeline = db.create_entity("PipelineBuilder", "Tool", "StampTools")
-    db.create_entity("管线发布服务", "Service", "StampServer")
-    db.create_entity("PipelinePublishConfig", "ConfigItem", "StampServer")
-
-    with db._get_conn() as conn:
-        GraphSpecialRuleRestorer(db).apply(conn)
-
-    aliases = {item["alias"] for item in db.list_aliases(pipeline)}
-    related = {
-        (item["source_name"], item["relation_type"], item["target_name"])
-        for item in db.list_relations(entity_id=pipeline, review_status="approved")
-    }
-
-    assert "管线发布工具" in aliases
-    assert ("PipelineBuilder", "different_from", "管线发布服务") in related
-    assert ("PipelineBuilder", "different_from", "PipelinePublishConfig") in related
-
-
-def test_special_rule_restorer_is_idempotent(isolated_storage):
-    db = make_db(isolated_storage, name="special-idempotent.db", data_dir_name="special-idem-data", chroma_name="special-idem-chroma")
+def test_applying_unrelated_batch_does_not_restore_special_rules(isolated_storage):
+    db = make_db(isolated_storage, name="no-special.db", data_dir_name="no-special-data", chroma_name="no-special-chroma")
     db.create_entity("PipelineBuilder", "Tool", "StampTools")
     db.create_entity("管线发布服务", "Service", "StampServer")
     db.create_entity("PipelinePublishConfig", "ConfigItem", "StampServer")
+    batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
+    candidate_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "unrelated",
+        {
+            "name": "DOMBuilder",
+            "entity_type": "Tool",
+            "doc_category": "StampTools",
+            "source_chunk_id": "c1",
+            "evidence_text": "DOMBuilder",
+        },
+        "c1",
+        "DOMBuilder",
+    )
+    db.review_extraction_candidates(batch_id, [candidate_id], "approved")
+    db.set_extraction_batch_status(batch_id, "approved")
 
-    with db._get_conn() as conn:
-        restorer = GraphSpecialRuleRestorer(db)
-        restorer.apply(conn)
-        restorer.apply(conn)
+    GraphCandidateApplier(db).apply(batch_id)
 
-    aliases = [item for item in db.list_aliases() if item["alias"] == "管线发布工具"]
-    relations = [item for item in db.list_relations(review_status="approved") if item["relation_type"] == "different_from"]
-    assert len(aliases) == 1
-    assert len(relations) == 2
+    assert not any(item["alias"] == "管线发布工具" for item in db.list_aliases())
+    assert not any(item["relation_type"] == "different_from" for item in db.list_relations())
 
 
 def test_apply_rolls_back_whole_batch_on_type_conflict(isolated_storage):

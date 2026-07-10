@@ -7,7 +7,7 @@
     {"name": "StampNodeServer", "aliases": [], "doc_categories": []}
   ],
   "tools": [
-    {"name": "PipelineBuilder", "aliases": ["管线发布工具"], "belongs_to": "StampTools"},
+    {"name": "PipelineBuilder", "aliases": ["管线发布工具"], "belongs_to": "StampTools", "different_from": ["管线发布服务", "PipelinePublishConfig"]},
     {"name": "ModelBuilder", "aliases": [], "belongs_to": "StampTools"},
     {"name": "ObliqueModelBuilder", "aliases": [], "belongs_to": "StampTools"},
     {"name": "TerrainBuilder", "aliases": [], "belongs_to": "StampTools"},
