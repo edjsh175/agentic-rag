@@ -61,6 +61,10 @@ from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
 from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateApplier, GraphQualityService
+from rag_knowledge.services.graph_governance import (
+    approve_all_allowed,
+    filter_approvable_candidate_ids,
+)
 from rag_knowledge.models.api import (
     LinkTypeEnum,
     EntityCreateRequest,
@@ -1240,6 +1244,9 @@ def review_graph_candidates(batch_id: str, req: GraphCandidateReviewRequest):
             updated += db.review_extraction_candidates(batch_id, reject_ids, "rejected", req.reason or "")
 
         if req.approve_all:
+            allowed, reason = approve_all_allowed(batch, pending)
+            if not allowed:
+                raise HTTPException(400, detail=reason)
             approve_ids = sorted(candidate_ids - diagnostic_ids - set(reject_ids))
         else:
             approve_ids = [
@@ -1247,7 +1254,16 @@ def review_graph_candidates(batch_id: str, req: GraphCandidateReviewRequest):
                 if cid in candidate_ids and cid not in diagnostic_ids and cid not in set(reject_ids)
             ]
         if approve_ids:
-            updated += db.review_extraction_candidates(batch_id, approve_ids, "approved", "")
+            safe_ids, unsafe_ids = filter_approvable_candidate_ids(
+                approve_ids,
+                pending,
+                batch=batch,
+                approve_kind=req.approve_kind,
+                explicit_ids=not req.approve_all,
+            )
+            if unsafe_ids and req.approve_all:
+                raise HTTPException(400, detail=f"approve-all rejected unsafe candidates: {len(unsafe_ids)}")
+            updated += db.review_extraction_candidates(batch_id, safe_ids, "approved", "")
 
         batch_status = _sync_batch_status_after_review(db, batch_id)
         return GraphCandidateReviewResponse(
@@ -1275,7 +1291,7 @@ def apply_graph_candidates(batch_id: str):
         if batch["status"] != "approved":
             raise HTTPException(400, detail="Only approved batches can be applied")
         approved_count = len(db.list_extraction_candidates(batch_id, "approved"))
-        GraphCandidateApplier(db).apply(batch_id)
+        audit = GraphCandidateApplier(db).apply(batch_id, operator="api")
         return GraphCandidateApplyResponse(
             batch_id=batch_id,
             status="applied",

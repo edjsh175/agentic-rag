@@ -145,7 +145,7 @@ class RetrieveOrderingTests(unittest.TestCase):
             {"retrieve": lambda self, *args, **kwargs: original_docs},
         )()
 
-        def apply_quality(query, docs):
+        def apply_quality(query, docs, **kwargs):
             captured["quality_input"] = [doc.page_content for doc in docs]
             return [Document(page_content="after quality", metadata=docs[0].metadata)]
 

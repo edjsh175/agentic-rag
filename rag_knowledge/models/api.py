@@ -490,6 +490,7 @@ class GraphCandidateReviewRequest(BaseModel):
     approve_all: bool = False
     approve_ids: list[str] = Field(default_factory=list)
     reject_ids: list[str] = Field(default_factory=list)
+    approve_kind: Optional[str] = None
     reason: Optional[str] = None
 
 

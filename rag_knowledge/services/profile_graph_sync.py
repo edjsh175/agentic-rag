@@ -6,8 +6,13 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Iterable
 
-from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
+from rag_knowledge.models.graph_schema import (
+    make_field_entity_name,
+    normalize_entity_name,
+    validate_relation,
+)
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.graph_governance import assert_staging_review_status
 from rag_knowledge.services.graph_extraction.pipeline import BuildBatchResult
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.retrieval_intent import RetrievalIntentProfile, load_legacy_intent_profiles
@@ -16,6 +21,7 @@ GENERIC_FIELD_TERMS = {"字段名", "字段名称", "说明", "数据", "配置"
 STRONG_CONFIDENCE = 0.8
 WEAK_CONFIDENCE = 0.6
 PROFILE_CREATED_BY = "rule:profile_sync"
+PROFILE_ALIAS_SOURCE_FIELDS = frozenset({"entity_aliases", "section_families"})
 
 
 @dataclass(frozen=True)
@@ -106,6 +112,7 @@ class ProfileGraphSyncService:
     ) -> BuildBatchResult:
         if review_status not in {"pending", "approved"}:
             raise ValueError("review_status must be pending or approved")
+        assert_staging_review_status(review_status)
         preview = self.preview(profile_id)
         if not persist:
             return BuildBatchResult("", self._stats_from_preview(preview))
@@ -150,43 +157,50 @@ class ProfileGraphSyncService:
         canonical_name = normalize_entity_name(profile.entity_aliases[0]) if profile.entity_aliases else ""
         canonical_type = self._infer_entity_type(canonical_name, profile)
         owner_name = self._owner_from_profile(profile)
-        if canonical_name and not self._entity_exists(canonical_name):
-            self._append_entity(result, entity_seen, canonical_name, canonical_type, f"profile:{profile.id}:entity_aliases")
+        if canonical_name:
+            self._ensure_entity_candidate(
+                result, entity_seen, canonical_name, canonical_type, f"profile:{profile.id}:entity_aliases"
+            )
         for alias in profile.entity_aliases[1:]:
             normalized_alias = normalize_entity_name(alias)
             if not normalized_alias:
                 continue
-            if self._alias_exists(canonical_name, normalized_alias):
-                continue
-            key = (canonical_name, normalized_alias)
-            if key not in alias_seen:
-                result.aliases.append(
-                    ProfileSyncAliasCandidate(
-                        entity_name=canonical_name,
-                        alias=normalized_alias,
-                        evidence_text=f"profile:{profile.id}:entity_aliases",
-                        metadata={"profile_id": profile.id, "source_field": "entity_aliases"},
-                    )
-                )
-                alias_seen.add(key)
+            self._ensure_alias_candidate(
+                result,
+                alias_seen,
+                canonical_name,
+                normalized_alias,
+                f"profile:{profile.id}:entity_aliases",
+                profile.id,
+                "entity_aliases",
+            )
 
-        section_entities, section_aliases, section_relations = self._extract_section_family_candidates(profile, alias_map)
+        section_entities, section_aliases, section_relations, section_diagnostics = (
+            self._extract_section_family_candidates(profile, alias_map)
+        )
+        result.diagnostics.extend(section_diagnostics)
         for entity in section_entities:
-            self._append_entity(result, entity_seen, entity.name, entity.entity_type, entity.evidence_text)
+            self._ensure_entity_candidate(
+                result, entity_seen, entity.name, entity.entity_type, entity.evidence_text
+            )
         for alias in section_aliases:
             key = (alias.entity_name, alias.alias)
-            if key not in alias_seen and not self._alias_exists(alias.entity_name, alias.alias):
-                result.aliases.append(alias)
+            if key in alias_seen:
+                continue
+            if self._append_alias_if_needed(result, alias, alias_seen):
                 alias_seen.add(key)
         for relation in section_relations:
             self._append_relation(result, relation_seen, relation)
 
-        field_relations, field_diagnostics = self._extract_field_relations(profile, canonical_name)
+        field_entities, field_relations, field_diagnostics = self._extract_field_relations(
+            profile, canonical_name
+        )
         result.diagnostics.extend(field_diagnostics)
+        for entity in field_entities:
+            self._ensure_entity_candidate(
+                result, entity_seen, entity.name, entity.entity_type, entity.evidence_text
+            )
         for relation in field_relations:
-            target_type = self._infer_entity_type(relation.target_name, profile)
-            if target_type == "Field" and not self._entity_exists(relation.target_name):
-                self._append_entity(result, entity_seen, relation.target_name, "Field", relation.evidence_text)
             self._append_relation(result, relation_seen, relation)
 
         for relation in self._extract_sibling_relations(profile, alias_map):
@@ -194,10 +208,12 @@ class ProfileGraphSyncService:
             target_type = self._infer_entity_type(relation.target_name, profile)
             ok, _ = validate_relation(source_type, relation.relation_type, target_type)
             if ok:
-                if not self._entity_exists(relation.source_name):
-                    self._append_entity(result, entity_seen, relation.source_name, source_type, relation.evidence_text)
-                if not self._entity_exists(relation.target_name):
-                    self._append_entity(result, entity_seen, relation.target_name, target_type, relation.evidence_text)
+                self._ensure_entity_candidate(
+                    result, entity_seen, relation.source_name, source_type, relation.evidence_text
+                )
+                self._ensure_entity_candidate(
+                    result, entity_seen, relation.target_name, target_type, relation.evidence_text
+                )
                 self._append_relation(result, relation_seen, relation)
 
         return result
@@ -260,9 +276,29 @@ class ProfileGraphSyncService:
             count += 1
         return count
 
-    def _append_entity(self, result: ProfileCandidateSet, seen: set[str], name: str, entity_type: str, evidence_text: str) -> None:
+    def _ensure_entity_candidate(
+        self,
+        result: ProfileCandidateSet,
+        seen: set[str],
+        name: str,
+        entity_type: str,
+        evidence_text: str,
+    ) -> None:
         normalized = normalize_entity_name(name)
-        if not normalized or normalized in seen or self._entity_exists(normalized):
+        if not normalized or normalized in seen:
+            return
+        if self._entity_exists_approved(normalized):
+            return
+        if self._entity_exists_any(normalized):
+            result.diagnostics.append(
+                ProfileSyncDiagnostic(
+                    "pending_only_entity",
+                    f"entity exists but not approved: {normalized}",
+                    result.profile_id,
+                    normalized,
+                )
+            )
+            seen.add(normalized)
             return
         result.entities.append(
             ProfileSyncEntityCandidate(
@@ -275,9 +311,70 @@ class ProfileGraphSyncService:
         )
         seen.add(normalized)
 
+    def _ensure_alias_candidate(
+        self,
+        result: ProfileCandidateSet,
+        seen: set[tuple[str, str]],
+        entity_name: str,
+        alias: str,
+        evidence_text: str,
+        profile_id: str,
+        source_field: str,
+    ) -> None:
+        key = (entity_name, alias)
+        if key in seen:
+            return
+        candidate = ProfileSyncAliasCandidate(
+            entity_name=entity_name,
+            alias=alias,
+            evidence_text=evidence_text,
+            metadata={"profile_id": profile_id, "source_field": source_field},
+        )
+        if self._append_alias_if_needed(result, candidate, seen):
+            seen.add(key)
+
+    def _append_alias_if_needed(
+        self,
+        result: ProfileCandidateSet,
+        candidate: ProfileSyncAliasCandidate,
+        seen: set[tuple[str, str]],
+    ) -> bool:
+        entity_name = normalize_entity_name(candidate.entity_name)
+        alias = normalize_entity_name(candidate.alias)
+        key = (entity_name, alias)
+        if key in seen:
+            return False
+        if self._alias_exists_approved(entity_name, alias):
+            return False
+        if self._alias_exists_any(entity_name, alias):
+            result.diagnostics.append(
+                ProfileSyncDiagnostic(
+                    "pending_only_alias",
+                    f"alias exists but not approved: {entity_name} -> {alias}",
+                    result.profile_id,
+                    alias,
+                )
+            )
+            return False
+        result.aliases.append(candidate)
+        return True
+
     def _append_relation(self, result: ProfileCandidateSet, seen: set[tuple[str, str, str]], relation: ProfileSyncRelationCandidate) -> None:
         key = (normalize_entity_name(relation.source_name), relation.relation_type, normalize_entity_name(relation.target_name))
-        if key in seen or self._relation_exists(*key):
+        if key in seen:
+            return
+        if self._relation_exists_approved(*key):
+            return
+        if self._relation_exists_any(*key):
+            result.diagnostics.append(
+                ProfileSyncDiagnostic(
+                    "pending_only_relation",
+                    f"relation exists but not approved: {relation.source_name} {relation.relation_type} {relation.target_name}",
+                    result.profile_id,
+                    relation.target_name,
+                )
+            )
+            seen.add(key)
             return
         if self._relation_rejected(*key):
             result.diagnostics.append(
@@ -296,62 +393,120 @@ class ProfileGraphSyncService:
         self,
         profile: RetrievalIntentProfile,
         alias_map: dict[str, str],
-    ) -> tuple[list[ProfileSyncEntityCandidate], list[ProfileSyncAliasCandidate], list[ProfileSyncRelationCandidate]]:
+    ) -> tuple[
+        list[ProfileSyncEntityCandidate],
+        list[ProfileSyncAliasCandidate],
+        list[ProfileSyncRelationCandidate],
+        list[ProfileSyncDiagnostic],
+    ]:
         entities: list[ProfileSyncEntityCandidate] = []
         aliases: list[ProfileSyncAliasCandidate] = []
         relations: list[ProfileSyncRelationCandidate] = []
+        diagnostics: list[ProfileSyncDiagnostic] = []
+        canonical_table = normalize_entity_name(profile.entity_aliases[0]) if profile.entity_aliases else ""
+
         for family in profile.section_families:
             if not family:
                 continue
-            first_parts = [part.strip() for part in family[0].split(">") if part.strip()]
+            canonical_path = family[0]
+            first_parts = [part.strip() for part in canonical_path.split(">") if part.strip()]
             if not first_parts:
                 continue
             owner_name = normalize_entity_name(first_parts[0])
             owner_type = self._infer_entity_type(owner_name, profile)
-            if owner_name and not self._entity_exists(owner_name):
+            if owner_name and not self._entity_exists_any(owner_name):
                 entities.append(
-                    ProfileSyncEntityCandidate(owner_name, owner_type, confidence=STRONG_CONFIDENCE, evidence_text=f"profile:{profile.id}:section_families")
-                )
-            section_name = normalize_entity_name(family[0])
-            if section_name and not self._entity_exists(section_name):
-                entities.append(
-                    ProfileSyncEntityCandidate(section_name, "Section", properties={"section_path": family[0]}, evidence_text=f"profile:{profile.id}:section_families")
-                )
-            for alias in family:
-                leaf = normalize_entity_name(alias.split(">")[-1].strip())
-                canonical = alias_map.get(leaf, leaf)
-                canonical_type = self._infer_entity_type(canonical, profile)
-                if not self._entity_exists(canonical):
-                    entities.append(
-                        ProfileSyncEntityCandidate(canonical, canonical_type, confidence=STRONG_CONFIDENCE, evidence_text=f"profile:{profile.id}:section_families")
+                    ProfileSyncEntityCandidate(
+                        owner_name, owner_type, confidence=STRONG_CONFIDENCE,
+                        evidence_text=f"profile:{profile.id}:section_families",
                     )
-                if leaf != canonical and not self._alias_exists(canonical, leaf):
+                )
+
+            table_name = canonical_table or normalize_entity_name(first_parts[-1])
+            if table_name and not self._entity_exists_any(table_name):
+                entities.append(
+                    ProfileSyncEntityCandidate(
+                        table_name,
+                        "DataTable",
+                        confidence=STRONG_CONFIDENCE,
+                        evidence_text=f"profile:{profile.id}:section_families",
+                    )
+                )
+
+            for path in family:
+                leaf = normalize_entity_name(path.split(">")[-1].strip())
+                resolved_table = alias_map.get(leaf, leaf)
+                if leaf != resolved_table:
                     aliases.append(
                         ProfileSyncAliasCandidate(
-                            entity_name=canonical,
+                            entity_name=resolved_table,
                             alias=leaf,
                             evidence_text=f"profile:{profile.id}:section_families",
                             metadata={"profile_id": profile.id, "source_field": "section_families"},
                         )
                     )
-                relations.extend(
-                    [
-                        ProfileSyncRelationCandidate(owner_name, "has_table", canonical, evidence_text=f"profile:{profile.id}:section_families"),
-                        ProfileSyncRelationCandidate(canonical, "belongs_to", owner_name, evidence_text=f"profile:{profile.id}:section_families"),
-                        ProfileSyncRelationCandidate(canonical, "defined_in", section_name, evidence_text=f"profile:{profile.id}:section_families"),
-                    ]
-                )
-        return entities, aliases, relations
+
+            if table_name and owner_name:
+                if not self._relation_exists_approved(owner_name, "has_table", table_name):
+                    if not self._relation_exists_any(owner_name, "has_table", table_name):
+                        relations.append(
+                            ProfileSyncRelationCandidate(
+                                owner_name, "has_table", table_name,
+                                evidence_text=f"profile:{profile.id}:section_families",
+                            )
+                        )
+                if not self._relation_exists_approved(table_name, "belongs_to", owner_name):
+                    if not self._relation_exists_any(table_name, "belongs_to", owner_name):
+                        relations.append(
+                            ProfileSyncRelationCandidate(
+                                table_name, "belongs_to", owner_name,
+                                evidence_text=f"profile:{profile.id}:section_families",
+                            )
+                        )
+
+            if table_name:
+                matched_sections = self._find_approved_sections_by_path(canonical_path)
+                if len(matched_sections) > 1:
+                    diagnostics.append(
+                        ProfileSyncDiagnostic(
+                            "ambiguous_section_entity",
+                            f"multiple approved sections for path: {canonical_path}",
+                            profile.id,
+                            canonical_path,
+                        )
+                    )
+                elif len(matched_sections) == 1:
+                    section_name = matched_sections[0]["name"]
+                    if not self._relation_exists_approved(table_name, "defined_in", section_name):
+                        if not self._relation_exists_any(table_name, "defined_in", section_name):
+                            relations.append(
+                                ProfileSyncRelationCandidate(
+                                    table_name, "defined_in", section_name,
+                                    evidence_text=f"profile:{profile.id}:section_families",
+                                )
+                            )
+                elif not self._has_approved_defined_in_for_path(table_name, canonical_path):
+                    diagnostics.append(
+                        ProfileSyncDiagnostic(
+                            "missing_section_entity",
+                            f"no approved section for canonical path: {canonical_path}",
+                            profile.id,
+                            canonical_path,
+                        )
+                    )
+
+        return entities, aliases, relations, diagnostics
 
     def _extract_field_relations(
         self,
         profile: RetrievalIntentProfile,
         canonical_name: str,
-    ) -> tuple[list[ProfileSyncRelationCandidate], list[ProfileSyncDiagnostic]]:
-        result: list[ProfileSyncRelationCandidate] = []
+    ) -> tuple[list[ProfileSyncEntityCandidate], list[ProfileSyncRelationCandidate], list[ProfileSyncDiagnostic]]:
+        entities: list[ProfileSyncEntityCandidate] = []
+        relations: list[ProfileSyncRelationCandidate] = []
         diagnostics: list[ProfileSyncDiagnostic] = []
         if not canonical_name:
-            return result, diagnostics
+            return entities, relations, diagnostics
         for term in profile.recall_terms:
             normalized = normalize_entity_name(term)
             if not normalized:
@@ -368,15 +523,36 @@ class ProfileGraphSyncService:
                     )
                 )
                 continue
-            result.append(
-                ProfileSyncRelationCandidate(
-                    source_name=canonical_name,
-                    relation_type="has_field",
-                    target_name=normalized,
-                    evidence_text=f"profile:{profile.id}:recall_terms",
+            scoped_name = make_field_entity_name(canonical_name, normalized)
+            if self._entity_exists_any(scoped_name) and not self._entity_exists_approved(scoped_name):
+                diagnostics.append(
+                    ProfileSyncDiagnostic(
+                        "pending_only_entity",
+                        f"field exists but not approved: {scoped_name}",
+                        profile.id,
+                        scoped_name,
+                    )
                 )
-            )
-        return result, diagnostics
+            elif not self._entity_exists_any(scoped_name):
+                entities.append(
+                    ProfileSyncEntityCandidate(
+                        scoped_name,
+                        "Field",
+                        confidence=STRONG_CONFIDENCE,
+                        evidence_text=f"profile:{profile.id}:recall_terms",
+                    )
+                )
+            if not self._relation_exists_approved(canonical_name, "has_field", scoped_name):
+                if not self._relation_exists_any(canonical_name, "has_field", scoped_name):
+                    relations.append(
+                        ProfileSyncRelationCandidate(
+                            source_name=canonical_name,
+                            relation_type="has_field",
+                            target_name=scoped_name,
+                            evidence_text=f"profile:{profile.id}:recall_terms",
+                        )
+                    )
+        return entities, relations, diagnostics
 
     def _extract_sibling_relations(
         self,
@@ -463,10 +639,14 @@ class ProfileGraphSyncService:
             return "Field"
         return "Module"
 
-    def _entity_exists(self, name: str) -> bool:
+    def _entity_exists_any(self, name: str) -> bool:
         return self.db.get_entity_by_name(normalize_entity_name(name)) is not None
 
-    def _alias_exists(self, entity_name: str, alias: str) -> bool:
+    def _entity_exists_approved(self, name: str) -> bool:
+        entity = self.db.get_entity_by_name(normalize_entity_name(name))
+        return entity is not None and entity.get("review_status") == "approved"
+
+    def _alias_exists_any(self, entity_name: str, alias: str) -> bool:
         entity = self.db.get_entity_by_name(normalize_entity_name(entity_name))
         if not entity:
             return False
@@ -477,12 +657,68 @@ class ProfileGraphSyncService:
             ).fetchone()
             return row is not None
 
-    def _relation_exists(self, source_name: str, relation_type: str, target_name: str) -> bool:
-        source = self.db.get_entity_by_name(source_name)
-        target = self.db.get_entity_by_name(target_name)
+    def _alias_exists_approved(self, entity_name: str, alias: str) -> bool:
+        entity = self.db.get_entity_by_name(normalize_entity_name(entity_name))
+        if not entity:
+            return False
+        with self.db._get_conn() as conn:
+            row = conn.execute(
+                "SELECT id FROM aliases WHERE entity_id = ? AND alias = ? AND review_status = 'approved'",
+                (entity["id"], normalize_entity_name(alias)),
+            ).fetchone()
+            return row is not None
+
+    def _relation_exists_any(self, source_name: str, relation_type: str, target_name: str) -> bool:
+        source = self.db.get_entity_by_name(normalize_entity_name(source_name))
+        target = self.db.get_entity_by_name(normalize_entity_name(target_name))
         if not source or not target:
             return False
         return self.db.get_relation_by_details(source["id"], target["id"], relation_type) is not None
+
+    def _relation_exists_approved(self, source_name: str, relation_type: str, target_name: str) -> bool:
+        source = self.db.get_entity_by_name(normalize_entity_name(source_name))
+        target = self.db.get_entity_by_name(normalize_entity_name(target_name))
+        if not source or not target:
+            return False
+        if source.get("review_status") != "approved" or target.get("review_status") != "approved":
+            return False
+        relation = self.db.get_relation_by_details(source["id"], target["id"], relation_type)
+        return relation is not None and relation.get("review_status") == "approved"
+
+    def _section_path_from_entity(self, entity: dict) -> str:
+        raw_properties = entity.get("properties_json") or "{}"
+        try:
+            properties = json.loads(raw_properties)
+        except json.JSONDecodeError:
+            properties = {}
+        return str(properties.get("section_path") or "")
+
+    def _find_approved_sections_by_path(self, section_path: str) -> list[dict]:
+        matched: list[dict] = []
+        with self.db._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT id, name, entity_type, properties_json, review_status FROM entities "
+                "WHERE entity_type = 'Section' AND review_status = 'approved'",
+            ).fetchall()
+        for row in rows:
+            entity = dict(row)
+            if self._section_path_from_entity(entity) == section_path:
+                matched.append(entity)
+        return matched
+
+    def _has_approved_defined_in_for_path(self, table_name: str, section_path: str) -> bool:
+        table = self.db.get_entity_by_name(normalize_entity_name(table_name))
+        if not table or table.get("review_status") != "approved":
+            return False
+        for relation in self.db.list_relations(entity_id=table["id"], relation_type="defined_in", review_status="approved"):
+            if relation["source_entity_id"] != table["id"]:
+                continue
+            section = self.db.get_entity(relation["target_entity_id"])
+            if not section or section.get("review_status") != "approved":
+                continue
+            if self._section_path_from_entity(section) == section_path:
+                return True
+        return False
 
     def _relation_rejected(self, source_name: str, relation_type: str, target_name: str) -> bool:
         source = self.db.get_entity_by_name(source_name)

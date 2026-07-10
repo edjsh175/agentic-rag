@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from docx import Document as WordDocument
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,6 +11,22 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
 from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader
+from rag_knowledge.repository.relational_db import RelationalDB
+from tests.fixtures.pipeline_graph_facts import seed_pipeline_table_graph
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def _graph_storage(isolated_storage, tmp_path):
+    import shutil
+    _, _, _, data_dir = isolated_storage(
+        db_name="docx-table-guards.db",
+        data_dir_name="docx-table-guards-data",
+    )
+    policies_src = PROJECT_ROOT / "data" / "retrieval_intent_policies.json"
+    shutil.copy2(policies_src, data_dir / "retrieval_intent_policies.json")
+    seed_pipeline_table_graph(RelationalDB())
 
 
 def _build_loader(chunk_size: int = 220) -> FileLoader:

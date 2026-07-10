@@ -17,7 +17,8 @@ from typing import Set
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
-from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
+from rag_knowledge.services.graph_intent_scoring import GraphIntentFactProvider
+from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,14 @@ class RetrievalQualityStrategy:
     # 公开 API
     # ------------------------------------------------------------------
 
-    def apply(self, query: str, docs: list[Document]) -> list[Document]:
+    def apply(
+        self,
+        query: str,
+        docs: list[Document],
+        *,
+        intent_plan: RetrievalIntentPlan | None = None,
+        fact_provider: GraphIntentFactProvider | None = None,
+    ) -> list[Document]:
         """
         对检索结果执行质量控制后处理。
 
@@ -67,7 +75,11 @@ class RetrievalQualityStrategy:
         # 1.5 表格类问题增强
         if struct_enabled:
             docs = self._boost_table_chunks(query, docs)
-        docs = RetrievalIntentResolver.default().resolve(query).apply_quality_scores(docs)
+        plan = intent_plan or RetrievalIntentResolver.default().resolve(query)
+        docs = plan.apply_quality_scores(
+            docs,
+            fact_provider=fact_provider or GraphIntentFactProvider(),
+        )
 
         if not self._cfg.enabled:
             return docs

@@ -48,7 +48,6 @@ class RetrievalIntentProfile:
 @dataclass(frozen=True)
 class RetrievalIntentPlan:
     policies: tuple[RetrievalIntentPolicy, ...] = ()
-    legacy_profiles: tuple[RetrievalIntentProfile | None, ...] = ()
     query: str = ""
     graph_entity_refs: tuple[str, ...] = ()
 
@@ -60,12 +59,8 @@ class RetrievalIntentPlan:
         terms = []
         normalized_query = _normalize_text(query)
         seen = {_normalize_text(part) for part in (query or "").split() if part}
-        for index, policy in enumerate(self.policies):
-            hints = policy.query_hints
-            legacy = self.legacy_profiles[index] if index < len(self.legacy_profiles) else None
-            if legacy and not hints:
-                hints = legacy.recall_terms
-            for term in hints:
+        for policy in self.policies:
+            for term in policy.query_hints:
                 normalized_term = _normalize_text(term)
                 if term and normalized_term not in seen and normalized_term not in normalized_query:
                     terms.append(term)
@@ -80,21 +75,32 @@ class RetrievalIntentPlan:
             return top_k
         return max(top_k or 0, *minimums)
 
-    def apply_quality_scores(self, docs: list[Document]) -> list[Document]:
+    def apply_quality_scores(
+        self,
+        docs: list[Document],
+        *,
+        fact_provider=None,
+    ) -> list[Document]:
         if not self.policies or not docs:
             return docs
+        from rag_knowledge.services.graph_intent_scoring import (
+            GraphIntentFactProvider,
+            log_graph_scoring_degraded,
+            score_document_with_graph_facts,
+        )
+
+        provider = fact_provider or GraphIntentFactProvider()
+        entity_refs = tuple(policy.entity_ref for policy in self.policies if policy.entity_ref)
+        facts_by_ref = provider.load_many(entity_refs)
+        missing_refs = [ref for ref in entity_refs if ref not in facts_by_ref]
+        if missing_refs:
+            log_graph_scoring_degraded(
+                reason="missing_approved_graph_facts",
+                policy_ids=tuple(policy.id for policy in self.policies),
+            )
         for doc in docs:
             metadata = doc.metadata or {}
-            bonus = 0.0
-            penalty = 0.0
-            for index, policy in enumerate(self.policies):
-                legacy = self.legacy_profiles[index] if index < len(self.legacy_profiles) else None
-                if legacy is not None:
-                    profile_bonus, profile_penalty = _score_legacy_doc(self.query, legacy, doc)
-                else:
-                    profile_bonus, profile_penalty = _score_policy_doc(self.query, policy, doc)
-                bonus += profile_bonus
-                penalty += profile_penalty
+            bonus, penalty = score_document_with_graph_facts(self.policies, facts_by_ref, doc)
             if bonus <= 0 and penalty <= 0:
                 continue
             if bonus > 0:
@@ -119,18 +125,20 @@ class RetrievalIntentResolver:
 
     @classmethod
     def default(cls) -> "RetrievalIntentResolver":
-        return cls(load_intent_policies(), load_legacy_intent_profiles())
+        return cls(load_intent_policies())
+
+    @classmethod
+    def for_migration(cls, *, legacy_path: str | Path | None = None) -> "RetrievalIntentResolver":
+        return cls(load_intent_policies(), load_legacy_intent_profiles(legacy_path))
 
     def resolve(self, query: str, top_k: int | None = None) -> RetrievalIntentPlan:
         normalized = _normalize_text(query)
         matched_policies: list[RetrievalIntentPolicy] = []
-        matched_legacy: list[RetrievalIntentProfile | None] = []
         for policy in self._policies:
             if not _policy_matches_query(policy, normalized):
                 continue
             matched_policies.append(policy)
-            matched_legacy.append(self._legacy_by_id.get(policy.id))
-        return RetrievalIntentPlan(tuple(matched_policies), tuple(matched_legacy), query or "")
+        return RetrievalIntentPlan(tuple(matched_policies), query or "")
 
     def refine_from_graph(
         self,
@@ -143,18 +151,15 @@ class RetrievalIntentResolver:
         normalized_names = {_normalize_text(name) for name in canonical_names}
         existing_ids = {policy.id for policy in plan.policies}
         extra_policies: list[RetrievalIntentPolicy] = []
-        extra_legacy: list[RetrievalIntentProfile | None] = []
         for policy in self._policies:
             if policy.id in existing_ids:
                 continue
             if policy.entity_ref and _normalize_text(policy.entity_ref) in normalized_names:
                 extra_policies.append(policy)
-                extra_legacy.append(self._legacy_by_id.get(policy.id))
         if not extra_policies:
             return plan
         return RetrievalIntentPlan(
             plan.policies + tuple(extra_policies),
-            plan.legacy_profiles + tuple(extra_legacy),
             plan.query,
             graph_entity_refs=canonical_names,
         )
@@ -224,6 +229,9 @@ def load_intent_profiles(path: str | Path | None = None) -> tuple[RetrievalInten
 def section_matches_expected(
     actual_section: str,
     expected_section: str | None,
+    *,
+    fact_provider=None,
+    entity_ref: str,
     profiles: Iterable[RetrievalIntentProfile] | None = None,
 ) -> bool:
     if not expected_section:
@@ -231,11 +239,18 @@ def section_matches_expected(
     actual_section = actual_section or ""
     if expected_section in actual_section:
         return True
-    for profile in tuple(profiles or load_legacy_intent_profiles()):
-        for family in profile.section_families:
-            if expected_section in family:
-                return any(alias in actual_section for alias in family)
-    return False
+    if profiles is not None:
+        for profile in profiles:
+            for family in profile.section_families:
+                if expected_section in family:
+                    return any(alias in actual_section for alias in family)
+        return False
+    if fact_provider is None or not entity_ref:
+        return False
+    return fact_provider.section_family_matches(
+        actual_section,
+        entity_ref=entity_ref,
+    )
 
 
 def _policy_from_dict(item: dict) -> RetrievalIntentPolicy:
@@ -333,29 +348,8 @@ def _policy_matches_query(policy: RetrievalIntentPolicy, query: str) -> bool:
     return bool(policy.entity_ref or policy.intent_terms)
 
 
-def _score_policy_doc(query: str, policy: RetrievalIntentPolicy, doc: Document) -> tuple[float, float]:
-    metadata = doc.metadata or {}
-    doc_text = _normalize_text(_doc_match_text(doc))
-    category_text = _normalize_text(metadata.get("doc_category") or "")
-    bonus = 0.0
-    penalty = 0.0
-
-    entity_hit = bool(policy.entity_ref) and _normalize_text(policy.entity_ref) in doc_text
-    intent_hit = any(_normalize_text(term) in doc_text for term in policy.intent_terms)
-    anchored = entity_hit or intent_hit
-
-    if entity_hit:
-        bonus += 0.04
-    if intent_hit:
-        bonus += 0.04
-    if anchored and any(_normalize_text(category) in category_text for category in policy.preferred_doc_categories):
-        bonus += 0.08
-    if anchored and any(_normalize_text(category) in category_text for category in policy.fallback_doc_categories):
-        penalty += 0.03
-    return bonus, penalty
-
-
-def _score_legacy_doc(query: str, profile: RetrievalIntentProfile, doc: Document) -> tuple[float, float]:
+def score_legacy_doc(query: str, profile: RetrievalIntentProfile, doc: Document) -> tuple[float, float]:
+    """Migration-only scorer kept for equivalence tests."""
     metadata = doc.metadata or {}
     doc_text = _normalize_text(_doc_match_text(doc))
     source_text = _normalize_text(" ".join(
@@ -388,6 +382,20 @@ def _score_legacy_doc(query: str, profile: RetrievalIntentProfile, doc: Document
     if _matches_sibling_outside_target(doc_text, profile):
         penalty += 0.04
     return bonus, penalty
+
+
+_score_legacy_doc = score_legacy_doc
+
+
+def score_graph_doc(
+    policy: RetrievalIntentPolicy,
+    facts,
+    doc: Document,
+) -> tuple[float, float]:
+    from rag_knowledge.services.graph_intent_scoring import build_match_signals, score_signals
+
+    signals = build_match_signals(policy, facts, doc)
+    return score_signals(signals)
 
 
 def _doc_match_text(doc: Document) -> str:

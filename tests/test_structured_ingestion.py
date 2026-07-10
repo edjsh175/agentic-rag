@@ -7,15 +7,30 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
 from docx import Document as WordDocument
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
+from rag_knowledge.repository.relational_db import RelationalDB
+from tests.fixtures.pipeline_graph_facts import seed_pipeline_table_graph
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def _graph_storage(isolated_storage):
+    import shutil
+    _, _, _, data_dir = isolated_storage(
+        db_name="structured-ingestion.db",
+        data_dir_name="structured-ingestion-data",
+    )
+    policies_src = PROJECT_ROOT / "data" / "retrieval_intent_policies.json"
+    shutil.copy2(policies_src, data_dir / "retrieval_intent_policies.json")
+    seed_pipeline_table_graph(RelationalDB())
 
 
 def _load_module(module_name: str, relative_path: str):

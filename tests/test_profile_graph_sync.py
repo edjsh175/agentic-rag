@@ -57,7 +57,7 @@ def test_profile_sync_preview_extracts_aliases_relations_and_diagnostics(isolate
     assert any(
         item.source_name == "管线点表"
         and item.relation_type == "has_field"
-        and item.target_name == "管点编号"
+        and item.target_name == "管线点表.管点编号"
         for item in profile.relations
     )
     assert any(
@@ -179,6 +179,6 @@ def test_profile_sync_cli_supports_dry_run_and_apply(isolated_storage, capsys):
     assert dry_run_payload["profiles"][0]["profile_id"] == "pipeline_point_table"
     assert dry_run_payload["suggested_policies"][0]["id"] == "pipeline_point_table"
     assert apply_exit == 0
-    assert apply_payload["mode"] == "apply"
+    assert apply_payload["mode"] == "stage"
     assert apply_payload["review_status"] == "pending"
     assert apply_payload["batch"]["status"] == "draft"

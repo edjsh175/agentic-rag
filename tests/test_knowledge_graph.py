@@ -426,6 +426,7 @@ def test_graph_candidate_batch_list_review_and_apply(test_setup):
             "confidence": 0.8,
             "evidence_text": "profile:profile-a:entity_aliases",
             "source_chunk_id": "",
+            "metadata": {"profile_id": "profile-a", "source_field": "entity_aliases"},
         },
         evidence_text="profile:profile-a:entity_aliases",
     )
@@ -486,8 +487,8 @@ def test_graph_candidate_batch_list_review_and_apply(test_setup):
         f"/admin/graph-candidates/batches/{batch_id}/review",
         json={"approve_all": True},
     )
-    assert resp_review_applied.status_code == 200
-    assert resp_review_applied.json()["batch_status"] == "applied"
+    assert resp_review_applied.status_code == 400
+    assert "approve-all is forbidden" in resp_review_applied.json()["detail"]
     assert db.get_extraction_batch(batch_id)["status"] == "applied"
 
     db.set_extraction_batch_status(batch_id, "rejected")

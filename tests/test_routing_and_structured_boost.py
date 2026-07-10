@@ -1,19 +1,30 @@
+import json
+import shutil
 import unittest
+from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
 
+from rag_knowledge.config import Config
+from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
+from tests.fixtures.pipeline_graph_facts import seed_pipeline_table_graph
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(autouse=True)
 def _isolated_test_storage(isolated_storage):
-    isolated_storage(
+    _, _, _, data_dir = isolated_storage(
         db_name="routing-structured-boost.db",
         chroma_name="routing-structured-boost-chroma",
         data_dir_name="routing-structured-boost-data",
     )
+    policies_src = PROJECT_ROOT / "data" / "retrieval_intent_policies.json"
+    shutil.copy2(policies_src, data_dir / "retrieval_intent_policies.json")
+    seed_pipeline_table_graph(RelationalDB())
 
 
 class RoutingHeuristicTests(unittest.TestCase):

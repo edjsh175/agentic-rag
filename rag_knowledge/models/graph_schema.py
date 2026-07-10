@@ -239,6 +239,11 @@ def make_section_entity_name(source: str, section_path: str) -> str:
     return f"{source_base}::{section_path}"
 
 
+def make_field_entity_name(table_name: str, field_name: str) -> str:
+    """为 Field 实体生成限定名 canonical：{DataTable}.{leaf}。"""
+    return f"{normalize_entity_name(table_name)}.{normalize_entity_name(field_name)}"
+
+
 # =====================================================================
 # 关系验证
 # =====================================================================

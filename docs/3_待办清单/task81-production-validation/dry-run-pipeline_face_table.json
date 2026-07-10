@@ -1,0 +1,154 @@
+﻿{
+  "mode": "dry-run",
+  "profiles": [
+    {
+      "profile_id": "pipeline_face_table",
+      "entities": [
+        {
+          "name": "管线面表",
+          "entity_type": "DataTable",
+          "doc_category": "",
+          "properties": {},
+          "confidence": 0.8,
+          "created_by": "rule:profile_sync",
+          "evidence_text": "profile:pipeline_face_table:entity_aliases"
+        },
+        {
+          "name": "管线面表.管面编号",
+          "entity_type": "Field",
+          "doc_category": "",
+          "properties": {},
+          "confidence": 0.8,
+          "created_by": "rule:profile_sync",
+          "evidence_text": "profile:pipeline_face_table:recall_terms"
+        }
+      ],
+      "aliases": [
+        {
+          "entity_name": "管线面表",
+          "alias": "面表数据结构",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:entity_aliases",
+          "metadata": {
+            "profile_id": "pipeline_face_table",
+            "source_field": "entity_aliases"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "source_name": "PipelineBuilder",
+          "relation_type": "has_table",
+          "target_name": "管线面表",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:section_families",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        },
+        {
+          "source_name": "管线面表",
+          "relation_type": "belongs_to",
+          "target_name": "PipelineBuilder",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:section_families",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        },
+        {
+          "source_name": "管线面表",
+          "relation_type": "has_field",
+          "target_name": "管线面表.管面编号",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:recall_terms",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        },
+        {
+          "source_name": "管线点表",
+          "relation_type": "different_from",
+          "target_name": "管线线表",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:sibling_penalty_groups",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        },
+        {
+          "source_name": "管线点表",
+          "relation_type": "different_from",
+          "target_name": "管线面表",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:sibling_penalty_groups",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        },
+        {
+          "source_name": "管线线表",
+          "relation_type": "different_from",
+          "target_name": "管线面表",
+          "confidence": 0.8,
+          "source_chunk_id": "",
+          "evidence_text": "profile:pipeline_face_table:sibling_penalty_groups",
+          "created_by": "rule:profile_sync",
+          "metadata": {}
+        }
+      ],
+      "weak_relations": [],
+      "diagnostics": [
+        {
+          "code": "missing_section_entity",
+          "message": "no approved section for canonical path: PipelineBuilder > 数据规范 > 管线面表",
+          "profile_id": "pipeline_face_table",
+          "term": "PipelineBuilder > 数据规范 > 管线面表"
+        },
+        {
+          "code": "generic_recall_term",
+          "message": "generic recall term skipped: 字段名",
+          "profile_id": "pipeline_face_table",
+          "term": "字段名"
+        },
+        {
+          "code": "generic_recall_term",
+          "message": "generic recall term skipped: 说明",
+          "profile_id": "pipeline_face_table",
+          "term": "说明"
+        }
+      ]
+    }
+  ],
+  "skipped_generics": [
+    {
+      "profile_id": "pipeline_face_table",
+      "term": "字段名",
+      "reason": "generic recall term skipped: 字段名"
+    },
+    {
+      "profile_id": "pipeline_face_table",
+      "term": "说明",
+      "reason": "generic recall term skipped: 说明"
+    }
+  ],
+  "suggested_policies": [
+    {
+      "id": "pipeline_face_table",
+      "entity_ref": "管线面表",
+      "intent_terms": [],
+      "query_hints": [
+        "面表数据结构",
+        "管面编号",
+        "字段名",
+        "说明"
+      ],
+      "preferred_doc_categories": [
+        "StampTools"
+      ],
+      "fallback_doc_categories": [],
+      "candidate_min_k": null
+    }
+  ]
+}

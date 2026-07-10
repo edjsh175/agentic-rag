@@ -121,3 +121,36 @@ venv\Scripts\python.exe run_retrieval_ab.py data/eval_dataset_hardcases.json --m
 - `intent_profile_penalty`
 
 它们只用于排查 profile 是否生效，不属于对外稳定 API，也不应该被前端或外部流程强依赖。
+
+## 8. Graph 事实约定（Task 8.2）
+
+Profile 同步到图谱（`sync_profiles_to_graph.py`）与运行时评分（`GraphIntentFactProvider`）共用以下约定：
+
+### Field
+
+- canonical 名称为限定名：`{DataTable}.{leaf}`（例如 `管线点表.管点编号`）。
+- 禁止再创建裸 `管点编号` Field 实体。
+- 评分时同时匹配 full name 与 leaf name。
+
+### Section
+
+- canonical Section 由 Phase B 抽取创建，实体名为 `make_section_entity_name(source, section_path)`。
+- profile sync **不得**创建裸 `PipelineBuilder > …` Section 实体。
+- 章节家族 alias（如 `点数据结构`）通过 DataTable 的 **approved entity alias** 表达；scorer 从 canonical `defined_in` path 派生 alias path。
+
+### 存在性与门禁
+
+- migration dry-run 区分 `exists_any` 与 `exists_approved`；pending 事实不算运行时满足。
+- 部署前运行：`scripts/validate_task81_graph_gate.py --json`（或 `--skip-global-quality` 跳过全图历史债）。
+- 判定为 `NEEDS_APPLY` 后，按拆分命令人工审批候选，**禁止** `--approve-all` 与 `--review-status approved` 直写正式库。
+
+### 人工审批示例（拆分命令）
+
+```powershell
+.\venv\Scripts\python.exe sync_profiles_to_graph.py --apply --profile-id pipeline_point_table
+.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --summary
+.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-kind alias --approve-confidence-above 0.79
+.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-type DataTable --approve-confidence-above 0.79
+.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-relation-type different_from --approve-confidence-above 0.79
+.\venv\Scripts\python.exe run_graph_build.py apply --batch <id>
+```

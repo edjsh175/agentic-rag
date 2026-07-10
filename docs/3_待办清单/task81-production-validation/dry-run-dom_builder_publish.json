@@ -1,0 +1,32 @@
+﻿{
+  "mode": "dry-run",
+  "profiles": [
+    {
+      "profile_id": "dom_builder_publish",
+      "entities": [],
+      "aliases": [],
+      "relations": [],
+      "weak_relations": [],
+      "diagnostics": []
+    }
+  ],
+  "skipped_generics": [],
+  "suggested_policies": [
+    {
+      "id": "dom_builder_publish",
+      "entity_ref": "DOMBuilder",
+      "intent_terms": [
+        "发布",
+        "publish"
+      ],
+      "query_hints": [],
+      "preferred_doc_categories": [
+        "StampTools"
+      ],
+      "fallback_doc_categories": [
+        "StampServer"
+      ],
+      "candidate_min_k": 8
+    }
+  ]
+}

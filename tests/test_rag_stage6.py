@@ -131,7 +131,7 @@ class RagStage6Tests(unittest.TestCase):
         self.assertEqual(res["source_documents"], [])
         chain._retrieve_multi.assert_called_once_with(
             [], kb_name=None, doc_category=None,
-            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
         )
 
         chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
@@ -141,7 +141,7 @@ class RagStage6Tests(unittest.TestCase):
         self.assertEqual(res_async["source_documents"], [])
         chain._aretrieve_multi_uncached.assert_awaited_once_with(
             [], kb_name=None, doc_category=None,
-            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
         )
 
         chain._query_cache = object()
@@ -174,7 +174,7 @@ class RagStage6Tests(unittest.TestCase):
         res_enabled = chain.query("question", allow_general_knowledge=False)
         chain._retrieve_multi.assert_called_once_with(
             [], kb_name=None, doc_category=None,
-            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
         )
 
         # Scenario B: Graph disabled (_graph_retriever is None)
@@ -185,7 +185,7 @@ class RagStage6Tests(unittest.TestCase):
         self.assertEqual(res_enabled, res_disabled)
         chain._retrieve_multi.assert_called_once_with(
             [], kb_name=None, doc_category=None,
-            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False
+            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
         )
 
     def test_multi_retrieval_passes_query_weights_and_labels_to_strategy(self):
@@ -194,7 +194,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._strategy = MagicMock()
         chain._strategy.retrieve_many.return_value = []
         chain._postprocess_docs_sync = (
-            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False: docs
+            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False, intent_plan=None: docs
         )
 
         specs = [
@@ -221,7 +221,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._strategy = MagicMock()
         chain._strategy.retrieve_many.return_value = []
         chain._postprocess_docs_sync = (
-            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False: docs
+            lambda question, docs, enabled, target_top_k=None, expand_neighbors=False, intent_plan=None: docs
         )
 
         specs = [
@@ -257,7 +257,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=True,
             plan_top_k=8,
             plan_candidate_k=24,
-            expand_neighbors=True,
+            expand_neighbors=True, intent_plan=None,
         )
 
         chain._retrieve.assert_called_once_with(
@@ -270,7 +270,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=True,
             top_k_override=8,
             candidate_k_override=24,
-            expand_neighbors=True,
+            expand_neighbors=True, intent_plan=None,
         )
 
     def test_single_query_async_retrieval_keeps_planner_parameters(self):
@@ -284,7 +284,7 @@ class RagStage6Tests(unittest.TestCase):
                 web_search=True,
                 plan_top_k=8,
                 plan_candidate_k=24,
-                expand_neighbors=True,
+                expand_neighbors=True, intent_plan=None,
             )
         )
 
@@ -298,7 +298,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=True,
             top_k_override=8,
             candidate_k_override=24,
-            expand_neighbors=True,
+            expand_neighbors=True, intent_plan=None,
         )
 
     def test_stream_route_encodes_named_status_event(self):
@@ -431,7 +431,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=False,
             plan_top_k=4,
             plan_candidate_k=12,
-            expand_neighbors=False,
+            expand_neighbors=False, intent_plan=None,
         )
 
     def test_aquery_always_requests_rerank_when_thinking_false_or_none(self):
@@ -459,7 +459,7 @@ class RagStage6Tests(unittest.TestCase):
                     web_search=False,
                     plan_top_k=4,
                     plan_candidate_k=12,
-                    expand_neighbors=False,
+                    expand_neighbors=False, intent_plan=None,
                 )
 
     def test_stream_query_maps_thinking_true_to_request_rerank(self):
@@ -490,7 +490,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=False,
             plan_top_k=4,
             plan_candidate_k=12,
-            expand_neighbors=False,
+            expand_neighbors=False, intent_plan=None,
         )
 
     def test_stream_query_always_requests_rerank_when_thinking_false_or_none(self):
@@ -524,7 +524,7 @@ class RagStage6Tests(unittest.TestCase):
                     web_search=False,
                     plan_top_k=4,
                     plan_candidate_k=12,
-                    expand_neighbors=False,
+                    expand_neighbors=False, intent_plan=None,
                 )
 
     def test_query_logs_deep_mode_rerank_and_thinking_states(self):
@@ -563,7 +563,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=False,
             plan_top_k=4,
             plan_candidate_k=12,
-            expand_neighbors=False,
+            expand_neighbors=False, intent_plan=None,
         )
         self.assertTrue(
             any(
@@ -598,7 +598,7 @@ class RagStage6Tests(unittest.TestCase):
                     web_search=False,
                     plan_top_k=4,
                     plan_candidate_k=12,
-                    expand_neighbors=False,
+                    expand_neighbors=False, intent_plan=None,
                 )
 
     def test_query_uses_planner_parameters_for_retrieval(self):
@@ -624,7 +624,7 @@ class RagStage6Tests(unittest.TestCase):
             web_search=False,
             plan_top_k=8,
             plan_candidate_k=24,
-            expand_neighbors=True,
+            expand_neighbors=True, intent_plan=None,
         )
 
     def test_unknown_kb_async_path_merges_two_targets_deterministically(self):
@@ -643,7 +643,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._quality = type(
             "QualityStub",
             (),
-            {"apply": lambda self, question, docs: docs},
+            {"apply": lambda self, question, docs, **kwargs: docs},
         )()
         chain._compress_retrieved_docs = lambda question, docs: docs
         chain._route_query = lambda question: None
@@ -688,7 +688,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._quality = type(
             "QualityStub",
             (),
-            {"apply": lambda self, question, docs: docs},
+            {"apply": lambda self, question, docs, **kwargs: docs},
         )()
         chain._compress_retrieved_docs = lambda question, docs: docs
         chain._route_query = lambda question: None

@@ -29,7 +29,7 @@ from rag_knowledge.services.query_contextualizer import (
     get_contextualizer,
 )
 from rag_knowledge.services.web_search import WebSearch
-from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
+from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +365,7 @@ class RagChain:
         graph_entity_ids: tuple[str, ...] = (),
         graph_revision: str = "",
         graph_guard: Any = None,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         cache = getattr(self, "_query_cache", None)
@@ -407,6 +408,7 @@ class RagChain:
             top_k_override=top_k_override,
             candidate_k_override=candidate_k_override,
             expand_neighbors=expand_neighbors,
+            intent_plan=intent_plan,
             **graph_uncached_kwargs,
         )
 
@@ -429,6 +431,7 @@ class RagChain:
         graph_docs: list[Document] | None = None,
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -503,6 +506,7 @@ class RagChain:
             enable_rerank,
             target_top_k=top_k_override,
             expand_neighbors=expand_neighbors,
+            intent_plan=intent_plan,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -524,6 +528,7 @@ class RagChain:
         enable_rerank: bool,
         target_top_k: int | None = None,
         expand_neighbors: bool = False,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> list[Document]:
         if expand_neighbors and docs:
             docs = await asyncio.to_thread(self._expand_neighbor_chunks, docs)
@@ -543,7 +548,12 @@ class RagChain:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
 
-        docs = await asyncio.to_thread(self._quality.apply, question, docs)
+        docs = await asyncio.to_thread(
+            self._quality.apply,
+            question,
+            docs,
+            intent_plan=intent_plan,
+        )
         docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
@@ -588,7 +598,8 @@ class RagChain:
                   web_search: bool = False,
                   top_k_override: int | None = None,
                   candidate_k_override: int | None = None,
-                  expand_neighbors: bool = False) -> tuple[list[dict], str]:
+                  expand_neighbors: bool = False,
+                  intent_plan: RetrievalIntentPlan | None = None) -> tuple[list[dict], str]:
         """Execute retrieval and return (source_docs, formatted context)."""
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -638,6 +649,7 @@ class RagChain:
             enable_rerank,
             target_top_k=top_k_override,
             expand_neighbors=expand_neighbors,
+            intent_plan=intent_plan,
         )
 
         source_docs = [self._normalize_source(d.page_content, d.metadata, i + 1)
@@ -899,6 +911,7 @@ class RagChain:
         graph_weight: float = 1.25,
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -917,6 +930,7 @@ class RagChain:
                 top_k_override=plan_top_k,
                 candidate_k_override=plan_candidate_k,
                 expand_neighbors=expand_neighbors,
+                intent_plan=intent_plan,
             )
 
         q = query_texts[0]  # ???????? and web search
@@ -943,7 +957,8 @@ class RagChain:
                 graph_guard=graph_guard,
             )
         docs = self._postprocess_docs_sync(
-            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
+            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors,
+            intent_plan=intent_plan,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -974,6 +989,7 @@ class RagChain:
         graph_weight: float = 1.25,
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> tuple[list[dict], str]:
         """异步多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -1000,6 +1016,7 @@ class RagChain:
                 top_k_override=plan_top_k,
                 candidate_k_override=plan_candidate_k,
                 expand_neighbors=expand_neighbors,
+                intent_plan=intent_plan,
                 **graph_cache_kwargs,
             )
 
@@ -1027,7 +1044,8 @@ class RagChain:
                 graph_guard=graph_guard,
             )
         docs = await self._postprocess_docs(
-            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors
+            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors,
+            intent_plan=intent_plan,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -1049,6 +1067,7 @@ class RagChain:
         enable_rerank: bool,
         target_top_k: int | None = None,
         expand_neighbors: bool = False,
+        intent_plan: RetrievalIntentPlan | None = None,
     ) -> list[Document]:
         """同步版文档后处理（rerank + quality + compression）。"""
         if expand_neighbors and docs:
@@ -1065,7 +1084,7 @@ class RagChain:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
 
-        docs = self._quality.apply(question, docs)
+        docs = self._quality.apply(question, docs, intent_plan=intent_plan)
         docs = self._compress_retrieved_docs(question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
@@ -1357,6 +1376,7 @@ class RagChain:
                 plan_top_k=plan.top_k,
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
+                intent_plan=getattr(plan, "intent_plan", None),
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -1462,6 +1482,7 @@ class RagChain:
                 plan_top_k=plan.top_k,
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
+                intent_plan=getattr(plan, "intent_plan", None),
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -1575,6 +1596,7 @@ class RagChain:
                     plan_top_k=plan.top_k,
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
+                    intent_plan=getattr(plan, "intent_plan", None),
                     **graph_kwargs,
                 )
             else:
@@ -1593,6 +1615,7 @@ class RagChain:
                     plan_top_k=plan.top_k,
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
+                    intent_plan=getattr(plan, "intent_plan", None),
                     **sync_graph_kwargs,
                 )
             self._record_chunk_hit_query(source_docs)

@@ -9,9 +9,24 @@ from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.query_cache import clear_query_cache
 from rag_knowledge.services.rag import RagChain
-from rag_knowledge.services.retrieval_intent import section_matches_expected as _section_matches_expected
+from rag_knowledge.services.retrieval_intent import (
+    load_legacy_intent_profiles,
+    section_matches_expected as _section_matches_expected,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_LEGACY_PROFILES = load_legacy_intent_profiles(
+    PROJECT_ROOT / "data/migrations/retrieval_intent_profiles_v1.json"
+)
+
+
+def _match_section(actual_section: str, expected_section: str | None) -> bool:
+    return _section_matches_expected(
+        actual_section,
+        expected_section,
+        entity_ref="",
+        profiles=_LEGACY_PROFILES,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -45,10 +60,15 @@ def _setup_regression_env(test_case):
 
 class SectionFamilyMatcherTests(unittest.TestCase):
     def test_point_data_child_section_matches_point_table_parent_expectation(self):
+        profiles = load_legacy_intent_profiles(
+            PROJECT_ROOT / "data/migrations/retrieval_intent_profiles_v1.json"
+        )
         self.assertTrue(
             _section_matches_expected(
                 "PipelineBuilder > 数据规范 > 点数据结构",
                 "PipelineBuilder > 数据规范 > 管线点表",
+                entity_ref="管线点表",
+                profiles=profiles,
             )
         )
 
@@ -93,7 +113,7 @@ class RetrievalRegressionIntegrationTests(unittest.TestCase):
                         continue
 
                     actual_section = meta.get("section_path", "")
-                    if not _section_matches_expected(actual_section, expected_section):
+                    if not _match_section(actual_section, expected_section):
                         continue
 
                     content = doc.page_content or ""
@@ -183,7 +203,7 @@ class RagChainRetrievalRegressionTests(unittest.TestCase):
                         continue
 
                     actual_section = meta.get("section_path", "")
-                    if not _section_matches_expected(actual_section, expected_section):
+                    if not _match_section(actual_section, expected_section):
                         continue
 
                     content = doc.get("content", "")

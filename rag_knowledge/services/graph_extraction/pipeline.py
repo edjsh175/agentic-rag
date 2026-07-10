@@ -7,8 +7,15 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Callable
 
-from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
+from rag_knowledge.models.graph_schema import make_field_entity_name, normalize_entity_name, validate_relation
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.graph_governance import (
+    ApplyAuditRecord,
+    append_apply_audit,
+    candidate_summary,
+    graph_counts,
+    utc_now,
+)
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.entity_resolution import EntityResolutionService
@@ -316,9 +323,13 @@ class GraphCandidateApplier:
     def __init__(self, db: RelationalDB | None = None):
         self.db = db or RelationalDB()
 
-    def apply(self, batch_id: str) -> None:
+    def apply(self, batch_id: str, *, operator: str = "system", backup_path: str = "") -> dict:
         batch = self.db.get_extraction_batch(batch_id)
-        if not batch or batch["status"] != "approved":
+        if not batch:
+            raise ValueError("extraction batch not found")
+        if batch["status"] == "applied":
+            raise ValueError("batch already applied")
+        if batch["status"] != "approved":
             raise ValueError("only approved batches can be applied")
         candidates = sorted(
             self.db.list_extraction_candidates(batch_id, "approved"),
@@ -331,6 +342,8 @@ class GraphCandidateApplier:
             message = "; ".join(preflight.errors)
             self.db.set_extraction_batch_status(batch_id, "failed", message)
             raise ValueError(message)
+        counts_before = graph_counts(self.db)
+        started_at = utc_now()
         try:
             with self.db._get_conn() as conn:
                 for candidate in candidates:
@@ -346,6 +359,19 @@ class GraphCandidateApplier:
         except Exception as exc:
             self.db.set_extraction_batch_status(batch_id, "failed", str(exc))
             raise
+        counts_after = graph_counts(self.db)
+        audit = ApplyAuditRecord(
+            batch_id=batch_id,
+            mode=str(batch.get("mode") or ""),
+            operator=operator,
+            started_at=started_at,
+            counts_before=counts_before,
+            counts_after=counts_after,
+            candidate_summary=candidate_summary(candidates),
+            backup_path=backup_path,
+        )
+        append_apply_audit(audit)
+        return audit.to_dict()
 
     def _apply_one(self, conn: sqlite3.Connection, kind: str, payload: dict) -> str:
         if kind == "entity":
@@ -454,7 +480,7 @@ class GraphCandidateApplier:
         table = self._lookup_entity(conn, payload["table_name"])
         if table["entity_type"] != "DataTable":
             raise ValueError(f"field table is not DataTable: {payload['table_name']}")
-        scoped_name = f"{payload['table_name']}.{normalize_entity_name(payload['field_name'])}"
+        scoped_name = make_field_entity_name(payload["table_name"], payload["field_name"])
         field_entity_id = self._entity(conn, {
             "name": scoped_name, "entity_type": "Field", "doc_category": table["doc_category"] or "", "properties": {}
         })

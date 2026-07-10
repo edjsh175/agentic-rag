@@ -94,7 +94,7 @@ class RagRerankerIntegrationTests(unittest.TestCase):
         chain._strategy = MagicMock()
         chain._strategy.retrieve.return_value = docs
         chain._quality = MagicMock()
-        chain._quality.apply.side_effect = lambda query, values: values
+        chain._quality.apply.side_effect = lambda query, values, **kwargs: values
         return chain
 
     @patch("rag_knowledge.services.reranker.create_reranker")
