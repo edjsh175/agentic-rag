@@ -1,0 +1,5 @@
+# Cross-encoder reranking (optional; omit in production CPU-no-reranker images)
+FlagEmbedding>=1.2.0
+torch>=2.0.0
+transformers>=4.44.2,<5
+sentence-transformers>=3.0.0

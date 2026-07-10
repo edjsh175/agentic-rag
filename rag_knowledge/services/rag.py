@@ -272,6 +272,8 @@ class RagChain:
 
     def _get_reranker(self):
         """按需创建重排序器；底层模型仍由 reranker 在首次调用时懒加载。"""
+        if not self._reranker_enabled:
+            return None
         if self._reranker is None:
             from rag_knowledge.services.reranker import create_reranker
             self._reranker = create_reranker(self._reranker_type, self._reranker_model)
@@ -584,10 +586,13 @@ class RagChain:
             candidate_count = len(docs)
             try:
                 reranker_instance = self._get_reranker()
-                docs = await asyncio.to_thread(
-                    reranker_instance.rerank, question, docs, rerank_top_k
-                )
-                logger.debug("reranker finished | %d -> %d", candidate_count, len(docs))
+                if reranker_instance is None:
+                    docs = docs[:rerank_top_k]
+                else:
+                    docs = await asyncio.to_thread(
+                        reranker_instance.rerank, question, docs, rerank_top_k
+                    )
+                    logger.debug("reranker finished | %d -> %d", candidate_count, len(docs))
             except Exception as e:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
@@ -1121,7 +1126,10 @@ class RagChain:
         if enable_rerank and len(docs) > rerank_top_k:
             try:
                 reranker_instance = self._get_reranker()
-                docs = reranker_instance.rerank(question, docs, rerank_top_k)
+                if reranker_instance is None:
+                    docs = docs[:rerank_top_k]
+                else:
+                    docs = reranker_instance.rerank(question, docs, rerank_top_k)
             except Exception as e:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
@@ -1223,7 +1231,9 @@ class RagChain:
                 queries,
                 top_k=getattr(self, "_retrieval_k", 4),
                 candidate_k=getattr(self, "_reranker_candidate_k", 12),
-                enable_rerank=force_rerank,
+                enable_rerank=bool(
+                    getattr(self, "_reranker_enabled", False) and force_rerank
+                ),
             )
         return planner.plan(question, queries, force_rerank=force_rerank)
 

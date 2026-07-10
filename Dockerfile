@@ -1,20 +1,33 @@
-# 使用轻量级的 Python 镜像
 FROM python:3.11-slim
 
-# 设置工作目录
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-# 先拷贝依赖文件，利用 Docker 缓存优化构建速度
-COPY requirements.txt .
+COPY requirements-base.txt .
+COPY requirements-reranker.txt .
 
-# 安装依赖（建议使用国内源加速）
-RUN pip install --no-cache-dir -r requirements.txt
+ARG INSTALL_RERANKER=false
 
-# 拷贝项目所有代码到镜像中
-COPY . .
+# If pip install or document parsing fails at runtime, uncomment and adjust:
+# RUN apt-get update \
+#     && apt-get install -y --no-install-recommends \
+#        libglib2.0-0 libgl1 libmagic1 \
+#     && rm -rf /var/lib/apt/lists/*
 
-# 暴露你的项目端口
+RUN pip install --no-cache-dir -r requirements-base.txt \
+    && if [ "$INSTALL_RERANKER" = "true" ]; then \
+         pip install --no-cache-dir -r requirements-reranker.txt; \
+       fi
+
+COPY rag_knowledge/ ./rag_knowledge/
+COPY scripts/ ./scripts/
+COPY run.py .
+COPY run_graph_build.py .
+COPY sync_profiles_to_graph.py .
+
 EXPOSE 10605
 
-# 运行启动脚本
 CMD ["python", "run.py"]

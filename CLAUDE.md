@@ -61,7 +61,7 @@
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
 - ✅ 阶段四：语料治理 + 新资料规范入库 — 已完成（文本清洗、难例评测集生成、批量审核入口）
-- ✅ 阶段五：Cross-Encoder Reranker — 代码、降级流程和本地 A/B 验证已完成；当前最佳策略为 `Hybrid+Rerank`，生产默认是否启用取决于部署机模型与 CUDA 条件
+- ✅ 阶段五：Cross-Encoder Reranker — 代码、降级流程和本地 A/B 验证已完成；当前最佳策略为 `Hybrid+Rerank`；**生产 CPU 默认关闭**（`config-prod.ini` / `RERANKER_ENABLED=false`），本地开发可启用
 - ✅ 阶段五附加：检索质量控制 — 已实现分数归一化、Jaccard 去重、动态 TopK；但 `Hybrid+Rerank+Quality` 指标略低于 `Hybrid+Rerank`，暂不建议默认开启
 - ✅ 阶段六：性能优化 — Embedding 缓存、查询缓存、Hybrid 两路并发召回、异步检索与并发检索已落地，并已补齐缓存失效与测试验证
 - ✅ 检索路径统一 — 同步与异步检索路径已完全统一，均通过 RetrievalStrategy 进行检索召回与 multi-KB 合并，移除了遗留的直接调用 chroma.as_retriever 分支
@@ -75,6 +75,7 @@
 - ✅ 知识图谱语义抽取 MVP — 已于 2026-07-09 完成；支持 Graph Audit、Stale Link Cleanup、Export Manual Facts、LLM Graph Extractor 基础版（提供置信度、证据和 Schema 校验），以及 pipeline 融合与正式库 properties_json 写入
 - ✅ Task 8.1 切断 legacy 评分双读 — 运行时 `RetrievalIntentResolver.default()` 只读 `retrieval_intent_policies.json`；意图评分由 `GraphIntentFactProvider` + `score_signals()` 驱动；正式库 profile_sync batch 已 apply，专项 Gate **PASS**（2026-07-10）
 - ✅ Task 8.2 Profile Migration 与 Graph Schema 兼容 — scoped Field（`管线点表.管点编号`）、alias / `different_from` / `has_field` 等经分拆审批写入正式 Graph；`scripts/validate_task81_graph_gate.py` 输出 PASS / NEEDS_APPLY / BLOCKED
+- ✅ Docker 生产部署骨架 — 双容器（`rag-service` FastAPI + `rag-web` Nginx/dist）；生产 CPU 默认 `INSTALL_RERANKER=false`、不将模型打入镜像；`reranker.enabled=false` 三层门控（QueryPlanner / `_get_reranker` / postprocess 降级）；详见 [`deploy/README.md`](deploy/README.md)
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办
 
 ### 核心功能
@@ -125,9 +126,15 @@ rag_python/
 ├── run_graph_build.py              # 图谱 extract/review/apply/quality CLI
 ├── sync_profiles_to_graph.py       # Profile → Graph 候选同步 CLI
 ├── config.ini                      # 开发配置文件
-├── config-prod.ini                 # 生产配置文件
-├── Dockerfile                      # Docker 部署
-├── requirements.txt                # Python 依赖
+├── config-prod.ini                 # 生产配置模板（部署时复制为宿主机 config.ini 挂载）
+├── Dockerfile                      # 后端镜像（ARG INSTALL_RERANKER，默认 false）
+├── docker-compose.yml              # 双服务编排（rag-service + rag-web）
+├── requirements.txt                # 开发全量依赖（-r base + -r reranker）
+├── requirements-base.txt           # 业务依赖（不含 torch/FlagEmbedding）
+├── requirements-reranker.txt         # Reranker 可选依赖
+├── requirements-cuda.txt             # 本地 GPU 开发覆盖（不纳入 Docker CPU 验收）
+├── requirements-dev.txt              # 开发依赖（-r requirements.txt + pytest）
+├── deploy/README.md                # Docker 生产部署说明
 ├── CLAUDE.md                       # 项目说明
 │
 ├── rag_knowledge/                  # 后端主包
@@ -192,6 +199,8 @@ rag_python/
 │       └── graph_retrieval.py      # 图谱检索（实体扩展 + 文档融合 + 守卫过滤）
 │
 ├── web/                            # 前端（Vue 3 + TypeScript + Vite）
+│   ├── Dockerfile                  # 多阶段构建（npm build → nginx:alpine）
+│   ├── nginx.conf                  # 生产 Nginx（/api 代理、SSE、静态资源）
 │   ├── src/
 │   │   ├── main.ts                 # 入口
 │   │   ├── App.vue                 # 根组件（导航切换：聊天/博客管理）
@@ -275,7 +284,7 @@ rag_python/
 | 难例集（144 题） | Hybrid+Rerank | **90.97%** | **95.83%** | **0.7888** | 当前最优 |
 | 难例集（144 题） | Hybrid+Rerank+Quality | 90.28% | 93.06% | 0.7812 | 质量控制略降 |
 
-> 结论：当前推荐的高质量检索方案是 `Hybrid+Rerank`。检索质量控制策略已经实现，但不建议作为默认叠加项。生产默认策略仍需结合部署机模型文件、显存/CUDA 条件和延迟要求决定。
+> 结论：当前推荐的高质量检索方案是 `Hybrid+Rerank`。检索质量控制策略已经实现，但不建议作为默认叠加项。生产 CPU 默认关闭 Reranker（`Hybrid` + Graph）；本地开发或未来 GPU 环境可启用并挂载模型。
 
 ## 后端架构详解
 
@@ -318,7 +327,7 @@ watch_directory/ 文件变化
       → 检索默认过滤 review_status='approved'，可选 doc_category 过滤
       → `_retrieve()` 支持 `review_status=None` 跳过审核过滤（评估用）
       → `_retrieve()` 支持 `method` 参数覆盖配置（评估用）
-    → [可选] Reranker 精排（粗召回 candidate_k → reranker top_n；失败时回退原始排序）
+    → [可选] Reranker 精排（须 `[reranker] enabled=true`；QueryPlanner 再按 intent/force_rerank 决定；`_get_reranker()` 与 postprocess 对 None/失败降级）
     → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK；结合 Graph 意图评分做 section boost / sibling penalty）
     → [可选] 上下文压缩（从 chunk 中提取与问题相关的连续原文片段）
     → [可选] 联网搜索增强（DuckDuckGo）
@@ -407,6 +416,13 @@ App.vue (导航栏: 知识库问答 | 博客管理)
 ### API 层设计（web/src/api/index.ts）
 - 基于 axios（自动解包 data + 统一错误格式化）
 - 流式接口（`/query/stream`, `/query/image`）使用原生 fetch + ReadableStream
+- 生产环境 `baseURL: '/api'`，由 Nginx 反向代理到后端 `10605`（路径前缀 `/api` 在代理时剥离）
+
+### 生产前端托管
+- 开发：`vite` dev server + proxy（`web/vite.config.ts`）
+- 生产：`npm run build` → `web/dist/` → `rag-web` 容器内 Nginx 静态托管
+- SPA 路由：`try_files $uri $uri/ /index.html`
+- `/scraping/`、`/articleImg/` 由 Nginx 单独配置（见 `web/nginx.conf`）
 
 ### 持久化策略（web/src/utils/storage.ts）
 - **localStorage**：消息文本、角色、来源文档（轻量数据）
@@ -440,11 +456,28 @@ npm install
 npm run dev  # 默认代理 /api → http://127.0.0.1:10605
 ```
 
-### Docker 部署
+### Docker 部署（生产推荐）
+
+架构：`rag-web`（Nginx + Vue dist，对外 `:80`）→ `rag-service`（FastAPI，内部 `10605`）。
+
 ```bash
-docker build -t rag-knowledge .
-docker run -p 10605:10605 rag-knowledge
+# 首次部署前：
+# 1. 将 config-prod.ini 复制到 /data/rag_python/config.ini（含 reranker.enabled=false）
+# 2. 初始化 /data/rag_python/data/（含 retrieval_intent_policies.json、agents.json、rag_relational.db 等）
+# 3. Ollama base_url 使用容器可访问 IP，禁止 localhost
+
+docker compose build
+docker compose up -d
 ```
+
+要点：
+- 后端镜像 `INSTALL_RERANKER=false`（默认），不安装 torch/FlagEmbedding，模型目录不进入镜像
+- 配置只通过 volume 挂载 `/data/rag_python/config.ini:/app/config.ini:ro`；`config-prod.ini` 不进镜像
+- `/data/rag_python/data` volume **完全覆盖**容器内 `data/`，不得用空目录覆盖正式数据
+- `rag-service` 带 healthcheck；`rag-web` 在 `service_healthy` 后启动
+- SSE：`web/nginx.conf` 须 `proxy_buffering off`
+
+完整步骤与验收清单见 [`deploy/README.md`](deploy/README.md)。
 
 ## 常见操作
 
@@ -462,6 +495,7 @@ docker run -p 10605:10605 rag-knowledge
 - **图谱乱码修复**：`run_graph_build.py repair-text` 修复关系图谱中的 mojibake 中文标签
 - **测试隔离**：`pytest` 默认排除 `@pytest.mark.integration` 测试（`addopts = -m "not integration"`）。`isolated_storage` fixture 将全部 8 个运行时路径指向 `tmp_path`。`Config._assert_test_paths_are_isolated()` 在 pytest 下检测到正式路径时直接抛错，除非设置 `ALLOW_LIVE_STORAGE_IN_TESTS=1`。需接触正式库的集成测试显式运行 `pytest -m integration`
 - **交付门禁检查**：`.\venv\Scripts\python.exe scripts/check_repo_hygiene.py` — 只读检查工作树清洁度、禁止 `NUL`/`*.tmp`/`_debug` 垃圾、`data/domain_catalog.json` 已跟踪；交付提交前须 exit 0
+- **Docker 生产部署**：`docker compose build && docker compose up -d`；详见 [`deploy/README.md`](deploy/README.md)。生产默认 `RERANKER_ENABLED=false`；启用 Reranker 需 `INSTALL_RERANKER=true` 重建镜像并 volume 挂载模型目录
 
 ### 2026-07-01 Chroma 环境混用事故
 
@@ -494,6 +528,8 @@ docker run -p 10605:10605 rag-knowledge
 - **Field 限定名（Task 8.2）**：canonical Field 为 `{DataTable}.{leaf}`（如 `管线面表.管面编号`）；禁止裸 Field/Section；profile sync 不得创建裸 `PipelineBuilder > …` Section
 - **Profile sync 生产写门禁**：`graph_governance.assert_write_confirmation()` 要求显式确认 DB 路径、batch id、备份文件；`profile_sync` / `domain_catalog_seed` 等 mode 禁止 `--approve-all`
 - **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 104 条 `missing_evidence` 不改变专项判定
+- **Reranker 全局门控**：`[reranker] enabled=false`（或 `RERANKER_ENABLED=false`）时三层防御——(1) `QueryPlanner` / `_plan_retrieval` fallback 不产出 `enable_rerank=True`；(2) `_get_reranker()` 返回 `None`；(3) `_postprocess_docs` / `_postprocess_docs_sync` 对 `None` 或加载失败截断 `top_n`。`force_rerank=True` 不能绕过全局开关
+- **Docker 依赖拆分**：`requirements-base.txt`（业务）+ `requirements-reranker.txt`（torch/FlagEmbedding，可选）；`requirements.txt` 聚合两者供本地开发；`requirements-cuda.txt` 仅本地 GPU，不纳入 CPU 生产镜像验收
 - **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据
 
 ## Prompt 与回答规范

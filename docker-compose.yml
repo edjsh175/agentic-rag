@@ -2,16 +2,57 @@ version: '3.8'
 
 services:
   rag-service:
-    image: rag-python-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_RERANKER: "false"
+    image: rag-backend:cpu-no-reranker
     container_name: rag-service
-    restart: always
-    ports:
-      - "10605:10605"
+    restart: unless-stopped
+
+    environment:
+      RERANKER_ENABLED: "false"
+
     volumes:
       - /data/apache-tomcat-9.0.89/webapps/zsltStaticData:/app/watch_directory
       - /data/rag_python/chroma_db:/app/chroma_db
       - /data/rag_python/logs:/app/logs
-      - /data/rag_python/config.ini:/app/config.ini
+      - /data/rag_python/config.ini:/app/config.ini:ro
       - /data/rag_python/data:/app/data
       - /data/rag_python/scrape_article:/app/scrape_article
       - /data/rag_python/scrapingImages:/app/scrapingImages
+
+    expose:
+      - "10605"
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:10605/health', timeout=5)
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  rag-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: rag-web
+    container_name: rag-web
+    restart: unless-stopped
+
+    depends_on:
+      rag-service:
+        condition: service_healthy
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - /data/rag_python/scrapingImages:/data/scrapingImages:ro

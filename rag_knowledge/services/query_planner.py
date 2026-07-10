@@ -211,7 +211,8 @@ class QueryPlanner:
         queries = self._dedupe_queries(protected_queries)
 
         top_k, candidate_k, rerank_for_intent = self._params_for_intent(intent)
-        enable_rerank = bool(force_rerank or rerank_for_intent)
+        rerank_requested = force_rerank or rerank_for_intent
+        enable_rerank = bool(self._cfg.reranker_enabled and rerank_requested)
         expand_neighbors = intent in {"procedure", "deployment"}
 
         logger.info(
@@ -247,7 +248,7 @@ class QueryPlanner:
             queries=base_queries,
             top_k=self._cfg.retrieval_top_k,
             candidate_k=self._cfg.retrieval_candidate_k,
-            enable_rerank=force_rerank,
+            enable_rerank=bool(self._cfg.reranker_enabled and force_rerank),
             expand_neighbors=False,
             confidence=1.0,
         )

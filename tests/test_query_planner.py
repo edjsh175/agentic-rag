@@ -20,6 +20,7 @@ class QueryPlannerTests(unittest.TestCase):
     def setUp(self):
         self.planner = QueryPlanner()
         self.planner._planner_cfg.enabled = True
+        self.planner._cfg.reranker_enabled = True
         self.planner._classify_via_llm = MagicMock(
             side_effect=RuntimeError("LLM disabled in unit tests")
         )
@@ -114,12 +115,64 @@ class QueryPlannerTests(unittest.TestCase):
         self.assertFalse(plan.expand_neighbors)
 
     def test_force_rerank_is_preserved_for_default_intent(self):
+        self.planner._cfg.reranker_enabled = True
         plan = self.planner.plan(
             "DOMBuilder config types",
             [RetrievalQuery("DOMBuilder config types", "original", 1.0)],
             force_rerank=True,
         )
 
+        self.assertTrue(plan.enable_rerank)
+
+    def test_force_rerank_blocked_when_reranker_disabled(self):
+        self.planner._cfg.reranker_enabled = False
+        plan = self.planner.plan(
+            "DOMBuilder config types",
+            [RetrievalQuery("DOMBuilder config types", "original", 1.0)],
+            force_rerank=True,
+        )
+
+        self.assertFalse(plan.enable_rerank)
+
+
+class QueryPlannerRerankGateTests(unittest.TestCase):
+    def setUp(self):
+        self.planner = QueryPlanner()
+        self.planner._planner_cfg.enabled = True
+        self.planner._classify_via_llm = MagicMock(
+            side_effect=RuntimeError("LLM disabled in unit tests")
+        )
+
+    def _plan(self, intent: str, *, force_rerank: bool = False):
+        self.planner._classify_via_llm = MagicMock(return_value=(intent, 0.95))
+        return self.planner.plan(
+            f"question for {intent}",
+            [RetrievalQuery(f"question for {intent}", "original", 1.0)],
+            force_rerank=force_rerank,
+        )
+
+    def test_disabled_reranker_blocks_all_intents(self):
+        self.planner._cfg.reranker_enabled = False
+        for intent in ("definition", "procedure", "troubleshooting", "comparison"):
+            with self.subTest(intent=intent):
+                plan = self._plan(intent, force_rerank=False)
+                self.assertFalse(plan.enable_rerank)
+
+    def test_disabled_reranker_blocks_force_rerank(self):
+        self.planner._cfg.reranker_enabled = False
+        for intent in ("definition", "procedure"):
+            with self.subTest(intent=intent):
+                plan = self._plan(intent, force_rerank=True)
+                self.assertFalse(plan.enable_rerank)
+
+    def test_enabled_reranker_allows_force_rerank_for_definition(self):
+        self.planner._cfg.reranker_enabled = True
+        plan = self._plan("definition", force_rerank=True)
+        self.assertTrue(plan.enable_rerank)
+
+    def test_enabled_reranker_allows_intent_rerank_without_force(self):
+        self.planner._cfg.reranker_enabled = True
+        plan = self._plan("procedure", force_rerank=False)
         self.assertTrue(plan.enable_rerank)
 
     def test_plan_exposes_empty_graph_fields_before_phase_c_enrichment(self):

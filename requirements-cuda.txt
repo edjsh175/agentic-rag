@@ -1,3 +1,5 @@
--r requirements.txt
+# CUDA PyTorch overlay for local GPU dev — not used in Docker CPU-no-reranker builds.
+-r requirements-base.txt
+-r requirements-reranker.txt
 --extra-index-url https://download.pytorch.org/whl/cu126
 torch==2.12.1+cu126

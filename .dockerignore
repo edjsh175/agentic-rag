@@ -4,3 +4,14 @@ __pycache__/
 .git/
 logs/
 data/
+models/
+chroma_db/
+watch_directory/
+web/
+backups/
+uploads/
+config.ini
+config-prod.ini
+*.md
+docs/
+tests/

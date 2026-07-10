@@ -98,12 +98,24 @@ class RagRerankerIntegrationTests(unittest.TestCase):
         return chain
 
     @patch("rag_knowledge.services.reranker.create_reranker")
-    def test_force_rerank_creates_and_calls_when_config_disabled(self, create):
+    def test_force_rerank_does_not_create_when_config_disabled(self, create):
+        docs = _docs(5)
+        chain = self._chain(docs)
+
+        sources, _ = chain._retrieve("q", kb_name="kb", method="hybrid", rerank=True)
+
+        create.assert_not_called()
+        self.assertEqual([d["metadata"]["chunk_id"] for d in sources], ["0", "1"])
+        self.assertEqual(chain._strategy.retrieve.call_args.kwargs["top_k"], 5)
+
+    @patch("rag_knowledge.services.reranker.create_reranker")
+    def test_enabled_rerank_creates_and_calls(self, create):
         docs = _docs(5)
         reranker = MagicMock()
         reranker.rerank.return_value = [docs[4], docs[3]]
         create.return_value = reranker
         chain = self._chain(docs)
+        chain._reranker_enabled = True
 
         sources, _ = chain._retrieve("q", kb_name="kb", method="hybrid", rerank=True)
 
@@ -122,8 +134,31 @@ class RagRerankerIntegrationTests(unittest.TestCase):
     @patch("rag_knowledge.services.reranker.create_reranker", side_effect=RuntimeError("offline"))
     def test_initialization_failure_falls_back_to_original_top_n(self, create):
         chain = self._chain(_docs(5))
+        chain._reranker_enabled = True
         sources, _ = chain._retrieve("q", kb_name="kb", rerank=True)
         self.assertEqual([d["metadata"]["chunk_id"] for d in sources], ["0", "1"])
+
+    @patch("rag_knowledge.services.reranker.create_reranker")
+    def test_postprocess_sync_none_reranker_truncates_without_create(self, create):
+        chain = self._chain(_docs(5))
+        chain._reranker_enabled = False
+        docs = chain._postprocess_docs_sync("q", _docs(5), enable_rerank=True, target_top_k=2)
+        create.assert_not_called()
+        self.assertEqual(len(docs), 2)
+        self.assertEqual([d.metadata["chunk_id"] for d in docs], ["0", "1"])
+
+    @patch("rag_knowledge.services.reranker.create_reranker")
+    def test_postprocess_async_none_reranker_truncates_without_create(self, create):
+        import asyncio
+
+        chain = self._chain(_docs(5))
+        chain._reranker_enabled = False
+        docs = asyncio.run(
+            chain._postprocess_docs("q", _docs(5), enable_rerank=True, target_top_k=2)
+        )
+        create.assert_not_called()
+        self.assertEqual(len(docs), 2)
+        self.assertEqual([d.metadata["chunk_id"] for d in docs], ["0", "1"])
 
 
 class RerankerEvaluationTests(unittest.TestCase):
