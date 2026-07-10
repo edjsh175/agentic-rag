@@ -76,6 +76,7 @@ class ScannerCleanupTests(unittest.TestCase):
         scanner = object.__new__(module.DirectoryScanner)
         scanner._cfg = SimpleNamespace(watch_dir=Path("."), scan_interval=30)
         scanner._index = {"files": {}}
+        scanner._refresh_retrieval = True
         scanner._collect_files = MagicMock(return_value=[])
         scanner._clean_removed = MagicMock(return_value=[])
         scanner._save_index = MagicMock()
@@ -95,6 +96,7 @@ class ScannerCleanupTests(unittest.TestCase):
         scanner = object.__new__(module.DirectoryScanner)
         scanner._cfg = SimpleNamespace(watch_dir=Path("."), scan_interval=30)
         scanner._index = {"files": {}}
+        scanner._refresh_retrieval = True
         scanner._collect_files = MagicMock(return_value=[])
         scanner._clean_removed = MagicMock(
             return_value=[SimpleNamespace(file_name="gone.md", should_rebuild_bm25=True)]
@@ -111,6 +113,84 @@ class ScannerCleanupTests(unittest.TestCase):
         scanner.scan()
 
         query_cache_stub.clear_query_cache.assert_called_once_with()
+
+    def test_staging_scan_skips_bm25_and_cache_when_refresh_retrieval_disabled(self):
+        module = _load_scanner_module()
+        scanner = object.__new__(module.DirectoryScanner)
+        scanner._cfg = SimpleNamespace(watch_dir=Path("."), scan_interval=30)
+        scanner._index = {"files": {}}
+        scanner._refresh_retrieval = False
+        scanner._collect_files = MagicMock(return_value=[])
+        scanner._clean_removed = MagicMock(
+            return_value=[SimpleNamespace(file_name="gone.md", should_rebuild_bm25=True)]
+        )
+        scanner._save_index = MagicMock()
+
+        bm25 = MagicMock()
+        module.BM25Store = MagicMock(return_value=bm25)
+
+        query_cache_stub = ModuleType("rag_knowledge.services.query_cache")
+        query_cache_stub.clear_query_cache = MagicMock()
+        sys.modules["rag_knowledge.services.query_cache"] = query_cache_stub
+
+        scanner.scan()
+
+        bm25.rebuild.assert_not_called()
+        query_cache_stub.clear_query_cache.assert_not_called()
+
+    def test_scanner_uses_custom_index_path_for_persistence(self):
+        module = _load_scanner_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            live_index = base / "file_index.json"
+            staging_index = base / "rebuild" / "staging" / "file_index.json"
+            staging_index.parent.mkdir(parents=True)
+            live_index.write_text(
+                '{"version":1,"files":{"h1":{"file_path":"a.md"}}}',
+                encoding="utf-8",
+            )
+
+            scanner = module.DirectoryScanner(
+                cfg=SimpleNamespace(
+                    data_dir=base,
+                    watch_dir=base,
+                    watch_file_types=["md"],
+                    scan_interval=30,
+                ),
+                loader=MagicMock(),
+                index_path=staging_index,
+                refresh_retrieval=False,
+            )
+            scanner._collect_files = MagicMock(return_value=[])
+            scanner._clean_removed = MagicMock(return_value=[])
+            scanner.scan()
+
+            assert staging_index.exists()
+            assert live_index.read_text(encoding="utf-8") == '{"version":1,"files":{"h1":{"file_path":"a.md"}}}'
+
+    def test_reload_index_refreshes_in_memory_index(self):
+        module = _load_scanner_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            index_path = base / "file_index.json"
+            scanner = module.DirectoryScanner(
+                cfg=SimpleNamespace(
+                    data_dir=base,
+                    watch_dir=base,
+                    watch_file_types=["md"],
+                    scan_interval=30,
+                ),
+                loader=MagicMock(),
+                index_path=index_path,
+            )
+            scanner._index = {"version": 1, "files": {"old": {}}}
+            index_path.write_text(
+                '{"version":1,"files":{"new":{"file_path":"b.md"}}}',
+                encoding="utf-8",
+            )
+            scanner.reload_index()
+            self.assertIn("new", scanner._index["files"])
+            self.assertNotIn("old", scanner._index["files"])
 
     def test_collect_files_filters_temporary_and_hidden_files(self):
         module = _load_scanner_module()

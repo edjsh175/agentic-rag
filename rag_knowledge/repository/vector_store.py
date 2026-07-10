@@ -354,6 +354,24 @@ class VectorStore:
 
         Path(self._persist_dir).mkdir(parents=True, exist_ok=True)
 
+    def fork(self, collection_name: str) -> "VectorStore":
+        scoped = object.__new__(type(self))
+        scoped._initialized = True
+        scoped._embedding_cache = self._embedding_cache
+        scoped._embeddings = self._embeddings
+        scoped._persist_dir = self._persist_dir
+        scoped._collection_name = collection_name
+        scoped._store = None
+        return scoped
+
+    def rename_collection(self, new_name: str) -> None:
+        store = self._get_store()
+        store._collection.modify(name=new_name)
+        self._collection_name = new_name
+
+    def disconnect(self) -> None:
+        self._store = None
+
     def count(self) -> int:
         """当前集合中文本块总数"""
         return self._get_store()._collection.count()

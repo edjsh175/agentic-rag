@@ -8,6 +8,18 @@ import pytest
 
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyError
 from rag_knowledge.services.rebuild_coordinator import RebuildAlreadyRunningError, RebuildCoordinator
+from rag_knowledge.repository.vector_store import VectorStore
+
+
+def test_vector_store_fork_uses_independent_collection_handle(isolated_storage):
+    isolated_storage()
+    live = VectorStore()
+    staged = live.fork("rag_knowledge__staging__op1")
+    assert staged is not live
+    assert staged._persist_dir == live._persist_dir
+    assert staged._embeddings is live._embeddings
+    assert staged._collection_name == "rag_knowledge__staging__op1"
+    assert live._collection_name != staged._collection_name
 
 
 def test_rebuild_coordinator_backs_up_index_and_clears_state_on_success(tmp_path):

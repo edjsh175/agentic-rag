@@ -44,13 +44,21 @@ class DirectoryScanner:
 
     _DOC_CATEGORIES = set(DOC_CATEGORIES)
 
-    def __init__(self):
-        self._cfg = Config()
-        self._store = VectorStore()
-        self._loader = FileLoader()
+    def __init__(
+        self,
+        *,
+        cfg=None,
+        store=None,
+        loader=None,
+        index_path: Path | None = None,
+        refresh_retrieval: bool = True,
+    ):
+        self._cfg = cfg or Config()
+        self._store = store or VectorStore()
+        self._loader = loader or FileLoader()
         self._scheduler: BackgroundScheduler | None = None
-
-        self._index_path = self._cfg.data_dir / "file_index.json"
+        self._index_path = index_path or (self._cfg.data_dir / "file_index.json")
+        self._refresh_retrieval = refresh_retrieval
         self._index: dict = self._load_index()
 
         # MVP: 文档分类映射表（相对路径 → doc_category），上传时写入，扫描时读取
@@ -100,7 +108,9 @@ class DirectoryScanner:
         for item in cleaned:
             details.append(f"[清理] {item.file_name}")
         self._save_index()
-        if new or any(item.should_rebuild_bm25 for item in cleaned):
+        if self._refresh_retrieval and (
+            new or any(item.should_rebuild_bm25 for item in cleaned)
+        ):
             BM25Store().rebuild()
             from rag_knowledge.services.query_cache import clear_query_cache
             clear_query_cache()
@@ -155,6 +165,9 @@ class DirectoryScanner:
             self._rebuild_hash_dc_map = {}
         self._index = {"version": 1, "files": {}}
         self._save_index()
+
+    def reload_index(self) -> None:
+        self._index = self._load_index()
 
     def get_index(self) -> dict:
         """获取文件索引快照"""
