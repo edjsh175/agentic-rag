@@ -9,7 +9,9 @@ from rag_knowledge.services.graph_extraction import GraphCandidateApplier, Graph
 from rag_knowledge.services.graph_governance import (
     approve_all_allowed,
     assert_staging_review_status,
+    assert_production_apply_allowed,
     assert_write_confirmation,
+    graph_counts,
     is_production_relational_db,
 )
 
@@ -198,3 +200,110 @@ def test_profile_sync_review_cli_rejects_approve_all(isolated_storage):
 
 def test_is_production_false_under_pytest():
     assert not is_production_relational_db()
+
+
+def test_apply_rolls_back_on_mid_apply_failure(isolated_storage, monkeypatch):
+    isolated_storage(
+        db_name="gov-mid-rollback.db",
+        data_dir_name="gov-mid-rollback-data",
+        chroma_name="gov-mid-rollback-chroma",
+    )
+    db = RelationalDB()
+    counts_before = graph_counts(db)
+    batch_id = db.create_extraction_batch("incremental", {}, "snapshot-mid-rollback")
+    good_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "fp-good",
+        {
+            "name": "RollbackEntity",
+            "entity_type": "Tool",
+            "created_by": "rule:phase_b",
+            "source_chunk_id": "chunk-1",
+            "evidence_text": "evidence",
+        },
+        evidence_text="evidence",
+        source_chunk_id="chunk-1",
+    )
+    bad_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "fp-bad",
+        {
+            "name": "RollbackEntity2",
+            "entity_type": "Tool",
+            "created_by": "rule:phase_b",
+            "source_chunk_id": "chunk-2",
+            "evidence_text": "evidence",
+        },
+        evidence_text="evidence",
+        source_chunk_id="chunk-2",
+    )
+    db.review_extraction_candidates(batch_id, [good_id, bad_id], "approved")
+    db.set_extraction_batch_status(batch_id, "approved")
+
+    applier = GraphCandidateApplier(db)
+    original_apply_one = applier._apply_one
+    calls = {"count": 0}
+
+    def failing_apply_one(conn, kind, payload):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise RuntimeError("simulated mid-apply failure")
+        return original_apply_one(conn, kind, payload)
+
+    monkeypatch.setattr(applier, "_apply_one", failing_apply_one)
+
+    with pytest.raises(RuntimeError, match="simulated mid-apply failure"):
+        applier.apply(batch_id)
+
+    assert db.get_extraction_batch(batch_id)["status"] == "failed"
+    assert db.get_entity_by_name("RollbackEntity") is None
+    assert db.get_entity_by_name("RollbackEntity2") is None
+    assert graph_counts(db) == counts_before
+    candidates = db.list_extraction_candidates(batch_id)
+    assert all(item["status"] == "approved" for item in candidates)
+    assert all(not item.get("applied_at") for item in candidates)
+
+
+def test_production_api_apply_rejected(isolated_storage, monkeypatch):
+    isolated_storage(
+        db_name="gov-api-block.db",
+        data_dir_name="gov-api-block-data",
+        chroma_name="gov-api-block-chroma",
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_governance.is_production_relational_db",
+        lambda db_path=None: True,
+    )
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from rag_knowledge.api.routes import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    db = RelationalDB()
+    batch_id = db.create_extraction_batch("incremental", {}, "snapshot-api")
+    candidate_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "fp",
+        {
+            "name": "ApiBlockedEntity",
+            "entity_type": "Tool",
+            "created_by": "rule:phase_b",
+            "source_chunk_id": "chunk-1",
+            "evidence_text": "evidence",
+        },
+        evidence_text="evidence",
+        source_chunk_id="chunk-1",
+    )
+    db.review_extraction_candidates(batch_id, [candidate_id], "approved")
+    db.set_extraction_batch_status(batch_id, "approved")
+
+    resp = client.post(f"/admin/graph-candidates/batches/{batch_id}/apply")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "production graph apply is CLI-only; use run_graph_build.py apply with confirmation flags"
+    assert db.get_entity_by_name("ApiBlockedEntity") is None

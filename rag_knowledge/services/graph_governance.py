@@ -228,5 +228,46 @@ def append_apply_audit(record: ApplyAuditRecord) -> Path:
     return audit_path
 
 
+def summarize_review_selection(
+    requested_ids: list[str],
+    pending: list[dict],
+    *,
+    batch: dict | None = None,
+    status: str,
+    approve_kind: str | None = None,
+    explicit_ids: bool = False,
+) -> dict:
+    pending_by_id = {item["id"]: item for item in pending}
+    found_pending_ids = [candidate_id for candidate_id in requested_ids if candidate_id in pending_by_id]
+    missing_or_not_pending = len(requested_ids) - len(found_pending_ids)
+    if status != "approved":
+        return {
+            "requested": len(requested_ids),
+            "selected": len(found_pending_ids),
+            "rejected_by_safety": 0,
+            "ids_to_update": found_pending_ids,
+            "missing_or_not_pending": missing_or_not_pending,
+        }
+    safe_ids, unsafe_ids = filter_approvable_candidate_ids(
+        found_pending_ids,
+        pending,
+        batch=batch,
+        approve_kind=approve_kind,
+        explicit_ids=explicit_ids,
+    )
+    return {
+        "requested": len(requested_ids),
+        "selected": len(found_pending_ids),
+        "rejected_by_safety": len(unsafe_ids),
+        "ids_to_update": safe_ids,
+        "missing_or_not_pending": missing_or_not_pending,
+    }
+
+
+def assert_production_apply_allowed() -> None:
+    if is_production_relational_db():
+        raise ValueError("production graph apply is CLI-only; use run_graph_build.py apply with confirmation flags")
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()

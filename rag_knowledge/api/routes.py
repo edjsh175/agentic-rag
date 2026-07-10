@@ -63,6 +63,7 @@ from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
 from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateApplier, GraphQualityService
 from rag_knowledge.services.graph_governance import (
     approve_all_allowed,
+    assert_production_apply_allowed,
     filter_approvable_candidate_ids,
 )
 from rag_knowledge.models.api import (
@@ -1290,6 +1291,7 @@ def apply_graph_candidates(batch_id: str):
             raise HTTPException(404, detail="Batch not found")
         if batch["status"] != "approved":
             raise HTTPException(400, detail="Only approved batches can be applied")
+        assert_production_apply_allowed()
         approved_count = len(db.list_extraction_candidates(batch_id, "approved"))
         audit = GraphCandidateApplier(db).apply(batch_id, operator="api")
         return GraphCandidateApplyResponse(

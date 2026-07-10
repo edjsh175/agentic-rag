@@ -10,8 +10,8 @@ from rag_knowledge.services.graph_extraction import GraphBuilder, GraphCandidate
 from rag_knowledge.services.graph_governance import (
     approve_all_allowed,
     assert_write_confirmation,
-    filter_approvable_candidate_ids,
     resolve_db_path,
+    summarize_review_selection,
 )
 from rag_knowledge.services.graph_text_migration import GraphTextMigration
 from rag_knowledge.services.safe_rebuild import SafeRebuildDryRunService
@@ -138,28 +138,26 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         else:
             raise ValueError("review requires an action or --summary")
         requested_ids = list(ids)
-        unsafe_ids: set[str] = set()
-        if status == "approved":
-            safe_ids, unsafe_ids_list = filter_approvable_candidate_ids(
-                requested_ids,
-                pending,
-                batch=batch,
-                approve_kind=getattr(args, "approve_kind", None),
-                explicit_ids=explicit_ids,
-            )
-            unsafe_ids = set(unsafe_ids_list)
-            ids = safe_ids
+        review_summary = summarize_review_selection(
+            requested_ids,
+            pending,
+            batch=batch,
+            status=status,
+            approve_kind=getattr(args, "approve_kind", None),
+            explicit_ids=explicit_ids,
+        )
+        ids = review_summary["ids_to_update"]
         updated = db.review_extraction_candidates(args.batch, ids, status, args.reason)
         remaining = db.list_extraction_candidates(args.batch, "pending")
         if not remaining:
             approved = db.list_extraction_candidates(args.batch, "approved")
             db.set_extraction_batch_status(args.batch, "approved" if approved else "rejected")
         _print({
-            "requested": len(requested_ids),
-            "selected": len(ids),
-            "rejected_by_safety": len(unsafe_ids),
+            "requested": review_summary["requested"],
+            "selected": review_summary["selected"],
+            "rejected_by_safety": review_summary["rejected_by_safety"],
             "updated": updated,
-            "missing_or_not_pending": len(ids) - updated,
+            "missing_or_not_pending": review_summary["missing_or_not_pending"],
             "status": status,
             "remaining_pending": len(remaining),
         })
