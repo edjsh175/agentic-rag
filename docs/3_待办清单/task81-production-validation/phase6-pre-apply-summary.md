@@ -1,7 +1,8 @@
 # Task 8.1 Profile Sync — 阶段 6 apply 前检查摘要
 
-生成时间：2026-07-10 15:16 (UTC+8)
+> 历史快照。完整报告见 [2026-07-10-正式库验收报告.md](./2026-07-10-正式库验收报告.md)。apply 已于 2026-07-10 完成。
 
+生成时间：2026-07-10 15:16 (UTC+8)
 ## 备份
 
 - 文件：`backups/rag_relational-pre-task81-apply-20260710-151353.db`
@@ -57,11 +58,6 @@
 - 10605 无监听
 - 无 run.py / uvicorn / run_graph_build / sync_profiles_to_graph 进程
 
-## 下一步（需明确授权）
+## 后续（已完成）
 
-```powershell
-$env:PYTHONPATH = (Get-Location).Path
-.\venv\Scripts\python.exe run_graph_build.py apply --batch e8267357-e5d2-41e8-9848-b37383be7b1f
-```
-
-授权后执行阶段 8–10 复验。
+apply 与阶段 8–9 复验已完成，见 [phase8-post-apply-summary.md](./phase8-post-apply-summary.md)。

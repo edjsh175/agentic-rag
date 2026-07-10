@@ -56,7 +56,7 @@
 
 ### 当前阶段：检索能力优化 + 交付前查漏补缺
 
-正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 2026-07-08：检索优化主线已完成，知识库一致性/受控重建/测试隔离/图谱重建已收口；已新增受控重建协调器、知识库一致性检测、图谱乱码迁移、QueryEntityGuard、pytest 测试隔离体系（`isolated_storage` + integration 排除 + live-path 熔断器）。剩余重点是 Git/SVN 交付清理和交付文档口径一致。
+正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 **2026-07-10**：检索优化主线已完成；知识库一致性/受控重建/测试隔离/图谱重建已收口；**Task 8.1/8.2 正式库 Profile 事实已 apply 并通过专项 Gate**。剩余重点是 Git/SVN 交付清理、legacy Profile 瘦身与全图 104 条 Phase B `missing_evidence` 治理。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
@@ -73,7 +73,9 @@
 - ✅ Chunk 命中统计：`chunk_hit_telemetry.py` 已记录问答返回来源的 chunk 命中次数，为 `/stats/chunks` 提供线上命中分布
 - ✅ 审核状态同步：`/review/status` 更新 Chroma metadata 后会重建 BM25 索引并清空查询缓存，避免 pending/approved/rejected 状态在关键词检索中滞后
 - ✅ 知识图谱语义抽取 MVP — 已于 2026-07-09 完成；支持 Graph Audit、Stale Link Cleanup、Export Manual Facts、LLM Graph Extractor 基础版（提供置信度、证据和 Schema 校验），以及 pipeline 融合与正式库 properties_json 写入
-- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓
+- ✅ Task 8.1 切断 legacy 评分双读 — 运行时 `RetrievalIntentResolver.default()` 只读 `retrieval_intent_policies.json`；意图评分由 `GraphIntentFactProvider` + `score_signals()` 驱动；正式库 profile_sync batch 已 apply，专项 Gate **PASS**（2026-07-10）
+- ✅ Task 8.2 Profile Migration 与 Graph Schema 兼容 — scoped Field（`管线点表.管点编号`）、alias / `different_from` / `has_field` 等经分拆审批写入正式 Graph；`scripts/validate_task81_graph_gate.py` 输出 PASS / NEEDS_APPLY / BLOCKED
+- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办
 
 ### 核心功能
 - **章节切片**：`.md`/`.docx`/`.txt` 使用 `unstructured` 按标题结构切片，保留 `section_title`；`.pdf`/`.doc` 回退到固定字数切片
@@ -93,6 +95,9 @@
 - **博客发布同步**：定时从博客发布系统 API 拉取已发布文章，同步到知识库
 - **定时扫描**：监视目录下的新/变更文件自动检测、向量化、入库
 - **视频处理**：提取关键帧 → 视觉模型描述 → 向量化
+- **检索意图策略（policy-only）**：运行时只读 `data/retrieval_intent_policies.json`（`query_hints`、`preferred_doc_categories` 等）；legacy 事实在 `data/migrations/retrieval_intent_profiles_v1.json`，仅供 `sync_profiles_to_graph.py` 迁移
+- **Graph 驱动意图评分**：`graph_intent_scoring.py` 从正式 Graph 加载 approved alias、`different_from` sibling、scoped Field、`defined_in` section path，供 `retrieval_quality.py` 做 section boost / sibling penalty
+- **Profile → Graph 同步**：`sync_profiles_to_graph.py` + `ProfileGraphSyncService` 生成 `profile_sync` 候选；正式库须分拆审批，禁止 `--approve-all`；生产 apply 需 `--confirm-db-path` / `--confirm-batch` / `--confirm-backup`
 
 ## 技术栈
 
@@ -117,6 +122,8 @@
 ```
 rag_python/
 ├── run.py                          # 启动入口
+├── run_graph_build.py              # 图谱 extract/review/apply/quality CLI
+├── sync_profiles_to_graph.py       # Profile → Graph 候选同步 CLI
 ├── config.ini                      # 开发配置文件
 ├── config-prod.ini                 # 生产配置文件
 ├── Dockerfile                      # Docker 部署
@@ -153,6 +160,8 @@ rag_python/
 │       ├── unstructured_loader.py  # 章节感知加载器（unstructured 按标题切片）
 │       ├── bm25_store.py           # BM25 关键词索引（jieba 分词，单例，懒加载）
 │       ├── retrieval_strategy.py   # 检索策略调度器（mmr/similarity/bm25/hybrid）
+│       ├── retrieval_intent.py     # 检索意图 policy 解析（default 只读 policies）
+│       ├── graph_intent_scoring.py # Graph 事实加载与意图评分信号（alias/sibling/field/section）
 │       ├── query_contextualizer.py # 对话式查询上下文化、多查询生成、来源锚点查询
 │       ├── chunk_stats.py          # Chunk 统计服务（长度/分布/命中率）
 │       ├── chunk_hit_telemetry.py  # 线上问答来源 chunk 命中次数记录
@@ -172,6 +181,9 @@ rag_python/
 │       ├── graph_audit.py          # 图谱审计服务（18个指标计算与报告生成）
 │       ├── graph_cleanup.py        # Stale 关系/实体链接链接清理服务
 │       ├── graph_manual_export.py  # 手工/种子事实导出（映射为 canonical 名字）
+│       ├── profile_graph_sync.py   # legacy Profile → Graph 候选（profile_sync batch）
+│       ├── graph_governance.py     # 生产写确认、approve-all 禁用、apply 审计
+│       ├── task81_graph_gate.py    # Task 8.1 专项 Gate（PASS/NEEDS_APPLY/BLOCKED）
 │       ├── graph_extraction/       # 知识图谱提取（Phase B 确定性规则管线）
 │       │   ├── pipeline.py         # 提取管线（规则 + LLM 候选提取）
 │       │   ├── llm_extractor.py    # LLM 语义抽取器（提供置信度、证据和 Schema 校验）
@@ -198,7 +210,8 @@ rag_python/
 │
 ├── chroma_db/                      # ChromaDB 向量数据持久化目录
 ├── watch_directory/                # 文件监视目录（放文档自动入库）
-├── data/                           # 数据目录（file_index.json 等）
+├── data/                           # 数据目录（file_index.json、policies、migrations 等）
+├── scripts/                        # 运维/验收脚本（如 validate_task81_graph_gate.py）
 ├── logs/                           # 日志目录（自动轮转，保留 7 天）
 └── uploads/                        # 上传临时目录
 ```
@@ -306,7 +319,7 @@ watch_directory/ 文件变化
       → `_retrieve()` 支持 `review_status=None` 跳过审核过滤（评估用）
       → `_retrieve()` 支持 `method` 参数覆盖配置（评估用）
     → [可选] Reranker 精排（粗召回 candidate_k → reranker top_n；失败时回退原始排序）
-    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK）
+    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK；结合 Graph 意图评分做 section boost / sibling penalty）
     → [可选] 上下文压缩（从 chunk 中提取与问题相关的连续原文片段）
     → [可选] 联网搜索增强（DuckDuckGo）
     → 组装 prompt（system + context + history + question）
@@ -445,6 +458,7 @@ docker run -p 10605:10605 rag-knowledge
 - **数据库维护**：执行离线重建、迁移或诊断前先停止后端和其他评估进程，确认没有进程占用 `chroma_db`
 - **受控重建**：`RebuildCoordinator.run()` 提供完整的带锁重建流程（备份 → clear → reset → scan → 一致性断言 → BM25 重建），替代手动逐步操作。也可通过 `POST /rebuild` 触发。重建锁文件 `data/rebuild.lock` 记录 PID，异常退出后下次重建自动检测并清理 stale lock
 - **图谱重建**：知识库一致性通过后，按顺序执行：`run_graph_build.py extract --force-rebuild` → `review --batch <id> --approve-all` → `apply --batch <id>` → `quality --graph`。图谱提取前会调用 `assert_consistent()`，不一致时拒绝执行
+- **Profile → Graph 同步（Task 8.1）**：`sync_profiles_to_graph.py --dry-run` 预览 → `--apply --review-status pending` 写 staging → `run_graph_build.py review` **分拆审批**（`--approve-kind alias` / `--approve-type` / `--approve-relation-type`，禁止 `profile_sync` 使用 `--approve-all`）→ `apply --batch <id>` 须带 `--confirm-db-path` / `--confirm-batch` / `--confirm-backup`。验收：`$env:PYTHONPATH=(Get-Location).Path; .\venv\Scripts\python.exe scripts\validate_task81_graph_gate.py --json`（目标 PASS）。报告见 `docs/3_待办清单/task81-production-validation/`
 - **图谱乱码修复**：`run_graph_build.py repair-text` 修复关系图谱中的 mojibake 中文标签
 - **测试隔离**：`pytest` 默认排除 `@pytest.mark.integration` 测试（`addopts = -m "not integration"`）。`isolated_storage` fixture 将全部 8 个运行时路径指向 `tmp_path`。`Config._assert_test_paths_are_isolated()` 在 pytest 下检测到正式路径时直接抛错，除非设置 `ALLOW_LIVE_STORAGE_IN_TESTS=1`。需接触正式库的集成测试显式运行 `pytest -m integration`
 
@@ -475,6 +489,10 @@ docker run -p 10605:10605 rag-knowledge
 - **知识库一致性检测**：`KnowledgeBaseConsistencyService.audit()` 交叉对比 `file_index.json` 与 Chroma collection 的 chunk ID，输出一致的 `summary` 和 `files` 报告；`assert_consistent()` 不一致时抛出 `KnowledgeBaseConsistencyError`
 - **受控重建**：`RebuildCoordinator` 使用 `os.O_CREAT | os.O_EXCL` 文件锁防止并发重建，Windows 下通过 `OpenProcess` 检测 stale PID 自动清理遗留锁。流程：备份 → 写入 running 状态 → clear/reset/scan → 一致性断言 → BM25 重建 → 清理状态文件
 - **图谱确定性提取**：Phase B 使用规则管线（`SectionPathExtractor` → `TableFieldExtractor` → `ConfigBlockExtractor`），候选按 `[kind, identity_payload]` SHA-256 指纹去重，通过 review/apply 两阶段审批写入关系数据库。`GraphBuilder.build_full()` 启动前调用 `KnowledgeBaseConsistencyService.assert_consistent()`
+- **Graph 运行时事实源（Task 8.1）**：alias、`different_from`、`has_field`、`defined_in` 等领域事实以正式 Graph approved 记录为准；`RetrievalIntentResolver.default()` 不读 legacy migration；评分经 `GraphIntentFactProvider.load_one()` / `score_signals()`
+- **Field 限定名（Task 8.2）**：canonical Field 为 `{DataTable}.{leaf}`（如 `管线面表.管面编号`）；禁止裸 Field/Section；profile sync 不得创建裸 `PipelineBuilder > …` Section
+- **Profile sync 生产写门禁**：`graph_governance.assert_write_confirmation()` 要求显式确认 DB 路径、batch id、备份文件；`profile_sync` / `domain_catalog_seed` 等 mode 禁止 `--approve-all`
+- **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 104 条 `missing_evidence` 不改变专项判定
 - **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据
 
 ## Prompt 与回答规范

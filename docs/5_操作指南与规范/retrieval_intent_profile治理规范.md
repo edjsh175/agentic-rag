@@ -141,16 +141,26 @@ Profile 同步到图谱（`sync_profiles_to_graph.py`）与运行时评分（`Gr
 ### 存在性与门禁
 
 - migration dry-run 区分 `exists_any` 与 `exists_approved`；pending 事实不算运行时满足。
-- 部署前运行：`scripts/validate_task81_graph_gate.py --json`（或 `--skip-global-quality` 跳过全图历史债）。
-- 判定为 `NEEDS_APPLY` 后，按拆分命令人工审批候选，**禁止** `--approve-all` 与 `--review-status approved` 直写正式库。
+- 变更前/定期复验：`scripts/validate_task81_graph_gate.py --json`（`--skip-global-quality` 可跳过全图 104 条历史 `missing_evidence`）。
+- `NEEDS_APPLY` 时按拆分命令人工审批，**禁止** `--approve-all` 与 `--review-status approved` 直写正式库。
+
+### 正式库验收（2026-07-10）
+
+- 报告：`docs/3_待办清单/task81-production-validation/2026-07-10-正式库验收报告.md`
+- batch `e8267357-e5d2-41e8-9848-b37383be7b1f`（`profile_sync`）已 apply；专项 Gate **PASS**
+- apply 需生产写确认：`--confirm-db-path`、`--confirm-batch`、`--confirm-backup`
 
 ### 人工审批示例（拆分命令）
 
 ```powershell
-.\venv\Scripts\python.exe sync_profiles_to_graph.py --apply --profile-id pipeline_point_table
+$env:PYTHONPATH = (Get-Location).Path
+.\venv\Scripts\python.exe sync_profiles_to_graph.py --apply --review-status pending --json
 .\venv\Scripts\python.exe run_graph_build.py review --batch <id> --summary
-.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-kind alias --approve-confidence-above 0.79
+.\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-kind alias
 .\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-type DataTable --approve-confidence-above 0.79
 .\venv\Scripts\python.exe run_graph_build.py review --batch <id> --approve-relation-type different_from --approve-confidence-above 0.79
-.\venv\Scripts\python.exe run_graph_build.py apply --batch <id>
+.\venv\Scripts\python.exe run_graph_build.py apply --batch <id> `
+  --confirm-db-path "<项目>/data/rag_relational.db" `
+  --confirm-batch <id> `
+  --confirm-backup "<项目>/backups/rag_relational-pre-task81-apply-<stamp>.db"
 ```
