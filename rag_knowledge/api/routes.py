@@ -562,6 +562,16 @@ def rebuild_knowledge(request: RebuildRequest):
     if _scanner is None:
         raise HTTPException(status_code=503, detail="扫描器未初始化，未执行重建")
     try:
+        from rag_knowledge.services.scanner import DirectoryScanner
+
+        def _staging_scanner_factory(staged_store, staging_index):
+            return DirectoryScanner(
+                cfg=_cfg,
+                store=staged_store,
+                index_path=staging_index,
+                refresh_retrieval=False,
+            )
+
         return RebuildCoordinator(
             cfg=_cfg,
             store=VectorStore(),
@@ -569,6 +579,7 @@ def rebuild_knowledge(request: RebuildRequest):
             consistency_service=KnowledgeBaseConsistencyService(),
             invalidate_retrieval_caches=_invalidate_retrieval_caches,
             rebuild_bm25=_rebuild_bm25,
+            staging_scanner_factory=_staging_scanner_factory,
         ).run()
     except RebuildAlreadyRunningError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
