@@ -520,3 +520,12 @@ def test_graph_candidate_apply_rejects_non_approved_batch(test_setup):
     resp = client.post(f"/admin/graph-candidates/batches/{batch_id}/apply")
     assert resp.status_code == 400
     assert "approved" in resp.json()["detail"]
+
+
+def test_defined_in_only_targets_document_or_section():
+    from rag_knowledge.models.graph_schema import validate_relation
+
+    assert validate_relation("Tool", "defined_in", "Document")[0]
+    assert validate_relation("Tool", "defined_in", "Section")[0]
+    assert not validate_relation("Tool", "defined_in", "Step")[0]
+    assert not validate_relation("Tool", "defined_in", "ConfigItem")[0]

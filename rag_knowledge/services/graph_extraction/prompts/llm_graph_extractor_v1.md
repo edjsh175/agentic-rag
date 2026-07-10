@@ -34,7 +34,7 @@ You are a highly accurate technical knowledge graph extractor. Your task is to e
 - configured_by: A service/tool/component is configured by a config item.
 - causes: A cause-and-effect relation (e.g., Error/Config causes Error/Symptom).
 - solved_by: An error is solved by a solution.
-- defined_in: Entity definition location.
+- defined_in: Where an entity is defined. Target MUST be Document or Section only (not Chunk).
 - alias_of: Same entity under a different name.
 - different_from: Explicitly distinct concepts.
 

@@ -486,7 +486,7 @@ class GraphExpander:
             return False
 
         if relation_type == "defined_in":
-            # Entity defined_in Chunk
+            # Entity defined_in Document/Section; chunk evidence uses entity_chunk_links.
             return direction == "forward"
 
         # Default fallback

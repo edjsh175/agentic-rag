@@ -118,7 +118,10 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.document, EntityType.section),
     ],
     RelationType.defined_in: [
-        # 任何实体类型都可以 defined_in 文档或章节
+        (entity_type, target_type)
+        for entity_type in EntityType
+        if entity_type is not EntityType.document
+        for target_type in (EntityType.document, EntityType.section)
     ],
     # 领域概念
     RelationType.belongs_to: [
@@ -187,7 +190,6 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
 UNRESTRICTED_RELATIONS = {
     RelationType.alias_of,
     RelationType.different_from,
-    RelationType.defined_in,
     RelationType.produces,
     RelationType.consumes,
     RelationType.requires,
