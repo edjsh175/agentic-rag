@@ -332,6 +332,52 @@ class RagChain:
         )
         return enriched, context, docs
 
+    def _build_graph_kwargs(
+        self,
+        plan,
+        context,
+        docs,
+        *,
+        include_cache_fields: bool,
+    ) -> dict:
+        if context is None or context.fallback_reason is not None or not docs:
+            return {}
+        result = {
+            "graph_docs": docs,
+            "graph_weight": self._graph_cfg.graph_weight,
+            "graph_excluded_chunk_ids": context.excluded_chunk_ids,
+            "graph_guard": getattr(context, "guard", None),
+        }
+        if include_cache_fields:
+            result["graph_entity_ids"] = tuple(
+                item.entity_id for item in getattr(plan, "linked_entities", ())
+            )
+            result["graph_revision"] = plan.graph_revision
+        return result
+
+    @staticmethod
+    def _fuse_graph_docs(
+        docs,
+        graph_docs,
+        *,
+        top_k,
+        graph_weight,
+        excluded_chunk_ids,
+        graph_guard,
+    ):
+        if graph_docs is None:
+            return docs
+        from rag_knowledge.services.graph_retrieval import GraphRetriever
+
+        return GraphRetriever.fuse(
+            docs,
+            graph_docs,
+            top_k=top_k,
+            graph_weight=graph_weight,
+            excluded_chunk_ids=excluded_chunk_ids,
+            graph_guard=graph_guard,
+        )
+
     # ------------------------------------------------------------------
     # 检索 + 上下文构建（同步，流式/非流式共用）
     # ------------------------------------------------------------------
@@ -489,13 +535,11 @@ class RagChain:
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
         if graph_docs is not None:
-            from rag_knowledge.services.graph_retrieval import GraphRetriever
-            graph_weight = getattr(getattr(self, "_graph_cfg", None), "graph_weight", 1.25)
-            docs = GraphRetriever.fuse(
+            docs = self._fuse_graph_docs(
                 docs,
                 graph_docs,
                 top_k=candidate_top_k,
-                graph_weight=graph_weight,
+                graph_weight=getattr(getattr(self, "_graph_cfg", None), "graph_weight", 1.25),
                 excluded_chunk_ids=graph_excluded_chunk_ids,
                 graph_guard=graph_guard,
             )
@@ -947,8 +991,7 @@ class RagChain:
             candidate_k=plan_candidate_k,
         )
         if graph_docs is not None:
-            from rag_knowledge.services.graph_retrieval import GraphRetriever
-            docs = GraphRetriever.fuse(
+            docs = self._fuse_graph_docs(
                 docs,
                 graph_docs,
                 top_k=plan_candidate_k or plan_top_k or self._retrieval_k,
@@ -1034,8 +1077,7 @@ class RagChain:
             candidate_k=plan_candidate_k,
         )
         if graph_docs is not None:
-            from rag_knowledge.services.graph_retrieval import GraphRetriever
-            docs = GraphRetriever.fuse(
+            docs = self._fuse_graph_docs(
                 docs,
                 graph_docs,
                 top_k=plan_candidate_k or plan_top_k or self._retrieval_k,
@@ -1360,15 +1402,9 @@ class RagChain:
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
             )
-            graph_kwargs = {}
-            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
-                if graph_context.fallback_reason is None and graph_docs:
-                    graph_kwargs = {
-                        "graph_docs": graph_docs,
-                        "graph_weight": self._graph_cfg.graph_weight,
-                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
-                        "graph_guard": getattr(graph_context, "guard", None),
-                    }
+            graph_kwargs = self._build_graph_kwargs(
+                plan, graph_context, graph_docs, include_cache_fields=False,
+            )
             source_docs, context = self._retrieve_multi(
                 plan.queries, kb_name=kb_name, doc_category=doc_category,
                 rerank=plan.enable_rerank,
@@ -1462,17 +1498,9 @@ class RagChain:
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
             )
-            graph_kwargs = {}
-            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
-                if graph_context.fallback_reason is None and graph_docs:
-                    graph_kwargs = {
-                        "graph_docs": graph_docs,
-                        "graph_entity_ids": tuple(item.entity_id for item in getattr(plan, "linked_entities", ())),
-                        "graph_revision": plan.graph_revision,
-                        "graph_weight": self._graph_cfg.graph_weight,
-                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
-                        "graph_guard": getattr(graph_context, "guard", None),
-                    }
+            graph_kwargs = self._build_graph_kwargs(
+                plan, graph_context, graph_docs, include_cache_fields=True,
+            )
             source_docs, context = await self._aretrieve_multi_uncached(
                 plan.queries,
                 kb_name=kb_name,
@@ -1575,17 +1603,9 @@ class RagChain:
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
             )
-            graph_kwargs = {}
-            if getattr(self, "_graph_retriever", None) is not None and graph_context is not None:
-                if graph_context.fallback_reason is None and graph_docs:
-                    graph_kwargs = {
-                        "graph_docs": graph_docs,
-                        "graph_entity_ids": tuple(item.entity_id for item in getattr(plan, "linked_entities", ())),
-                        "graph_revision": plan.graph_revision,
-                        "graph_weight": self._graph_cfg.graph_weight,
-                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
-                        "graph_guard": getattr(graph_context, "guard", None),
-                    }
+            graph_kwargs = self._build_graph_kwargs(
+                plan, graph_context, graph_docs, include_cache_fields=True,
+            )
             if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
                 source_docs, context = await self._aretrieve_multi_uncached(
                     plan.queries,
@@ -1600,14 +1620,9 @@ class RagChain:
                     **graph_kwargs,
                 )
             else:
-                sync_graph_kwargs = {}
-                if graph_kwargs:
-                    sync_graph_kwargs = {
-                        "graph_docs": graph_docs,
-                        "graph_weight": self._graph_cfg.graph_weight,
-                        "graph_excluded_chunk_ids": graph_context.excluded_chunk_ids,
-                        "graph_guard": getattr(graph_context, "guard", None),
-                    }
+                sync_graph_kwargs = self._build_graph_kwargs(
+                    plan, graph_context, graph_docs, include_cache_fields=False,
+                )
                 source_docs, context = self._retrieve_multi(
                     plan.queries, kb_name=kb_name, doc_category=doc_category,
                     rerank=plan.enable_rerank,

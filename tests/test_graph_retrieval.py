@@ -498,3 +498,20 @@ def test_product_own_links_excluded_from_graph_chunks(graph_db):
     assert product["id"] in context.expanded_entity_ids
     assert "chunk-product-overview" not in context.chunk_ids
     assert "StampTools" not in context.retrieval_queries
+
+
+def test_rag_chain_fuse_graph_docs_skips_when_graph_docs_missing():
+    from langchain_core.documents import Document
+
+    from rag_knowledge.services.rag import RagChain
+
+    docs = [Document(page_content="pipeline", metadata={"chunk_id": "pipeline"})]
+    fused = RagChain._fuse_graph_docs(
+        docs,
+        None,
+        top_k=4,
+        graph_weight=1.25,
+        excluded_chunk_ids=(),
+        graph_guard=None,
+    )
+    assert fused is docs

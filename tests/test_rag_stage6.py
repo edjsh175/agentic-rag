@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 from rag_knowledge.models.api import QueryRequest
-from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity
+from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity, GraphGuardContext
 
 try:
     from rag_knowledge.api import routes
@@ -112,6 +112,152 @@ class RagStage6Tests(unittest.TestCase):
         self.assertIs(enriched, plan)
         self.assertIsNone(context)
         self.assertEqual(docs, [])
+
+    def test_build_graph_kwargs_includes_cache_fields_only_when_requested(self):
+        from langchain_core.documents import Document
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        linked = LinkedEntity("e1", "PipelineBuilder", "Tool", 0.96, "alias_exact", ())
+        guard = GraphGuardContext(linked_entity_ids=("e1",), linked_names=("PipelineBuilder",))
+        context = GraphContext(
+            linked_entities=(linked,),
+            excluded_chunk_ids=("c-x",),
+            guard=guard,
+        )
+        graph_doc = Document(page_content="graph", metadata={"chunk_id": "c1"})
+        plan = RetrievalPlan("procedure", [], 4, 12, True, False, 0.9)
+        plan = type(
+            "Plan",
+            (),
+            {
+                "linked_entities": (linked,),
+                "graph_revision": "rev:1.25",
+            },
+        )()
+
+        chain = object.__new__(RagChain)
+        chain._graph_cfg = type("Config", (), {"graph_weight": 1.25})()
+
+        base = chain._build_graph_kwargs(plan, context, [graph_doc], include_cache_fields=False)
+        self.assertEqual(base["graph_docs"], [graph_doc])
+        self.assertEqual(base["graph_weight"], 1.25)
+        self.assertEqual(base["graph_excluded_chunk_ids"], ("c-x",))
+        self.assertIs(base["graph_guard"], guard)
+        self.assertNotIn("graph_entity_ids", base)
+        self.assertNotIn("graph_revision", base)
+
+        cached = chain._build_graph_kwargs(plan, context, [graph_doc], include_cache_fields=True)
+        self.assertEqual(cached["graph_entity_ids"], ("e1",))
+        self.assertEqual(cached["graph_revision"], "rev:1.25")
+
+        self.assertEqual(chain._build_graph_kwargs(plan, None, [graph_doc], include_cache_fields=True), {})
+        fallback_context = GraphContext(fallback_reason="no_linked_entity")
+        self.assertEqual(
+            chain._build_graph_kwargs(plan, fallback_context, [graph_doc], include_cache_fields=True),
+            {},
+        )
+
+    def test_graph_entrypoints_pass_unified_graph_kwargs(self):
+        from langchain_core.documents import Document
+        from rag_knowledge.services.query_planner import RetrievalPlan
+
+        linked = LinkedEntity("e1", "PipelineBuilder", "Tool", 0.96, "alias_exact", ())
+        guard = GraphGuardContext(linked_entity_ids=("e1",), linked_names=("PipelineBuilder",))
+        context = GraphContext(
+            linked_entities=(linked,),
+            expanded_entity_ids=("e1",),
+            chunk_ids=("c1",),
+            retrieval_queries=("PipelineBuilder",),
+            excluded_chunk_ids=("c-x",),
+            guard=guard,
+        )
+        graph_doc = Document(page_content="graph", metadata={"chunk_id": "c1"})
+
+        chain = object.__new__(RagChain)
+        chain._graph_cfg = type("Config", (), {"graph_weight": 1.25})()
+        chain._graph_retriever = MagicMock()
+        chain._graph_retriever.retrieve.return_value = (context, [graph_doc])
+        chain._graph_retriever.revision.return_value = "rev"
+        chain._build_retrieval_query_specs = lambda question, history: ["question"]
+        chain._plan_retrieval = lambda question, queries, force_rerank=False: RetrievalPlan(
+            "procedure", [], 4, 12, True, False, 0.9
+        )
+        chain._record_chunk_hit_query = MagicMock()
+        chain._allow_general_knowledge = True
+        chain._history_compressor = MagicMock()
+        chain._history_compressor.compress.return_value = ([], "")
+        chain._budget = MagicMock()
+        chain._budget.trim.side_effect = lambda sd, ctx, hist, q, **kw: (sd, ctx, hist)
+        chain._build_llm = MagicMock()
+        chain._build_messages = MagicMock(return_value=[])
+        chain._filter_cited_sources = lambda answer, docs: docs
+
+        sync_captured = {}
+        async_captured = {}
+        stream_async_captured = {}
+        stream_sync_captured = {}
+
+        def capture_sync(*args, **kwargs):
+            sync_captured.update(kwargs)
+            return ([{"content": "ok"}], "ctx")
+
+        async def capture_async(*args, **kwargs):
+            async_captured.update(kwargs)
+            return ([{"content": "ok"}], "ctx")
+
+        chain._retrieve_multi = capture_sync
+        chain._aretrieve_multi_uncached = capture_async
+
+        llm = MagicMock()
+        llm.invoke.return_value = type("Resp", (), {"content": "answer"})()
+        chain._build_llm.return_value = llm
+
+        chain.query("question")
+        self._assert_graph_base_kwargs(sync_captured, graph_doc, guard)
+        self.assertNotIn("graph_entity_ids", sync_captured)
+        self.assertNotIn("graph_revision", sync_captured)
+
+        asyncio.run(chain.aquery("question"))
+        self._assert_graph_base_kwargs(async_captured, graph_doc, guard)
+        self.assertEqual(async_captured["graph_entity_ids"], ("e1",))
+        self.assertEqual(async_captured["graph_revision"], "rev:1.25")
+
+        chain._query_cache = object()
+        chain._aretrieve_uncached = object()
+
+        async def capture_stream_async(*args, **kwargs):
+            stream_async_captured.update(kwargs)
+            return ([{"content": "ok"}], "ctx")
+
+        chain._aretrieve_multi_uncached = capture_stream_async
+
+        async def collect_stream():
+            return [event async for event in chain.stream_query("question")]
+
+        asyncio.run(collect_stream())
+        self._assert_graph_base_kwargs(stream_async_captured, graph_doc, guard)
+        self.assertEqual(stream_async_captured["graph_entity_ids"], ("e1",))
+        self.assertEqual(stream_async_captured["graph_revision"], "rev:1.25")
+
+        del chain._query_cache
+        del chain._aretrieve_uncached
+        chain._retrieve_multi = lambda *args, **kwargs: (
+            stream_sync_captured.update(kwargs) or ([{"content": "ok"}], "ctx")
+        )
+
+        async def collect_stream_sync_fallback():
+            return [event async for event in chain.stream_query("question")]
+
+        asyncio.run(collect_stream_sync_fallback())
+        self._assert_graph_base_kwargs(stream_sync_captured, graph_doc, guard)
+        self.assertNotIn("graph_entity_ids", stream_sync_captured)
+        self.assertNotIn("graph_revision", stream_sync_captured)
+
+    def _assert_graph_base_kwargs(self, captured, graph_doc, guard):
+        self.assertEqual(captured["graph_docs"], [graph_doc])
+        self.assertEqual(captured["graph_weight"], 1.25)
+        self.assertEqual(captured["graph_excluded_chunk_ids"], ("c-x",))
+        self.assertIs(captured["graph_guard"], guard)
 
     def test_query_methods_fallback_gracefully_when_graph_retrieval_fails(self):
         from rag_knowledge.services.query_planner import RetrievalPlan
