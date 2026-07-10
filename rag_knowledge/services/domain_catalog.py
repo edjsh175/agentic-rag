@@ -24,6 +24,7 @@ class DomainCatalogLoader:
             raise ValueError(f"invalid domain catalog JSON at {self.path}: {exc}") from exc
         self._entries: dict[str, tuple[str, str]] = {}
         self._categories: dict[str, str] = {}
+        self._owners: dict[str, str] = {}
         self._load(data)
 
     def _load(self, data: object) -> None:
@@ -37,6 +38,11 @@ class DomainCatalogLoader:
                 if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item["name"].strip():
                     raise ValueError(f"invalid domain catalog entry at {self.path}: {category}")
                 name = item["name"].strip()
+                owner = item.get("belongs_to")
+                if owner is not None and (not isinstance(owner, str) or not owner.strip()):
+                    raise ValueError(f"invalid belongs_to at {self.path}: {name}")
+                if isinstance(owner, str):
+                    self._owners[name] = owner.strip()
                 self._add(name, name, entity_type)
                 aliases = item.get("aliases", [])
                 if not isinstance(aliases, list) or not all(isinstance(alias, str) for alias in aliases):
@@ -63,6 +69,12 @@ class DomainCatalogLoader:
 
     def product_for_category(self, category: str) -> str | None:
         return self._categories.get(category)
+
+    def owner_for(self, name: str) -> str | None:
+        resolved = self.resolve(name)
+        if not resolved:
+            return None
+        return self._owners.get(resolved[0])
 
     def entries(self, entity_type: str | None = None) -> list[tuple[str, str]]:
         values = set(self._entries.values())

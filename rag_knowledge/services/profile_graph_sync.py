@@ -483,9 +483,9 @@ class ProfileGraphSyncService:
         if normalized in profile_aliases and (profile.section_families or profile.sibling_penalty_groups):
             return "DataTable"
         resolved = self._catalog.resolve(normalized)
-        if resolved and resolved[1] == "Tool" or normalized.endswith("Builder"):
+        if (resolved and resolved[1] == "Tool") or normalized.endswith("Builder"):
             return "Tool"
-        if resolved and resolved[1] == "Service" or normalized.endswith("服务"):
+        if (resolved and resolved[1] == "Service") or normalized.endswith("服务"):
             return "Service"
         if resolved and resolved[1] == "Product":
             return "Product"

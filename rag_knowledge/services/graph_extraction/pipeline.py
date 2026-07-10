@@ -9,6 +9,7 @@ from typing import Callable
 
 from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.entity_resolution import EntityResolutionService
 
@@ -115,7 +116,9 @@ class GraphBuilder:
         cfg = Config()
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
         llm_extractor = LLMGraphExtractor() if actual_include_llm else None
-        candidate_normalizer = CandidateNormalizer()
+        catalog = DomainCatalogLoader()
+        section_extractor = SectionPathExtractor(catalog=catalog)
+        candidate_normalizer = CandidateNormalizer(catalog=catalog)
         entity_resolver = EntityResolutionService(self.db)
 
         batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
@@ -127,7 +130,7 @@ class GraphBuilder:
 
         for chunk in chunks:
             # 1. Rules extractors
-            context = SectionPathExtractor().extract(chunk)
+            context = section_extractor.extract(chunk)
             combined = ExtractionResult()
             combined.extend(context)
             combined.extend(TableFieldExtractor().extract(chunk, context))

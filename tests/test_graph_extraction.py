@@ -478,7 +478,12 @@ def test_graph_build_cli_review_reports_invalid_candidate_ids(isolated_storage, 
     db = make_db(isolated_storage, name="cli-review.db", data_dir_name="cli-review-data", chroma_name="cli-review-chroma")
     batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
     candidate_id = db.add_extraction_candidate(
-        batch_id, "entity", "fp", {"name": "DOMBuilder", "entity_type": "Tool"}
+        batch_id, "entity", "fp", {
+            "name": "DOMBuilder",
+            "entity_type": "Tool",
+            "evidence_text": "DOMBuilder",
+            "source_chunk_id": "c1",
+        }
     )
 
     exit_code = run_graph_build.main(

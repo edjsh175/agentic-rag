@@ -121,20 +121,27 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
             ids, status = [item["id"] for item in selected], "approved"
         else:
             raise ValueError("review requires an action or --summary")
-        requested_count = len(ids)
-        if status == "approved" and not args.approve:
-            unsafe = [item for item in pending if item["id"] in ids and not _safe_review_candidate(item)]
+        requested_ids = list(ids)
+        unsafe_ids: set[str] = set()
+        if status == "approved":
+            unsafe = [
+                item
+                for item in pending
+                if item["id"] in requested_ids and not _safe_review_candidate(item)
+            ]
             unsafe_ids = {item["id"] for item in unsafe}
-            ids = [candidate_id for candidate_id in ids if candidate_id not in unsafe_ids]
+            ids = [candidate_id for candidate_id in requested_ids if candidate_id not in unsafe_ids]
         updated = db.review_extraction_candidates(args.batch, ids, status, args.reason)
         remaining = db.list_extraction_candidates(args.batch, "pending")
         if not remaining:
             approved = db.list_extraction_candidates(args.batch, "approved")
             db.set_extraction_batch_status(args.batch, "approved" if approved else "rejected")
         _print({
-            "requested": requested_count,
+            "requested": len(requested_ids),
+            "selected": len(ids),
+            "rejected_by_safety": len(unsafe_ids),
             "updated": updated,
-            "missing_or_not_pending": requested_count - updated,
+            "missing_or_not_pending": len(ids) - updated,
             "status": status,
             "remaining_pending": len(remaining),
         })

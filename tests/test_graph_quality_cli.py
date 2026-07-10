@@ -32,3 +32,47 @@ def test_review_filters_approve_only_matching_type_and_confidence(isolated_stora
     json.loads(capsys.readouterr().out)
     candidates = db.list_extraction_candidates(batch_id)
     assert [item["status"] for item in candidates] == ["pending", "approved"]
+
+
+def test_review_reports_requested_selected_and_safety_rejected(isolated_storage, capsys):
+    db = make_db(
+        isolated_storage,
+        name="review-safety.db",
+        data_dir_name="review-safety-data",
+        chroma_name="review-safety-chroma",
+    )
+    batch_id = db.create_extraction_batch("incremental", {}, "snapshot")
+    safe_id = db.add_extraction_candidate(
+        batch_id,
+        "entity",
+        "safe",
+        {
+            "name": "DemoTool",
+            "entity_type": "Tool",
+            "evidence_text": "DemoTool",
+            "source_chunk_id": "c1",
+        },
+        "c1",
+        "DemoTool",
+    )
+    unsafe_id = db.add_extraction_candidate(
+        batch_id,
+        "alias",
+        "unsafe",
+        {"entity_name": "DemoTool", "alias": "演示工具"},
+    )
+
+    assert run_graph_build.main(
+        ["review", "--batch", batch_id, "--approve", safe_id, unsafe_id, "missing-id"],
+        db=db,
+    ) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "requested": 3,
+        "selected": 2,
+        "rejected_by_safety": 1,
+        "updated": 1,
+        "missing_or_not_pending": 1,
+        "status": "approved",
+        "remaining_pending": 1,
+    }
