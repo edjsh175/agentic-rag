@@ -14,7 +14,7 @@ from rag_knowledge.services.graph_governance import (
     summarize_review_selection,
 )
 from rag_knowledge.services.graph_text_migration import GraphTextMigration
-from rag_knowledge.services.safe_rebuild import SafeRebuildDryRunService
+from rag_knowledge.services.safe_rebuild import SafeRebuildDryRunService, SafeRebuildService
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,7 +67,14 @@ def build_parser() -> argparse.ArgumentParser:
     quality.add_argument("--llm", action="store_true")
 
     rebuild_safe = sub.add_parser("rebuild-safe")
-    rebuild_safe.add_argument("--dry-run", action="store_true", default=True)
+    rebuild_mode = rebuild_safe.add_mutually_exclusive_group(required=True)
+    rebuild_mode.add_argument("--dry-run", action="store_true")
+    rebuild_mode.add_argument("--execute", action="store_true")
+    rebuild_safe.add_argument("--include-llm", action="store_true")
+    rebuild_safe.add_argument("--confirm-db-path")
+    rebuild_safe.add_argument("--backup-dir", default="data/backups")
+    rebuild_safe.add_argument("--limit", type=int)
+    rebuild_safe.add_argument("--doc-category", action="append", dest="doc_categories")
     rebuild_safe.add_argument("--output-json", default="data/rebuild_safe_dry_run_report.json")
     rebuild_safe.add_argument("--output-md", default="data/rebuild_safe_dry_run_report.md")
 
@@ -225,6 +232,25 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         return 0 if report.ok else 1
 
     if args.command == "rebuild-safe":
+        if args.execute:
+            service = SafeRebuildService(db=db, chunk_source=chunk_source)
+            report = service.run(
+                output_json=args.output_json,
+                output_md=args.output_md,
+                include_llm=args.include_llm,
+                confirm_db_path=args.confirm_db_path,
+                backup_dir=args.backup_dir,
+                limit=args.limit,
+                doc_categories=args.doc_categories,
+            )
+            _print({
+                "status": "completed",
+                "dry_run": False,
+                "batch_id": (report.get("extract") or {}).get("batch_id"),
+                "backup_path": report.get("backup_path"),
+                "report": report,
+            })
+            return 0
         service = SafeRebuildDryRunService(db)
         report = service.run(args.output_json, args.output_md)
         _print({"status": "completed", "dry_run": True, "report": report})

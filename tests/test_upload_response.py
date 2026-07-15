@@ -1,7 +1,12 @@
 """测试 /upload 接口响应中的 chunks_count 与扫描统计字段。"""
 import io
+import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+from fastapi import UploadFile
 
 from rag_knowledge.models.api import UploadResponse
 from rag_knowledge.api import routes
@@ -88,10 +93,12 @@ class UploadRouteLogicTests(unittest.TestCase):
         """保存原始模块级变量，测试后恢复。"""
         self._orig_scanner = routes._scanner
         self._orig_store = routes._store
+        self._orig_cfg = routes._cfg
 
     def tearDown(self):
         routes._scanner = self._orig_scanner
         routes._store = self._orig_store
+        routes._cfg = self._orig_cfg
 
     def _patch_upload_dependencies(self, scan_result, before_count, after_count):
         """构造一个假的 upload 调用链并验证返回值逻辑。
@@ -138,6 +145,25 @@ class UploadRouteLogicTests(unittest.TestCase):
         )
         self.assertEqual(chunks_count, 0)
         self.assertGreaterEqual(chunks_count, 0)
+
+    def test_upload_save_failure_does_not_leave_profile_selection(self):
+        scanner = MagicMock()
+        routes._scanner = scanner
+        with tempfile.TemporaryDirectory() as tmp:
+            routes._cfg = SimpleNamespace(watch_dir=Path(tmp))
+            upload = UploadFile(filename="broken.txt", file=io.BytesIO(b"content"))
+
+            with patch("builtins.open", side_effect=OSError("disk full")):
+                with self.assertRaises(OSError):
+                    routes.upload(
+                        upload,
+                        kb_name="test",
+                        doc_category=routes.DOC_CATEGORIES[0],
+                        document_profile="procedure",
+                    )
+
+        scanner.set_doc_category.assert_not_called()
+        scanner.set_document_profile.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -30,17 +30,32 @@ from rag_knowledge.models.structured_document import (
 )
 from rag_knowledge.services.semantic_chunker import SemanticChunker, SemanticChunkingError
 from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader, SUPPORTED_EXTS
+from rag_knowledge.services.document_profiles import (
+    DocumentProfile,
+    apply_document_profile,
+    finalize_profile_chunks,
+    get_chunk_policy,
+    normalize_document_profile,
+)
+from rag_knowledge.services.canonical_adapters import ADAPTER_EXTENSIONS, load_canonical_documents
+from rag_knowledge.services.section_chunk_merge import (
+    CHUNKING_METHOD,
+    TARGET_SOFT_MAX,
+    apply_technical_manual_merge,
+    reassign_chunk_adjacency,
+)
 
 logger = logging.getLogger(__name__)
 
 # 各格式扩展名集合
-TEXT_EXTS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xls", ".xlsx"}
+TEXT_EXTS = {".docx", ".doc", ".txt", ".md", ".xls", ".xlsx", *ADAPTER_EXTENSIONS}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv"}
 WORD_FIELD_RE = re.compile(r"(?im)^\s*(HYPERLINK|PAGEREF|TOC|MERGEFIELD|SEQ|REF)\b.*$")
 TOC_LINE_RE = re.compile(r"^\s*(?:\d+(?:\.\d+)*)?\s*[\u4e00-\u9fffA-Za-z].*?(?:\.{2,}|…{2,}|\s{2,})\s*\d+\s*$")
 URL_LINE_RE = re.compile(r"^\s*(?:https?://\S+|www\.\S+|\[[^\]]+\]\(https?://[^)]+\))\s*$", re.I)
 VERSION_HINT_RE = re.compile(r"(?:v?\d+(?:\.\d+)+|rocky\s*\d+|centos\s*\d+|windows\s*server\s*\d+)", re.I)
+TOC_MARKER_RE = re.compile(r"^(?:目录|contents?)(?:\s+\d+)?$", re.I)
 
 
 class FileLoader:
@@ -48,6 +63,7 @@ class FileLoader:
 
     def __init__(self):
         cfg = Config()
+        self._document_profile_config = cfg
         self._chunk_size = cfg.chunk_size
         self._chunk_overlap = cfg.chunk_overlap
         self._semantic_chunking_enabled = cfg.semantic_chunking_enabled
@@ -94,7 +110,12 @@ class FileLoader:
     # 对外接口
     # ------------------------------------------------------------------
 
-    def load(self, file_path: str) -> tuple[list[Document], str]:
+    def load(
+        self,
+        file_path: str,
+        *,
+        document_profile: DocumentProfile | str | None = None,
+    ) -> tuple[list[Document], str]:
         """
         加载并处理一个文件
 
@@ -112,7 +133,7 @@ class FileLoader:
         suffix = Path(file_path).suffix.lower()
 
         if suffix in TEXT_EXTS:
-            return self._load_text(file_path), FileCategory.TEXT
+            return self._load_text(file_path, document_profile=document_profile), FileCategory.TEXT
         elif suffix in IMAGE_EXTS:
             return self._load_image(file_path), FileCategory.IMAGE
         elif suffix in VIDEO_EXTS:
@@ -136,24 +157,51 @@ class FileLoader:
     # 文本类
     # ------------------------------------------------------------------
 
-    def _load_text(self, file_path: str) -> list[Document]:
+    def _load_text(
+        self,
+        file_path: str,
+        *,
+        document_profile: DocumentProfile | str | None = None,
+    ) -> list[Document]:
         """文本类文件加载，优先 unstructured 章节切片，失败回退旧逻辑"""
         path = Path(file_path)
         suffix = path.suffix.lower()
+        profile = normalize_document_profile(document_profile)
+        policy = get_chunk_policy(profile, config=getattr(self, "_document_profile_config", None))
 
         if suffix == ".doc":
-            logger.warning("检测到旧版 .doc 文件，建议先转换为 .docx 再入库: %s", path.name)
+            raise ValueError(f"LEGACY_DOC_REQUIRES_CONVERSION: {path.name}")
+
+        if suffix in ADAPTER_EXTENSIONS:
+            chunks = apply_document_profile(load_canonical_documents(path), profile, policy=policy)
+            chunks = self._split_documents_preserving_blocks(chunks)
+            if suffix == ".pdf" and self._extract_images:
+                for desc in self._describe_embedded_images(file_path):
+                    chunks.append(Document(
+                        page_content=desc,
+                        metadata={
+                            "source": path.name,
+                            "category": FileCategory.TEXT,
+                            "content_type": "embedded_image",
+                            "content_role": "media_evidence",
+                            "section_title": "",
+                            "section_path": "",
+                        },
+                    ))
+            chunks = self._post_process_chunks(chunks)
+            return finalize_profile_chunks(chunks, profile, policy)
 
         # 优先使用 unstructured 按标题切片（仅 .txt / .md / .docx）
         if self._use_unstructured and suffix in SUPPORTED_EXTS:
             try:
                 chunks = self._unstructured_loader.load(file_path)
+                chunks = apply_document_profile(chunks, profile, policy=policy)
                 chunks = self._split_documents_preserving_blocks(chunks)
             except Exception as e:
                 logger.warning("unstructured 解析失败，回退旧解析方式 %s: %s", path.name, e)
-                chunks = self._load_text_legacy(file_path)
+                chunks = apply_document_profile(self._load_text_legacy(file_path), profile, policy=policy)
         else:
-            chunks = self._load_text_legacy(file_path)
+            chunks = apply_document_profile(self._load_text_legacy(file_path), profile, policy=policy)
 
         # 提取内嵌图片并用视觉模型描述，每条描述作为独立 chunk
         if suffix in (".pdf", ".docx") and self._extract_images:
@@ -170,7 +218,9 @@ class FileLoader:
                     },
                 ))
 
-        return self._post_process_chunks(chunks)
+        chunks = self._mark_table_context_chunks(chunks)
+        chunks = self._post_process_chunks(chunks)
+        return finalize_profile_chunks(chunks, profile, policy)
 
     def _load_text_legacy(self, file_path: str) -> list[Document]:
         """旧版文本加载逻辑（固定长度切分）"""
@@ -304,6 +354,29 @@ class FileLoader:
         path = Path(file_path)
         suffix = path.suffix.lower()
         docs: list[Document] = []
+        import hashlib
+
+        snapshot_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+
+        def table_metadata(sheet_name: str, order: int) -> dict:
+            element_id = f"el_excel_{snapshot_hash[:12]}_{order:04d}"
+            return {
+                "source": path.name,
+                "sheet": sheet_name,
+                "section_title": sheet_name,
+                "section_path": sheet_name,
+                "heading_level": 1,
+                "element_order": order,
+                "content_type": "table",
+                "content_role": "table",
+                "chunking_method": "table",
+                "table_source": "excel",
+                "element_id": element_id,
+                "source_element_ids": [element_id],
+                "source_raw_block_ids": [f"rb_excel_{snapshot_hash[:12]}_{order:04d}"],
+                "source_document_id": snapshot_hash[:32],
+                "source_snapshot_hash": snapshot_hash,
+            }
 
         try:
             if suffix == ".xlsx":
@@ -325,17 +398,7 @@ class FileLoader:
                     if md.strip():
                         docs.append(Document(
                             page_content=md,
-                            metadata={
-                                "source": path.name,
-                                "sheet": sheet_name,
-                                "section_title": sheet_name,
-                                "section_path": sheet_name,
-                                "heading_level": 1,
-                                "element_order": len(docs) + 1,
-                                "content_type": "table",
-                                "chunking_method": "table",
-                                "table_source": "excel",
-                            },
+                            metadata=table_metadata(sheet_name, len(docs) + 1),
                         ))
                 wb.close()
 
@@ -360,17 +423,7 @@ class FileLoader:
                     if md.strip():
                         docs.append(Document(
                             page_content=md,
-                            metadata={
-                                "source": path.name,
-                                "sheet": sheet.name,
-                                "section_title": sheet.name,
-                                "section_path": sheet.name,
-                                "heading_level": 1,
-                                "element_order": len(docs) + 1,
-                                "content_type": "table",
-                                "chunking_method": "table",
-                                "table_source": "excel",
-                            },
+                            metadata=table_metadata(sheet.name, len(docs) + 1),
                         ))
             else:
                 raise ValueError(f"不支持的 Excel 格式: {suffix}")
@@ -420,7 +473,7 @@ class FileLoader:
         cleaned_chunks: list[Document] = []
         for chunk in chunks:
             content_type = chunk.metadata.get("content_type")
-            if content_type in ("code", "table"):
+            if content_type in ("code", "table", "heading"):
                 # 结构保护块跳过低信息过滤和空格折叠，但做首尾空白清理
                 cleaned = chunk.page_content.strip()
                 if not cleaned:
@@ -429,7 +482,11 @@ class FileLoader:
                 cleaned_chunks.append(chunk)
             else:
                 cleaned = self._sanitize_text(chunk.page_content)
-                if not cleaned or self._is_low_information(cleaned):
+                if (
+                    not cleaned
+                    or self._is_toc_marker_chunk(cleaned)
+                    or self._is_low_information(cleaned)
+                ):
                     continue
                 chunk.page_content = cleaned
                 cleaned_chunks.append(chunk)
@@ -449,6 +506,13 @@ class FileLoader:
         cleaned = re.sub(r"[ \t]+", " ", cleaned)
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
         return cleaned.strip()
+
+    @staticmethod
+    def _is_toc_marker_chunk(text: str) -> bool:
+        body = text.strip()
+        if body.startswith("# ") and "\n\n" in body:
+            body = body.split("\n\n", 1)[1].strip()
+        return bool(TOC_MARKER_RE.fullmatch(body))
 
     @staticmethod
     def _is_low_information(text: str) -> bool:
@@ -476,32 +540,13 @@ class FileLoader:
         if len(lines) == 1 and len(compact) < 16 and not VERSION_HINT_RE.search(stripped):
             return True
 
-        for line in lines:
-            for token in re.split(r"\s+", line):
-                compact_token = token.strip()
-                if len(compact_token) < 40:
-                    continue
-                has_ascii_letters = any(char.isascii() and char.isalpha() for char in compact_token)
-                has_non_ascii = any(not char.isascii() for char in compact_token)
-                if has_ascii_letters and has_non_ascii:
-                    return True
-            compact_line = "".join(char for char in line if not char.isspace())
-            if len(compact_line) < 32:
-                continue
-            ascii_letters = sum(1 for char in compact_line if char.isascii() and char.isalpha())
-            cjk_chars = sum(1 for char in compact_line if "\u3400" <= char <= "\u9fff")
-            other_non_ascii = sum(
-                1
-                for char in compact_line
-                if not char.isascii()
-                and not ("\u3400" <= char <= "\u9fff")
-                and char not in "，。；：！？、（）《》【】“”‘’—…￥"
-            )
-            if ascii_letters >= 4 and cjk_chars >= 4 and other_non_ascii >= 4:
-                return True
-
         non_space_chars = [char for char in stripped if not char.isspace()]
         if len(non_space_chars) >= 24:
+            unexpected_script_count = sum(
+                1 for char in non_space_chars if FileLoader._is_unexpected_script_char(char)
+            )
+            if unexpected_script_count:
+                return True
             readable = sum(1 for char in non_space_chars if FileLoader._is_readable_text_char(char))
             if readable / len(non_space_chars) < 0.35:
                 return True
@@ -529,6 +574,18 @@ class FileLoader:
         if char in "，。；：！？、（）《》【】“”‘’—…￥":
             return True
         return False
+
+    @staticmethod
+    def _is_unexpected_script_char(char: str) -> bool:
+        if not char:
+            return False
+        codepoint = ord(char)
+        return (
+            0x0590 <= codepoint <= 0x08FF  # Hebrew, Arabic and related scripts
+            or 0x0900 <= codepoint <= 0x0D7F  # Indic scripts, including Malayalam
+            or 0x0E00 <= codepoint <= 0x0FFF  # Thai, Lao and Tibetan
+            or 0x1000 <= codepoint <= 0x10FF  # Myanmar and Georgian
+        )
 
     # ------------------------------------------------------------------
     # 内嵌图片提取（Word / PDF 中的图片 → 视觉模型描述）
@@ -806,10 +863,51 @@ class FileLoader:
             out_docs.extend(self._split_markdown_preserving_blocks(doc))
         return [self._finalize_structured_chunk(doc) for doc in out_docs]
 
+    @staticmethod
+    def _mark_table_context_chunks(chunks: list[Document]) -> list[Document]:
+        for index, chunk in enumerate(chunks):
+            meta = chunk.metadata or {}
+            if meta.get("content_type") != "text":
+                continue
+            path = str(meta.get("section_path") or "")
+            related_tables = []
+            has_adjacent_table = False
+            for neighbor_index in (index - 1, index + 1):
+                if not 0 <= neighbor_index < len(chunks):
+                    continue
+                neighbor_meta = chunks[neighbor_index].metadata or {}
+                if (
+                    neighbor_meta.get("content_type") == "table"
+                    and str(neighbor_meta.get("section_path") or "") == path
+                ):
+                    has_adjacent_table = True
+                    table_id = str(neighbor_meta.get("table_id") or "")
+                    if table_id:
+                        related_tables.append(table_id)
+            if has_adjacent_table:
+                updated = dict(meta)
+                updated["table_context"] = True
+                updated["related_table_ids"] = list(dict.fromkeys(related_tables))
+                chunk.metadata = updated
+        return chunks
+
     def _split_markdown_preserving_blocks(self, doc: Document) -> list[Document]:
         """将单个文档（Markdown/Excel 表格/普通文本）按结构保护切分"""
         metadata = doc.metadata.copy()
         content = doc.page_content
+
+        # Round 0C: keep bounded merge windows, but split oversized source elements.
+        if (
+            metadata.get("chunking_method") == CHUNKING_METHOD
+            and metadata.get("content_type") not in {"table", "code", "embedded_image"}
+        ):
+            section_path = str(metadata.get("section_path") or "")
+            section_parts = [part.strip() for part in section_path.split(">") if part.strip()]
+            prefix = render_section_prefix(section_parts)
+            rendered_len = len(content) + (len(prefix) + 2 if prefix else 0)
+            if rendered_len <= TARGET_SOFT_MAX:
+                return [doc]
+            return self._split_documents_with_method([doc], CHUNKING_METHOD)
 
         # 如果已经是 Excel 转换过来的表格，或者元数据中已经指定 content_type == "table"，
         # 且整个内容就是个 Markdown 表格，直接按表格规则处理。

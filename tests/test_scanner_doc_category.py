@@ -76,6 +76,55 @@ class ScannerDocCategoryTests(unittest.TestCase):
         self.assertEqual(blog, "博客")
         self.assertEqual(fallback, "其他")
 
+    def test_document_profile_resolution_has_explicit_inherited_map_default_priority(self):
+        DirectoryScanner = _load_directory_scanner()
+        scanner = object.__new__(DirectoryScanner)
+        scanner._profile_selection_map = {"upload/test.docx": "procedure"}
+        scanner._rebuild_profile_map = {"upload/test.docx": "api_doc"}
+        scanner._rebuild_hash_profile_map = {"hash-1": "table_doc"}
+        scanner._profile_map = {"upload/test.docx": "record_list", "word/manual.docx": "technical_manual"}
+        scanner._save_profile_selection_map = lambda: None
+
+        explicit = scanner._resolve_document_profile("upload/test.docx", "hash-1")
+        scanner._consume_document_profile_selection("upload/test.docx")
+        inherited = scanner._resolve_document_profile("upload/test.docx", "hash-1")
+        mapped = scanner._resolve_document_profile("word/manual.docx", "hash-2")
+        default = scanner._resolve_document_profile("unknown.docx", "hash-3")
+
+        self.assertEqual(explicit, "procedure")
+        self.assertEqual(inherited, "api_doc")
+        self.assertEqual(mapped, "technical_manual")
+        self.assertEqual(default, "section_based")
+
+    def test_document_profile_selection_is_consumed_only_after_success(self):
+        DirectoryScanner = _load_directory_scanner()
+        scanner = object.__new__(DirectoryScanner)
+        scanner._profile_selection_map = {"upload/test.docx": "procedure"}
+        scanner._rebuild_profile_map = {}
+        scanner._rebuild_hash_profile_map = {}
+        scanner._profile_map = {}
+        scanner._save_profile_selection_map = MagicMock()
+
+        self.assertEqual(
+            scanner._resolve_document_profile("upload/test.docx", "hash-1"),
+            "procedure",
+        )
+        self.assertIn("upload/test.docx", scanner._profile_selection_map)
+
+        scanner._consume_document_profile_selection("upload/test.docx")
+
+        self.assertNotIn("upload/test.docx", scanner._profile_selection_map)
+        scanner._save_profile_selection_map.assert_called_once_with()
+
+    def test_set_document_profile_rejects_unknown_profile(self):
+        DirectoryScanner = _load_directory_scanner()
+        scanner = object.__new__(DirectoryScanner)
+        scanner._profile_selection_map = {}
+        scanner._save_profile_selection_map = lambda: None
+
+        with self.assertRaises(ValueError):
+            scanner.set_document_profile("upload/test.docx", "filename_magic")
+
 
 if __name__ == "__main__":
     unittest.main()

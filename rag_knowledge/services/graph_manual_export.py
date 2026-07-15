@@ -8,7 +8,19 @@ from rag_knowledge.repository.relational_db import RelationalDB
 
 logger = logging.getLogger(__name__)
 
-MANUAL_CREATORS = ('admin', 'manual', 'seed', 'rule:special', 'rule:special_relations')
+MANUAL_CREATORS = (
+    "admin",
+    "manual",
+    "seed",
+    "rule:special",
+    "rule:special_relations",
+    "rule:profile_sync",
+)
+
+
+def _is_preserved_creator(created_by: str) -> bool:
+    value = str(created_by or "")
+    return value in MANUAL_CREATORS or value.startswith("seed:")
 
 
 class GraphManualFactExporter:
@@ -32,12 +44,11 @@ class GraphManualFactExporter:
             chroma_accessible = False
 
         with self.db._get_conn() as conn:
-            # 2. Query manual entities
-            placeholders = ",".join("?" for _ in MANUAL_CREATORS)
-            db_entities = conn.execute(
-                f"SELECT * FROM entities WHERE created_by IN ({placeholders})",
-                MANUAL_CREATORS
-            ).fetchall()
+            # 2. Query manual/seed entities (exact creators + seed:* prefix)
+            db_entities = [
+                row for row in conn.execute("SELECT * FROM entities").fetchall()
+                if _is_preserved_creator(row["created_by"])
+            ]
 
             entities = []
             for row in db_entities:
@@ -53,16 +64,18 @@ class GraphManualFactExporter:
                     "created_by": row["created_by"]
                 })
 
-            # 3. Query manual relations mapping end-points to canonical names
-            db_relations = conn.execute(f"""
-                SELECT r.*,
-                       COALESCE(NULLIF(s.canonical_name, ''), s.name) as source_canonical_name,
-                       COALESCE(NULLIF(t.canonical_name, ''), t.name) as target_canonical_name
-                FROM relations r
-                JOIN entities s ON r.source_entity_id = s.id
-                JOIN entities t ON r.target_entity_id = t.id
-                WHERE r.created_by IN ({placeholders})
-            """, MANUAL_CREATORS).fetchall()
+            # 3. Query manual/seed relations mapping end-points to canonical names
+            db_relations = [
+                row for row in conn.execute("""
+                    SELECT r.*,
+                           COALESCE(NULLIF(s.canonical_name, ''), s.name) as source_canonical_name,
+                           COALESCE(NULLIF(t.canonical_name, ''), t.name) as target_canonical_name
+                    FROM relations r
+                    JOIN entities s ON r.source_entity_id = s.id
+                    JOIN entities t ON r.target_entity_id = t.id
+                """).fetchall()
+                if _is_preserved_creator(row["created_by"])
+            ]
 
             relations = []
             for row in db_relations:
@@ -78,14 +91,21 @@ class GraphManualFactExporter:
                     "created_by": row["created_by"]
                 })
 
-            # 4. Query manual aliases (or aliases linked to manual entities)
-            db_aliases = conn.execute(f"""
-                SELECT a.*, COALESCE(NULLIF(e.canonical_name, ''), e.name) as entity_canonical_name
+            # 4. Query aliases linked to preserved entities
+            preserved_entity_ids = {row["id"] for row in db_entities}
+            db_aliases = conn.execute("""
+                SELECT a.*, COALESCE(NULLIF(e.canonical_name, ''), e.name) as entity_canonical_name,
+                       e.id as entity_row_id, e.created_by as entity_created_by
                 FROM aliases a
                 JOIN entities e ON a.entity_id = e.id
-                WHERE e.created_by IN ({placeholders})
-                   OR a.evidence_text LIKE 'special_rule:%'
-            """, MANUAL_CREATORS).fetchall()
+            """).fetchall()
+            db_aliases = [
+                row for row in db_aliases
+                if row["entity_row_id"] in preserved_entity_ids
+                or _is_preserved_creator(row["entity_created_by"])
+                or str(row["evidence_text"] or "").startswith("special_rule:")
+                or str(row["evidence_text"] or "").startswith("product_backbone:")
+            ]
 
             aliases = []
             for row in db_aliases:
@@ -98,14 +118,16 @@ class GraphManualFactExporter:
                     "review_status": row["review_status"]
                 })
 
-            # 5. Query links associated with manual entities
-            db_links = conn.execute(f"""
-                SELECT l.*, COALESCE(NULLIF(e.canonical_name, ''), e.name) as entity_canonical_name
-                FROM entity_chunk_links l
-                JOIN entities e ON l.entity_id = e.id
-                WHERE e.created_by IN ({placeholders})
-            """, MANUAL_CREATORS).fetchall()
-
+            # 5. Query links associated with preserved entities
+            db_links = [
+                row for row in conn.execute("""
+                    SELECT l.*, COALESCE(NULLIF(e.canonical_name, ''), e.name) as entity_canonical_name,
+                           e.created_by as entity_created_by
+                    FROM entity_chunk_links l
+                    JOIN entities e ON l.entity_id = e.id
+                """).fetchall()
+                if _is_preserved_creator(row["entity_created_by"])
+            ]
             links = []
             skipped_stale_links = 0
             for row in db_links:

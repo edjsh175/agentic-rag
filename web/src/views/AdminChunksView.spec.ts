@@ -106,7 +106,88 @@ describe('AdminChunksView', () => {
 
     await wrapper.get('[data-test="select-all"]').setValue(true)
 
-    expect(wrapper.text()).toContain('已选择 2 项')
+    expect(wrapper.get('[data-test="selection-label"]').text()).toContain('已选择 2 项')
+  })
+
+  it('selects all matching results across pages', async () => {
+    vi.mocked(api.listAdminChunks)
+      .mockResolvedValueOnce({
+        items: chunks,
+        total: 3,
+        page: 1,
+        page_size: 20,
+        total_pages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          { ...chunks[0], chunk_id: 'c1' },
+          { ...chunks[1], chunk_id: 'c2' },
+        ],
+        total: 3,
+        page: 1,
+        page_size: 100,
+        total_pages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [{ ...chunks[0], chunk_id: 'c3', file_name: 'extra.md' }],
+        total: 3,
+        page: 2,
+        page_size: 100,
+        total_pages: 2,
+      })
+
+    const wrapper = mount(AdminChunksView)
+    await flushPromises()
+    vi.mocked(api.listAdminChunks).mockClear()
+
+    await wrapper.get('[data-test="select-all-matching"]').trigger('click')
+    await flushPromises()
+
+    expect(api.listAdminChunks).toHaveBeenCalledWith(expect.objectContaining({
+      page: 1,
+      page_size: 100,
+      review_status: 'pending',
+    }))
+    expect(api.listAdminChunks).toHaveBeenCalledWith(expect.objectContaining({
+      page: 2,
+      page_size: 100,
+    }))
+    expect(wrapper.get('[data-test="selection-label"]').text()).toContain('已选择全部 3 项（当前筛选）')
+  })
+
+  it('approves all matching filter results in one click', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(api.listAdminChunks)
+      .mockResolvedValueOnce({
+        items: [chunks[0]],
+        total: 2,
+        page: 1,
+        page_size: 20,
+        total_pages: 1,
+      })
+      .mockResolvedValueOnce({
+        items: chunks,
+        total: 2,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      })
+      .mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        page_size: 20,
+        total_pages: 0,
+      })
+
+    const wrapper = mount(AdminChunksView)
+    await flushPromises()
+
+    await wrapper.get('[data-test="approve-all-matching"]').trigger('click')
+    await flushPromises()
+
+    expect(window.confirm).toHaveBeenCalledWith('确认通过当前筛选下全部 2 个知识块？')
+    expect(api.batchReviewChunks).toHaveBeenCalledWith(['c1', 'c2'], 'approved')
   })
 
   it('opens the detail panel and saves category and title edits', async () => {
@@ -189,6 +270,26 @@ describe('AdminChunksView', () => {
     await wrapper.get('[data-test="page-size"]').setValue('50')
     await flushPromises()
     expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 50 }))
+  })
+
+  it('paginates from the top batch bar controls', async () => {
+    vi.mocked(api.listAdminChunks).mockResolvedValue({
+      items: chunks,
+      total: 42,
+      page: 1,
+      page_size: 20,
+      total_pages: 3,
+    })
+    const wrapper = mount(AdminChunksView)
+    await flushPromises()
+
+    await wrapper.get('[data-test="next-page-top"]').trigger('click')
+    await flushPromises()
+    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }))
+
+    await wrapper.get('[data-test="page-size-top"]').setValue('100')
+    await flushPromises()
+    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 100 }))
   })
 
   it('shows request failures in the page', async () => {

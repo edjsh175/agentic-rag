@@ -23,6 +23,7 @@ from rag_knowledge.services.entity_resolution import EntityResolutionService
 from . import (
     CandidateNormalizer,
     ConfigBlockExtractor,
+    DataSpecTableRelationExtractor,
     ExtractionResult,
     SectionPathExtractor,
     TableFieldExtractor,
@@ -140,6 +141,7 @@ class GraphBuilder:
             context = section_extractor.extract(chunk)
             combined = ExtractionResult()
             combined.extend(context)
+            combined.extend(DataSpecTableRelationExtractor().extract(chunk, context))
             combined.extend(TableFieldExtractor().extract(chunk, context))
             combined.extend(ConfigBlockExtractor().extract(chunk, context))
             for kind, items in (
@@ -559,7 +561,12 @@ class GraphQualityService:
                 continue
             payload = item["payload"]
             has_candidate_evidence = payload["name"] in approved_link_names or bool(payload.get("source_chunk_id"))
-            if payload.get("created_by") not in {"rule:profile_sync", "seed:domain_catalog"} and not has_candidate_evidence:
+            created_by = str(payload.get("created_by") or "")
+            if (
+                created_by not in {"rule:profile_sync", "seed:domain_catalog", "seed:product_backbone"}
+                and not created_by.startswith("seed:")
+                and not has_candidate_evidence
+            ):
                 error = f"missing_evidence:{payload['name']}"
                 if error not in report.errors:
                     report.errors.append(error)

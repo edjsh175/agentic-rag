@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
 import type { Message, SourceDoc, Stats } from '../types'
-import { queryKnowledgeStream, queryKnowledge, queryImageStream, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents } from '../api'
+import { queryKnowledgeStream, queryKnowledge, queryImageStream, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, DOCUMENT_PROFILE_OPTIONS } from '../api'
+import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
 import ChatMessage from '../components/ChatMessage.vue'
@@ -326,6 +327,7 @@ const uploading = ref(false)
 const showUploadPicker = ref(false)
 const uploadTargetKb = ref('')
 const scanningOverlay = ref(false)
+const uploadDocumentProfile = ref<DocumentProfile>('section_based')
 
 function clickUpload() {
   const realKbs = kbList.value.filter(b => b !== '全部知识库')
@@ -352,7 +354,7 @@ async function handleUpload(e: Event) {
   uploading.value = true
   showToast('正在入库…')
   try {
-    const result = await uploadDocument(file, targetKb)
+    const result = await uploadDocument(file, targetKb, uploadDocumentProfile.value)
     messages.value.push({
       id: Date.now().toString(), role: 'assistant',
       content: `已上传 **${result.file_name}** → 知识库「${targetKb}」`,
@@ -519,7 +521,15 @@ function scrollDown() {
             </button>
           </div>
 
-          <input ref="docInput" type="file" accept=".pdf,.docx,.doc,.txt,.xls,.xlsx" hidden @change="handleUpload" />
+          <label class="profile-picker" title="选择文档结构，系统不会根据文件名自动猜测">
+            <span>文档类型</span>
+            <select v-model="uploadDocumentProfile">
+              <option v-for="option in DOCUMENT_PROFILE_OPTIONS" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+          <input ref="docInput" type="file" accept=".pdf,.docx,.doc,.txt,.md,.xls,.xlsx" hidden @change="handleUpload" />
           <div class="upload-wrap">
             <button class="icon-btn" @click="clickUpload" :disabled="uploading" title="上传文档">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -799,6 +809,24 @@ function scrollDown() {
 .icon-btn--danger:hover { color: #f25d5d; background: #fef0f0; }
 
 .upload-wrap { position: relative; }
+
+.profile-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.profile-picker select {
+  max-width: 150px;
+  padding: 5px 24px 5px 8px;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font-size: 12px;
+}
 
 .upload-popover {
   position: absolute;

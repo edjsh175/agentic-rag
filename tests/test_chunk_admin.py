@@ -276,3 +276,12 @@ def test_upload_rejects_category_outside_product_domains():
     with pytest.raises(HTTPException) as exc:
         routes.upload(file=file, doc_category="运维管理")
     assert exc.value.status_code == 400
+
+
+def test_upload_rejects_unknown_document_profile():
+    from rag_knowledge.api import routes
+
+    file = UploadFile(filename="manual.txt", file=io.BytesIO(b"content"))
+    with pytest.raises(HTTPException) as exc:
+        routes.upload(file=file, document_profile="filename_magic")
+    assert exc.value.status_code == 400

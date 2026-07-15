@@ -1,0 +1,8 @@
+{
+  "batch_id": "4f735904-07f9-471b-ace7-73cbf95f0171",
+  "sample_size": 40,
+  "judged_non_diagnostic": 35,
+  "precision": 0.8285714285714286,
+  "true_positives": 29,
+  "false_positives": 6
+}

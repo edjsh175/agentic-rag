@@ -184,6 +184,27 @@ class Config:
         self.use_unstructured = _get("text", "use_unstructured", "true").lower() == "true"
         self.unstructured_strategy = _get("text", "unstructured_strategy", "fast")
 
+        def _profile_policy(name: str, *, target_min: int = 0, target_max: int = 800,
+                            soft_max: int = 1200, command_follow_max: int = 1500,
+                            table_row_group_max: int = 500) -> dict:
+            prefix = name
+            return {
+                "target_min": int(_get("chunk_profiles", f"{prefix}_target_min", str(target_min))),
+                "target_max": int(_get("chunk_profiles", f"{prefix}_target_max", str(target_max))),
+                "soft_max": int(_get("chunk_profiles", f"{prefix}_soft_max", str(soft_max))),
+                "command_follow_max": int(_get("chunk_profiles", f"{prefix}_command_follow_max", str(command_follow_max))),
+                "table_row_group_max": int(_get("chunk_profiles", f"{prefix}_table_row_group_max", str(table_row_group_max))),
+            }
+
+        self.document_profile_policies = {
+            "section_based": _profile_policy("section_based"),
+            "technical_manual": _profile_policy("technical_manual", target_min=300),
+            "procedure": _profile_policy("procedure"),
+            "api_doc": _profile_policy("api_doc"),
+            "table_doc": _profile_policy("table_doc"),
+            "record_list": _profile_policy("record_list"),
+        }
+
         # ---- 检索策略 ----
         self.retrieval_top_k = int(_get("retrieval", "top_k", "5"))
         self.retrieval_fetch_k = int(_get("retrieval", "fetch_k", "20"))

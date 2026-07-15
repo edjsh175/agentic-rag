@@ -530,3 +530,11 @@ def test_defined_in_only_targets_document_or_section():
     assert validate_relation("Tool", "defined_in", "Section")[0]
     assert not validate_relation("Tool", "defined_in", "Step")[0]
     assert not validate_relation("Tool", "defined_in", "ConfigItem")[0]
+
+
+def test_belongs_to_allows_product_backbone_tree_edges():
+    from rag_knowledge.models.graph_schema import validate_relation
+
+    assert validate_relation("Tool", "belongs_to", "Module")[0]
+    assert validate_relation("Service", "belongs_to", "Module")[0]
+    assert validate_relation("Module", "belongs_to", "Module")[0]

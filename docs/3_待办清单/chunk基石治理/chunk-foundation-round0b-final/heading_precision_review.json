@@ -1,0 +1,2554 @@
+{
+  "summary": {
+    "scope": "Current source files reparsed with Round 0B parser; one record per unique source + section_path.",
+    "total_predictions": 361,
+    "confirmed_headings": 361,
+    "needs_review": 0,
+    "precision_pct": 100.0,
+    "by_evidence": {
+      "docx_fallback_manual_review": 18,
+      "docx_style": 324,
+      "markdown_heading": 17,
+      "txt_separator": 2
+    },
+    "by_source": {
+      "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md": 3,
+      "2026陕西耕地保护系统问题收集.docx": 4,
+      "StampServer用户手册_Rocky9 .docx": 164,
+      "StampTools用户手册.docx": 80,
+      "StampWebRTC用户手册.docx": 94,
+      "b8aa16233693-MySQL数据库_数据类型与表约束.md": 14,
+      "实景三维新功能.txt": 2
+    },
+    "review_note": "docx_fallback_manual_review items were checked against the source paragraphs during Round 0B; cover-page fallbacks are excluded before the first styled heading."
+  },
+  "candidates": [
+    {
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "section_path": "分析功能 重要基于这个推进实现业务 > 坡度分析",
+      "title": "坡度分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "section_path": "分析功能 重要基于这个推进实现业务 > 耕地质量等级分析",
+      "title": "耕地质量等级分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "section_path": "分析功能 重要基于这个推进实现业务 > 集中连片度分析",
+      "title": "集中连片度分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "section_path": "权限管理",
+      "title": "权限管理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "实景三维新功能.txt",
+      "section_path": "1.陕西地信",
+      "title": "1.陕西地信",
+      "label": "heading",
+      "evidence": "txt_separator"
+    },
+    {
+      "source": "实景三维新功能.txt",
+      "section_path": "11.陕西耕地保护",
+      "title": "11.陕西耕地保护",
+      "label": "heading",
+      "evidence": "txt_separator"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "1）授权文件",
+      "title": "1）授权文件",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "2）USB授权锁",
+      "title": "2）USB授权锁",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "2）USB授权锁 > 建立软链接",
+      "title": "建立软链接",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书",
+      "title": "Nginx使用CA证书",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+      "title": "创建根CA",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有CA配置 > 客户端安装CA证书",
+      "title": "客户端安装CA证书",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有CA配置 > 签发证书",
+      "title": "签发证书",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有域名配置 > IP映射域名",
+      "title": "IP映射域名",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有域名配置 > https和域名访问",
+      "title": "https和域名访问",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有域名配置 > 域名访问",
+      "title": "域名访问",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有域名配置 > 获取Mac地址",
+      "title": "获取Mac地址",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "HTTPS配置 > 私有域名配置 > 获取主机名",
+      "title": "获取主机名",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > Apache修改",
+      "title": "Apache修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > Nginx修改",
+      "title": "Nginx修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > NodeServer修改",
+      "title": "NodeServer修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > PostgreSQL修改",
+      "title": "PostgreSQL修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > Redis修改",
+      "title": "Redis修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > StampManager修改",
+      "title": "StampManager修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > Trunserver修改",
+      "title": "Trunserver修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > samba访问",
+      "title": "samba访问",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > 信令服务修改",
+      "title": "信令服务修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > 宿主机IPV6配置",
+      "title": "宿主机IPV6配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > 应用访问地址",
+      "title": "应用访问地址",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > 渲染服务修改",
+      "title": "渲染服务修改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "IPV6配置 > 虚拟机IPV6配置",
+      "title": "虚拟机IPV6配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 安装MinIO > MinIO安装",
+      "title": "MinIO安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 安装MinIO > MinIO配置",
+      "title": "MinIO配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 安装MinIO > 服务启动",
+      "title": "服务启动",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 挂载磁盘",
+      "title": "挂载磁盘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 挂载磁盘 > 创建数据目录",
+      "title": "创建数据目录",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 挂载磁盘 > 挂载磁盘",
+      "title": "挂载磁盘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 挂载磁盘 > 格式化磁盘：",
+      "title": "格式化磁盘：",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 挂载磁盘 > 添加磁盘",
+      "title": "添加磁盘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 数据上传 > 创建数据桶",
+      "title": "创建数据桶",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "MINIO部署 > 数据上传 > 数据上传",
+      "title": "数据上传",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 3DTiles服务配置",
+      "title": "3DTiles服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Apache数据服务",
+      "title": "Apache数据服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > GB28181服务配置",
+      "title": "GB28181服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > GRID发布服务",
+      "title": "GRID发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > I3S服务配置",
+      "title": "I3S服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Mesh转换服务",
+      "title": "Mesh转换服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Nginx代理设置 > HTTPD代理设置",
+      "title": "HTTPD代理设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Nginx代理设置 > Nginx超时设置",
+      "title": "Nginx超时设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Nginx代理设置 > WebGL多端口设置",
+      "title": "WebGL多端口设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+      "title": "运维代理设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Port服务",
+      "title": "Port服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > ROAM发布服务",
+      "title": "ROAM发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > SignallingWebServer部署 > 信令服务部署",
+      "title": "信令服务部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > SignallingWebServer部署 > 渲染引擎部署",
+      "title": "渲染引擎部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > SignallingWebServer部署 > 渲染服务自启动",
+      "title": "渲染服务自启动",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > StampManager部署",
+      "title": "StampManager部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > StampNodeServer部署",
+      "title": "StampNodeServer部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > Trunserver部署",
+      "title": "Trunserver部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > matchmaker部署",
+      "title": "matchmaker部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 三维分析服务",
+      "title": "三维分析服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 三维搜索服务",
+      "title": "三维搜索服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 三维数据库更新服务",
+      "title": "三维数据库更新服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 三维数据库服务",
+      "title": "三维数据库服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 倾斜发布服务",
+      "title": "倾斜发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 地形切割服务",
+      "title": "地形切割服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 工程地质服务",
+      "title": "工程地质服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 影像发布服务",
+      "title": "影像发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 授权服务",
+      "title": "授权服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 服务部署准备 > 创建数据库目录",
+      "title": "创建数据库目录",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 服务部署准备 > 权限设置",
+      "title": "权限设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 服务部署准备 > 运行环境",
+      "title": "运行环境",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 模型LOD发布服务",
+      "title": "模型LOD发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 矢量瓦片服务",
+      "title": "矢量瓦片服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 矢量编辑服务",
+      "title": "矢量编辑服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 管线分析服务",
+      "title": "管线分析服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 管线发布服务",
+      "title": "管线发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 管线更新服务",
+      "title": "管线更新服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 管线查询服务",
+      "title": "管线查询服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 网络分析服务",
+      "title": "网络分析服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "Stamp服务部署 > 部件发布服务",
+      "title": "部件发布服务",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > Apache安装",
+      "title": "Apache安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > HTTP设置",
+      "title": "HTTP设置",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > PostgreSQL安装",
+      "title": "PostgreSQL安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > mesa-libGLU安装",
+      "title": "mesa-libGLU安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > postgis安装",
+      "title": "postgis安装",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 安装Nginx1.26",
+      "title": "安装Nginx1.26",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 安装PGIS扩展",
+      "title": "安装PGIS扩展",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 安装openjdk1.8.0",
+      "title": "安装openjdk1.8.0",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 开机启动",
+      "title": "开机启动",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 开机启动设置",
+      "title": "开机启动设置",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 服务路径设置",
+      "title": "服务路径设置",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > 部署Tomcat",
+      "title": "部署Tomcat",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （1）nodejs部署",
+      "title": "（1）nodejs部署",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （1）安装AKSUSBD",
+      "title": "（1）安装AKSUSBD",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （1）安装Redis",
+      "title": "（1）安装Redis",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （2）Redis配置",
+      "title": "（2）Redis配置",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （2）pm2部署",
+      "title": "（2）pm2部署",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （2）授权设置",
+      "title": "（2）授权设置",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 基础软件安装 > （3）开机启动",
+      "title": "（3）开机启动",
+      "label": "heading",
+      "evidence": "docx_fallback_manual_review"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 目录创建",
+      "title": "目录创建",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 软件安装准备 > SMB安装",
+      "title": "SMB安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 软件安装准备 > 安装文件上传",
+      "title": "安装文件上传",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+      "title": "本地yum源设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "基础软件安装 > 软件安装准备 > 离线安装包下载",
+      "title": "离线安装包下载",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "常见错误",
+      "title": "常见错误",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebGL部署 > WebGL内网部署",
+      "title": "WebGL内网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebGL部署 > WebGL外网部署",
+      "title": "WebGL外网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+      "title": "TCP外网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+      "title": "UDP外网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebRTC部署 > WebRTC内网部署",
+      "title": "WebRTC内网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > WebRTC部署 > 应用外网部署",
+      "title": "应用外网部署",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > 多显卡大屏部署 > 多显卡合并设置",
+      "title": "多显卡合并设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > 多显卡大屏部署 > 大屏渲染设置",
+      "title": "大屏渲染设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > 系统网络拓扑 > 内网网络拓扑",
+      "title": "内网网络拓扑",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > 系统网络拓扑 > 外网端口映射",
+      "title": "外网端口映射",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+      "title": "端口说明",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 安装设置",
+      "title": "安装设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 开始安装",
+      "title": "开始安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 用户登录",
+      "title": "用户登录",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 系统安装",
+      "title": "系统安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 许可证",
+      "title": "许可证",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > Rocky安装 > 语言设置",
+      "title": "语言设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > CD/DVD设置",
+      "title": "CD/DVD设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > CPU设置",
+      "title": "CPU设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 内存设置",
+      "title": "内存设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 创建虚拟机",
+      "title": "创建虚拟机",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 命名虚拟机",
+      "title": "命名虚拟机",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 安装模式",
+      "title": "安装模式",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 操作系统安装",
+      "title": "操作系统安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 显卡设置",
+      "title": "显卡设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 网络设置",
+      "title": "网络设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 虚拟磁盘存储",
+      "title": "虚拟磁盘存储",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 创建虚拟机 > 选择操作系统",
+      "title": "选择操作系统",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > Root自动登录",
+      "title": "Root自动登录",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > SELinux设置",
+      "title": "SELinux设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > SSH设置",
+      "title": "SSH设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > fstab设置",
+      "title": "fstab设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > limits设置",
+      "title": "limits设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > tcp设置",
+      "title": "tcp设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > ulimit设置",
+      "title": "ulimit设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "操作系统安装 > 系统基础配置 > 防火墙设置",
+      "title": "防火墙设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > EPSG编码",
+      "title": "EPSG编码",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > PostGIS Bundle",
+      "title": "PostGIS Bundle",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > QGIS入库",
+      "title": "QGIS入库",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > linux直接入库",
+      "title": "linux直接入库",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > 关键字索引创建",
+      "title": "关键字索引创建",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > 删除矢量数据",
+      "title": "删除矢量数据",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "矢量数据入库 > 数据注意事项",
+      "title": "数据注意事项",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 3Dtilse服务配置",
+      "title": "3Dtilse服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > GB28181配置",
+      "title": "GB28181配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > I3S服务配置",
+      "title": "I3S服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > IP统改",
+      "title": "IP统改",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > MinIO数据配置",
+      "title": "MinIO数据配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 三维数据库配置",
+      "title": "三维数据库配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 授权信息",
+      "title": "授权信息",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 图层配置",
+      "title": "图层配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 工程配置",
+      "title": "工程配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 数据配置",
+      "title": "数据配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 模型服务配置",
+      "title": "模型服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 目录管理",
+      "title": "目录管理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 数据配置 > 矢量服务配置",
+      "title": "矢量服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务管理",
+      "title": "服务管理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务设置 > 共享服务配置",
+      "title": "共享服务配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务设置 > 基础配置",
+      "title": "基础配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务设置 > 数据处理配置",
+      "title": "数据处理配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务设置 > 权限配置",
+      "title": "权限配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 服务设置 > 登录设置",
+      "title": "登录设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 用户登录",
+      "title": "用户登录",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "section_path": "运维管理配置 > 运动物体配置",
+      "title": "运动物体配置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 常见错误",
+      "title": "常见错误",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据处理",
+      "title": "数据处理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据规范 > BIM导出",
+      "title": "BIM导出",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据规范 > OBJ导出",
+      "title": "OBJ导出",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据规范 > 数据格式",
+      "title": "数据格式",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据规范 > 模型规范",
+      "title": "模型规范",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ModelBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 数据处理",
+      "title": "数据处理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 数据规范",
+      "title": "数据规范",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 更新设置",
+      "title": "更新设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "ObliqueModelBuilder > 裁切设置",
+      "title": "裁切设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 值域映射",
+      "title": "值域映射",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 字段映射",
+      "title": "字段映射",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 数据规范 > 管线点表",
+      "title": "管线点表",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 数据规范 > 管线线表",
+      "title": "管线线表",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 数据规范 > 管线面表：",
+      "title": "管线面表：",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 材质设置",
+      "title": "材质设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "PipelineBuilder > 生成数据",
+      "title": "生成数据",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DEMBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DEMBuilder > 数据编译",
+      "title": "数据编译",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DEMBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DEMBuilder > 编译级别",
+      "title": "编译级别",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DOMBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DOMBuilder > 数据编译",
+      "title": "数据编译",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DOMBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > DOMBuilder > 编译级别",
+      "title": "编译级别",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINBuilder > 数据编译",
+      "title": "数据编译",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINBuilder > 编译级别",
+      "title": "编译级别",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINIncise > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINIncise > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINIncise > 编译发布",
+      "title": "编译发布",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > TINIncise > 编译级别",
+      "title": "编译级别",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "TerrainBuilder > 数据规范",
+      "title": "数据规范",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UEModelBuilder > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UEModelBuilder > 数据处理",
+      "title": "数据处理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UEModelBuilder > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出复用动态树",
+      "title": "导出复用动态树",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出复用部件",
+      "title": "导出复用部件",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出灯光",
+      "title": "导出灯光",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出粒子",
+      "title": "导出粒子",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出蓝图",
+      "title": "导出蓝图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出设置",
+      "title": "导出设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 导出非复用模型",
+      "title": "导出非复用模型",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE导出插件 > 插件安装",
+      "title": "插件安装",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE材质集添加蓝图",
+      "title": "UE材质集添加蓝图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE材质集添加蓝图 > 保存和编译",
+      "title": "保存和编译",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE材质集添加蓝图 > 导出蓝图和模型",
+      "title": "导出蓝图和模型",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE材质集添加蓝图 > 新建蓝图",
+      "title": "新建蓝图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE材质集添加蓝图 > 设置事件",
+      "title": "设置事件",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE蓝图支持说明 > 时间轴",
+      "title": "时间轴",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE蓝图支持说明 > 材质",
+      "title": "材质",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE蓝图支持说明 > 蓝图事件",
+      "title": "蓝图事件",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE蓝图支持说明 > 蓝图节点",
+      "title": "蓝图节点",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "UEModelBuilder > UE蓝图支持说明 > 键盘事件",
+      "title": "键盘事件",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "加密锁驱动安装 > 安装运行环境",
+      "title": "安装运行环境",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "加密锁驱动安装 > 安装驱动",
+      "title": "安装驱动",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > Cesium加载3DTiles > WebGL版本设置",
+      "title": "WebGL版本设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > Cesium加载3DTiles > skipLevelOfDetail设置",
+      "title": "skipLevelOfDetail设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > EPSG编码 > CGCS2000编码",
+      "title": "CGCS2000编码",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > EPSG编码 > 地理坐标编码",
+      "title": "地理坐标编码",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 工具版本",
+      "title": "工具版本",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 瓦片级别",
+      "title": "瓦片级别",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 磁盘空间",
+      "title": "磁盘空间",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 空间参考 > 坐标偏移",
+      "title": "坐标偏移",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 空间参考 > 坐标变换",
+      "title": "坐标变换",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 空间参考 > 投影参数",
+      "title": "投影参数",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 纹理格式",
+      "title": "纹理格式",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 编译日志",
+      "title": "编译日志",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "工具概述 > 运行环境",
+      "title": "运行环境",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "点云数据处理工具 > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "点云数据处理工具 > 数据编译",
+      "title": "数据编译",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "点云数据处理工具 > 数据规范",
+      "title": "数据规范",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "section_path": "点云数据处理工具 > 数据设置",
+      "title": "数据设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 全局剖切",
+      "title": "全局剖切",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 动态视域",
+      "title": "动态视域",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 地形剖面",
+      "title": "地形剖面",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 地形路径",
+      "title": "地形路径",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 坡度图",
+      "title": "坡度图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 天际线分析",
+      "title": "天际线分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 局部剖切",
+      "title": "局部剖切",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 开挖分析",
+      "title": "开挖分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 开敞度分析",
+      "title": "开敞度分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 控高分析",
+      "title": "控高分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 日照分析",
+      "title": "日照分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 汇水分析",
+      "title": "汇水分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 淹没分析",
+      "title": "淹没分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 热力图",
+      "title": "热力图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 立面分析",
+      "title": "立面分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 等高线",
+      "title": "等高线",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 视域分析",
+      "title": "视域分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 视野分析",
+      "title": "视野分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 退红线分析",
+      "title": "退红线分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "分析 > 通视分析",
+      "title": "通视分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 光影控制",
+      "title": "光影控制",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 图层管理",
+      "title": "图层管理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 地下浏览",
+      "title": "地下浏览",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 地形透明",
+      "title": "地形透明",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 场景指北",
+      "title": "场景指北",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 场景环绕",
+      "title": "场景环绕",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 天气特效",
+      "title": "天气特效",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 屏幕录制",
+      "title": "屏幕录制",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 模型透明",
+      "title": "模型透明",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 瓦片透明",
+      "title": "瓦片透明",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 相机碰撞",
+      "title": "相机碰撞",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 视点管理",
+      "title": "视点管理",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "快捷菜单 > 飞行路径",
+      "title": "飞行路径",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 关键字查询",
+      "title": "关键字查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 圆域查询",
+      "title": "圆域查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 坐标定位",
+      "title": "坐标定位",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 坐标查询",
+      "title": "坐标查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 属性查询",
+      "title": "属性查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "查询 > 面域查询",
+      "title": "面域查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "标绘 > 三维标绘",
+      "title": "三维标绘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "标绘 > 二维标绘",
+      "title": "二维标绘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "标绘 > 军事标绘",
+      "title": "军事标绘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "标绘 > 几何标绘",
+      "title": "几何标绘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "标绘 > 动态特效",
+      "title": "动态特效",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 基本操作 > 键盘",
+      "title": "键盘",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 基本操作 > 鼠标",
+      "title": "鼠标",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 推流启动",
+      "title": "推流启动",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 显卡设置 > 独立显卡设置",
+      "title": "独立显卡设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 显卡设置 > 禁用集成显卡",
+      "title": "禁用集成显卡",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "概述 > 运行环境",
+      "title": "运行环境",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > GB28181",
+      "title": "GB28181",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > GPSTrack",
+      "title": "GPSTrack",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 图层视点",
+      "title": "图层视点",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 地形平整",
+      "title": "地形平整",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 场景漫游",
+      "title": "场景漫游",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 场景设置",
+      "title": "场景设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 多屏显示",
+      "title": "多屏显示",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 屏幕截图",
+      "title": "屏幕截图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 工程设置",
+      "title": "工程设置",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 楼块配色",
+      "title": "楼块配色",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 模型压平",
+      "title": "模型压平",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 独立场景",
+      "title": "独立场景",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 瓦片配色",
+      "title": "瓦片配色",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 草图浏览",
+      "title": "草图浏览",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 路径漫游",
+      "title": "路径漫游",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "浏览 > 车流穿梭",
+      "title": "车流穿梭",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 克隆",
+      "title": "克隆",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 删除",
+      "title": "删除",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 删除顶点",
+      "title": "删除顶点",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 增加顶点",
+      "title": "增加顶点",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 旋转",
+      "title": "旋转",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 移动",
+      "title": "移动",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 移动顶点",
+      "title": "移动顶点",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 缩放",
+      "title": "缩放",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 贴地",
+      "title": "贴地",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "编辑 > 选择",
+      "title": "选择",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 地表距离",
+      "title": "地表距离",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 地表面积",
+      "title": "地表面积",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 垂直距离",
+      "title": "垂直距离",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 平面角度",
+      "title": "平面角度",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 水平距离",
+      "title": "水平距离",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 水平面积",
+      "title": "水平面积",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 空间距离",
+      "title": "空间距离",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 空间面积",
+      "title": "空间面积",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "量算 > 立面面积",
+      "title": "立面面积",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 剥层分析",
+      "title": "剥层分析",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 地层剖切",
+      "title": "地层剖切",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 地层剖面",
+      "title": "地层剖面",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 地层建模",
+      "title": "地层建模",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 地质查询",
+      "title": "地质查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 钻孔分层查询",
+      "title": "钻孔分层查询",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 钻孔剖面图",
+      "title": "钻孔剖面图",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 钻孔导入",
+      "title": "钻孔导入",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "section_path": "钻孔 > 钻孔生成",
+      "title": "钻孔生成",
+      "label": "heading",
+      "evidence": "docx_style"
+    },
+    {
+      "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+      "section_path": "一、安装rockyLinux9镜像 > 3.点击“镜像站”，搜索“rocky”",
+      "title": "3.点击“镜像站”，搜索“rocky”",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+      "section_path": "一、安装rockyLinux9镜像 > 6.开启虚拟机",
+      "title": "6.开启虚拟机",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+      "section_path": "一、安装rockyLinux9镜像 > 7.选择“x86-64/”",
+      "title": "7.选择“x86-64/”",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "1.MySQL 数据类型",
+      "title": "1.MySQL 数据类型",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "1.MySQL 数据类型 > 1.1 数值类型",
+      "title": "1.1 数值类型",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "1.MySQL 数据类型 > 1.2 字符串类型",
+      "title": "1.2 字符串类型",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "1.MySQL 数据类型 > 1.3 日期时间类型",
+      "title": "1.3 日期时间类型",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "1.MySQL 数据类型 > 1.4 ENUM 与 SET（单选/多选）",
+      "title": "1.4 ENUM 与 SET（单选/多选）",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束",
+      "title": "2.MySQL 表约束",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.1 NOT NULL 非空",
+      "title": "2.1 NOT NULL 非空",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.2 DEFAULT 默认值",
+      "title": "2.2 DEFAULT 默认值",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.3 COMMENT 字段注释",
+      "title": "2.3 COMMENT 字段注释",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.4 ZEROFILL 补零",
+      "title": "2.4 ZEROFILL 补零",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.5 PRIMARY KEY 主键",
+      "title": "2.5 PRIMARY KEY 主键",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.6 AUTO_INCREMENT 自增长",
+      "title": "2.6 AUTO_INCREMENT 自增长",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.7 UNIQUE 唯一键",
+      "title": "2.7 UNIQUE 唯一键",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "section_path": "2.MySQL 表约束 > 2.8 FOREIGN KEY 外键",
+      "title": "2.8 FOREIGN KEY 外键",
+      "label": "heading",
+      "evidence": "markdown_heading"
+    }
+  ]
+}

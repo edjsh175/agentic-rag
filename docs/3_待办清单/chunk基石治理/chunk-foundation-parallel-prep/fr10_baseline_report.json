@@ -1,0 +1,4338 @@
+{
+  "generated_at": "2026-07-15T01:35:31.971450+00:00",
+  "mode": "retrieval",
+  "gold_path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\docs\\3_待办清单\\chunk-foundation-parallel-prep\\multi_chunk_qa_gold_v2.json",
+  "notes": "Baseline on current production chunks. Conflict/completeness may be low until Round 0C–0F and FR-08 prompt wiring. Retrieval mode scores concatenated retrieved content as a proxy answer (not LLM generation).",
+  "summary": {
+    "total": 120,
+    "passed": 42,
+    "pass_rate": 0.35,
+    "mean_completeness": 0.47827380952380943,
+    "mean_evidence_recall": 0.44166666666666665,
+    "forbidden_rate": 0.0,
+    "by_category": {
+      "fact": {
+        "total": 30,
+        "passed": 18,
+        "pass_rate": 0.6,
+        "mean_completeness": 0.6666666666666666
+      },
+      "procedure": {
+        "total": 30,
+        "passed": 7,
+        "pass_rate": 0.23333333333333334,
+        "mean_completeness": 0.4436507936507937
+      },
+      "cross_section": {
+        "total": 20,
+        "passed": 9,
+        "pass_rate": 0.45,
+        "mean_completeness": 0.6458333333333333
+      },
+      "table": {
+        "total": 10,
+        "passed": 8,
+        "pass_rate": 0.8,
+        "mean_completeness": 0.8
+      },
+      "ocr": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0
+      },
+      "conflict": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.3166666666666667
+      },
+      "none": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0
+      }
+    },
+    "by_answerability": {
+      "full": {
+        "total": 88,
+        "passed": 41,
+        "pass_rate": 0.4659090909090909,
+        "mean_completeness": 0.6048430735930735
+      },
+      "partial": {
+        "total": 12,
+        "passed": 1,
+        "pass_rate": 0.08333333333333333,
+        "mean_completeness": 0.08333333333333333
+      },
+      "conflict": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.3166666666666667
+      },
+      "none": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "mq-001",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "umount -f /dev/mapper/rl-var",
+          "xfs_repair"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "xfs_repair"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-007",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "200M",
+          "/boot/efi"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "boot"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-014",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "JPG",
+          "WebP",
+          "CRN 或 DDS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-016",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "HttpsPort",
+          "443"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-018",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "外网地址",
+          "应用配置"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "应用外网"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-020",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "自动登录"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-021",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "上传速度优化"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "上传"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-022",
+      "category": "fact",
+      "answerability": "partial",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "89",
+          "8450"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-024",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "df -h 或 mount",
+          "/var 或 /data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-031",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "/boot"
+        ],
+        "misses": [
+          "容量"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-032",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "root",
+          "密码"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "root"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-033",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "PermitRootLogin",
+          "sshd_config"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-034",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "sysctl",
+          "file-max 或 net.core"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "sysctl"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-035",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证书",
+          "路径"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-036",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "listening-port"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-037",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "内网",
+          "外网"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "部署"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-038",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "JPG",
+          "WebP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "材质"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-039",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "字段映射",
+          "导出"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-040",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁",
+          "驱动或授权"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-041",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "端口"
+        ],
+        "misses": [
+          "防火墙"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-042",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "PCIE 或 M.2",
+          "GPU"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "硬件"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-043",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "EPSG",
+          "空间参考或坐标系"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-044",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "GPU 或显卡",
+          "渲染"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "渲染"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-045",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "df -h",
+          "挂载或磁盘"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-046",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "systemctl status"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-047",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "发布"
+        ],
+        "misses": [
+          "WidgetBuilder"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-048",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "realm"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-049",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "baseurl",
+          "cdrom"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-050",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-051",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "/boot/efi"
+        ],
+        "misses": [
+          "FAT32"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "boot"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-002",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.14285714285714285,
+      "required_facts": {
+        "score": 0.14285714285714285,
+        "hits": [
+          "Turnserver 配置"
+        ],
+        "misses": [
+          "UDP 外网配置",
+          "信令服务修改",
+          "TCP 外网部署",
+          "TCP 信令服务修改",
+          "应用外网地址修改",
+          "渲染服务启动"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "外网"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-003",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/boot /boot/efi /var /data 分区",
+          "ext4/xfs 选择依据",
+          "root 密码与 SSH",
+          "sshd_config 修改",
+          "自动登录",
+          "上传速度优化",
+          "基础软件安装与服务配置"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-009",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "sshd_config"
+        ],
+        "misses": [
+          "systemctl restart sshd"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-010",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "字段映射",
+          "导出"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-011",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "状态映射",
+          "值域"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-012",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁驱动",
+          "运行环境"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-013",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "材质",
+          "格式或路径"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "纹理错误"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-017",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "vim /etc/sysctl.conf",
+          "sysctl -p"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "sysctl"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-019",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "渲染服务"
+        ],
+        "misses": [
+          "启动检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "渲染"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-023",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "发布服务",
+          "配置或端口"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-025",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "user=",
+          "realm",
+          "重启"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-028",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "systemctl"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-030",
+      "category": "procedure",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足",
+          "缺失步骤列表"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "外网"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-056",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "分区创建",
+          "文件系统",
+          "挂载检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-057",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "sshd_config",
+          "restart sshd"
+        ],
+        "misses": [
+          "登录验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-058",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "vim /etc/sysctl.conf",
+          "sysctl -p"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "sysctl"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-059",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "Turnserver",
+          "UDP"
+        ],
+        "misses": [
+          "信令"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "UDP"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-060",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "信令"
+        ],
+        "misses": [
+          "TCP 外网",
+          "应用地址"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "TCP"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-061",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "重启"
+        ],
+        "misses": [
+          "编辑配置",
+          "user="
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-062",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "运行环境"
+        ],
+        "misses": [
+          "安装驱动",
+          "授权检测"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-063",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "导出"
+        ],
+        "misses": [
+          "配置映射",
+          "预览"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-064",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "状态映射"
+        ],
+        "misses": [
+          "预览",
+          "发布前检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-065",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "安装"
+        ],
+        "misses": [
+          "systemctl start 或 enable"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "服务"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-066",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "umount",
+          "xfs_repair"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "xfs_repair"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-067",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "端口或日志",
+          "启动"
+        ],
+        "misses": [
+          "GPU或驱动"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "渲染"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-068",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "外网地址",
+          "访问验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "应用外网"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-069",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "自动登录"
+        ],
+        "misses": [
+          "重启验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-070",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "上传速度优化"
+        ],
+        "misses": [
+          "验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "上传"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-071",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "证书",
+          "重载或重启"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-072",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "材质参数",
+          "压缩格式",
+          "资源路径"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "纹理"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-005",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "Turnserver",
+          "UDP"
+        ],
+        "misses": [
+          "信令服务"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "UDP"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-006",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "TCP 外网部署",
+          "TCP 信令服务修改"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "TCP"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-008",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 0.75,
+      "required_facts": {
+        "score": 0.75,
+        "hits": [
+          "/var",
+          "/data",
+          "ext4 或 xfs"
+        ],
+        "misses": [
+          "选择依据"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-015",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "Redis",
+          "Cesium 或 WebGL"
+        ],
+        "misses": [
+          "EPSG"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-029",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证书",
+          "密钥或 TLS"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "信令"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-081",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "UDP",
+          "TCP",
+          "Turnserver 或信令"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "外网"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-082",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "分区",
+          "SSH"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-083",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "Turnserver",
+          "TLS"
+        ],
+        "misses": [
+          "信令"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-084",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "值域映射"
+        ],
+        "misses": [
+          "字段映射"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-085",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "硬件",
+          "安装",
+          "systemctl"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-086",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "外网地址",
+          "渲染"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-087",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "Cesium 或发布"
+        ],
+        "misses": [
+          "Redis"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-088",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "上传"
+        ],
+        "misses": [
+          "sysctl"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-089",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "防火墙",
+          "443 或 HTTPS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-090",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁",
+          "PipelineBuilder"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-091",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "内网",
+          "外网"
+        ],
+        "misses": [
+          "Turnserver"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-092",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/var",
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-093",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "格式",
+          "纹理错误"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-094",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "自动登录",
+          "SSH"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-095",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "端口表",
+          "配置项"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "端口"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-101",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "端口",
+          "TLS 或 TCP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "端口"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-102",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/boot",
+          "/var",
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "分区"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-103",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "listening-port 或 realm",
+          "user"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-104",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "CRN",
+          "DDS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-105",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "443",
+          "HTTPS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-106",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "内存或 GPU",
+          "要求"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "硬件"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-107",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "状态",
+          "映射"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-108",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "89",
+          "8450"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-109",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "8080 或 StampManager",
+          "端口"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-110",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "tls-listening-port",
+          "表格"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-026",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-111",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-112",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-113",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-114",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-115",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-116",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-117",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "渲染"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-118",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-119",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-004",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "5439",
+          "5349"
+        ],
+        "misses": [
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": true,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-121",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "5439",
+          "5349"
+        ],
+        "misses": [
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": true,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-122",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多个端口值",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-123",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "AppStream",
+          "BaseOS"
+        ],
+        "misses": [
+          "同时说明"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": true,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-124",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "5349"
+        ],
+        "misses": [
+          "5439",
+          "不得静默二选一"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "端口"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-125",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多来源",
+          "冲突或核对"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-126",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "listening-port",
+          "tls-listening-port",
+          "分别引用"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-127",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "防火墙"
+        ],
+        "misses": [
+          "正文端口",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-128",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "443"
+        ],
+        "misses": [
+          "适用范围或来源"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-129",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多组凭证示例",
+          "标明示例"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": "Turnserver"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-027",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "section_path 缺失或无法稳定恢复"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-131",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到或无法提供"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-132",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "section_path 缺失或无法稳定恢复"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-133",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-134",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-135",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "发布"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-136",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-137",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-138",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "无有效业务内容或未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    },
+    {
+      "id": "mq-139",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4
+    }
+  ]
+}

@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "source_ref": "product-relation-backbone/source/002产品体系.pptx",
+  "entities": [
+    {
+      "name": "StampGIS三维产品",
+      "entity_type": "Product",
+      "aliases": ["Stamp三维地理信息系列软件"],
+      "doc_category": ""
+    },
+    {
+      "name": "StampTools",
+      "entity_type": "Product",
+      "aliases": ["StampGIS Tools", "Stamp Tool"],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "StampServer",
+      "entity_type": "Product",
+      "aliases": ["StampGIS Server", "Stamp Server"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "StampWebRTC",
+      "entity_type": "Product",
+      "aliases": ["云端渲染（WebRTC）"],
+      "doc_category": "StampWebRTC"
+    },
+    {
+      "name": "数据处理层",
+      "entity_type": "Module",
+      "aliases": ["工具集"],
+      "doc_category": ""
+    },
+    {
+      "name": "数据存储层",
+      "entity_type": "Module",
+      "aliases": ["系统数据"],
+      "doc_category": ""
+    },
+    {
+      "name": "三维服务层",
+      "entity_type": "Module",
+      "aliases": ["系统服务"],
+      "doc_category": ""
+    },
+    {
+      "name": "三维渲染层",
+      "entity_type": "Module",
+      "aliases": ["客户端"],
+      "doc_category": ""
+    },
+    {
+      "name": "业务应用层",
+      "entity_type": "Module",
+      "aliases": ["业务应用"],
+      "doc_category": ""
+    },
+    {
+      "name": "地形影像切片",
+      "entity_type": "Tool",
+      "aliases": ["Terrain Builder", "地形发布工具"],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "模型/BIM优化",
+      "entity_type": "Tool",
+      "aliases": ["Model Builder", "模型发布工具"],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "管线三维建模",
+      "entity_type": "Tool",
+      "aliases": ["Pipeline Builder", "管线发布工具"],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "倾斜轻量化",
+      "entity_type": "Tool",
+      "aliases": [],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "点云/高斯优化",
+      "entity_type": "Tool",
+      "aliases": [],
+      "doc_category": "StampTools"
+    },
+    {
+      "name": "矢量数据",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "模型数据",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "倾斜数据",
+      "entity_type": "Module",
+      "aliases": ["倾斜模型数据"],
+      "doc_category": ""
+    },
+    {
+      "name": "点云数据",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "高斯数据",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "业务数据",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "数据服务",
+      "entity_type": "Service",
+      "aliases": ["基础数据服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "搜索服务",
+      "entity_type": "Service",
+      "aliases": ["基础搜索服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "分析服务",
+      "entity_type": "Service",
+      "aliases": ["基础分析服务", "三维分析服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "安全服务",
+      "entity_type": "Service",
+      "aliases": ["数据安全服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "视频服务",
+      "entity_type": "Service",
+      "aliases": [],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "数据库服务",
+      "entity_type": "Service",
+      "aliases": ["Oracle数据库服务", "三维数据库服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "矢量服务",
+      "entity_type": "Service",
+      "aliases": [],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "管线服务",
+      "entity_type": "Service",
+      "aliases": [],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "规划服务",
+      "entity_type": "Service",
+      "aliases": [],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "地质服务",
+      "entity_type": "Service",
+      "aliases": ["工程地质服务"],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "授权服务",
+      "entity_type": "Service",
+      "aliases": [],
+      "doc_category": "StampServer"
+    },
+    {
+      "name": "前端渲染（WebGL）",
+      "entity_type": "Module",
+      "aliases": ["WebGL免插件前端渲染"],
+      "doc_category": ""
+    },
+    {
+      "name": "云端渲染（WebRTC）",
+      "entity_type": "Module",
+      "aliases": ["后台云端渲染"],
+      "doc_category": "StampWebRTC"
+    },
+    {
+      "name": "三维规划审批",
+      "entity_type": "Module",
+      "aliases": ["三维报建审批"],
+      "doc_category": ""
+    },
+    {
+      "name": "三维管线管理",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "地下基础设施管理",
+      "entity_type": "Module",
+      "aliases": ["地下空间管理"],
+      "doc_category": ""
+    },
+    {
+      "name": "自然资源管理",
+      "entity_type": "Module",
+      "aliases": [],
+      "doc_category": ""
+    },
+    {
+      "name": "BIM应用",
+      "entity_type": "Module",
+      "aliases": ["BIM轻量化应用"],
+      "doc_category": ""
+    },
+    {
+      "name": "应急安防管理",
+      "entity_type": "Module",
+      "aliases": ["应急管理", "公共安全"],
+      "doc_category": ""
+    },
+    {
+      "name": "CIM应用",
+      "entity_type": "Module",
+      "aliases": ["CIM平台应用"],
+      "doc_category": ""
+    }
+  ],
+  "relations": [
+    {
+      "source": "数据处理层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的工具集；对应 STAMP产品架构截图.png：数据处理。"
+    },
+    {
+      "source": "数据存储层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的系统数据；对应 STAMP产品架构截图.png：数据存储。"
+    },
+    {
+      "source": "三维服务层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的系统服务；对应 STAMP产品架构截图.png：三维服务。"
+    },
+    {
+      "source": "三维渲染层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的客户端；对应 STAMP产品架构截图.png：三维渲染。"
+    },
+    {
+      "source": "业务应用层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的业务应用；对应 STAMP产品架构截图.png：业务应用。"
+    },
+    {
+      "source": "数据存储层",
+      "relation_type": "requires",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：产品链由数据处理进入数据存储。"
+    },
+    {
+      "source": "三维服务层",
+      "relation_type": "requires",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：产品链由数据存储进入三维服务。"
+    },
+    {
+      "source": "三维渲染层",
+      "relation_type": "requires",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：产品链由三维服务进入三维渲染。"
+    },
+    {
+      "source": "业务应用层",
+      "relation_type": "requires",
+      "target": "三维渲染层",
+      "note": "来自 STAMP产品架构截图.png：产品链由三维渲染进入业务应用。"
+    },
+    {
+      "source": "地形影像切片",
+      "relation_type": "belongs_to",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Terrain Builder/地形发布工具。"
+    },
+    {
+      "source": "模型/BIM优化",
+      "relation_type": "belongs_to",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Model Builder/模型发布工具。"
+    },
+    {
+      "source": "管线三维建模",
+      "relation_type": "belongs_to",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Pipeline Builder/管线发布工具。"
+    },
+    {
+      "source": "倾斜轻量化",
+      "relation_type": "belongs_to",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：数据处理层；2024StampGIS三维产品白皮书.docx：倾斜摄影测量数据与倾斜模型能力。"
+    },
+    {
+      "source": "点云/高斯优化",
+      "relation_type": "belongs_to",
+      "target": "数据处理层",
+      "note": "来自 STAMP产品架构截图.png：数据处理层。"
+    },
+    {
+      "source": "矢量数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：系统数据包含 2D GIS 数据。"
+    },
+    {
+      "source": "模型数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：模型数据。"
+    },
+    {
+      "source": "倾斜数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：倾斜模型数据。"
+    },
+    {
+      "source": "点云数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层。"
+    },
+    {
+      "source": "高斯数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层。"
+    },
+    {
+      "source": "业务数据",
+      "relation_type": "belongs_to",
+      "target": "数据存储层",
+      "note": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：系统数据包含业务数据。"
+    },
+    {
+      "source": "数据服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础数据服务。"
+    },
+    {
+      "source": "搜索服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础搜索服务。"
+    },
+    {
+      "source": "分析服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础分析服务。"
+    },
+    {
+      "source": "安全服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：数据安全服务。"
+    },
+    {
+      "source": "视频服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；2024StampGIS三维产品白皮书.docx：视频及传感器集成。"
+    },
+    {
+      "source": "数据库服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：Oracle 数据库服务。"
+    },
+    {
+      "source": "矢量服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：矢量服务。"
+    },
+    {
+      "source": "管线服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：管线服务。"
+    },
+    {
+      "source": "规划服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：规划服务。"
+    },
+    {
+      "source": "地质服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 STAMP产品架构截图.png：三维服务层；2024StampGIS三维产品白皮书.docx：工程钻孔数据实时生成地质体。"
+    },
+    {
+      "source": "授权服务",
+      "relation_type": "belongs_to",
+      "target": "三维服务层",
+      "note": "来自 002产品体系.pptx：授权服务为其它服务提供授权服务。"
+    },
+    {
+      "source": "前端渲染（WebGL）",
+      "relation_type": "belongs_to",
+      "target": "三维渲染层",
+      "note": "来自 STAMP产品架构截图.png：三维渲染层；2024StampGIS三维产品白皮书.docx：WebGL 免插件前端渲染。"
+    },
+    {
+      "source": "云端渲染（WebRTC）",
+      "relation_type": "belongs_to",
+      "target": "三维渲染层",
+      "note": "来自 STAMP产品架构截图.png：三维渲染层；2024StampGIS三维产品白皮书.docx：后台云端渲染。"
+    },
+    {
+      "source": "三维规划审批",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：三维规划审批。"
+    },
+    {
+      "source": "三维管线管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：地下基础设施管理涉及管线。"
+    },
+    {
+      "source": "地下基础设施管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：地下基础设施管理。"
+    },
+    {
+      "source": "自然资源管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：自然资源管理。"
+    },
+    {
+      "source": "BIM应用",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：BIM 轻量化、CIM 多源数据融合。"
+    },
+    {
+      "source": "应急安防管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：应急管理、公共安全。"
+    },
+    {
+      "source": "CIM应用",
+      "relation_type": "belongs_to",
+      "target": "业务应用层",
+      "note": "来自 2024StampGIS三维产品白皮书.docx：CIM应用。"
+    }
+  ]
+}

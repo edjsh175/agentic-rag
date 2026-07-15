@@ -26,6 +26,7 @@ from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.loader import FileLoader
+from rag_knowledge.services.document_profiles import normalize_document_profile
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,12 @@ class DirectoryScanner:
         self._dc_map: dict = self._load_dc_map()
         self._rebuild_dc_map: dict[str, str] = {}
         self._rebuild_hash_dc_map: dict[str, str] = {}
+        self._profile_map_path = self._cfg.data_dir / "document_profile_map.json"
+        self._profile_selection_map_path = self._cfg.data_dir / "document_profile_selection.json"
+        self._profile_map: dict = self._load_json_map(self._profile_map_path)
+        self._profile_selection_map: dict = self._load_json_map(self._profile_selection_map_path)
+        self._rebuild_profile_map: dict[str, str] = {}
+        self._rebuild_hash_profile_map: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # 对外接口
@@ -160,10 +167,21 @@ class DirectoryScanner:
                 for file_hash, entry in files.items()
                 if entry.get("doc_category")
             }
+            self._rebuild_profile_map = {
+                entry["file_path"]: entry.get("document_profile", "section_based")
+                for entry in files.values()
+                if entry.get("file_path")
+            }
+            self._rebuild_hash_profile_map = {
+                file_hash: entry.get("document_profile", "section_based")
+                for file_hash, entry in files.items()
+            }
         else:
             self._rebuild_dc_map = {}
             self._rebuild_hash_dc_map = {}
-        self._index = {"version": 1, "files": {}}
+            self._rebuild_profile_map = {}
+            self._rebuild_hash_profile_map = {}
+        self._index = {"version": 2, "files": {}}
         self._save_index()
 
     def reload_index(self) -> None:
@@ -216,8 +234,9 @@ class DirectoryScanner:
         if not category:
             return "skipped"
 
+        document_profile = self._resolve_document_profile(rel, fhash)
         try:
-            chunks, _ = self._loader.load(str(file_path))
+            chunks, _ = self._loader.load(str(file_path), document_profile=document_profile)
         except Exception as e:
             logger.error("加载失败 %s: %s", file_path, e)
             return "error"
@@ -236,6 +255,7 @@ class DirectoryScanner:
             d.metadata["kb_name"] = kb_name
             d.metadata["kb_path"] = kb_path
             d.metadata["doc_category"] = doc_category    # MVP: 文档分类
+            d.metadata["document_profile"] = document_profile
             d.metadata.setdefault("section_title", "")    # MVP: 章节标题（由 loader 填充）
             d.metadata.setdefault("section_path", "")     # MVP: 章节路径
             d.metadata.setdefault("section_index", 0)     # MVP: 章节序号
@@ -253,15 +273,20 @@ class DirectoryScanner:
             last_modified=datetime.fromtimestamp(st.st_mtime).isoformat(),
             added_at=datetime.now().isoformat(),
             doc_category=doc_category,
+            document_profile=document_profile,
+            chunk_policy_id=str(chunks[0].metadata.get("chunk_policy_id") or ""),
             chunk_ids=chunk_ids,
         )
         self._index.setdefault("files", {})[fhash] = {
             "file_path": rec.file_path, "file_name": rec.file_name,
             "file_size": rec.file_size, "category": rec.category,
             "kb_name": kb_name, "doc_category": doc_category,
+            "document_profile": rec.document_profile,
+            "chunk_policy_id": rec.chunk_policy_id,
             "last_modified": rec.last_modified, "added_at": rec.added_at,
             "chunk_ids": rec.chunk_ids,
         }
+        self._consume_document_profile_selection(rel)
         logger.info(
             "新文件: %s (%s) | %d 块 | %.2fs",
             file_path.name, category, len(chunks), elapsed,
@@ -303,10 +328,26 @@ class DirectoryScanner:
     def _load_index(self) -> dict:
         if self._index_path.exists():
             try:
-                return json.loads(self._index_path.read_text(encoding="utf-8"))
+                index = json.loads(self._index_path.read_text(encoding="utf-8"))
+                changed = index.get("version") != 2
+                index["version"] = 2
+                files = index.setdefault("files", {})
+                for entry in files.values():
+                    if "document_profile" not in entry:
+                        entry["document_profile"] = "section_based"
+                        changed = True
+                    if "chunk_policy_id" not in entry:
+                        entry["chunk_policy_id"] = ""
+                        changed = True
+                if changed:
+                    self._index_path.write_text(
+                        json.dumps(index, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                return index
             except Exception as e:
                 logger.warning("索引文件损坏，将重建: %s", e)
-        return {"version": 1, "files": {}}
+        return {"version": 2, "files": {}}
 
     def _save_index(self):
         try:
@@ -340,6 +381,46 @@ class DirectoryScanner:
         """上传文件后调用，为文件指定文档分类（扫描前写入映射表）"""
         self._dc_map[relative_path] = doc_category
         self._save_dc_map()
+
+    @staticmethod
+    def _load_json_map(path: Path) -> dict:
+        if path.exists():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+                return value if isinstance(value, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    def _save_profile_selection_map(self) -> None:
+        self._profile_selection_map_path.write_text(
+            json.dumps(self._profile_selection_map, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def set_document_profile(self, relative_path: str, document_profile: str) -> None:
+        """Persist an uploader's explicit selection until the scanner consumes it."""
+        profile = normalize_document_profile(document_profile).value
+        self._profile_selection_map[relative_path] = profile
+        self._save_profile_selection_map()
+
+    def _resolve_document_profile(self, rel: str, file_hash: str) -> str:
+        explicit = self._profile_selection_map.get(rel, "")
+        if explicit:
+            return normalize_document_profile(explicit).value
+
+        inherited = self._rebuild_profile_map.get(rel) or self._rebuild_hash_profile_map.get(file_hash, "")
+        if inherited:
+            return normalize_document_profile(inherited).value
+
+        mapped = self._profile_map.get(rel, "")
+        if isinstance(mapped, dict):
+            mapped = mapped.get("document_profile", "")
+        return normalize_document_profile(mapped).value
+
+    def _consume_document_profile_selection(self, rel: str) -> None:
+        if self._profile_selection_map.pop(rel, None) is not None:
+            self._save_profile_selection_map()
 
     def _resolve_doc_category(self, rel_path: Path, rel: str, file_hash: str) -> str:
         """

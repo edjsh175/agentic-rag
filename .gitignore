@@ -48,6 +48,10 @@ scrape_article/
 !/data/migrations/retrieval_intent_profiles_v1.json
 !/data/structured_retrieval_regression.json
 !/data/domain_catalog.json
+!/data/product_relation_backbone.json
+
+# Offline lineage / parse audit spikes (may contain source text)
+/data/chunk_audit/
 
 
 # IDE settings

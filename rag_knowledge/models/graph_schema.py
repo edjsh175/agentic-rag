@@ -55,7 +55,7 @@ class EntityType(str, Enum):
 class RelationType(str, Enum):
     """图谱关系类型"""
     # 文档结构关系
-    has_section = "has_section"       # Document -> Section
+    has_section = "has_section"       # Document/Section/DataTable -> Section
     has_chunk = "has_chunk"           # Section -> Chunk
     defined_in = "defined_in"        # Entity -> Document/Section
 
@@ -116,6 +116,8 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
     # 文档结构
     RelationType.has_section: [
         (EntityType.document, EntityType.section),
+        (EntityType.section, EntityType.section),
+        (EntityType.data_table, EntityType.section),
     ],
     RelationType.defined_in: [
         (entity_type, target_type)
@@ -126,8 +128,11 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
     # 领域概念
     RelationType.belongs_to: [
         (EntityType.tool, EntityType.product),
+        (EntityType.tool, EntityType.module),
         (EntityType.service, EntityType.product),
+        (EntityType.service, EntityType.module),
         (EntityType.module, EntityType.product),
+        (EntityType.module, EntityType.module),
         (EntityType.module, EntityType.tool),
         (EntityType.data_table, EntityType.tool),
         (EntityType.config_item, EntityType.service),
@@ -234,9 +239,14 @@ def normalize_entity_name(name: str) -> str:
 def make_section_entity_name(source: str, section_path: str) -> str:
     """
     为 Section 实体生成唯一名称，与业务实体区分。
+
+    名称清洗与 CandidateNormalizer 对齐（全角括号、空白），避免实体候选被
+    归一化后与 relation/link 端点字符串不一致而触发 missing_relation_endpoint。
     """
     source_base = source.rsplit('.', 1)[0] if '.' in source else source
-    return f"{source_base}::{section_path}"
+    source_base = " ".join(source_base.strip().replace("（", "(").replace("）", ")").split())
+    path = " ".join(section_path.strip().replace("（", "(").replace("）", ")").split())
+    return f"{source_base}::{path}"
 
 
 def make_field_entity_name(table_name: str, field_name: str) -> str:

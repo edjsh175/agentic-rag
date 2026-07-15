@@ -21,6 +21,8 @@ class FileRecord:
     last_modified: str
     added_at: str
     doc_category: str = ""
+    document_profile: str = "section_based"
+    chunk_policy_id: str = ""
     chunk_ids: list = field(default_factory=list)
 
 

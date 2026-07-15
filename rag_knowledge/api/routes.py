@@ -41,6 +41,7 @@ from rag_knowledge.models.api import (
 )
 from rag_knowledge.models.api import CrawlRequest, CrawlResponse, BlogPostListResponse, BlogPostItem
 from rag_knowledge.services.loader import FileLoader
+from rag_knowledge.services.document_profiles import normalize_document_profile
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.scanner import DirectoryScanner
 from rag_knowledge.services.blog_syncer import BlogPostSyncer
@@ -329,7 +330,8 @@ async def query_with_image(
 
 @router.post("/upload", response_model=UploadResponse)
 def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
-           doc_category: str = Form("其他")):
+           doc_category: str = Form("其他"),
+           document_profile: str = Form("section_based")):
     """
     上传文档到监视目录并触发扫描入库
 
@@ -337,6 +339,10 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
     """
     if doc_category not in DOC_CATEGORIES:
         raise HTTPException(400, detail=f"doc_category 仅支持 {' / '.join(DOC_CATEGORIES)}")
+    try:
+        selected_profile = normalize_document_profile(document_profile).value
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
     suffix = os.path.splitext(file.filename)[1].lower()
     if suffix not in _UPLOAD_EXTS:
         raise HTTPException(400, detail=f"不支持 {suffix}，仅支持 {_UPLOAD_EXTS}")
@@ -359,11 +365,12 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
         rel = str(save_path.relative_to(_cfg.watch_dir))
     except ValueError:
         rel = save_path.name
-    if _scanner:
-        _scanner.set_doc_category(rel, doc_category)
-
     with open(save_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
+
+    if _scanner:
+        _scanner.set_doc_category(rel, doc_category)
+        _scanner.set_document_profile(rel, selected_profile)
 
     # 触发扫描器，通过文件哈希去重自动入库
     scan_result = {"new_files": 0, "skipped_files": 0, "errors": 0}
@@ -378,7 +385,7 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
         chunks_count = 0
 
     return UploadResponse(
-        message=f"文件已上传至知识库「{kb_name}」({doc_category})",
+        message=f"文件已上传至知识库「{kb_name}」({doc_category}, {selected_profile})",
         chunks_count=chunks_count,
         file_name=file.filename,
         new_files=scan_result["new_files"],
@@ -882,7 +889,7 @@ def get_chat_history(x_device_fingerprint: str = Header(...)):
         raise HTTPException(503, detail="聊天记录服务未初始化")
     data = _chat_storage.load(x_device_fingerprint)
     if data is None:
-        raise HTTPException(404, detail="无历史记录")
+        return {"messages": []}
     return {"messages": data["messages"]}
 
 

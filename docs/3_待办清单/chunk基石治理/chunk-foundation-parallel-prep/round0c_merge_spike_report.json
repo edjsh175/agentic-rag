@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-07-15T01:33:32.560455+00:00",
+  "watch_directory": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory",
+  "documents": [
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampServer用户手册_Rocky9 .docx",
+      "before": {
+        "count": 181,
+        "median": 186,
+        "lt_100_rate": 0.35911602209944754,
+        "lt_200_rate": 0.5303867403314917,
+        "in_300_800_rate": 0.24861878453038674,
+        "gt_1200_rate": 0.055248618784530384
+      },
+      "after": {
+        "count": 125,
+        "median": 336,
+        "lt_100_rate": 0.2,
+        "lt_200_rate": 0.36,
+        "in_300_800_rate": 0.352,
+        "gt_1200_rate": 0.08
+      }
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampTools用户手册.docx",
+      "before": {
+        "count": 89,
+        "median": 179,
+        "lt_100_rate": 0.2696629213483146,
+        "lt_200_rate": 0.5617977528089888,
+        "in_300_800_rate": 0.1797752808988764,
+        "gt_1200_rate": 0.033707865168539325
+      },
+      "after": {
+        "count": 57,
+        "median": 275,
+        "lt_100_rate": 0.24561403508771928,
+        "lt_200_rate": 0.47368421052631576,
+        "in_300_800_rate": 0.15789473684210525,
+        "gt_1200_rate": 0.05263157894736842
+      }
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampWebRTC用户手册.docx",
+      "before": {
+        "count": 96,
+        "median": 126.5,
+        "lt_100_rate": 0.3645833333333333,
+        "lt_200_rate": 0.7291666666666666,
+        "in_300_800_rate": 0.13541666666666666,
+        "gt_1200_rate": 0.03125
+      },
+      "after": {
+        "count": 94,
+        "median": 129.5,
+        "lt_100_rate": 0.3617021276595745,
+        "lt_200_rate": 0.7127659574468085,
+        "in_300_800_rate": 0.13829787234042554,
+        "gt_1200_rate": 0.031914893617021274
+      }
+    }
+  ],
+  "overall_before": {
+    "count": 366,
+    "median": 164.5,
+    "lt_100_rate": 0.33879781420765026,
+    "lt_200_rate": 0.5901639344262295,
+    "in_300_800_rate": 0.20218579234972678,
+    "gt_1200_rate": 0.04371584699453552
+  },
+  "overall_after": {
+    "count": 276,
+    "median": 197.0,
+    "lt_100_rate": 0.2644927536231884,
+    "lt_200_rate": 0.5036231884057971,
+    "in_300_800_rate": 0.2391304347826087,
+    "gt_1200_rate": 0.057971014492753624
+  },
+  "gold_fact_window_checks": [
+    {
+      "id": "mq-002",
+      "question": "WebRTC 外网部署在文档中包含哪些具体方式？请分别说明关键配置步骤。",
+      "best_unit_fact_hits": 1,
+      "all_facts_in_one_unit": false,
+      "required_count": 7
+    },
+    {
+      "id": "mq-003",
+      "question": "StampServer 在 Rocky Linux 9 上的完整安装和基础配置流程包括哪些步骤？",
+      "best_unit_fact_hits": 1,
+      "all_facts_in_one_unit": false,
+      "required_count": 7
+    },
+    {
+      "id": "mq-005",
+      "question": "WebRTC UDP 外网部署需要修改哪些服务配置？",
+      "best_unit_fact_hits": 3,
+      "all_facts_in_one_unit": true,
+      "required_count": 3
+    }
+  ],
+  "notes": "Offline spike only. Soft-max 1200, target min 300, no hard cross L1/L2 boundary. Does not write Chroma."
+}

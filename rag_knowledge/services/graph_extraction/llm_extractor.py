@@ -123,16 +123,24 @@ class LLMGraphExtractor:
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
+                        # qwen3 thinking mode often returns empty content under format=json
+                        "think": False,
                         "options": {
                             "temperature": temp,
                         },
                         "format": "json"
                     }
                     
-                    with httpx.Client(timeout=60.0) as client:
+                    # qwen3:30b graph prompts often exceed 60s; 180s keeps Round-2 pilot reliable
+                    with httpx.Client(timeout=180.0) as client:
                         resp = client.post(f"{self.cfg.ollama_base_url}/api/chat", json=payload)
                         resp.raise_for_status()
-                        return resp.json()["message"]["content"]
+                        message = resp.json().get("message") or {}
+                        content = (message.get("content") or "").strip()
+                        if not content:
+                            # Fallback if server ignored think=false
+                            content = (message.get("thinking") or "").strip()
+                        return content
             except Exception as e:
                 last_error = e
                 logger.warning("LLM extraction call attempt %d failed: %s", attempt + 1, e)

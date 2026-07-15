@@ -1,0 +1,402 @@
+[
+  {
+    "id": "fp-001",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "WebRTC 内网部署",
+    "text": "WebRTC 内网部署相关配置与步骤说明（含信令/媒体路径与服务启动）。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-002",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "Turnserver 配置",
+    "text": "配置 Turnserver：设置 listening-port、tls-listening-port、fingerprint、realm，并写入 user 凭证后重启服务。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：1369 字只残留 328 字尾段"
+  },
+  {
+    "id": "fp-003",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "信令服务修改",
+    "text": "修改信令服务配置以支持外网访问，更新 WebSocket/HTTPS 端口与外网地址映射。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-004",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "TCP 外网部署",
+    "text": "TCP 外网部署步骤：启用 TCP 候选、配置 turn/tcp 端口，并同步修改信令与渲染服务地址。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-005",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "TCP 信令服务修改",
+    "text": "TCP 模式下信令服务修改：调整协议、端口与证书路径后重启。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-006",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "应用外网部署",
+    "text": "应用外网地址修改：将前端/客户端访问地址改为公网域名或 IP。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-007",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "运行渲染服务器",
+    "text": "运行渲染服务器：确认 GPU/驱动就绪后启动渲染服务进程。",
+    "expected": "keep",
+    "prd_note": "PRD 实测：整段删除"
+  },
+  {
+    "id": "fp-008",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "分区与文件系统",
+    "text": "/boot 分区建议使用 ext4；/boot/efi 一般 200M；/var 与 /data 可按容量选择 xfs，并说明选择依据。",
+    "expected": "keep",
+    "prd_note": "PRD 回归：分区与文件系统选择"
+  },
+  {
+    "id": "fp-009",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "硬件说明",
+    "text": "服务器需支持 PCIE/M.2，并满足 CPU、GPU 与内存最低配置要求。",
+    "expected": "keep",
+    "prd_note": "PRD 回归：PCIE/M.2、CPU、GPU、内存"
+  },
+  {
+    "id": "fp-010",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "SSH 配置",
+    "text": "修改 /etc/ssh/sshd_config，设置 PermitRootLogin 与 PasswordAuthentication 后执行 systemctl restart sshd。",
+    "expected": "keep",
+    "prd_note": "PRD 回归：SSH 与 systemctl"
+  },
+  {
+    "id": "fp-011",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "xfs_repair",
+    "text": "当执行 xfs_repair 修复分区时，如果提示文件系统已挂载，需要先执行 umount -f /dev/mapper/rl-var。",
+    "expected": "keep",
+    "prd_note": "用例 A 单点命令，必须保留"
+  },
+  {
+    "id": "fp-012",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "sysctl",
+    "text": "使用 vim /etc/sysctl.conf 调整内核参数，保存后执行 sysctl -p。",
+    "expected": "keep",
+    "prd_note": "标题误判相关正文"
+  },
+  {
+    "id": "fp-013",
+    "source": "StampTools用户手册.docx",
+    "section": "管线配置",
+    "text": "PipelineBuilder 字段映射导出配置：导出字段映射结果为字段映射文件，并校验值域映射。",
+    "expected": "keep",
+    "prd_note": "StampTools 管线配置"
+  },
+  {
+    "id": "fp-014",
+    "source": "StampTools用户手册.docx",
+    "section": "Redis/Cesium",
+    "text": "配置 Redis 连接与 Cesium/WebGL 渲染参数，确认 EPSG 空间参考后发布服务。",
+    "expected": "keep",
+    "prd_note": "PRD 回归：Redis、Cesium、WebGL、EPSG"
+  },
+  {
+    "id": "fp-015",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "端口表/冲突",
+    "text": "端口表记载 TLS 端口 5439；Turnserver 配置正文使用 tls-listening-port=5349，两者需保留以便冲突检测。",
+    "expected": "keep",
+    "prd_note": "5439/5349 冲突证据"
+  },
+  {
+    "id": "fp-016",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "权限命令",
+    "text": "对安装目录执行 chmod +x 启动脚本，并确认可执行权限生效。",
+    "expected": "keep",
+    "prd_note": "chmod/启动脚本"
+  },
+  {
+    "id": "fp-017",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "HTTPS 端口",
+    "text": "HTTPS端口配置示例：\"HttpsPort\": 443。",
+    "expected": "keep",
+    "prd_note": "不得因混排被删，也不得被当成标题"
+  },
+  {
+    "id": "fp-018",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "自动登录",
+    "text": "配置自动登录后，确认桌面会话可在重启后自动进入指定用户。",
+    "expected": "keep",
+    "prd_note": "Rocky 安装流程遗漏项"
+  },
+  {
+    "id": "fp-019",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "上传速度优化",
+    "text": "通过调整相关网络与服务参数优化上传速度，并验证大文件传输稳定性。",
+    "expected": "keep",
+    "prd_note": "Rocky 安装流程遗漏项"
+  },
+  {
+    "id": "fp-020",
+    "source": "StampTools用户手册.docx",
+    "section": "格式支持",
+    "text": "支持 JPG/WebP/CRN/DDS 等纹理格式转换与压缩参数配置。",
+    "expected": "keep",
+    "prd_note": "中英文格式名混排"
+  },
+  {
+    "id": "fp-021",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "UDP 外网配置",
+    "text": "UDP 外网完整配置：开放 UDP 端口区间，配置 ICE/TURN，并验证连通性。",
+    "expected": "keep",
+    "prd_note": "用例 B 缺失项"
+  },
+  {
+    "id": "fp-022",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "root 密码与 SSH",
+    "text": "设置 root 密码，并确认可通过 SSH 登录管理节点。",
+    "expected": "keep",
+    "prd_note": "用例 C 缺失项"
+  },
+  {
+    "id": "fp-023",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "基础软件安装",
+    "text": "安装基础软件包与依赖服务，完成服务开机自启配置。",
+    "expected": "keep",
+    "prd_note": "用例 C 缺失项"
+  },
+  {
+    "id": "fp-024",
+    "source": "StampTools用户手册.docx",
+    "section": "加密锁驱动",
+    "text": "安装加密锁驱动与运行环境，确保授权检测通过后再启动工具链。",
+    "expected": "keep",
+    "prd_note": "StampTools 安装类正文"
+  },
+  {
+    "id": "fp-025",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "Turnserver user",
+    "text": "在 turnserver.conf 中添加 user=username:password，并设置 realm 后重启 turnserver。",
+    "expected": "keep",
+    "prd_note": "配置键值混排"
+  },
+  {
+    "id": "fp-026",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "enabled 配置",
+    "text": "将服务单元中的 enabled=1 写入配置，确保开机自动拉起。",
+    "expected": "keep",
+    "prd_note": "不得仅因 key=value 被当垃圾或标题"
+  },
+  {
+    "id": "fp-027",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "路径说明",
+    "text": "数据目录建议挂载到 /data，日志可保留在 /var/log 对应路径。",
+    "expected": "keep",
+    "prd_note": "路径+中文"
+  },
+  {
+    "id": "fp-028",
+    "source": "StampTools用户手册.docx",
+    "section": "UE 材质集",
+    "text": "UE材质集添加蓝图时，设置 Collection：选择材质参数集并保存。",
+    "expected": "keep",
+    "prd_note": "中英产品术语"
+  },
+  {
+    "id": "fp-029",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "渲染服务启动",
+    "text": "渲染服务启动前检查显卡占用，启动后观察端口监听与日志无报错。",
+    "expected": "keep",
+    "prd_note": "流程步骤正文"
+  },
+  {
+    "id": "fp-030",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "systemctl 启停",
+    "text": "使用 systemctl start/stop/status 管理相关服务，并检查 active 状态。",
+    "expected": "keep",
+    "prd_note": "命令+中文说明"
+  },
+  {
+    "id": "fp-031",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "ext4/xfs",
+    "text": "根据分区用途选择 ext4 或 xfs：系统分区偏稳妥可选 ext4，大容量数据盘可选 xfs。",
+    "expected": "keep",
+    "prd_note": "文件系统选择依据"
+  },
+  {
+    "id": "fp-032",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "信令证书",
+    "text": "为信令服务配置 TLS 证书路径与密钥路径，确保 HTTPS 握手成功。",
+    "expected": "keep",
+    "prd_note": "配置路径"
+  },
+  {
+    "id": "fp-033",
+    "source": "StampTools用户手册.docx",
+    "section": "点表规范",
+    "text": "管线点表需包含坐标、属性字段与值域约束，导出前执行字段校验。",
+    "expected": "keep",
+    "prd_note": "表格关联正文"
+  },
+  {
+    "id": "fp-034",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "网络参数",
+    "text": "按手册调整网卡 MTU 与相关 sysctl 网络参数，避免大包传输异常。",
+    "expected": "keep",
+    "prd_note": "配置类正文"
+  },
+  {
+    "id": "fp-035",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "ICE 连通",
+    "text": "通过 ICE 候选检查 UDP/TCP 连通性，确认 relay 候选可用。",
+    "expected": "keep",
+    "prd_note": "WebRTC 术语混排"
+  },
+  {
+    "id": "fp-036",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "挂载检查",
+    "text": "执行 df -h 与 mount 检查分区挂载点，确认 /var 与 /data 已正确挂载。",
+    "expected": "keep",
+    "prd_note": "命令输出说明"
+  },
+  {
+    "id": "fp-037",
+    "source": "StampTools用户手册.docx",
+    "section": "发布服务",
+    "text": "WidgetBuilder 发布服务前确认服务配置、端口与目标环境一致。",
+    "expected": "keep",
+    "prd_note": "产品名+中文"
+  },
+  {
+    "id": "fp-038",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "外网域名",
+    "text": "将公网域名解析到入口 IP，并在应用配置中填写对应外网 URL。",
+    "expected": "keep",
+    "prd_note": "URL/域名混排"
+  },
+  {
+    "id": "fp-039",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "防火墙端口",
+    "text": "放行业务所需 TCP/UDP 端口，并记录端口与服务对应关系。",
+    "expected": "keep",
+    "prd_note": "端口说明"
+  },
+  {
+    "id": "fp-040",
+    "source": "StampTools用户手册.docx",
+    "section": "常见错误",
+    "text": "出现纹理错误时，检查材质参数集、压缩格式与资源路径是否匹配。",
+    "expected": "keep",
+    "prd_note": "故障排查正文"
+  },
+  {
+    "id": "fp-041",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "安装包路径",
+    "text": "将安装包上传到 /data/packages 后解压，并校验目录权限。",
+    "expected": "keep",
+    "prd_note": "路径操作"
+  },
+  {
+    "id": "fp-042",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "日志排查",
+    "text": "查看 turnserver 与信令服务日志，定位端口占用或证书错误。",
+    "expected": "keep",
+    "prd_note": "运维步骤"
+  },
+  {
+    "id": "fp-043",
+    "source": "StampTools用户手册.docx",
+    "section": "值域映射",
+    "text": "使用状态映射完成值域转换，导出前预览映射结果。",
+    "expected": "keep",
+    "prd_note": "流程短段也应保留"
+  },
+  {
+    "id": "fp-044",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "服务配置文件",
+    "text": "编辑服务配置文件中的监听地址与端口后，执行 systemctl daemon-reload。",
+    "expected": "keep",
+    "prd_note": "配置+命令"
+  },
+  {
+    "id": "fp-045",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "性能说明",
+    "text": "UDP 模式在弱网下通常有更好延迟表现，但仍需结合 TURN 中继策略评估。",
+    "expected": "keep",
+    "prd_note": "不得只留性能描述、丢掉配置"
+  },
+  {
+    "id": "fp-046",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "EFI 分区",
+    "text": "/boot/efi：分区大小一般是200M，文件系统为 FAT32。",
+    "expected": "keep",
+    "prd_note": "PRD 错误标题样例对应正文"
+  },
+  {
+    "id": "fp-047",
+    "source": "StampTools用户手册.docx",
+    "section": "环境变量",
+    "text": "将工具 bin 目录加入 PATH，并确认 pipelinebuilder.exe --help 可执行。",
+    "expected": "keep",
+    "prd_note": "命令+路径"
+  },
+  {
+    "id": "fp-048",
+    "source": "StampWebRTC用户手册.docx",
+    "section": "端口映射",
+    "text": "示例端口映射 89：8450 仅作对照，实际以部署环境防火墙规则为准。",
+    "expected": "keep",
+    "prd_note": "PRD 错误标题样例"
+  },
+  {
+    "id": "fp-049",
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section": "重启节点",
+    "text": "完成基础配置后执行 reboot，待系统恢复后复查服务状态。",
+    "expected": "keep",
+    "prd_note": "reboot 不应导致整段丢失"
+  },
+  {
+    "id": "fp-050",
+    "source": "StampTools用户手册.docx",
+    "section": "图片引导步骤",
+    "text": "点击界面中的“发布”按钮完成服务发布；若文档写“如下图”，对应截图证据必须可挂接。",
+    "expected": "keep",
+    "prd_note": "图片型步骤引导句"
+  }
+]

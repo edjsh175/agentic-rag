@@ -1,0 +1,408 @@
+[
+  {
+    "id": "mq-001",
+    "question": "当执行 xfs_repair 修复分区时，如果提示文件系统已挂载，需要先执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "先执行 umount -f /dev/mapper/rl-var，再进行 xfs_repair。",
+    "required_facts": ["umount -f /dev/mapper/rl-var", "xfs_repair"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "xfs_repair"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "单点命令对照用例 A"
+  },
+  {
+    "id": "mq-002",
+    "question": "WebRTC 外网部署在文档中包含哪些具体方式？请分别说明关键配置步骤。",
+    "answerability": "full",
+    "ground_truth": "至少覆盖 UDP 外网配置、Turnserver、信令服务修改、TCP 外网部署、TCP 信令修改、应用外网地址修改、渲染服务启动。",
+    "required_facts": [
+      "UDP 外网配置",
+      "Turnserver 配置",
+      "信令服务修改",
+      "TCP 外网部署",
+      "TCP 信令服务修改",
+      "应用外网地址修改",
+      "渲染服务启动"
+    ],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "外网"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["完整流程已全部覆盖（在证据不足时）"],
+    "notes": "PRD 用例 B"
+  },
+  {
+    "id": "mq-003",
+    "question": "StampServer 在 Rocky Linux 9 上的完整安装和基础配置流程包括哪些步骤？",
+    "answerability": "full",
+    "ground_truth": "应覆盖分区规划、文件系统选择、root/SSH、sysctl、自动登录、上传优化、基础软件与服务配置等关键步骤。",
+    "required_facts": [
+      "/boot /boot/efi /var /data 分区",
+      "ext4/xfs 选择依据",
+      "root 密码与 SSH",
+      "sshd_config 修改",
+      "自动登录",
+      "上传速度优化",
+      "基础软件安装与服务配置"
+    ],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "安装"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["完整安装和基础配置流程（证据不足时）"],
+    "notes": "PRD 用例 C"
+  },
+  {
+    "id": "mq-004",
+    "question": "Turnserver 的 TLS 监听端口在文档中是多少？如果出现多个值应如何处理？",
+    "answerability": "conflict",
+    "ground_truth": "端口表可能写 5439，正文可能写 tls-listening-port=5349；需同时展示冲突来源，不得静默二选一。",
+    "required_facts": ["5439", "5349", "冲突提示"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "Turnserver"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["仅存在唯一端口"],
+    "notes": "冲突证据题"
+  },
+  {
+    "id": "mq-005",
+    "question": "WebRTC UDP 外网部署需要修改哪些服务配置？",
+    "answerability": "full",
+    "ground_truth": "至少包括 Turnserver 与信令服务相关配置，并说明关键端口/地址项。",
+    "required_facts": ["Turnserver", "信令服务", "UDP"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "UDP"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "跨 Section 流程"
+  },
+  {
+    "id": "mq-006",
+    "question": "WebRTC TCP 外网部署与 UDP 方式的关键差异是什么？",
+    "answerability": "full",
+    "ground_truth": "需分别说明 TCP 部署步骤及对应信令修改，不能只回答 UDP。",
+    "required_facts": ["TCP 外网部署", "TCP 信令服务修改"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "TCP"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多步骤对比"
+  },
+  {
+    "id": "mq-007",
+    "question": "/boot/efi 分区大小一般如何规划？",
+    "answerability": "full",
+    "ground_truth": "一般 200M，并说明文件系统类型（如 FAT32）。",
+    "required_facts": ["200M", "/boot/efi"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "boot"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "单点事实"
+  },
+  {
+    "id": "mq-008",
+    "question": "Rocky9 安装时 /var 与 /data 分区文件系统如何选择？",
+    "answerability": "full",
+    "ground_truth": "应给出 ext4/xfs 选择依据，而不是只列分区名。",
+    "required_facts": ["/var", "/data", "ext4 或 xfs", "选择依据"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "分区"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多证据"
+  },
+  {
+    "id": "mq-009",
+    "question": "如何修改 SSH 以允许 root 密码登录？",
+    "answerability": "full",
+    "ground_truth": "修改 /etc/ssh/sshd_config 相关项并重启 sshd。",
+    "required_facts": ["sshd_config", "systemctl restart sshd"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "SSH"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "跨命令步骤"
+  },
+  {
+    "id": "mq-010",
+    "question": "StampTools 管线字段映射如何导出？",
+    "answerability": "full",
+    "ground_truth": "在 PipelineBuilder 字段映射中导出为字段映射文件。",
+    "required_facts": ["字段映射", "导出"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "字段映射"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "工具流程"
+  },
+  {
+    "id": "mq-011",
+    "question": "PipelineBuilder 值域映射里状态映射怎么用？",
+    "answerability": "full",
+    "ground_truth": "使用状态映射完成值域转换，并在导出前预览结果。",
+    "required_facts": ["状态映射", "值域"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "值域映射"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多步骤"
+  },
+  {
+    "id": "mq-012",
+    "question": "StampTools 加密锁驱动安装需要哪些前置步骤？",
+    "answerability": "full",
+    "ground_truth": "安装加密锁驱动与运行环境，通过授权检测后再启动工具。",
+    "required_facts": ["加密锁驱动", "运行环境"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "加密锁"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "安装流程"
+  },
+  {
+    "id": "mq-013",
+    "question": "出现纹理错误时应检查哪些配置？",
+    "answerability": "full",
+    "ground_truth": "检查材质参数集、压缩格式与资源路径等。",
+    "required_facts": ["材质", "格式或路径"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "纹理错误"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "故障排查"
+  },
+  {
+    "id": "mq-014",
+    "question": "文档是否支持 JPG/WebP/CRN/DDS 纹理格式？",
+    "answerability": "full",
+    "ground_truth": "支持这些格式的转换/压缩配置（以手册为准）。",
+    "required_facts": ["JPG", "WebP", "CRN 或 DDS"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "格式名混排召回"
+  },
+  {
+    "id": "mq-015",
+    "question": "配置 Redis 与 Cesium/WebGL 时要注意什么？",
+    "answerability": "full",
+    "ground_truth": "需保留连接/渲染相关参数，并关注 EPSG 空间参考。",
+    "required_facts": ["Redis", "Cesium 或 WebGL", "EPSG"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "中英混排技术正文"
+  },
+  {
+    "id": "mq-016",
+    "question": "HTTPS 端口默认配置是多少？",
+    "answerability": "full",
+    "ground_truth": "示例配置 HttpsPort 为 443（以文档为准）。",
+    "required_facts": ["HttpsPort", "443"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "HTTPS"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "配置项单点"
+  },
+  {
+    "id": "mq-017",
+    "question": "如何用 vim 修改 sysctl 并生效？",
+    "answerability": "full",
+    "ground_truth": "vim /etc/sysctl.conf 后执行 sysctl -p。",
+    "required_facts": ["vim /etc/sysctl.conf", "sysctl -p"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "sysctl"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "命令不得被当成 Section 后丢失上下文"
+  },
+  {
+    "id": "mq-018",
+    "question": "外网部署后如何修改应用访问地址？",
+    "answerability": "full",
+    "ground_truth": "将应用/前端访问地址改为公网域名或 IP。",
+    "required_facts": ["外网地址", "应用配置"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "应用外网"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "用例 B 子步骤"
+  },
+  {
+    "id": "mq-019",
+    "question": "渲染服务器启动前要检查什么？",
+    "answerability": "full",
+    "ground_truth": "检查 GPU/驱动或显卡占用，启动后确认端口与日志。",
+    "required_facts": ["渲染服务", "启动检查"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "渲染"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "流程尾部步骤"
+  },
+  {
+    "id": "mq-020",
+    "question": "StampServer 自动登录如何配置？",
+    "answerability": "full",
+    "ground_truth": "按手册完成自动登录设置，并在重启后验证。",
+    "required_facts": ["自动登录"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "登录"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "用例 C 子步骤"
+  },
+  {
+    "id": "mq-021",
+    "question": "上传速度优化在安装流程中的位置和作用是什么？",
+    "answerability": "full",
+    "ground_truth": "属于基础配置环节，用于优化大文件传输。",
+    "required_facts": ["上传速度优化"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": "上传"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "完整性检查"
+  },
+  {
+    "id": "mq-022",
+    "question": "文档中关于端口 89:8450 的说明是什么？",
+    "answerability": "partial",
+    "ground_truth": "若仅为示例/映射对照，应说明实际以环境防火墙为准，避免当唯一生产端口。",
+    "required_facts": ["89", "8450"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["这是唯一必须端口"],
+    "notes": "易被误判为标题的端口映射"
+  },
+  {
+    "id": "mq-023",
+    "question": "WidgetBuilder 发布服务前需要确认哪些信息？",
+    "answerability": "full",
+    "ground_truth": "确认服务配置、端口与目标环境一致。",
+    "required_facts": ["发布服务", "配置或端口"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "发布"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "跨配置项"
+  },
+  {
+    "id": "mq-024",
+    "question": "如何确认分区挂载是否成功？",
+    "answerability": "full",
+    "ground_truth": "使用 df -h / mount 检查 /var 与 /data 等挂载点。",
+    "required_facts": ["df -h 或 mount", "/var 或 /data"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "命令+解释"
+  },
+  {
+    "id": "mq-025",
+    "question": "Turnserver 用户凭证如何配置？",
+    "answerability": "full",
+    "ground_truth": "在配置中设置 user=username:password 与 realm，并重启服务。",
+    "required_facts": ["user=", "realm", "重启"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "Turnserver"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "配置块完整性"
+  },
+  {
+    "id": "mq-026",
+    "question": "手册里有没有“点击发布按钮”这类依赖截图的步骤？如果有，缺少图片时应该怎样回答？",
+    "answerability": "partial",
+    "ground_truth": "若仅有引导句而无 OCR/截图证据，应声明证据不足，不得编造界面细节。",
+    "required_facts": ["证据不足或需截图"],
+    "evidence_anchors": [
+      {"source": "StampTools用户手册.docx", "section_path_contains": "发布"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["完整界面操作细节（无图时）"],
+    "notes": "图片/OCR 证据缺口"
+  },
+  {
+    "id": "mq-027",
+    "question": "PDF 手册中某章节的 section_path 是什么？",
+    "answerability": "none",
+    "ground_truth": "当前 PDF 结构化不足，section_path 常为空；应承认结构缺失，不能伪造章节路径。",
+    "required_facts": ["section_path 缺失或无法稳定恢复"],
+    "evidence_anchors": [
+      {"source": "41bab783fa8840fd8c24a34840a4484d.pdf", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["给出伪造的详细 section_path"],
+    "notes": "无答案/结构不足"
+  },
+  {
+    "id": "mq-028",
+    "question": "StampServer 安装完成后必须执行哪些 systemctl 操作？",
+    "answerability": "full",
+    "ground_truth": "按手册对相关服务执行 start/enable/status 等操作。",
+    "required_facts": ["systemctl"],
+    "evidence_anchors": [
+      {"source": "StampServer用户手册_Rocky9 .docx", "section_path_contains": ""}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多命令窗口"
+  },
+  {
+    "id": "mq-029",
+    "question": "外网部署时信令服务证书路径如何配置？",
+    "answerability": "full",
+    "ground_truth": "配置 TLS 证书与密钥路径，并验证 HTTPS 握手。",
+    "required_facts": ["证书", "密钥或 TLS"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "信令"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "配置跨段"
+  },
+  {
+    "id": "mq-030",
+    "question": "如果只检索到 UDP 性能描述和端口表，能否回答“WebRTC 外网完整部署步骤”？",
+    "answerability": "partial",
+    "ground_truth": "不能宣称完整；必须列出缺失的 Turnserver/信令/TCP/应用地址/渲染启动等部分。",
+    "required_facts": ["证据不足", "缺失步骤列表"],
+    "evidence_anchors": [
+      {"source": "StampWebRTC用户手册.docx", "section_path_contains": "外网"}
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": ["完整流程如下"],
+    "notes": "完整性治理黄金题"
+  }
+]

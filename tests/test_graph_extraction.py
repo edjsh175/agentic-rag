@@ -32,8 +32,19 @@ def test_section_path_extractor_builds_pipeline_main_graph():
     assert result.has_relation("PipelineBuilder", "has_table", "管线点表")
     assert any(link.entity_name == "管线点表" and link.chunk_id == "c1" for link in result.links)
     assert any(link.entity_name == "StampTools用户手册.docx" and link.chunk_id == "c1" for link in result.links)
-    section = next(item for item in result.entities if item.entity_type == "Section")
-    assert any(link.entity_name == section.name and link.chunk_id == "c1" for link in result.links)
+    leaf = "StampTools用户手册::PipelineBuilder > 数据规范 > 管线点表 > 点数据结构"
+    assert result.entity(leaf).entity_type == "Section"
+    assert any(link.entity_name == leaf and link.chunk_id == "c1" for link in result.links)
+    assert result.has_relation(
+        "StampTools用户手册.docx",
+        "has_section",
+        "StampTools用户手册::PipelineBuilder",
+    )
+    assert not result.has_relation(
+        "StampTools用户手册.docx",
+        "has_section",
+        leaf,
+    )
 
 
 def test_section_path_extractor_does_not_guess_unknown_tool():

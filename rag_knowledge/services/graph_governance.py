@@ -14,6 +14,7 @@ PROFILE_ALIAS_SOURCE_FIELDS = frozenset({"entity_aliases", "section_families"})
 APPROVE_ALL_FORBIDDEN_MODES = frozenset({
     "profile_sync",
     "domain_catalog_seed",
+    "product_backbone_seed",
     "manual_import",
 })
 

@@ -81,7 +81,7 @@ class ChatStorage:
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/chat/history` | 加载聊天历史。返回 `200 {messages: [...]}` 或 `404 {detail: "无历史记录"}` |
+| `GET` | `/api/chat/history` | 加载聊天历史。返回 `200 {messages: [...]}`；无记录时返回 `200 {messages: []}`（前端再回退 localStorage） |
 | `PUT` | `/api/chat/history` | 保存聊天历史。Body: `{messages: [...]}` |
 | `DELETE` | `/api/chat/history` | 清空聊天历史 |
 
@@ -110,9 +110,9 @@ class ChatStorage:
 ```
 1. 读取指纹
 2. GET /api/chat/history
-   ├─ 200 → 返回 messages（重建 Message 对象，图片标记回补）
-   └─ 404 → 读 localStorage → 有数据？返回
-                      └─ 没有 → 返回欢迎消息
+   ├─ 200 且 messages 非空 → 返回 messages（重建 Message 对象，图片标记回补）
+   └─ 200 空列表 / 旧版 404 / 请求失败 → 读 localStorage → 有数据？返回
+                                      └─ 没有 → 返回欢迎消息
 ```
 
 **保存流程 `saveChatState()`：**

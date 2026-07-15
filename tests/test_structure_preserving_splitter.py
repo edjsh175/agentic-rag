@@ -12,6 +12,7 @@ if str(_TESTS_DIR) not in sys.path:
 from langchain_core.documents import Document
 from test_loader_and_dataset import _load_file_loader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from rag_knowledge.services.section_chunk_merge import CHUNKING_METHOD, TARGET_SOFT_MAX
 
 def create_loader(chunk_size=120, chunk_overlap=10):
     FileLoader = _load_file_loader()
@@ -26,6 +27,76 @@ def create_loader(chunk_size=120, chunk_overlap=10):
     return loader
 
 class StructurePreservingSplitterTests(unittest.TestCase):
+    def test_oversized_technical_manual_text_is_split_without_losing_lineage(self):
+        loader = create_loader(chunk_size=500, chunk_overlap=50)
+        text = "\n\n".join(["这是一个需要保持语义边界的长段落。" * 20 for _ in range(6)])
+        doc = Document(
+            page_content=text,
+            metadata={
+                "source": "manual.docx",
+                "content_type": "text",
+                "chunking_method": CHUNKING_METHOD,
+                "section_path": "部署 > 长章节",
+                "source_element_ids": ["el_1"],
+                "source_raw_block_ids": ["rb_1"],
+                "source_section_paths": ["部署 > 长章节"],
+                "source_section_ids": ["sec_1"],
+            },
+        )
+
+        chunks = loader._split_documents_preserving_blocks([doc])
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk.page_content) <= TARGET_SOFT_MAX for chunk in chunks))
+        self.assertTrue(all(chunk.metadata["chunking_method"] == CHUNKING_METHOD for chunk in chunks))
+        self.assertTrue(all(chunk.metadata["source_element_ids"] == ["el_1"] for chunk in chunks))
+        self.assertTrue(all(chunk.metadata["source_raw_block_ids"] == ["rb_1"] for chunk in chunks))
+        self.assertTrue(all(chunk.metadata["source_section_paths"] == ["部署 > 长章节"] for chunk in chunks))
+
+    def test_technical_manual_split_uses_final_rendered_length(self):
+        loader = create_loader(chunk_size=500, chunk_overlap=50)
+        doc = Document(
+            page_content="正文" * 595,
+            metadata={
+                "source": "manual.docx",
+                "content_type": "text",
+                "chunking_method": CHUNKING_METHOD,
+                "section_path": "部署 > " + "很长的章节标题" * 4,
+            },
+        )
+
+        chunks = loader._split_documents_preserving_blocks([doc])
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk.page_content) <= TARGET_SOFT_MAX for chunk in chunks))
+
+    def test_marks_only_same_section_text_adjacent_to_table_as_table_context(self):
+        loader = create_loader(chunk_size=500, chunk_overlap=50)
+        docs = [
+            Document(
+                page_content="字段说明",
+                metadata={"content_type": "text", "section_path": "数据 > 字段"},
+            ),
+            Document(
+                page_content="| 字段 | 含义 |",
+                metadata={
+                    "content_type": "table",
+                    "section_path": "数据 > 字段",
+                    "table_id": "table_1",
+                },
+            ),
+            Document(
+                page_content="另一章节",
+                metadata={"content_type": "text", "section_path": "数据 > 其他"},
+            ),
+        ]
+
+        marked = loader._mark_table_context_chunks(docs)
+
+        self.assertTrue(marked[0].metadata["table_context"])
+        self.assertEqual(marked[0].metadata["related_table_ids"], ["table_1"])
+        self.assertNotIn("table_context", marked[2].metadata)
+
     def test_markdown_table_kept_as_single_chunk(self):
         loader = create_loader(chunk_size=200)
         table_text = (

@@ -40,6 +40,12 @@ class EntityResolutionService:
             if normalize_entity_name(alias.get("alias", "")) == name:
                 return ResolutionResult("alias", str(alias.get("entity_id") or ""))
 
+        # Section hierarchy creates path prefixes of existing leaf Sections
+        # (e.g. ``Doc::A`` vs ``Doc::A > B``). Treat these as new Section nodes,
+        # not possible_duplicate substring collisions.
+        if candidate.entity_type == "Section":
+            return ResolutionResult("new")
+
         folded = name.casefold()
         for entity in entities:
             existing = normalize_entity_name(entity.get("name", ""))

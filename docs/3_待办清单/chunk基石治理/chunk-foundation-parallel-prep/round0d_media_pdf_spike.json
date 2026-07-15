@@ -1,0 +1,526 @@
+{
+  "generated_at": "2026-07-15T01:33:25.684731+00:00",
+  "watch_directory": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory",
+  "docx_media": [
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "media_count": 191,
+      "audit_count_docx_media": 191,
+      "relationship_media_count": 191,
+      "sample": [
+        {
+          "zip_path": "word/media/image1.jpeg",
+          "bytes": 11636,
+          "sha256": "a202ecb24ce7d62e118aa9118d7e93e50bc964f1e19f41ec284420ad16ede199",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image10.png",
+          "bytes": 41412,
+          "sha256": "9d2e264b60734d1996201355718b49d39294514aebb6f658d4ca998c15149878",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image100.png",
+          "bytes": 21124,
+          "sha256": "c3da6f60ae34fb6b7535f7c1c1f1a6005875eb7ee57dd2d34bfc7a03e66c468a",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image101.png",
+          "bytes": 3382,
+          "sha256": "09a9cd402d1bed8c7ff7799450dc6a1fd23f9f4e7776705fafbc19c896bca499",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image102.png",
+          "bytes": 3387,
+          "sha256": "ce1031b4728c01961cc256afaf953e8568ba96dfa60e6f436e7e4c4ce468de3b",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image103.png",
+          "bytes": 14939,
+          "sha256": "cf693f561be2b054204b21be389ed6aafd8f4cd66f2e5e682bec43036f5462ae",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image104.png",
+          "bytes": 12780,
+          "sha256": "cac5e7acb3219db6ea0cc7ac81f94f732aa26d0909b662e6624c2891e24f4d43",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image105.png",
+          "bytes": 34566,
+          "sha256": "399501a7340cb8002f86545b07b2fdcddc591143b4a21832a2a6fa36e8d1e450",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image106.png",
+          "bytes": 14141,
+          "sha256": "bcd2c43522c2d79899d184e8cdf39851de808dd63594da818b0122f967bc0b8e",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image107.png",
+          "bytes": 32486,
+          "sha256": "150d221d8b61da51d7f6b9888e6e23ef9d4590a78a9f9a9a4521e47b740e6fb8",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image108.png",
+          "bytes": 15096,
+          "sha256": "2a13bea087a71294cbf9f3d82227539a8249e3211358fa5c339d563365a0fab2",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image109.png",
+          "bytes": 16171,
+          "sha256": "ee531bf16a57697b0ea729f5852b5da09ad1018062b27d6f2232ba521ccd1b24",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image11.png",
+          "bytes": 30091,
+          "sha256": "7aa55bd0d2a1cf0805ef75b3919389811430f8e2de81f4b4481a4911981e6286",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image110.png",
+          "bytes": 21334,
+          "sha256": "ccbc02bdf50895e81506fb434a17f595cdbea39a1cfdc56b8237351b03313c05",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image111.png",
+          "bytes": 17629,
+          "sha256": "3682f57c565dd266faa3e39264cb765c4457032c630ba0477c1709265a2fd31e",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image112.png",
+          "bytes": 29781,
+          "sha256": "9ea773f93cb9251ffaf7506476ff1fa2f12e66aef69157961ff3466129780bb5",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image113.png",
+          "bytes": 21191,
+          "sha256": "8d5d701f6147188d9bb936a91a97ab79ce977ffddc75491167a15353e43dfa1d",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image114.png",
+          "bytes": 29678,
+          "sha256": "8073bfe1b938775d5015eadfb48e911947995169423629c35da1d48db70a2a8b",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image115.png",
+          "bytes": 30250,
+          "sha256": "82490b8adfaf18a50c692d925b48b819dd00c0d88ae99bff211617b6f2e391fa",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image116.png",
+          "bytes": 30790,
+          "sha256": "2e948eed9f7d5d14fd98426b6786dee67cc7ae0e1a629955bf982df9a49e1397",
+          "suffix": ".png"
+        }
+      ],
+      "note": "Spike enumerates ALL media; production loader still caps max_images=5."
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "media_count": 123,
+      "audit_count_docx_media": 123,
+      "relationship_media_count": 123,
+      "sample": [
+        {
+          "zip_path": "word/media/image1.png",
+          "bytes": 48224,
+          "sha256": "7851310f9573ffffabdfeaf2b9e180ebc754d49b9d8355db8fced57d398eff03",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image10.png",
+          "bytes": 15712,
+          "sha256": "161840db05ad06a8771af1770b87efd790b246968538bf8d85acfaae96dd2991",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image100.png",
+          "bytes": 27886,
+          "sha256": "9c1d91e4a635c0ca4f2009e8d000de84f3152abc2b51c179b76d7d2425e6efe4",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image101.png",
+          "bytes": 25999,
+          "sha256": "a39ff07a7964745e30e2399a74f54a62615cf6002a9902227fe7cd3707d908a6",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image102.png",
+          "bytes": 27867,
+          "sha256": "88db5275cbd70d2755933bdd160abcfd81807abf1812de26a6a592caa79c6120",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image103.png",
+          "bytes": 26782,
+          "sha256": "911f16e60b041a21fa24f489af7daf66c640db732e64bc1d88af3578ff8144b4",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image104.png",
+          "bytes": 35442,
+          "sha256": "979191c95308304c95ae29a81b58f9e3609f624af0ec9c6684c11dcae001aa3a",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image105.png",
+          "bytes": 31063,
+          "sha256": "ee105d103f438ea50b270d1a13e50258442bff57e38d1ea466748754c344b1af",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image106.png",
+          "bytes": 38851,
+          "sha256": "a411cc7f9ee7d939b2e2632ff231cc39a3e66c788e4be4601d523737866556dd",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image107.png",
+          "bytes": 58965,
+          "sha256": "cc8c162af36bd8f3fc038e86292663697b50d47d668ed944d8334dcd7e284230",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image108.png",
+          "bytes": 16972,
+          "sha256": "616232a2940c950afb64a1cc5d7967b60591c124d859c07a34fe3ff553702e5a",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image109.png",
+          "bytes": 10824,
+          "sha256": "40536d0652f30ca04726c47bd2e63fd3511619d38cb724e7253b7d808d91bd8d",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image11.png",
+          "bytes": 18608,
+          "sha256": "6d47bfedb2cfb90e471b408f16c2fe13b35562dfb1f451e26e77f0f2bb7055fc",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image110.png",
+          "bytes": 37916,
+          "sha256": "28c01d2645f698b1cec45fb2255c54e14a0f6aa23218c8d2c6be418c4ca0d6f3",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image111.png",
+          "bytes": 85487,
+          "sha256": "8db900c694d7f984428d7df3c846937904da5dcd24bf9f7e00a7e989ea5331fe",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image112.png",
+          "bytes": 59922,
+          "sha256": "56cc3d850cd25242b04b79d942af9c25c71bba2632ea29a363d7962de4979664",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image113.png",
+          "bytes": 92537,
+          "sha256": "39d686abfa2f407b3b771c26170d792f7b4ccf94732ce4e66400a5613f72e8d7",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image114.png",
+          "bytes": 93122,
+          "sha256": "8efbbbec971b55fe0336d002f3b00eedd00853b97dd06c1a07114f87c13e1529",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image115.png",
+          "bytes": 56829,
+          "sha256": "3a3ec98e9ef98a5c9897a74431b9ae9f8864eea3e56b997a187b91cd09dde02e",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image116.png",
+          "bytes": 47862,
+          "sha256": "0a851855439c650381a3f3550801bf67de6285ecfa4e71614029394d77651d50",
+          "suffix": ".png"
+        }
+      ],
+      "note": "Spike enumerates ALL media; production loader still caps max_images=5."
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "media_count": 201,
+      "audit_count_docx_media": 201,
+      "relationship_media_count": 200,
+      "sample": [
+        {
+          "zip_path": "word/media/image1.jpeg",
+          "bytes": 11636,
+          "sha256": "a202ecb24ce7d62e118aa9118d7e93e50bc964f1e19f41ec284420ad16ede199",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image10.jpeg",
+          "bytes": 24574,
+          "sha256": "38f7174ee8359e86ea7d5c5bdc19559216293267b4c2e09249ad268470091487",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image100.png",
+          "bytes": 698639,
+          "sha256": "c93c90bdd0816d97ab6a443d986f85752f5b9412418289374bc978d9d92e0710",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image101.png",
+          "bytes": 1435099,
+          "sha256": "d32d4fdf2d4c6e13f10365d47ae04689221c9238a32fb9a44e039ea49599fef8",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image102.jpeg",
+          "bytes": 14239,
+          "sha256": "79438dbb66fed0dc82d9aaf84a21e2ea948800571e6a71b74231a0d0260fe921",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image103.jpeg",
+          "bytes": 221262,
+          "sha256": "4c558076c946b36f9d22fd3b6a7df3659b77bd6f6435cd93725919e6a8a804f7",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image104.jpeg",
+          "bytes": 79648,
+          "sha256": "8df7b1ff3c2c2894b602d8019507cc5c12c3e5e8b0459a44dde9b5d402851690",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image105.jpeg",
+          "bytes": 229347,
+          "sha256": "1834e54ddb9b6ee4cc133e95fa0928dc420f264f4523e39b0f50812049a1f476",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image106.jpeg",
+          "bytes": 126980,
+          "sha256": "37da65520a989cb3fc2680c0013b9823e7fb94704d0b3635a7dd5d4a7a018bf8",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image107.png",
+          "bytes": 816151,
+          "sha256": "a65bd707a41ad261f71675a12144237f6b8a7f455f398df6ff2a8dbb28ee1bb7",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image108.jpeg",
+          "bytes": 164763,
+          "sha256": "85b86ff9b8516087f91939b4a35862dbfab6e86f2a07cf17b152e2eddbe666a8",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image109.jpeg",
+          "bytes": 195577,
+          "sha256": "c3bc99bdaf4d2c212e700cb509c95a41c382afa9112f0e124aad5e61d2dd13bf",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image11.png",
+          "bytes": 170263,
+          "sha256": "a074bac75886bc2bfaa87b5fbf3a5ddc718476a80f9bf2b3004e35b0d01695c9",
+          "suffix": ".png"
+        },
+        {
+          "zip_path": "word/media/image110.jpeg",
+          "bytes": 218842,
+          "sha256": "65a0b0d2d94b76ecabe438e790334e1b75757e40e36262b933b76fc85fab2b98",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image111.jpeg",
+          "bytes": 127149,
+          "sha256": "2c90dc928694599ca6b45e4c622394a14c273789e9a25fb30377721ce4ebe884",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image112.jpeg",
+          "bytes": 224997,
+          "sha256": "4d27c1a70d7323dff747bc019a9b82ef628a127b2b8bdb9996f5b165d16c4361",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image113.jpeg",
+          "bytes": 202563,
+          "sha256": "59a889ca20df5136428838917f08f905534093654ec72588c6d6f08ec17390d5",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image114.jpeg",
+          "bytes": 184137,
+          "sha256": "cdc0099d3e3f78ad4635c168650b7fdb1b1a82ab0eec5bc721ae230fd542618b",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image115.jpeg",
+          "bytes": 175235,
+          "sha256": "e4726df4047f089efa96541592feb571694fd28117cbc1ddf046033c00fba547",
+          "suffix": ".jpeg"
+        },
+        {
+          "zip_path": "word/media/image116.jpeg",
+          "bytes": 156877,
+          "sha256": "6627b95d427639a0fe6c281cb06ab5fd7cadc40f228c7bb3addebd96ad7351eb",
+          "suffix": ".jpeg"
+        }
+      ],
+      "note": "Spike enumerates ALL media; production loader still caps max_images=5."
+    }
+  ],
+  "ocr": {
+    "note": "OCR not run (optional --ocr-sample).",
+    "samples": []
+  },
+  "pdf_compare": [
+    {
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "pypdf": [
+        {
+          "page": 0,
+          "chars": 80,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 1 StampServer 部署手册 （V5.0） 北京睿城传奇科技有限公司 2024 年 6 月"
+        },
+        {
+          "page": 1,
+          "chars": 6269,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 2 目 录 1. 系统基础配置.................................................................................................................."
+        },
+        {
+          "page": 2,
+          "chars": 6428,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 3 1.5.11. 建立软链接.................................................................................................................."
+        },
+        {
+          "page": 3,
+          "chars": 6617,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 4 3.1.22. ROAM发布服务..............................................................................................................."
+        },
+        {
+          "page": 4,
+          "chars": 2047,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 5 5.4. 数据注意事项...................................................................................................................."
+        }
+      ],
+      "pdfminer": {
+        "status": "ok",
+        "pages": [
+          {
+            "page": 0,
+            "chars": 80,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 StampServer 部署手册 （V5.0） 北京睿城传奇科技有限公司 2024 年 6 月 1"
+          },
+          {
+            "page": 1,
+            "chars": 6342,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 目 录 1.3. 1.2. 1.1. 1. 系统基础配置 ...................................................................................................."
+          },
+          {
+            "page": 2,
+            "chars": 6498,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 2.4. 2.3. 2.1. 2.2. 2.5. 2.6. 2.4.1. 2.4.2. 1.5.11. 建立软链接 ......................................................................."
+          },
+          {
+            "page": 3,
+            "chars": 6689,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 4.3. 4.1. 4.2. 3.2. 3.3. 3.4. 3.1.22. ROAM 发布服务 ................................................................................."
+          },
+          {
+            "page": 4,
+            "chars": 2076,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 7.1. 6.1. 6.2. 5.4. 5.5. 数据注意事项 ................................................................................................."
+          }
+        ]
+      },
+      "notes": "Layout-aware title/table recovery is NOT implemented here. This spike only contrasts page text volume/previews for Round 0D planning."
+    },
+    {
+      "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+      "pypdf": [
+        {
+          "page": 0,
+          "chars": 80,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 1 StampServer 部署手册 （V5.0） 北京睿城传奇科技有限公司 2024 年 6 月"
+        },
+        {
+          "page": 1,
+          "chars": 6269,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 2 目 录 1. 系统基础配置.................................................................................................................."
+        },
+        {
+          "page": 2,
+          "chars": 6428,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 3 1.5.11. 建立软链接.................................................................................................................."
+        },
+        {
+          "page": 3,
+          "chars": 6617,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 4 3.1.22. ROAM发布服务..............................................................................................................."
+        },
+        {
+          "page": 4,
+          "chars": 2047,
+          "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 5 5.4. 数据注意事项...................................................................................................................."
+        }
+      ],
+      "pdfminer": {
+        "status": "ok",
+        "pages": [
+          {
+            "page": 0,
+            "chars": 80,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 StampServer 部署手册 （V5.0） 北京睿城传奇科技有限公司 2024 年 6 月 1"
+          },
+          {
+            "page": 1,
+            "chars": 6342,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 目 录 1.3. 1.2. 1.1. 1. 系统基础配置 ...................................................................................................."
+          },
+          {
+            "page": 2,
+            "chars": 6498,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 2.4. 2.3. 2.1. 2.2. 2.5. 2.6. 2.4.1. 2.4.2. 1.5.11. 建立软链接 ......................................................................."
+          },
+          {
+            "page": 3,
+            "chars": 6689,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 4.3. 4.1. 4.2. 3.2. 3.3. 3.4. 3.1.22. ROAM 发布服务 ................................................................................."
+          },
+          {
+            "page": 4,
+            "chars": 2076,
+            "preview": "StampServer 用户手册--北京睿城传奇科技有限公司 7.1. 6.1. 6.2. 5.4. 5.5. 数据注意事项 ................................................................................................."
+          }
+        ]
+      },
+      "notes": "Layout-aware title/table recovery is NOT implemented here. This spike only contrasts page text volume/previews for Round 0D planning."
+    }
+  ],
+  "non_claims": [
+    "Does not claim image coverage >=90%.",
+    "Does not change loader max_images=5.",
+    "Does not declare PDF section_path acceptance."
+  ]
+}

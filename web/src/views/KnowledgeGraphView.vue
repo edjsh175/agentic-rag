@@ -55,6 +55,11 @@ interface VisualNode extends GraphNode {
 
 // 可视化边接口
 interface VisualEdge extends GraphEdge {}
+interface DrawableEdge extends VisualEdge {
+  parallelOffset: number
+  parallelTotal: number
+  parallelIndex: number
+}
 
 // UI 状态
 const loading = ref(false)
@@ -102,6 +107,7 @@ const scale = ref(1.0)
 const visualNodes = ref<VisualNode[]>([])
 const visualEdges = ref<VisualEdge[]>([])
 let graphLayout: GraphLayoutController | null = null
+const parallelEdgeGap = 26
 
 // 选中与交互状态
 const selectedNodeId = ref<string | null>(null)
@@ -332,7 +338,7 @@ const drawGraph = () => {
   const neighbors = neighborNodeIds.value
   
   // --- 1. 绘制关系连线 ---
-  visualEdges.value.forEach(edge => {
+  buildDrawableEdges(visualEdges.value).forEach(edge => {
     const n1 = nodeMap.get(edge.source)
     const n2 = nodeMap.get(edge.target)
     if (!n1 || !n2) return
@@ -351,7 +357,7 @@ const drawGraph = () => {
     }
     
     const isSectionEdge = n1.type === 'Section' || n2.type === 'Section'
-    drawEdge(ctx, n1, n2, edge.label, isHighlighted, isFaded, isSectionEdge)
+    drawEdge(ctx, n1, n2, edge, isHighlighted, isFaded, isSectionEdge)
   })
   
   // --- 2. 绘制实体节点 ---
@@ -378,12 +384,43 @@ const drawGraph = () => {
   ctx.restore()
 }
 
+// 计算同一对实体之间的多重边偏移，避免线条和标签重叠
+const edgePairKey = (edge: Pick<VisualEdge, 'source' | 'target'>) => {
+  return [edge.source, edge.target].sort().join('\u0000')
+}
+
+const buildDrawableEdges = (edges: VisualEdge[]): DrawableEdge[] => {
+  const groups = new Map<string, VisualEdge[]>()
+  edges.forEach(edge => {
+    const key = edgePairKey(edge)
+    groups.set(key, [...(groups.get(key) || []), edge])
+  })
+
+  const metadata = new Map<string, Pick<DrawableEdge, 'parallelOffset' | 'parallelTotal' | 'parallelIndex'>>()
+  groups.forEach(group => {
+    const sorted = [...group].sort((a, b) => a.id.localeCompare(b.id))
+    const total = sorted.length
+    sorted.forEach((edge, index) => {
+      metadata.set(edge.id, {
+        parallelOffset: (index - (total - 1) / 2) * parallelEdgeGap,
+        parallelTotal: total,
+        parallelIndex: index,
+      })
+    })
+  })
+
+  return edges.map(edge => ({
+    ...edge,
+    ...(metadata.get(edge.id) || { parallelOffset: 0, parallelTotal: 1, parallelIndex: 0 }),
+  }))
+}
+
 // 绘制单条边
 const drawEdge = (
   ctx: CanvasRenderingContext2D,
   n1: VisualNode,
   n2: VisualNode,
-  label: string,
+  edge: DrawableEdge,
   isHighlighted: boolean,
   isFaded: boolean,
   isSectionEdge: boolean
@@ -398,32 +435,48 @@ const drawEdge = (
   
   const ux = dx / dist
   const uy = dy / dist
+  const normalX = -uy
+  const normalY = ux
+  const canonicalDirection = edge.source <= edge.target ? 1 : -1
+  const curveOffset = edge.parallelTotal > 1 ? edge.parallelOffset * canonicalDirection : 0
   
   // 连线端点偏置到节点边缘，避开内部重合
   const sourceBorderX = n1.x + ux * nodeRadius
   const sourceBorderY = n1.y + uy * nodeRadius
   const targetBorderX = n2.x - ux * nodeRadius
   const targetBorderY = n2.y - uy * nodeRadius
+  const controlX = (sourceBorderX + targetBorderX) / 2 + normalX * curveOffset
+  const controlY = (sourceBorderY + targetBorderY) / 2 + normalY * curveOffset
   
   ctx.beginPath()
   ctx.moveTo(sourceBorderX, sourceBorderY)
-  ctx.lineTo(targetBorderX, targetBorderY)
+  if (curveOffset) {
+    ctx.quadraticCurveTo(controlX, controlY, targetBorderX, targetBorderY)
+  } else {
+    ctx.lineTo(targetBorderX, targetBorderY)
+  }
   ctx.strokeStyle = isHighlighted
     ? '#a855f7'
     : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.07)' : '#cbd5e1'))
   ctx.lineWidth = isHighlighted ? 2.2 : (isSectionEdge ? 0.55 : 0.8)
   ctx.stroke()
   
+  const tangentX = curveOffset ? targetBorderX - controlX : ux
+  const tangentY = curveOffset ? targetBorderY - controlY : uy
+  const tangentDist = Math.sqrt(tangentX * tangentX + tangentY * tangentY) || 1
+  const arrowUx = tangentX / tangentDist
+  const arrowUy = tangentY / tangentDist
+  
   // 绘制箭头
   ctx.beginPath()
   ctx.moveTo(targetBorderX, targetBorderY)
   ctx.lineTo(
-    targetBorderX - ux * arrowSize + uy * (arrowSize / 1.4),
-    targetBorderY - uy * arrowSize - ux * (arrowSize / 1.4)
+    targetBorderX - arrowUx * arrowSize + arrowUy * (arrowSize / 1.4),
+    targetBorderY - arrowUy * arrowSize - arrowUx * (arrowSize / 1.4)
   )
   ctx.lineTo(
-    targetBorderX - ux * arrowSize - uy * (arrowSize / 1.4),
-    targetBorderY - uy * arrowSize + ux * (arrowSize / 1.4)
+    targetBorderX - arrowUx * arrowSize - arrowUy * (arrowSize / 1.4),
+    targetBorderY - arrowUy * arrowSize + arrowUx * (arrowSize / 1.4)
   )
   ctx.closePath()
   ctx.fillStyle = isHighlighted
@@ -434,8 +487,12 @@ const drawEdge = (
   // 选中节点的一跳关系边永远显示关系标签，其余普通边保持隐藏，避免噪点
   const shouldDrawLabel = isHighlighted
   if (shouldDrawLabel) {
-    const midX = (sourceBorderX + targetBorderX) / 2
-    const midY = (sourceBorderY + targetBorderY) / 2
+    const midX = curveOffset
+      ? (sourceBorderX + 2 * controlX + targetBorderX) / 4
+      : (sourceBorderX + targetBorderX) / 2
+    const midY = curveOffset
+      ? (sourceBorderY + 2 * controlY + targetBorderY) / 4
+      : (sourceBorderY + targetBorderY) / 2
     
     ctx.save()
     ctx.translate(midX, midY)
@@ -451,7 +508,7 @@ const drawEdge = (
     ctx.fillStyle = isHighlighted ? '#7e22ce' : (isFaded ? 'rgba(148, 163, 184, 0.3)' : '#64748b')
     ctx.textAlign = 'center'
     ctx.textBaseline = 'bottom'
-    ctx.fillText(label, 0, -2)
+    ctx.fillText(edge.label, 0, -2)
     ctx.restore()
   }
 }

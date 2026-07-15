@@ -43,3 +43,22 @@ def test_resolution_reports_alias_and_possible_duplicate():
     assert alias.action == "alias"
     assert alias.target_id == "e1"
     assert duplicate.diagnostics[0].code == "possible_duplicate"
+
+
+def test_resolution_allows_section_path_prefix_as_new():
+    """Parent Section names are prefixes of existing leaf Sections; treat as new."""
+    service = EntityResolutionService(
+        FakeDB(
+            [{
+                "id": "e1",
+                "name": "StampTools用户手册::PipelineBuilder > 数据规范 > 管线点表",
+                "entity_type": "Section",
+            }],
+            [],
+        )
+    )
+    result = service.resolve(
+        EntityCandidate("StampTools用户手册::PipelineBuilder > 数据规范", "Section")
+    )
+    assert result.action == "new"
+    assert result.diagnostics == []

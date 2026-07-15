@@ -1,0 +1,191 @@
+[
+  {
+    "source": "2026陕西耕地保护系统问题收集.docx",
+    "section_path": "分析功能 重要基于这个推进实现业务 > 耕地质量等级分析",
+    "section_title": "耕地质量等级分析",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "和坡度分析类似数据库",
+    "content_length": 10
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=5",
+    "content_preview": "1.陕西地信====================================================",
+    "content_length": 58
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "普通视点定位",
+    "section_title": "普通视点定位",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=8",
+    "content_preview": "11.陕西耕地保护=======================================================",
+    "content_length": 64
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "@Async\t标记方法异步执行",
+    "section_title": "@Async\t标记方法异步执行",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=6",
+    "content_preview": "3. 线程池 & 异步",
+    "content_length": 11
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "Spring 中如何实现异步（最常用）：",
+    "section_title": "Spring 中如何实现异步（最常用）：",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=7",
+    "content_preview": "1. 启动类加注解：",
+    "content_length": 10
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "private OrderService orderService;",
+    "section_title": "private OrderService orderService;",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "@GetMapping(\"/order\")",
+    "content_length": 21
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "return \"订单创建成功\";",
+    "section_title": "return \"订单创建成功\";",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=0",
+    "content_preview": "}\n\n}",
+    "content_length": 4
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 安装模式",
+    "section_title": "安装模式",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "采用默认的典型模式进行安装。",
+    "content_length": 14
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 操作系统安装",
+    "section_title": "操作系统安装",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "设置为“稍后安装操作系统”",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 命名虚拟机",
+    "section_title": "命名虚拟机",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=12",
+    "content_preview": "设置虚拟机名称及存储路径。",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 创建虚拟机",
+    "section_title": "创建虚拟机",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=7",
+    "content_preview": "完成虚拟机创建。",
+    "content_length": 8
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 语言设置",
+    "section_title": "语言设置",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "选择中文、简体中文（中国）",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 许可证",
+    "section_title": "许可证",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "点击许可证，统一许可协议。",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "运维管理配置 > I3S服务配置",
+    "section_title": "I3S服务配置",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "参照3DTiles服务配置",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "矢量数据入库 > EPSG编码",
+    "section_title": "EPSG编码",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=5",
+    "content_preview": "（1）地理坐标",
+    "content_length": 7
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "矢量数据入库 > EPSG编码",
+    "section_title": "EPSG编码",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "（2）CGCS2000投影坐标",
+    "content_length": 15
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "矢量数据入库 > EPSG编码",
+    "section_title": "EPSG编码",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=9",
+    "content_preview": "（3）北京54投影坐标",
+    "content_length": 11
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "矢量数据入库 > EPSG编码",
+    "section_title": "EPSG编码",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=9",
+    "content_preview": "（4）西安80投影编码",
+    "content_length": 11
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据规范 > 数据格式",
+    "section_title": "数据格式",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=4",
+    "content_preview": "数据规格",
+    "content_length": 4
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "2024年5月",
+    "section_title": "2024年5月",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=2",
+    "content_preview": "目录",
+    "content_length": 2
+  },
+  {
+    "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+    "section_path": "2.MySQL 表约束",
+    "section_title": "2.MySQL 表约束",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "约束 = 保证数据合法、不乱、不重复、不空。",
+    "content_length": 22
+  }
+]

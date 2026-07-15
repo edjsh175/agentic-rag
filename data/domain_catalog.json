@@ -1,8 +1,9 @@
 {
   "products": [
-    {"name": "StampTools", "aliases": [], "doc_categories": ["StampTools"]},
-    {"name": "StampServer", "aliases": [], "doc_categories": ["StampServer"]},
-    {"name": "StampWebRTC", "aliases": [], "doc_categories": ["StampWebRTC"]},
+    {"name": "StampGIS三维产品", "aliases": ["Stamp三维地理信息系列软件"], "doc_categories": []},
+    {"name": "StampTools", "aliases": ["StampGIS Tools", "Stamp Tool"], "doc_categories": ["StampTools"]},
+    {"name": "StampServer", "aliases": ["StampGIS Server", "Stamp Server"], "doc_categories": ["StampServer"]},
+    {"name": "StampWebRTC", "aliases": ["云端渲染（WebRTC）"], "doc_categories": ["StampWebRTC"]},
     {"name": "StampManager", "aliases": [], "doc_categories": []},
     {"name": "StampNodeServer", "aliases": [], "doc_categories": []}
   ],

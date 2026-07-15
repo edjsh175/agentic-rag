@@ -1,0 +1,41 @@
+﻿candidate_id,kind,name_or_relation,confidence,evidence_real,type_correct,overall_correct,notes,evidence_text
+c72d8961-0275-49bc-8f4a-bc0d6d5bff45,entity,Procedure:断点续编功能,0.9,1,1,1,,断点续编功能
+f13141d0-cb97-48c0-b7bc-e3e76fb58cdb,entity,ConfigItem:坐标文件,0.9,1,0,0,resolution_diagnostic;likely_section_duplicate,坐标文件
+cdcadd02-4241-445b-b5a0-a1db4a2fb850,relation,UEModelBuilder --has_procedure--> 地面模型,0.9,1,1,1,,UEModelBuilder
+7870a0dd-011b-45f6-b955-3032ba4838f0,entity,Error:error,0.9,1,1,1,,"error there are some pic who are used by one closed object, such as a box"
+2f8e16c5-a170-413e-8d66-ef861194ef11,entity,Error:error param_average,0.9,1,1,1,,error param_average there is a large differ from uv area and point area and it may be caused by wrong uvs or mesh faces
+1563d04b-4214-4c5e-b8e3-9fce46d62bda,relation,ModelBuilder --has_procedure--> 工程设置,0.9,1,1,1,,ModelBuilder > 工程设置 > 组织方式：设置成果数据的组织方式
+991aed68-5d53-40ad-9c6d-9bfec6cf74d8,relation,UEModelBuilder --has_procedure--> 灯光,0.9,1,1,1,,UEModelBuilder
+d7756cde-ff80-4014-81ca-9d77e2265fe8,entity,Error:E:\bugs\sunbo\建筑ps\jpg not exist,0.95,1,1,1,,error E:\bugs\sunbo\建筑ps\jpg not exist
+dd3b0f29-9c81-4c93-a1ec-c6a481930b07,relation,ModelBuilder --has_procedure--> 新建工程,0.9,1,1,1,,新建一个模型数据的编译处理工程。
+fb67b67c-9a94-498b-b164-16648fb60da0,entity,Procedure:EPSG编码,0.9,1,0,0,resolution_diagnostic;likely_section_duplicate,地理坐标编码
+3ac3476c-12e4-45ef-9b8a-87fa42053fe6,entity,ConfigItem:Geographic Coordinate System 地理坐标,0.8,1,1,1,,Geographic Coordinate System 地理坐标
+d6e2dbfa-acc4-48f9-a74c-0f6f1e70ece1,entity,Module:材质实例,0.8,1,1,1,,材质实例
+da833509-c4dc-445f-bcd4-490ad32ac930,relation,数据设置 --has_step--> 数据管理,0.85,1,1,1,,ModelBuilder > 数据设置 > 数据管理
+25ae3076-9ffd-4ef1-a15a-cf27347feca4,relation,数据设置 --has_step--> 空间参考,0.8,1,1,1,,ModelBuilder > 数据设置 > 空间参考
+6d6886e8-792f-4b3d-abbf-879c583719c8,relation,新建工程 --has_procedure--> TINBuilder,0.8,1,1,1,,TINBuilder > 新建工程
+ec08bd11-f9fd-426b-9b92-11e5d2a922cd,relation,组织方式 --uses_config--> 按目录发布成多图层,0.75,1,1,1,,按目录发布成多图层：当选择模型目录存在多级嵌套时，将各级嵌套目录按数据存储的目录，每一个目录发布成一个模型图层。
+3562a23c-580f-48db-90b3-08aef8897c50,relation,数据规范 --has_step--> 一般规范,0.8,1,1,1,,数据规范 > 一般规范
+61e37b05-c4d8-4858-8f3d-cc6d1c151ac3,entity,ConfigItem:最大级别,0.8,1,0,0,resolution_diagnostic;likely_section_duplicate,最大级别
+e488ba03-7f87-4471-bbb9-f8652d310d9e,entity,ConfigItem:组织方式,0.85,1,0,0,resolution_diagnostic;likely_section_duplicate,组织方式
+668f8dcc-08bc-45b6-a334-6376ce4e312e,entity,Step:不生成侧面和底面,0.8,1,1,1,,不生成侧面和底面：主要用于人、车等运动物体从地面直接进入地铁、矿井等地下模型，或者进入公路、铁路等隧道中，此方式被切割的范围内看不见影像，因此必须有模型配套。
+84fa3af6-8e41-466e-8a33-6ab4f23edde9,entity,Step:选择属性,0.8,1,1,1,,选择属性：为图表-执行事件选择属性，如下图：
+aeacc750-6a0c-49b2-b69b-cc877409acb1,entity,Procedure:粒子,0.8,1,1,1,,粒子
+edb12f8e-16a5-4de5-8cda-c9bd5cb334d8,entity,ConfigItem:精细模型,0.7,1,1,1,,精细模型
+538258c2-fc26-46cb-b989-0e343e4506f1,entity,ConfigItem:SHP点,0.85,1,1,1,,SHP点
+5e3d97e3-4d3e-4df9-9ad1-8d71dee08b14,entity,Procedure:建筑模型,0.8,1,1,1,,建筑模型
+9de9eedc-db61-4c32-889a-b3207cb2dc34,relation,数据管理 --has_step--> 删除,0.8,1,1,1,,删除：从数据列表框中删除选中的记录。
+95f0e2d2-6725-4049-b24a-98add9fc60dd,relation,坐标文件 --has_procedure--> 文件管理,0.8,1,1,1,,文件管理：按照选定的文件格式添加文件、添加目录等操作
+b176214e-72d6-4b36-b8ba-5119427dea43,relation,UEModelBuilder --alias_of--> ModelBuilder,0.8,1,0,0,risky_relation_needs_manual,参照ModelBuilder数据设置中的“高级设置”。
+1bdbc058-829e-4cbb-97b4-d88671fab6b7,relation,金字塔级别与分辨率映射表 --defined_in--> 工具概述 > 瓦片级别 > 金字塔级别与分辨率映射表,0.9,1,1,1,,工具概述 > 瓦片级别 > 金字塔级别与分辨率映射表
+40027396-2dc4-42e6-bea8-2b88b63f9ec5,relation,编译级别 --configured_by--> 最大编译级别,0.6,1,1,1,,最大编译级别为待修正地形的最大级别
+c9cd21f1-6b99-45df-9c25-dbb2bbd8b7bb,relation,TerrainBuilder --belongs_to--> TINBuilder,0.8,1,1,1,,TerrainBuilder > TINBuilder
+3ebd418c-d028-45cf-94b3-38129e70a7b1,relation,GLTF --defined_in--> Document,0.7,1,1,1,,3DTiles：按Cesium支持的OGC 3DTiles标准进行发布，GLTF格式采用2.0版。
+6381d2ea-5c9e-418e-9f45-8f5f600bd3a7,relation,ModelBuilder --has_procedure--> 数据设置,1.0,1,1,1,,ModelBuilder > 数据设置
+ad8a05c5-5a85-47e9-9856-29117a256c9f,relation,CRN --different_from--> WebP,0.8,1,0,0,risky_relation_needs_manual,注：纹理压缩比：CRN>=WebP>=KTX2>JPGLi>JPG>DDS，
+3d75404d-8565-487a-8347-a4d955816189,relation,ModelBuilder --has_procedure--> 几何规范,0.8,1,1,1,,ModelBuilder > 数据规范 > 几何规范
+9c643745-304d-44b6-b28f-e43324e00034,diagnostic,diagnostic,0,1,1,1,diagnostic_expected_reject,Input content is empty or invalid. Expected content to contain meaningful text for extraction.
+5fd5688e-783d-4a53-8280-3005966e2676,diagnostic,diagnostic,0,1,1,1,diagnostic_expected_reject,新建工程 may duplicate StampTools用户手册::2)不支持自定义曲线 > UEModelBuilder > 新建工程
+149bb4b0-99a9-4413-af1c-8fde80376e1b,diagnostic,diagnostic,0,1,1,1,diagnostic_expected_reject,继续工程 may duplicate StampTools用户手册::2)不支持自定义曲线 > UEModelBuilder > 继续工程
+42900a2d-28db-46ba-8c76-f5221b11d0d1,diagnostic,diagnostic,0,1,1,1,diagnostic_expected_reject,坐标偏移 may duplicate StampTools用户手册::工具概述 > 空间参考 > 坐标偏移
+3c15e9d1-ecf1-4731-82a8-be18ed6197a8,diagnostic,diagnostic,0,1,1,1,diagnostic_expected_reject,新建图层 may duplicate StampTools用户手册::TerrainBuilder > DOMBuilder > 新建图层：根据实际需要调整最小编译级别

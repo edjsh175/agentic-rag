@@ -1,0 +1,2747 @@
+[
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=125 sample=CPU设置.......................................................",
+    "content_preview": "1.1.8. 虚拟机 CPU设置......................................................................................................................10\n1.1.9. CD/DVD设置...........................................................................................................................11\n1.1.10. 网络设置..........",
+    "content_length": 424
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=145 sample=Rocky安装.....................................................",
+    "content_preview": "1.2. Rocky安装........................................................................................................................................12\n1.2.1. 开始安装....................................................................................................................................12\n1.2",
+    "content_length": 442
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=133 sample=Root自动登录....................................................",
+    "content_preview": "1.2.6. 用户登录....................................................................................................................................15\n1.3. 系统基础配置....................................................................................................................................16\n1.3.1. R",
+    "content_length": 432
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=138 sample=SSH设置.......................................................",
+    "content_preview": "1.3.2. SSH设置...................................................................................................................................16\n1.3.3. 防火墙设置................................................................................................................................18\n1.3.4. SELi",
+    "content_length": 431
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=140 sample=fstab设置.....................................................",
+    "content_preview": "1.3.5. fstab设置...................................................................................................................................18\n1.3.6. ulimit设置.................................................................................................................................19\n1.3.7",
+    "content_length": 442
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=141 sample=tcp设置.......................................................",
+    "content_preview": "1.3.8. tcp设置......................................................................................................................................20\n1.4. 系统部署准备....................................................................................................................................21\n1.4.1",
+    "content_length": 440
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=126 sample=yum源设置......................................................",
+    "content_preview": "1.5.1. 本地 yum源设置......................................................................................................................24\n1.5.2. mesa-libGLU安装.....................................................................................................................26\n1.5.3. Redis安装.........",
+    "content_length": 423
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=138 sample=Nginx安装.....................................................",
+    "content_preview": "1.5.4. Nginx安装.................................................................................................................................28\n1.5.5. Apache安装..............................................................................................................................31\n1.5.6. Tom",
+    "content_length": 434
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=136 sample=NodeJS安装....................................................",
+    "content_preview": "1.5.7. NodeJS安装..............................................................................................................................36\n1.5.8. PostgreSQL安装.......................................................................................................................38\n1.5.9. postgis安",
+    "content_length": 430
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=137 sample=aksusbd安装...................................................",
+    "content_preview": "1.5.10. aksusbd安装..............................................................................................................................40",
+    "content_length": 145
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=132 sample=Nginx代理配置...................................................",
+    "content_preview": "2.1.1. 运维管理部署............................................................................................................................42\n2.1.2. Nginx代理配置.........................................................................................................................42\n2.1.3. 运维管理路径设置.....",
+    "content_length": 413
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=109 sample=I3S数据服务配置...................................................",
+    "content_preview": "2.2.3. 3DTiles和 I3S数据服务配置..................................................................................................46\n2.2.4. 权限配置....................................................................................................................................46\n2.2.5. 登录设置.................",
+    "content_length": 417
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=142 sample=GB28181配置...................................................",
+    "content_preview": "2.3.3. 规划数据库................................................................................................................................48\n2.3.4. 管线更新配置............................................................................................................................49\n2.4. GB28181配置...",
+    "content_length": 430
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=134 sample=GB28181配置...................................................",
+    "content_preview": "2.4.1. GB28181配置...........................................................................................................................49\n2.4.2. ID编码说明..............................................................................................................................50\n2.5. 运动物体配置.....",
+    "content_length": 429
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=143 sample=CEGUI配置.....................................................",
+    "content_preview": "2.6. CEGUI配置......................................................................................................................................56\n3. Apache服务配置..........................................................................................................................................",
+    "content_length": 450
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=140 sample=Port服务......................................................",
+    "content_preview": "3.1.1. 授权服务....................................................................................................................................56\n3.1.2. Port服务....................................................................................................................................57\n3.1.3.",
+    "content_length": 431
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=128 sample=GB28181服务配置.................................................",
+    "content_preview": "3.1.16. GB28181服务配置...................................................................................................................66\n3.1.17. 3DTiles服务配置......................................................................................................................68\n3.1.18. I3S服务配置........",
+    "content_length": 419
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=131 sample=GRID发布服务....................................................",
+    "content_preview": "3.1.19. 文件上传服务............................................................................................................................73\n3.1.20. 影像发布服务............................................................................................................................74\n3.1.21. GRID发布服务..",
+    "content_length": 421
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=129 sample=ROAM发布服务....................................................",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n4\n3.1.22. ROAM发布服务.......................................................................................................................75\n3.1.23. 地形切割服务...................................................................................................................",
+    "content_length": 445
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=132 sample=Mesh转换服务....................................................",
+    "content_preview": "3.1.28. Mesh转换服务..........................................................................................................................78\n3.2. 重启 Apache服务.............................................................................................................................79\n3.3. Nginx代理设置.",
+    "content_length": 430
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=141 sample=DEM：........................................................",
+    "content_preview": "4.3. 三维图层............................................................................................................................................85\n4.3.1. 添加图层....................................................................................................................................85\n4.",
+    "content_length": 446
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=139 sample=3Dtilse服务配置.................................................",
+    "content_preview": "4.5.2. Terrain......................................................................................................................................101\n4.6. 3Dtilse服务配置.............................................................................................................................102\n5. ",
+    "content_length": 455
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=139 sample=SHP数据入库.....................................................",
+    "content_preview": "5.1. SHP数据入库.................................................................................................................................103\n5.2. 删除矢量数据..................................................................................................................................106\n5.3. linux",
+    "content_length": 435
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=144 sample=EPSG编码......................................................",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n5\n5.4. 数据注意事项..................................................................................................................................108\n5.5. EPSG编码...............................................................................................................",
+    "content_length": 489
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=139 sample=Nginx代理配置...................................................",
+    "content_preview": "6.1. Nginx代理配置...............................................................................................................................114\n6.2. WebGL应用部署............................................................................................................................119\n7. 推流部署......",
+    "content_length": 451
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=132 sample=matchmaker部署................................................",
+    "content_preview": "7.1. 推流服务部署..................................................................................................................................120\n7.1.1. matchmaker部署.....................................................................................................................120\n7.1.2. StampNod",
+    "content_length": 418
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=127 sample=WebRTC应用部署..................................................",
+    "content_preview": "7.1.3. WebRTC应用部署..................................................................................................................122\n7.2. 渲染服务部署..................................................................................................................................123\n7.2.1. Stamp渲染引擎部署..",
+    "content_length": 411
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=122 sample=SignallingWebServer部署.......................................",
+    "content_preview": "7.2.2. SignallingWebServer部署..................................................................................................123\n7.3. 推流应用测试..................................................................................................................................124",
+    "content_length": 274
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n8\n1.1.4. 命名虚拟机\n设置虚拟机名称及存储路径。\n1.1.5. 虚拟磁盘存储\n磁盘大小设置为 2T以内时，选择“将虚拟磁盘存储为单个文件”。\n建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S\n以上（最佳 7000M/S）",
+    "content_length": 171
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=Port22、ListenAddress0.0.0.0、ListenAddress::前面的#号设置监听端口和监听地址：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n16\n1.3. 系统基础配置\n1.3.1. Root 自动登录\n在/etc/gdm/custom.conf 下的[daemon]加如下文字：\n[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=root\n1.3.2. SSH 设置\n打开/etc/ssh/sshd_config文件进行设置，包括：\n（1） 监听设置\n去掉 Port22、ListenAddress0.0.0.0、ListenAddress::前面的#号设置监听端口和监听地址：\n（2） 远程登录设置\n将#PermitRoot",
+    "content_length": 345
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=打开/etc/security/limits.conf文件，在文件末尾添加以下参数以修改最大文件句柄数：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n20\n1.3.7. limits 设置\n打开/etc/security/limits.conf文件，在文件末尾添加以下参数以修改最大文件句柄数：\n最大文件数（软控制）：*softnofile65535\n最大文件数（硬控制）：*hardnofile65535\n最大进程数（软控制）：*softnproc65535\n最大进程数（硬控制）：*hardnproc65535\n1.3.8. tcp 设置\n在/etc/sysctl.conf文件末尾添加以下内容：\nTCP端口范围：net.ipv4.ip_local_port_range=150016",
+    "content_length": 491
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=68 sample=注意公式：net.ipv4.tcp_max_syn_backlog>=net.core.somaxconn，tcp_tw",
+    "content_preview": "启用时间戳检验：net.ipv4.tcp_timestamps=1\nTCP连接重用：net.ipv4.tcp_tw_reuse=1\n不抵御洪水攻击：net.ipv4.tcp_syncookies=0\nnet.ipv4.tcp_max_orphans=262144\n设置完成后执行：sysctl-p\n注意公式：net.ipv4.tcp_max_syn_backlog>=net.core.somaxconn，tcp_tw_reuse依赖 timestamps。",
+    "content_length": 229
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=stampmanager基础环境上传到/data/stampmanager目录。",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n22\nsetfacl -d -R --set u:apache:rwx /data/stamp_tmp\nsetfacl -d -R --set u:root:rwx /data/stamp_pub\nsetfacl -d -R --set u:apache:rwx /data/stamp_pub\nsetfacl -d -R --set u:root:rwx /data/stampmanager\nsetfacl -d -R --set u:apache:rwx /data/stampmanager\n1.4.3. 文件上传\n（1）基础软件",
+    "content_length": 425
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=59 sample=打开/etc/redis/redis.conf（5.0.3版本路径：/etc/redis.conf）文件修改以下内容：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n27\n（2）Redis配置\n打开/etc/redis/redis.conf（5.0.3版本路径：/etc/redis.conf）文件修改以下内容：\n 将 bind127.0.0.1-::1修改为：#bind127.0.0.1-::1\n 将 protected-modeyes修改为：protected-modeno\n（3）开机启动\nsystemctl enable redis\nsystemctl start redis",
+    "content_length": 243
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=打开/etc/nginx/conf.d/default.conf文件进行跨域设置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n28\n1.5.4. Nginx 安装\n（1）安装Nginx1.22\nyum安装nginx1.22：\ncd /data/setup/nginx1.22\nyum install -y *.rpm\n（2）跨域设置\n打开/etc/nginx/conf.d/default.conf文件进行跨域设置：\nadd_header'Access-Control-Allow-Origin'$http_origin;\nadd_header'Access-Control-Allow-Credentials''true';\n（3）Nginx优化\n在/etc/n",
+    "content_length": 381
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=Directory路径：将<Directory\"/var/www/html\">修改为：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n32\n 设置 DocmentRoot路径：将 DocumentRoot\"/var/www/html\"修改为\nDocumentRoot\"/data/html\"\n 设置 Directory路径：将<Directory\"/var/www/html\">修改为：\n<Directory\"/data/html\">\n 不记录访问日志：将 CustomLog\"logs/access_log\"combined修改为：\n#CustomLog\"logs/access_log\"combined\n 设置错误日志为每天记录一个文件：将 ErrorLog\"",
+    "content_length": 441
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=打开/etc/sysconfig/httpd文件（如果没有则新建），在文件末尾增加",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n33\n（3） 服务路径设置\n打开/etc/sysconfig/httpd文件（如果没有则新建），在文件末尾增加 Stamp服务存储路径：\nLD_LIBRARY_PATH=\"/data/stampserver/:/usr/local/lib:$LD_LIBRARY_PATH\"\nexportLD_LIBRARY_PATH\n 修改/usr/lib/systemd/system/httpd.service文件\n在[Service]部分 Environment=LANG=C后增加\nEnvironmentFile=/etc/sysconfig",
+    "content_length": 437
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=51 sample=在/usr/lib/systemd/system/目录中用vim新建tomcat.service文件：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n35\n1.5.6. Tomcat 安装\n（1） 安装 openjdk1.8.0\ncd /data/setup/openjdk1.8/\nyum install -y *.rpm\n（2） 部署 Tomcat\n解压tomcat：\ncd /data/setup/\ntar zvxf apache-tomcat-9.0.89.tar.gz\n将tomcat移到/data根目录下并赋予读写权限：\nmv /data/setup/apache-tomcat-9.0.89/ /data/\nchmod -R 777 /data/apache-tomcat-",
+    "content_length": 459
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=修改/var/lib/pgsql/16/data/pg_hba.conf，在文件的\"#",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n39\nalter user postgres with valid until 'infinity';\n\\q\nexit\n（5）设置远程访问：\n修改/var/lib/pgsql/16/data/pg_hba.conf，在文件的\"# IPv4 local\nconnections\"策略中追加一条“允许全部用户，通过全部网络地址访问全部数\n据库”的策略并保存：\nhost all all 0.0.0.0/0 trust\n（6）设置监听地址和端口：\n修改/var/lib/pgsql/16/data/postgresql.conf，设置数据库实例",
+    "content_length": 463
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=http://192.168.10.122/StampManager2），在服务路径界面",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n43\nproxy_set_headerX-Scheme$scheme;\n}\n#SQLite代理设置\nlocation/sqliteQuery{\nproxy_passhttp://127.0.0.1:8080/sqliteQuery;\n}\n配置后重启 nginx：\nsystemctlrestartnginx\n2.1.3. 运维管理路径设置\n在浏览器中输入访问地址（如 http://192.168.10.122/StampManager2），在服务路径界面\n选择/data/stampmanager/作为文件保存路径。",
+    "content_length": 290
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=nginx代理的访问地址为：http://192.168.10.122:8080/StampManager2",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n44\n备注：不通过 nginx代理的访问地址为：http://192.168.10.122:8080/StampManager2\n在登录界面输入用户名（默认：admin）和密码（默认：123456）进入 StampManager系\n统：\n注：用户名、密码保存在 server.xml 中",
+    "content_length": 174
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=会将数据服务上的数据配置文件（data.data）返回给第三方权限服务进行图层权",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n47\n 权限校验间隔：设置权限校验请求发送的间隔时间长度\n 权限服务地址：第三方权限服务 IP地址（含端口）\n 数据服务地址：设置 se_sde.so服务的 IP地址，多个 IP用分号(;)隔开，Port服务\n会将数据服务上的数据配置文件（data.data）返回给第三方权限服务进行图层权\n限配置。\n2.2.5. 登录设置\n 用户名：用于登录 StampManager的用户名\n 密码：用于登录 StampManager的密码\n注：用户可以集成第三方用户管理和权限管理体系。\n2.3. 数据库配置\n2.3.1. 三维空间数据库",
+    "content_length": 420
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=设置gb28181随机端口连接范围：WebGL需要设置，需要手工写入gb28181_config.xml",
+    "content_preview": " 默认字符编码：GB28181服务器返回信息的字符编码，一般采用 GB2312\n 默认连接方式：视频使用方（本地用户）与 GB28181服务器之间采用的传输协议，\n一般为UDP。\n 设置gb28181随机端口连接范围：WebGL需要设置，需要手工写入gb28181_config.xml\n中，具体范围可以根据摄像机数量进行调整。\n<ServerUdpPortMin>10001</ServerUdpPortMin>\n<ServerUdpPortMax>15000</ServerUdpPortMax>",
+    "content_length": 253
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=48 sample=配置飞行路径和场景漫游需要的骨骼动画对象和运动物体，配置成果（dynamic_list.dyn）",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n53\n例如：\n网络摄像机（IPC），第 11-13位为132，如 34017101041321000123\n虚拟组织目录，第 11–13位为 216，如 34017101042161000123\n中心信令控制服务器，第 11–13位为 200，如 34017101042001000123\n（4） 网络标识\n指属于哪个网络里面的（由 1位数字组成）\n例如属于社会资源接入网的，第 14位为 8，即 34017101041328000123\n（5） 序号\n指视频使用方（本地用户）的序号（由 6位数字组成），范围为：000000-99999",
+    "content_length": 411
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=运动对象：添加一个带骨骼动画的动画对象（如车轮会转的汽车等，*.dynamic）",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n55\n 运动对象：添加一个带骨骼动画的动画对象（如车轮会转的汽车等，*.dynamic）\n IP地址/端口：动画人存储服务器 IP地址/端口\n 路径：动画人在服务器上的存储路径\n 名称：动画人的名称\n 类型：添加运动物体的类型\n 初始速度：动画对象运动时的初始速度\n 加速速率：动画对象的加速速率\n 减速速率：动画对象的减速速率\n 左转角度：动画对象左转弯的单次响应时的转弯角度\n 右转角度：动画对象右转弯的单次响应时的转弯角度\n 最大速度：动画对象通过加速速率达到的最大速度\n 最小速度：动画对象通过加速速率达到",
+    "content_length": 404
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=69 sample=打开/etc/httpd/conf/httpd.conf文件，在“Includeconf.modules.d/*.con",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n56\n 类型：添加对象的类型\n2.6. CEGUI 配置\nStampGISActiveX界面支持 CEGUI，配置前将 CEGUI资源拷贝到/data/CEGUI目录中。\n在 CEGUI配置界面中选择 CEGUI资源索引文件（*.scheme）。\n允许添加多个资源，每个资源对应一个资源索引文件。\n3. Apache 服务配置\n3.1. STAMP 服务部署\n3.1.1. 授权服务\n（1） 功能说明\n本服务为系统提供授权服务。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，在“Incl",
+    "content_length": 337
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行安全服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n57\n##授权服务配置开始\nLoadModulese_license_module/data/stampserver/se_license.so\n<Location/license>\nSetHandlerse_license_module\n</Location>\n<IfModulese_license_module>\nDataEngineConfig/data/stampmanager/server.xml\n</IfModule>\n##授权服务配置结束\n3.1.2. Port 服务\n（1） 功能说明\n本服务提供图层权限控制入口，与用",
+    "content_length": 479
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行数据服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n58\n空间分析服务和数据库相关服务等。\n（2） Aapche 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行数据服务配置：\n##数据引擎服务配置开始\nLoadModulese_sde_module/data/stampserver/se_sde.so\n<Location/ubsm>\nSetHandlerse_dem\n</Location>\n<Location/sde>\nSetHandlerse_sde_module\n</Location>\n<Location/sde_pack>\nSetHandlerse",
+    "content_length": 482
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行搜索服务配置：",
+    "content_preview": "</IfModule>\n##数据引擎服务配置结束\n3.1.4. 三维搜索服务\n（1） 功能说明\n本服务为静态模型（包括模型、树、小品、管线）的空间数据和属性数据查询服务，是\n静态模型高亮闪烁的基础。\n注：需要在 StampManager 中服务配设置-基础配置部分配置字体文件(默认为 wt.dat)。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行搜索服务配置：",
+    "content_length": 208
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行分析服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n59\n##搜索服务配置开始\nLoadModulese_search_module/data/stampserver/se_search.so\n<Location/search>\nSetHandlerse_search_module\n</Location>\n<IfModulese_search_module>\nMagicStringsearch\nDataEngineConfig/data/stampmanager/server.xml\n</IfModule>\n##搜索服务配置结束\n3.1.5. 三维分析服务\n（1） 功能说明\n本服务提",
+    "content_length": 497
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=注：在StampManager-数据管理-数据配置中工程上配置数据库登录信息、管线配置文件",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n60\n本服务提供基于空间数据库（支持 Oracle和 PostgreSQL）直连的管线空间数据和属性数\n据查询与统计。\n注：在StampManager-数据管理-数据配置中工程上配置数据库登录信息、管线配置文件\n和快速查询矢量数据。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线查询服务配置开始\nLoadModulese_query_module/data/stampserver/se_query.so\n<Location/dataquery>\nSetHan",
+    "content_length": 492
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=StampManager-数据管理-数据配置中工程上配置管线净距分析标准配置文件",
+    "content_preview": "本服务提供基于空间数据库（支持Oracle和 PostgreSQL）的管线分析功能，：碰撞分析\n（包括水平净距、垂直净距）、覆土分析、纵断面、横断面分析等。\n注：在 StampManager-数据管理-数据配置中工程上配置管线净距分析标准配置文件\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线分析服务配置开始\nLoadModulese_pipeline_module/data/stampserver/se_pipeline.so\n<Location/pipeline>\nSetHandlerse_pipeline_mod",
+    "content_length": 315
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=打开/etc/httpd/conf/httpd.conf文件，进行网络分析服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n61\n<IfModulese_pipeline_module>\nArcConfig/data/stampmanager/server.xml\n</IfModule>\n##管线分析服务配置结束\n3.1.8. 网络分析服务\n（1） 功能说明\n本服务主要提供管线的 Network分析服务，涉及的功能包括：爆管分析、追踪分析和连\n通分析三个服务。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行网络分析服务配置：\n##网络分析服务配置开始\nLoadModulese_network_modul",
+    "content_length": 497
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设",
+    "content_preview": "</IfModule>\n##网络分析服务配置结束\n3.1.9. 管线更新服务\n（1） 功能说明\n本服务主要提供基于空间数据库（支持 Oracle和 PostgreSQL）的增量式三维管线更新，\n需要先更新二维管线数据库，然后根据更新范围进行更新。\n注：1、在 StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设\n置接地地形路径（需与用管线工具发布管线配置的地形数据一致）。\n2、管线更新输出目录下必须要要有管线配置的 resource 目录，如果工程上配置的管线配\n置文件所在目录与更新数据输出目录不一致则需要将 resource 目录拷贝到管线更新数据输出\n目录一份。",
+    "content_length": 300
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n62\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线更新服务配置开始\nLoadModulese_pipeline_publish_tool_module/data/stampserver/se_pipeline_publish_tool.so\n<Location/se_pipeline_publish_tool>\nSetHandlerse_pipeline_publish_tool\n</Location>\n<IfModulese_pipeline_publi",
+    "content_length": 480
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=打开/etc/httpd/conf/httpd.conf文件，进行矢量瓦片服务配置：",
+    "content_preview": "点、线、面数据在三维场景以矢量瓦片方式绘制。\n注：在 StampManager 中“数据配置/数据管理”数据配置文件的工程上配置数据库信息：\n（2） Apache 配置\n打开/etc/httpd/conf/httpd.conf文件，进行矢量瓦片服务配置：\n##矢量瓦片服务配置开始\nLoadModulese_geo_server_module/data/stampserver/se_geo_server.so\n<Location/geoserver>\nSetHandlerse_geo_server_module\n</Location>\n<IfModulese_geo_server_module>",
+    "content_length": 364
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=打开/etc/httpd/conf/httpd.conf文件，进行矢量编辑服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n63\n3.1.11. 矢量编辑服务\n（1） 功能说明\n本服务提供基于空间数据库（支持 Oracle和 PostgreSQL）的空间数据和属性数据的入库、\n编辑、导出服务，比如三维管线实时生成（管线规划审批业务）、工程地质钻孔/勘探线/工程\n范围面的数据库管理。\n注：在 StampManager 的“数据管理/数据配置”上配置矢量数据库信息。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行矢量编辑服务配置：\n##矢量编辑服务配置开始\nLoadModulese_db_sde_modul",
+    "content_length": 486
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=树/小品入库、Element（二维对象/几何对象）入库、编辑，涉及到编辑平台、规划系统。",
+    "content_preview": "</IfModule>\n##矢量编辑服务配置结束\n3.1.12. 三维数据库服务\n（1） 功能说明\n本服务提供三维空间数据（支持 Oracle和 PostgreSQL）的读写优化服务，提供模型入库、\n树/小品入库、Element（二维对象/几何对象）入库、编辑，涉及到编辑平台、规划系统。\n本服务目前仅支持 ActiveX版本，并需要与 generate_edit_active.dll库配合使用。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行数据库服务配置：\n ##数据库服务配置开始\nLoadModulese_db_query_module",
+    "content_length": 358
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=Oracle数据库需要修改数据库用户权限（PostgreSQL数据库不需要本步骤）。",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n64\nSetHandlerse_db_query\n</Location>\n<IfModulese_db_query_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n##数据库服务配置结束\n（3） 权限修改\nOracle数据库需要修改数据库用户权限（PostgreSQL数据库不需要本步骤）。\n将 grantforsde.sql复制到/data/setup/下，给 setup目录赋权限，并执行 grantforsde.sql语句。\n[root@StampServer~",
+    "content_length": 493
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=本服务将三维空间数据库中的模型数据、树和小品发布成浏览图层（ModelLayer、",
+    "content_preview": "本服务将三维空间数据库中的模型数据、树和小品发布成浏览图层（ModelLayer、\nBillboardLayer和 MatchModelLayer）和以及实时在线增量式动态更新服务。\n（2） Apache 服务配置",
+    "content_length": 107
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=打开/etc/httpd/conf/httpd.conf文件，进行数据库服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n65\n打开/etc/httpd/conf/httpd.conf文件，进行数据库服务配置：\n##数据库发布服务配置开始\nLoadModulese_publish_tool_module/data/stampserver/se_model_tool_publish.so\n<Location/se_publish_tool>\nSetHandlerse_publish_tool\n</Location>\n<IfModulese_publish_tool_module>\nPublish_Config/data/stampmanager/serv",
+    "content_length": 476
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/httpd/conf/httpd.conf文件，进行规划服务配置：",
+    "content_preview": "使用规划服务进行数据库管理。\n（2） HTTP 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行规划服务配置：\n##数据库规划服务配置开始\nLoadModulese_city_plan_module/data/stampserver/se_city_plan_pg.so\n<Location/se_city_plan>\nSetHandlerse_city_plan\n</Location>\n<IfModulese_city_plan_module>\nCityConfig/data/stampmanager/server.xml\n</IfModule>\n##数据库规划服务",
+    "content_length": 304
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=StampManager-数据管理-数据配置”的工程上配置数据库信息和地址体配置文件。",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n66\n3.1.15. 工程地质分析服务\n（1） 功能说明\n本服务为工程地质系统分析服务，涉及工程地质系统中的分析模块下的场地分析、第四\n纪分析等相关功能：液化分析、类别分析、地基承载力分析、桩基承载力分析、湿陷等级分\n析、沉降变形分析、第四纪地层分布、基岩分布等。\n注：在 StampManager-数据管理-数据配置”的工程上配置数据库信息和地址体配置文件。\n（2） http 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行工程地质分析服务配置：\n##工程地质分析服务配置开始\nLoadModulese_g",
+    "content_length": 487
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=64 sample=修改/data/stampserver/gb28181_server.conf中gb28181配置文件路径（其他可用默认",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n67\n</Location>\n<IfModulese_gb28181_server_module>\ngb28181config/data/stampmanager/server.xml\n</IfModule>\n##GB28181服务配置结束\n（3） gb28181_server 部署\n修改/data/stampserver/gb28181_server.conf中gb28181配置文件路径（其他可用默认参数）：\n<?xmlversion=\"1.0\"encoding=\"gbk\"?>\n<ServerConfig>\n<!--#gb2818",
+    "content_length": 500
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=47 sample=3DTiles数据拷贝到服务器端（如：/data/stamp_data/jl_3dt），然后在",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n69\n##Apache3DTiles数据引擎服务\nLoadModulese_w3ts_module/data/stampserver/se_w3ts.so\n<Location/w3ts>\nSetHandlerse_w3ts_module\n</Location>\n<IfModulese_w3ts_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n（3） 3Dtiles 数据服务发布\n将工具发布生成的 3DTiles数据拷贝到服务器端（如：/data/stamp_dat",
+    "content_length": 488
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=I3S数据目录拷贝到服务器端（如：/data/stamp_data/js_l），赋予",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n71\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行 3Dtiles服务配置\n##ApacheI3S数据引擎服务\nLoadModulese_i3s_module/data/stampserver/se_i3s.so\n<Location/i3s>\nSetHandlerse_i3s_module\n</Location>\n<IfModulese_i3s_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n（3） I3S 数",
+    "content_length": 475
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=打开/etc/httpd/conf/httpd.conf文件，进行文件上传服务配置：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n73\n3.1.19. 文件上传服务\n（1） 功能说明\n文件上传服务主要用于上传文件。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行文件上传服务配置：\n##文件上传服务配置开始\nLoadModulese_filedownload_module/data/stampserver/se_filedownload.so\n<Location/se_filedownload>\nSetHandlerse_filedownload_module\n</Location>\n<IfModulese_f",
+    "content_length": 377
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=http://192.168.10.122:8082/se_db_query?type=init_db，",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n80\n3.4. 数据库初始化\n3.4.1. 数据库存储目录\n创建模型数据库存储目录和规划数据库存储目录：\nsupostgres\nmkdir/data/stamp_db/editor_db\nmkdir/data/stamp_db/cityplan_db\nexit\n3.4.2. 三维模型数据库初始化\n在 IE地址栏中输入进行初始化： http://192.168.10.122:8082/se_db_query?type=init_db，\n初始化成功后的返回结果。\n初始化成功后会在/data/stamp_db/editor_db目录下自动",
+    "content_length": 437
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=工程（Project）是指空间参考和数据标准（如管线标准）相同的数据集，空间参考或数",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n81\n4. 三维数据配置\n4.1. 图层配置文件\n实现三维数据的配置与管理，包括：\n 新建文件：在输入框中输入配置文件名称新建一个数据配置文件，允许新建多个数据\n配置文件\n 删除文件：在数据配置文件的右键菜单上选择“删除”，删除当前选中的数据配置文\n件\n 修改文件名：在数据配置文件的右键菜单上选择“修改”，当前选中数据配置文件的\n名称会自动添加到文件名称输入框中，“新建”按钮变为“修改”按钮，修改后保\n存\n4.2. 工程配置\n工程（Project）是指空间参考和数据标准（如管线标准）相同的数据集，空间参考或数\n据标准不同的数据",
+    "content_length": 435
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=编码配置：管线编译工具生成的编码配置文件（PipeConfig.config），与管线系统",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n82\n 参考高程：地下浏览时的辅助参考面，一般小于等于地下三维对象（管线或模型）\n的最低高程（绝对高程），单位米\n 矢量数据库配置：矢量数据库登录信息，包括：\n 数据库类型：支持 Oracle和 PostgreSQL\n 数据库名称：\n 数据库地址/端口\n 数据库用户名和密码\n 管线配置\n 编码配置：管线编译工具生成的编码配置文件（PipeConfig.config），与管线系统\n查询、统计功能相关\n 管线值域映射：管线编译工具生成的值域映射文件（ValueMap.config），与管线系\n统查询、统计功能相关\n ",
+    "content_length": 461
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=（ISO_Horizontal_Spacing.xml），允许自定义（XML文件），与管线系统“水平",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n83\n（ISO_Horizontal_Spacing.xml），允许自定义（XML文件），与管线系统“水平\n净距分析”、“碰撞分析”、“智能排管”功能相关\n 管 线 垂 直 净 距 标 准 ： 按 照 国 家 或 地 方 定 义 的 管 线 垂 直 净 距 标 准\n（ISO_Vertical_Spacing.xml），允许自定义（XML文件），与管线系统“垂直净\n距分析”、“碰撞分析”功能相关\n 管线建筑水平距离标准：按照国家或地方定义的管线建筑水平距离标准\n（Building_Horizontal_Spacing.xml），允",
+    "content_length": 472
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=规划字段映射：配置规划字段映射文件路径（FieldMapCityPlan.config）",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n84\n 规划字段映射：配置规划字段映射文件路径（FieldMapCityPlan.config）\n注：用于规划系统中字段名称的用户自定义显示。\n 工程地质配置\n 地质体字段映射：配置地质体字段映射文件路径（GeoFieldMap.config）\n 地质体值域映射：配置地质体值域射文件路径（GeoValueMap.config）\n 地质体纹理映射：配置地质体纹理映射文件路径（GeoMaterialMap.config）\n注：上述文件由工程地质工具配置产生。\n4.2.2. 目录管理\n在工程下新建一个目录（允许嵌套），目录位于选",
+    "content_length": 338
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=47 sample=可以将3DTiles数据服务的服务复制复制后在“数据配置/模型服务”中以添加3Dtiles方式",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n102\n 高程：图层的最小、最大高程范围\n 级别：图层的最小和最大级别。\n 历史时间：设置历史时间精度和时间\n 历史名称：设置历史时间的名称\n 可见性：设置图层的初始可见性。\n4.6. 3Dtilse 服务配置\n实现 3DTiles三维数据服务的添加、删除和发布：\n 添加：选择文件夹下的 tileset.json文件将该 3Dtiles数据添加到 3DTiles服务中，添加\n后的3Dtiles数据服务属性（如服务名称、数据范围等）不允许修改。\n 删除：删除选中的 3DTiles数据服务\n 对外发布：将选中的 3DTi",
+    "content_length": 388
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=postgis-bundle-pg11x64-setup-2.5.2-1.exe并用其进行",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n103\n5. 矢量数据入库\n5.1. SHP 数据入库\n在 Windows系统中安装 postgis-bundle-pg11x64-setup-2.5.2-1.exe并用其进行 SHP数据的\n入库和导出\n 启动 PostGIS2.0ShapefileandDBFLoaderExporter设置要连接的数据库。\n 添加需要导入的 SHP数据。",
+    "content_length": 204
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=1：导入的矢量点、线和面数据都会生成一个临时表，其命名规则为：表名_temp_4490，",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n106\n注意：需要填写SRID（EPSG 空间坐标编码，自定义坐标系不用填）以提升矢量瓦片切片效\n率.\n5.2. 删除矢量数据\n删除数据可以用 pgAdmin4进行，建议使用 pgAdmin4中查询工具输入 SQL语句进行删\n除（执行按 F5）。\nSELECT DropGeometryTable ('public','tr_hdgx_line0');\n注 1：导入的矢量点、线和面数据都会生成一个临时表，其命名规则为：表名_temp_4490，\n删除的时候要注意同步删除。\n注 2：PgAdmin4 是一个与 PostgreSQL 配套",
+    "content_length": 322
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=StampWebGL、PipelineWebGL上传到/data/html目录下，并赋予读写权限：",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n119\nsystemctlnginxrestart\n6.2. WebGL 应用部署\n将 StampWebGL、PipelineWebGL上传到/data/html目录下，并赋予读写权限：\nchmod-R777/data/html\n然后打开修改应用中的数据服务地址：\n（1）StampWebGL\n打开/data/html/StampWebGL/config/custom_config.js，将 IP 地址批量替换为数据服务器\n（一般为本机）的 IP地址。\n（2）PipelineWebGL\n打开/data/html/PipelineWeb",
+    "content_length": 373
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=修改/data/html/StampNodeServer/stamp/config.js",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n121\n7.1.2. StampNodeServer 部署\n（1）服务部署\n 将 StampNodeServer 到/data 目录，并赋予权限：\nmv /data/setup/StampNodeServer/ /data/\nchmod -R 777 /data/StampNodeServer\n 为 StampNodeServer 建立守护进程：\ncd /data/StampNodeServer/\npm2 start ./bin/www --name=\"StampNodeServer\"\npm2 save\n 查看守护进程列表：\n",
+    "content_length": 484
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=64 sample=StampWebRTC、PipelineWebRTC、CityplanWebRTCEdit、CityplanWebRTC",
+    "content_preview": "StampServer 用户手册--北京睿城传奇科技有限公司\n122\n配置后重启 nginx 服务：\nsystemctl restart nginx\n7.1.3. WebRTC 应用部署\n将推流应用 StampWebRTC、PipelineWebRTC、CityplanWebRTCEdit、CityplanWebRTCView\n上传到/data/html目录中，并赋予读写权限：\nchmod-R777/data/html",
+    "content_length": 211
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=将信令服务（SignallingWebServer）和渲染引擎（StampUE53）拷贝到渲染服务器上（比",
+    "content_preview": " 单体模型近裁面（600米为一个单位）：MinVisRange=10\n 单体模型第 1级纹理可见距离：Level21=240\n 单体模型第 2级纹理可见距离：Level20=900\n 单体模型第 3级纹理可见距离：Level19=1500\n7.2.2. SignallingWebServer 部署\n将信令服务（SignallingWebServer）和渲染引擎（StampUE53）拷贝到渲染服务器上（比\n如 E 盘根目录下），渲染服务器要求具有 Nvidia 中高端图形显卡（显存 8G 及以上），比如\nNvida3080、3080Ti、3090、4080、4090、A5000、A550",
+    "content_length": 473
+  },
+  {
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=46 sample=信令服务使用端口：\"PublicPortList\":[30081,30082,30083],",
+    "content_preview": " matchmaker服务端口：\"MatchmakerPort\":9999,\n 信令服务本机 IP地址：\"PublicIp\":\"192.168.10.142\",\n 信令服务使用端口：\"PublicPortList\":[30081,30082,30083],\n HTTPS端口：\"HttpsPort\":443,\n 推流服务端口：\"StreamerPortList\":[10881,10882,10883],\n WebRTC（SFU）端口：\"SFUPortList\":[10871,10872,10873],\n 渲染客户端路径：\"ExePath\":\"E:/StampUE53/\",",
+    "content_length": 295
+  },
+  {
+    "source": "2026陕西耕地保护系统问题收集.docx",
+    "section_path": "权限管理",
+    "section_title": "权限管理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=108 sample=有的服务有行政区划代码可过滤，有的如自然保护区数据没有行政区划代码或者是ArcGIS、Geoserver、超图（“一张图",
+    "content_preview": "有的服务有行政区划代码可过滤，有的如自然保护区数据没有行政区划代码或者是ArcGIS、Geoserver、超图（“一张图”过程中用别人的服务不可控、新疆的ArcGIS服务瓦片）等等发的服务，得弄个遮罩----先做新疆 3月底完成\n\n希望登录页面和首页合并少一个页面跳转，增加浏览使用性",
+    "content_length": 142
+  },
+  {
+    "source": "2026陕西耕地保护系统问题收集.docx",
+    "section_path": "分析功能 重要基于这个推进实现业务 > 耕地质量等级分析",
+    "section_title": "耕地质量等级分析",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "和坡度分析类似数据库",
+    "content_length": 10
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "",
+    "section_title": "",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=5",
+    "content_preview": "1.陕西地信====================================================",
+    "content_length": 58
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "普通视点定位",
+    "section_title": "普通视点定位",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=8",
+    "content_preview": "11.陕西耕地保护=======================================================",
+    "content_length": 64
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "Service",
+    "section_title": "Service",
+    "reason_code": "mixed_script_line",
+    "detail": "ascii=61 cjk=145 other=4",
+    "content_preview": "DAO）是为了高内聚、低耦合，将界面控制、业务逻辑、数据访问分离。\n\n层级 英文名称 主要职责 通俗理解 表示层 Controller / Web 层 接收请求、参数校验、响应结果 前台/接待：接待客户，收下订单，告诉客户“已收到” 业务层 Service 层 核心业务逻辑、事务管理、权限控制 大厨/业务员：处理具体业务（如：下单要检查库存、计算价格） 数据访问层 DAO / Mapper 层 与数据库交互（增删改查CRUD） 后厨采购：去仓库（数据库）取菜或存菜 调用流程： Client请求 → Controller（接收参数） → Service（处理业务） → DAO（操作DB） → 返",
+    "content_length": 328
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "@Async\t标记方法异步执行",
+    "section_title": "@Async\t标记方法异步执行",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=6",
+    "content_preview": "3. 线程池 & 异步",
+    "content_length": 11
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "Spring 中如何实现异步（最常用）：",
+    "section_title": "Spring 中如何实现异步（最常用）：",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=7",
+    "content_preview": "1. 启动类加注解：",
+    "content_length": 10
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "private OrderService orderService;",
+    "section_title": "private OrderService orderService;",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "@GetMapping(\"/order\")",
+    "content_length": 21
+  },
+  {
+    "source": "实景三维新功能.txt",
+    "section_path": "return \"订单创建成功\";",
+    "section_title": "return \"订单创建成功\";",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=0",
+    "content_preview": "}\n\n}",
+    "content_length": 4
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 安装模式",
+    "section_title": "安装模式",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "采用默认的典型模式进行安装。",
+    "content_length": 14
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 操作系统安装",
+    "section_title": "操作系统安装",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "设置为“稍后安装操作系统”",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 命名虚拟机",
+    "section_title": "命名虚拟机",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=12",
+    "content_preview": "设置虚拟机名称及存储路径。",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 虚拟磁盘存储",
+    "section_title": "虚拟磁盘存储",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S以上（最佳7000M",
+    "content_preview": "磁盘大小设置为2T以内时，选择“将虚拟磁盘存储为单个文件”。\n\n建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S以上（最佳7000M/S）",
+    "content_length": 95
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 创建虚拟机",
+    "section_title": "创建虚拟机",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=7",
+    "content_preview": "完成虚拟机创建。",
+    "content_length": 8
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 内存设置",
+    "section_title": "内存设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=根据主机内存大小设置虚拟机8G（最少8G，推荐16G及以上，一般为主机内存的25%）。",
+    "content_preview": "根据主机内存大小设置虚拟机8G（最少8G，推荐16G及以上，一般为主机内存的25%）。",
+    "content_length": 43
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > CPU设置",
+    "section_title": "CPU设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=70 sample=根据主机CPU数量和内核数设置虚拟机的CPU数量和内核数，普通电脑CPU数量为1CPU。普通电脑一般设置为1CPU、4核",
+    "content_preview": "根据主机CPU数量和内核数设置虚拟机的CPU数量和内核数，普通电脑CPU数量为1CPU。普通电脑一般设置为1CPU、4核（主机核数的25%）",
+    "content_length": 70
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 显卡设置",
+    "section_title": "显卡设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=75 sample=在虚拟机显示器设置界面上勾选“3D加速图形”，这是启用物理机上的显卡，否则模型发布服务、模型更新服务、倾斜发布服务等进行",
+    "content_preview": "在虚拟机显示器设置界面上勾选“3D加速图形”，这是启用物理机上的显卡，否则模型发布服务、模型更新服务、倾斜发布服务等进行数据发布会因找不到显卡而报错。",
+    "content_length": 75
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 语言设置",
+    "section_title": "语言设置",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "选择中文、简体中文（中国）",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 安装目的地",
+    "section_title": "安装目的地",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "选择自定义分区，具体分区如下：",
+    "content_length": 15
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > /boot：引导分区，分区大小为1024M",
+    "section_title": "/boot：引导分区，分区大小为1024M",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=51 sample=Swap：交换分区（虚拟内存），分区大小一般是内存的2倍，如果内存时8G，则设置16384M（16G）",
+    "content_preview": "Swap：交换分区（虚拟内存），分区大小一般是内存的2倍，如果内存时8G，则设置16384M（16G）",
+    "content_length": 51
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > /boot/efi：分区大小一般是200M",
+    "section_title": "/boot/efi：分区大小一般是200M",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=注意：由于小文件读写性能方面ext4比xfs优越，因此文件系统格式不能选择默认的xfs。",
+    "content_preview": "/：根分区，分区大小设置204800M（200G）以上\n\n/var：分区大小设置102400M（100G）以上\n\n/data：数据分区，剩下的所有空间给/data，文件系统选择ext4\n\n注意：由于小文件读写性能方面ext4比xfs优越，因此文件系统格式不能选择默认的xfs。",
+    "content_length": 138
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 时间和日期",
+    "section_title": "时间和日期",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=7",
+    "content_preview": "设置为亚洲、上海",
+    "content_length": 8
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > KDUMP",
+    "section_title": "KDUMP",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "设置为不启用KDUMP",
+    "content_length": 11
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > root用户",
+    "section_title": "root用户",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=设置root用户密码（如：123456），并勾选“允许root用户使用密码进行SSH设置”",
+    "content_preview": "设置root用户密码（如：123456），并勾选“允许root用户使用密码进行SSH设置”",
+    "content_length": 45
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 许可证",
+    "section_title": "许可证",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "点击许可证，统一许可协议。",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > 上传速度优化",
+    "section_title": "上传速度优化",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=14",
+    "content_preview": "去掉下面几行前面的#，使设置生效：",
+    "content_length": 17
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > fstab设置",
+    "section_title": "fstab设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=打开/etc/fstab文件，使用noatime提升文件系统性能和静止磁盘自检：",
+    "content_preview": "打开/etc/fstab文件，使用noatime提升文件系统性能和静止磁盘自检：",
+    "content_length": 40
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > ulimit设置",
+    "section_title": "ulimit设置",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "在/etc/profile文件：",
+    "content_length": 16
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > ulimit -n 65535",
+    "section_title": "ulimit -n 65535",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "打开.bashrc文件:",
+    "content_length": 12
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim ~/.bashrc",
+    "section_title": "vim ~/.bashrc",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=6",
+    "content_preview": "在文件中加入:",
+    "content_length": 7
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim /etc/sysctl.conf",
+    "section_title": "vim /etc/sysctl.conf",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=64 sample=在文件末尾添加以下内容（依次为：tcp端口范围、tcp超时设置、TCP半连接数、TCP连接数、启用时间戳检验和不抵御洪水",
+    "content_preview": "在文件末尾添加以下内容（依次为：tcp端口范围、tcp超时设置、TCP半连接数、TCP连接数、启用时间戳检验和不抵御洪水攻击）：\n\nnet.ipv4.ip_local_port_range=15001 65000\n\nnet.ipv4.tcp_fin_timeout = 15\n\nnet.ipv4.tcp_max_syn_backlog = 262144",
+    "content_length": 176
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > 设置完成后执行：sysctl -p",
+    "section_title": "设置完成后执行：sysctl -p",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=net.core.somaxconn，tcp_tw_reuse依赖timestamps。",
+    "content_preview": "注意公式：net.ipv4.tcp_max_syn_backlog>= net.core.somaxconn，tcp_tw_reuse依赖timestamps。",
+    "content_length": 80
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > enabled=1",
+    "section_title": "enabled=1",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=6",
+    "content_preview": "执行以下命令：",
+    "content_length": 7
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > 离线安装包下载",
+    "section_title": "离线安装包下载",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=58 sample=对于有些云服务器不能配置yum本地源或yum本地源中没有所需安装包，这可以通过yum只下载不安装方式下载所需安装包。",
+    "content_preview": "对于有些云服务器不能配置yum本地源或yum本地源中没有所需安装包，这可以通过yum只下载不安装方式下载所需安装包。\n\nyum install -y --downloadonly --downloaddir=/download python-devel\n\n# --downloadonly 表示只下载，不安装",
+    "content_length": 154
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > vim /etc/samba/smb.conf",
+    "section_title": "vim /etc/samba/smb.conf",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=10",
+    "content_preview": "在[global]下增加：",
+    "content_length": 13
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > （5）权限设置",
+    "section_title": "（5）权限设置",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "对上传文件赋予读写权限：",
+    "content_length": 12
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （1）安装Redis",
+    "section_title": "（1）安装Redis",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=Rokcy9.5自带的redis是6.2.17版本，可以直接通过本地yum源进行安装：",
+    "content_preview": "Rokcy9.5自带的redis是6.2.17版本，可以直接通过本地yum源进行安装：",
+    "content_length": 43
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y redis",
+    "section_title": "yum install -y redis",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=9",
+    "content_preview": "安装完成后查看版本：",
+    "content_length": 10
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y httpd",
+    "section_title": "yum install -y httpd",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "安装完成后查看apache版本：",
+    "content_length": 16
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > <Directory \"/data/html\">",
+    "section_title": "<Directory \"/data/html\">",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=设置错误日志记录内容：将LogLevelwarn日志级别修改为只记录致命错误日志：",
+    "content_preview": "设置错误日志为每天记录一个文件：将ErrorLog \"logs/error_log\" 修改为：\n\nErrorLog \"| /usr/sbin/rotatelogs logs/%Y_%m_%d_error_log 86400 480\"\n\n设置错误日志记录内容：将LogLevelwarn日志级别修改为只记录致命错误日志：",
+    "content_length": 159
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > 服务路径设置",
+    "section_title": "服务路径设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=修改/usr/lib/systemd/system/httpd.service文件",
+    "content_preview": "修改/usr/lib/systemd/system/httpd.service文件\n\nvim /usr/lib/systemd/system/httpd.service\n\n在[Service]部分Environment=LANG=C后增加\n\nEnvironment=\"LD_LIBRARY_PATH=/data/stampserver/:/usr/local/lib\"\n\n在[Service]部分末尾添加以下内容：",
+    "content_length": 207
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > 部署Tomcat",
+    "section_title": "部署Tomcat",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=8",
+    "content_preview": "解压tomcat：",
+    "content_length": 9
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > cd /data/setup/",
+    "section_title": "cd /data/setup/",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=51 sample=在/usr/lib/systemd/system/目录中用vim新建tomcat.service文件：",
+    "content_preview": "tar zvxf apache-tomcat-9.0.97.tar.gz\n\n将tomcat移到/data根目录下并赋予读写权限：\n\nmv /data/setup/apache-tomcat-9.0.97/ /data/\n\nchmod -R 777 /data/apache-tomcat-9.0.97\n\n在/usr/lib/systemd/system/目录中用vim新建tomcat.service文件：\n\nvim /usr/lib/systemd/system/tomcat.service\n\n在tomcat.service文件中加入以下内容：",
+    "content_length": 274
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （1）nodejs部署",
+    "section_title": "（1）nodejs部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=对node-v22.12.0压缩包解压（注意：必须用解压方式否则启动报错）并赋予权限，配置nodejs的软链接；",
+    "content_preview": "对node-v22.12.0压缩包解压（注意：必须用解压方式否则启动报错）并赋予权限，配置nodejs的软链接；",
+    "content_length": 56
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （2）pm2部署",
+    "section_title": "（2）pm2部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=将pm2解压（须在linux目录下用tar解压）后拷贝到node目录下并赋予读写权限：",
+    "content_preview": "将pm2解压（须在linux目录下用tar解压）后拷贝到node目录下并赋予读写权限：",
+    "content_length": 43
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > reboot",
+    "section_title": "reboot",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=5",
+    "content_preview": "查看版本号：",
+    "content_length": 6
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y *.rpm",
+    "section_title": "yum install -y *.rpm",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=6",
+    "content_preview": "初始化数据库：",
+    "content_length": 7
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > exit",
+    "section_title": "exit",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=打开/var/lib/pgsql/16/data/pg_hba.conf文件,在\"#",
+    "content_preview": "设置远程访问：\n\n打开/var/lib/pgsql/16/data/pg_hba.conf文件,在\"# IPv4 local connections\"策略和在\"# Ipv6 local connections\"策略中分别追加策略并保存，允许IPV4和IPV6地址远程访问：：\n\nvim /var/lib/pgsql/16/data/pg_hba.conf",
+    "content_length": 177
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > # IPv4 local connections",
+    "section_title": "# IPv4 local connections",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=打开/var/lib/pgsql/16/data/postgresql.conf文件：",
+    "content_preview": "host all all 0.0.0.0/0 scram-sha-256\n\n设置监听地址和端口：\n\n打开/var/lib/pgsql/16/data/postgresql.conf文件：\n\nvim /var/lib/pgsql/16/data/postgresql.conf\n\n设置数据库实例监听地址和端口：\n\n将 #listen_addresses = 'localhost'修改成：listen_addresses = '*'\n\n将#port = 5432修改成：port = 5432\n\n将max_connections = 100修改成：max_connections = 1000\n\n重启数",
+    "content_length": 344
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "1）授权文件",
+    "section_title": "1）授权文件",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=84 sample=在Firefox浏览器中输入http://localhost:1947，在打开页面的Updata/Attach中选择li",
+    "content_preview": "在Firefox浏览器中输入http://localhost:1947，在打开页面的Updata/Attach中选择license文件（*.v2c），然后点击Apply File。",
+    "content_length": 90
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > 服务部署准备 > （1）StampManager",
+    "section_title": "（1）StampManager",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=将stampmanager基础环境上传到/data/stampmanager目录，并赋予读写权限：",
+    "content_preview": "将stampmanager基础环境上传到/data/stampmanager目录，并赋予读写权限：\n\nchmod -R 777 /data/stampmanager",
+    "content_length": 82
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampManager部署",
+    "section_title": "StampManager部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=95 sample=将StampManager2.war和sqliteQuery.war从/data/stampmanager目录上传到/d",
+    "content_preview": "将StampManager2.war和sqliteQuery.war从/data/stampmanager目录上传到/data/apache-tomcat-9.0.97/webapps目录：\n\n重启tomcat服务：systemctl restart tomcat\n\n在浏览器中输入安装时设置的服务器IP地址和tomcat端口号（默认为:8080）访问运维管理系统：\n\nIPV4：http://192.168.10.90:8080/StampManager2\n\n在打开的运维管理系统界面选择运维管理目录：/data/stampmanager\n\n确定后进入到StampManager登录页面，输入用户名",
+    "content_length": 336
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampNodeServer部署 > pm2 save",
+    "section_title": "pm2 save",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=8",
+    "content_preview": "查看守护进程列表：",
+    "content_length": 9
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampNodeServer部署 > （2）数据库配置",
+    "section_title": "（2）数据库配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=76 sample=修改/data/html/StampNodeServer/stamp/config.js中的数据库IP地址、端口号、登录",
+    "content_preview": "修改/data/html/StampNodeServer/stamp/config.js中的数据库IP地址、端口号、登录用户名和密码和数据库表文件路径：",
+    "content_length": 76
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampNodeServer部署 > （3）Nginx代理配置",
+    "section_title": "（3）Nginx代理配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=打开/etc/nginx/conf.d/default.conf,为StampNodeServer服务配置代理：",
+    "content_preview": "打开/etc/nginx/conf.d/default.conf,为StampNodeServer服务配置代理：",
+    "content_length": 56
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > matchmaker部署 > mk参数配置",
+    "section_title": "mk参数配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=通常将Matchmaker部署到数据服务器，将matchmaker移到/data目录并赋予读写权限：",
+    "content_preview": "通常将Matchmaker部署到数据服务器，将matchmaker移到/data目录并赋予读写权限：\n\nmv /data/setup/matchmaker/ /data/\n\nchmod -R 777 /data/matchmaker\n\n打开/data/matchmaker/config.json文件修改HttpPort和MatchmakerPort默认端口为实际端口：",
+    "content_length": 185
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > matchmaker部署 > mk开机启动",
+    "section_title": "mk开机启动",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=进入项目目录/data/matchmaker/，输入下面命令，启动项目，并给该启动项加入一个列表，给该条记录起名",
+    "content_preview": "进入项目目录/data/matchmaker/，输入下面命令，启动项目，并给该启动项加入一个列表，给该条记录起名 为 matchmaker：",
+    "content_length": 70
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 渲染引擎部署",
+    "section_title": "渲染引擎部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=86 sample=将渲染引擎（StampUE56）拷贝到信令服务所在的渲染服务器上（比如E盘根目录下），打开E:\\StampUE53\\co",
+    "content_preview": "将渲染引擎（StampUE56）拷贝到信令服务所在的渲染服务器上（比如E盘根目录下），打开E:\\StampUE53\\config.ini进行IP地址配置、推流端口段配置等。\n\n注：渲染服务器要求Nvidia中高端图形显卡（显存8G及以上），比如Nvida3080、3080Ti、3090、4080、4090、A5000、A5500等，操作系统为Windows10 22H2及以上版本。\n\n打开config.ini文件修改StampSever（数据服务地址）、PixelStreamingMinPort（推流服务开始端口）、PixelStreamingMaxPort（推流服务结束端口）。",
+    "content_length": 293
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 信令服务部署",
+    "section_title": "信令服务部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=92 sample=将信令服务（SignallingWebServer）拷贝到渲染服务器上（比如E盘根目录下），打开..\\Signallin",
+    "content_preview": "将信令服务（SignallingWebServer）拷贝到渲染服务器上（比如E盘根目录下），打开..\\SignallingWebServer\\config.json修改IP地址和端口：\n\nmatchmaker服务IP地址：\"MatchmakerAddress\": \"192.168.10.76\",\n\nmatchmaker服务端口：\"MatchmakerPort\": 9999,\n\n信令服务的IP地址：\"PublicIp\": \"192.168.10.137\",\n\n信令服务使用端口：\"PublicPortList\": [30081,30082,30083],",
+    "content_length": 278
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 渲染服务自启动",
+    "section_title": "渲染服务自启动",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=108 sample=在SignallingWebServer\\platform_scripts\\cmd目录下以系统管理员权限运行cmd窗口，",
+    "content_preview": "在SignallingWebServer\\platform_scripts\\cmd目录下以系统管理员权限运行cmd窗口，启动NSSM程序将渲染启动脚本（run_local_1.bat、run_local_2.bat、 run_local_3.bat）注册为Windows开机自启动服务（一般注册三个就可以，每个脚本对应一个渲染服务）。",
+    "content_length": 167
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 注册第二个渲染服务",
+    "section_title": "注册第二个渲染服务",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=install，在Path栏选择run_local_2.bat，在Service",
+    "content_preview": "在cmd窗口再次执行.\\nssm install，在Path栏选择run_local_2.bat，在Service name栏输入：StampWebRTC-2。",
+    "content_length": 80
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 注册第二个渲染服务",
+    "section_title": "注册第二个渲染服务",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=install，在Path栏选择run_local_3.bat，在Service",
+    "content_preview": "在cmd窗口第三次执行.\\nssm install，在Path栏选择run_local_3.bat，在Service name栏输入：StampWebRTC-3。",
+    "content_length": 81
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > SignallingWebServer部署 > 服务查看",
+    "section_title": "服务查看",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=104 sample=在Windows搜索框中执行services.msc打开Windows服务管理器，可以查找到前面注册的三个服务及查看服务",
+    "content_preview": "在Windows搜索框中执行services.msc打开Windows服务管理器，可以查找到前面注册的三个服务及查看服务状态：StampWebRTC-1、StampWebRTC-2、StampWebRTC-2",
+    "content_length": 104
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Trunserver部署",
+    "section_title": "Trunserver部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=91 sample=外网穿透需要使用Turnserver进行网络穿透，Turnserver应该安装在独立服务器上，其支持的中级线程数等于CP",
+    "content_preview": "（1）Trunserver安装\n\n外网穿透需要使用Turnserver进行网络穿透，Turnserver应该安装在独立服务器上，其支持的中级线程数等于CPU内核数，正式运行环境建议独立部署Turnserver服务器。\n\n采用yum方式进行安装（目前最新版本是4.6.3）。\n\n注：内网安装则需要先在外网用只下载不安装模式把相关包下载下来，然后拷贝到内网进行安装。\n\nyum install -y epel-release\n\nyum install -y turnserver\n\n（2）生成自签名证书\n\nmkdir -p /etc/coturn/certs\n\nopenssl req -x509 -ne",
+    "content_length": 480
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Trunserver部署",
+    "section_title": "Trunserver部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=由于coturn重启时耗时较长导致报错，在coturn.service中添加服务启动等待：",
+    "content_preview": "说明：-nodes：生成无密码的私钥（关键，避免启动时需输入密码）。\n\n生成的文件路径为：\n\n证书：/etc/coturn/certs/fullchain.pem\n\n私钥：/etc/coturn/certs/privkey.pem\n\n设置文件权限\n\nchmod 600 /etc/coturn/certs/*\n\nchown -R coturn:coturn /etc/coturn/certs\n\n（3）修改coturn.service\n\n由于coturn重启时耗时较长导致报错，在coturn.service中添加服务启动等待：\n\nvim /usr/lib/systemd/system/coturn",
+    "content_length": 491
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+    "section_title": "运维代理设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=58 sample=打开/etc/nginx/conf.d/default.conf文件在80端口中为StampManager配置代理：",
+    "content_preview": "打开/etc/nginx/conf.d/default.conf文件在80端口中为StampManager配置代理：",
+    "content_length": 58
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Nginx代理设置 > HTTPD代理设置",
+    "section_title": "HTTPD代理设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=55 sample=在/etc/nginx/conf.d/default.conf文件进行httpd代理设置和nginx超时设置：",
+    "content_preview": "在/etc/nginx/conf.d/default.conf文件进行httpd代理设置和nginx超时设置：",
+    "content_length": 55
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Nginx代理设置 > WebGL多端口设置",
+    "section_title": "WebGL多端口设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=65 sample=在/etc/nginx/conf.d/default.conf文件进行WebGL多端口（端口号：81-89，不包含87）",
+    "content_preview": "在/etc/nginx/conf.d/default.conf文件进行WebGL多端口（端口号：81-89，不包含87）代理设置。",
+    "content_length": 65
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > Nginx代理设置 > Nginx超时设置",
+    "section_title": "Nginx超时设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=95 sample=部分服务返回的时间比较长，因此需要在nginx.conf中进行超时设置。打开/etc/nginx/nginx.conf，",
+    "content_preview": "部分服务返回的时间比较长，因此需要在nginx.conf中进行超时设置。打开/etc/nginx/nginx.conf，在httpd段增加超时设置，nginx的所有代理都会继承这个超时设置。\n\nproxy_connect_timeout 7200s;\n\nproxy_read_timeout 7200s;\n\nproxy_send_timeout 7200s;",
+    "content_length": 179
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "应用系统部署 > 系统网络拓扑 > 外网端口映射",
+    "section_title": "外网端口映射",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=70 sample=外网/政务网以推流方式访问部署在内网（局域网）的三维渲染服务，需要将渲染服务器（多台）和数据服务器（多台）的用到的IP地",
+    "content_preview": "外网/政务网以推流方式访问部署在内网（局域网）的三维渲染服务，需要将渲染服务器（多台）和数据服务器（多台）的用到的IP地址和端口映射到外网。\n\n注：WebGL只用到了数据服务器。\n\n数据服务器端口如下：",
+    "content_length": 101
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "5349：TLS/TCP，TLS服务",
+    "section_title": "5349：TLS/TCP，TLS服务",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=9",
+    "content_preview": "渲染服务器端口如下：",
+    "content_length": 10
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebGL部署 > WebGL内网部署",
+    "section_title": "WebGL内网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=将StampWebGL、PipelineWebGL上传到/data/html目录下，并赋予读写权限：",
+    "content_preview": "将StampWebGL、PipelineWebGL上传到/data/html目录下，并赋予读写权限：",
+    "content_length": 50
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebGL部署 > WebGL外网部署",
+    "section_title": "WebGL外网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=将StampWebGL、PipelineWebGL中IP地址修改为外网地址，以StampWebGL为例修改",
+    "content_preview": "将StampWebGL、PipelineWebGL中IP地址修改为外网地址，以StampWebGL为例修改\n\nvim /data/html/StampWebGL/config/custom_config.js\n\n将var SERVERIP = \"\";修改为：var SERVERIP = \"119.57.255.51\";",
+    "content_length": 160
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > WebRTC内网部署",
+    "section_title": "WebRTC内网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=105 sample=将推流应用（如StampWebRTC、PipelineWebRTC、CityplanWebRTCView、Citypla",
+    "content_preview": "将推流应用（如StampWebRTC、PipelineWebRTC、CityplanWebRTCView、CityplanWebRTCEditor等）拷贝到linux服务器web目录下（/data/html）。",
+    "content_length": 105
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （1）Turnserver配置",
+    "section_title": "（1）Turnserver配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：",
+    "content_preview": "打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器",
+    "content_length": 469
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （1）Turnserver配置",
+    "section_title": "（1）Turnserver配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=#长期凭证认证的用户名和密码，将“#user=ninefingers:youhavetoberealistic”修改为：",
+    "content_preview": "min-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:youhavetoberealistic”修改为：\n\nuser=PixelStreamingUser:AnotherTURNintheroad\n\n#认证域，将“#realm=mycompany.org”修改为：\n\nrealm=PixelStreaming\n\n# TLS/DTLS 证书和私钥路径，将“#cert=/etc/pki/coturn/public/turn_ser",
+    "content_length": 489
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （1）Turnserver配置",
+    "section_title": "（1）Turnserver配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：",
+    "content_preview": "#禁止日志输出到 stdout（适合后台运行），将“#no-stdout-log”修改为：\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n##禁用不安全的TLS协议，在“#no-tlsv1_2”后添加以下两行：\n\nno-tlsv1\n",
+    "content_length": 486
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （2）信令服务修改",
+    "section_title": "（2）信令服务修改",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=修改\"peerConnectionOptions\"中\"iceServers的stun和turn地址为外网IP地址",
+    "content_preview": "修改\\SignallingWebServer\\config.json\n\n\"PublicIp\"地址为外网地址：\n\n\"PublicIp\": \"119.57.255.50\"\n\n注：内网时配置渲染服务器的内网IP地址：192.168.10.137\n\n修改\"peerConnectionOptions\"中\"iceServers的stun和turn地址为外网IP地址\n\n\"peerConnectionOptions\": \"{\\\"iceServers\\\": [{\\\"urls\\\": [\\\"turn:119.57.255.50:3478\\\", \\\"turns:119.57.255.50:5349\\\"], \\\"use",
+    "content_length": 412
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > TCP外网部署",
+    "section_title": "TCP外网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=推流默认使用UDP协议，在部分政务网中UDP带宽受限，因此需要通过Turn服务强制使用TCP服务进行推流。",
+    "content_preview": "推流默认使用UDP协议，在部分政务网中UDP带宽受限，因此需要通过Turn服务强制使用TCP服务进行推流。\n\n（1）Turnserver配置\n\n打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将",
+    "content_length": 492
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > TCP外网部署",
+    "section_title": "TCP外网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=#长期凭证认证的用户名和密码，将“#user=ninefingers:youhavetoberealistic”修改为：",
+    "content_preview": "max-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:youhavetoberealistic”修改为：\n\nuser=PixelStreamingUser:AnotherTURNintheroad\n\n#认证域，将“#realm=mycompany.org”修改为：\n\nrealm=PixelStreaming\n\n# TLS/DTLS",
+    "content_length": 490
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > TCP外网部署",
+    "section_title": "TCP外网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：",
+    "content_preview": "pkey=/etc/coturn/certs/privkey.pem\n\n#禁止日志输出到 stdout（适合后台运行），将“#no-stdout-log”修改为：\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n#禁用不安全的TLS协",
+    "content_length": 363
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （2）信令服务修改",
+    "section_title": "（2）信令服务修改",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=修改\"peerConnectionOptions\"中\"iceServers的stun和turn地址为外网IP地址",
+    "content_preview": "修改\\SignallingWebServer\\config.json\n\n\"PublicIp\"地址为外网地址：\n\n\"PublicIp\": \"119.57.255.50\"\n\n注：内网时配置渲染服务器的内网IP地址：192.168.10.137\n\n修改\"peerConnectionOptions\"中\"iceServers的stun和turn地址为外网IP地址\n\n\"peerConnectionOptions\": \"{ \\\"iceServers\\\": [{\\\"urls\\\": [\\\"turn:119.57.255.50:3478?transport=tcp\\\", \\\"turns:119.57.255.50",
+    "content_length": 478
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > 应用外网部署",
+    "section_title": "应用外网部署",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=122 sample=对StampWebRTC、PipelineWebRTC等WebRTC应用中的IP地址进行修改，以StampWebRTC为",
+    "content_preview": "对StampWebRTC、PipelineWebRTC等WebRTC应用中的IP地址进行修改，以StampWebRTC为例：将数据服务器上\\data\\html\\StapWebRTC\\config\\stamp_core_config.js中var SERVERIP修改为外网IP地址。",
+    "content_length": 141
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > WebRTC部署 > （4）运行渲染服务器",
+    "section_title": "（4）运行渲染服务器",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=第一步：运行渲染服务脚本：run_local_1.bat、run_local_2.bat、",
+    "content_preview": "第一步：运行渲染服务脚本：run_local_1.bat、run_local_2.bat、 run_local_3.bat",
+    "content_length": 61
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > 多显卡大屏部署 > （2）NVIDIA显卡",
+    "section_title": "（2）NVIDIA显卡",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=47 sample=实现多卡集群渲染，每块显卡接一个物理显示器，分辨率超过4K时需要用AV1格式，支持Quadro",
+    "content_preview": "实现多卡集群渲染，每块显卡接一个物理显示器，分辨率超过4K时需要用AV1格式，支持Quadro Sync II和AV1格式的显卡列表如下：\n\nNVIDIA RTX PRO 5000 Blackwell 架构\n\nNVIDIA RTX PRO 4500 Blackwell 架构\n\nNVIDIA RTX PRO 4000 Blackwell 架构",
+    "content_length": 171
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > 多显卡大屏部署 > （3）大屏设置",
+    "section_title": "（3）大屏设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=46 sample=将大屏按照1920*1080分辨率拆分成多屏，然后再NVIDIA控制面板的“工作站”-“设置",
+    "content_preview": "将大屏按照1920*1080分辨率拆分成多屏，然后再NVIDIA控制面板的“工作站”-“设置 Mosaic模式”-“新建配置”中进行设置：",
+    "content_length": 69
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > 多显卡大屏部署 > 选择显示器：选择显示器，勾选需要合并成大屏的显示器",
+    "section_title": "选择显示器：选择显示器，勾选需要合并成大屏的显示器",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=57 sample=结束配置：结束配置后回到Mosaic模式主界面，显示合并后大屏的总分辨率。打开浏览器，最大化模式下铺满多个显示器。",
+    "content_preview": "排列显示器：在选择的显示器白色输入框中输入显示器编号，排列好后点击“应用”。\n\n调整重叠和边框校正：输入重叠的像素，一般用默认值0。\n\n结束配置：结束配置后回到Mosaic模式主界面，显示合并后大屏的总分辨率。打开浏览器，最大化模式下铺满多个显示器。\n\n注：对于台式机工作站，独立显卡必须插显示器或显卡屏蔽器或虚拟显示器才能激活。",
+    "content_length": 165
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > 多显卡大屏部署 > 大屏资源设置",
+    "section_title": "大屏资源设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=74 sample=去掉[nDisplay]部分ConfigFile和Node前的注释，并设置对应的显卡集群文件名称（按照大屏阵列进行设置：",
+    "content_preview": "去掉[nDisplay]部分ConfigFile和Node前的注释，并设置对应的显卡集群文件名称（按照大屏阵列进行设置：1x2，2x2，2x4等）。\n\nConfigFile=NDC_WallCurved4x2.ndisplay",
+    "content_length": 113
+  },
+  {
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "10881-10883：TCP，视频流服务 > 多显卡大屏部署 > Node=Node_0",
+    "section_title": "Node=Node_0",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=91 sample=注意：ConfigFile文件存储于..\\StampUE53\\Engine\\Content\\Stamp\\nDisplay",
+    "content_preview": "注意：ConfigFile文件存储于..\\StampUE53\\Engine\\Content\\Stamp\\nDisplay目录下，目前支持1x2、2x2和2x4，其他屏幕组合需要定制。",
+    "content_length": 91
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > 纹理格式",
+    "section_title": "纹理格式",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=JPG：兼容性比较好，PC端、移动端均支持。当成果数据以WMTS服务方式对外提供时纹理格式必须选择JPG。",
+    "content_preview": "数据处理成果的纹理格式支持以下几种：\n\nJPG：兼容性比较好，PC端、移动端均支持。当成果数据以WMTS服务方式对外提供时纹理格式必须选择JPG。\n\nJPGLi：压缩率较高（JPG的压缩版），发布时间较长\n\nWebP：压缩率高，发布时间长。\n\nCRN：压缩率高（压缩的DDS格式），发布时间长，渲染效率高\n\nDDS：基本没有压缩，渲染效率最高，但成果所需存储空间最大。\n\nKTX2：压缩比高，发布时间长，WebGL渲染效率高。\n\n注：纹理压缩比：CRN>=WebP>=KTX2>JPGLi>JPG>DDS，\n\n渲染效率：CRN=DDS>KTX2>JPG=JPGLi>WebP",
+    "content_length": 287
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > 空间参考 > 基础配置",
+    "section_title": "基础配置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=椭球参数：支持WGS-84坐标系、国家2000坐标系、西安80坐标系和北京54坐标系",
+    "content_preview": "椭球参数：支持WGS-84坐标系、国家2000坐标系、西安80坐标系和北京54坐标系\n\n投影类型：支持高斯投影、UTM投影、墨卡托投影、ENU投影、Web墨卡托、高斯投影（本地）和UTM投影（本地）。\n\n分带类型：投影类型为高斯投影和UTM投影时有效，高斯投影支持3度分带和6度分带，UTM支持6度分带。\n\n分带索引：3度分带或6度分带的索引号。\n\n中央子午线：在高斯投影（本地）、UTM投影（本地）和墨卡托投影允许自定义中央子午线。\n\n基准纬度：在墨卡托投影时，还必须要定义基准纬度。\n\n坐标含带号：如果数据中X坐标含有带号，则需要勾选此项。\n\n注1：含带号数据和不含带号数据不能混合在一起编译发布",
+    "content_length": 416
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > 空间参考 > 平面坐标：设置平面X坐标和Y坐标偏移值",
+    "section_title": "平面坐标：设置平面X坐标和Y坐标偏移值",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=46 sample=3Dmax、Revit等在制作模型时会去掉平面坐标的前两位大数，则该大数会以偏移值进行设置。",
+    "content_preview": "高程偏移：设置高程上的偏移值。\n\n提示1： 3Dmax、Revit等在制作模型时会去掉平面坐标的前两位大数，则该大数会以偏移值进行设置。\n\n提示2：ENU、EPSG投影的原点经纬度坐标和平面坐标偏移值可在本界面设置",
+    "content_length": 107
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > 空间参考 > 设置城市自定义坐标系",
+    "section_title": "设置城市自定义坐标系",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=旋转参数：通过按顺序旋转三个坐标轴指定角度，可使两个空间直角坐标系的XYZ轴重合在一起，三轴旋转角度必须是秒级(小于10",
+    "content_preview": "四参数：同一个椭球的不同坐标系中的平面坐标之间转换方法，比如某地既有北京54的平面坐标又有珠海的平面坐标，在这两种坐标之间转换就用到四参数\n\n平移参数：平面坐标系（X，Y）的坐标原点之间的坐标差值；\n\n旋转参数：通过旋转一个角度，可以使两个坐标系的X和Y轴重合在一起。\n\n缩放参数：为m/1000000的值，一般为：*.*e-007数量级。\n\n七参数：针对将地理坐标系所对应的空间直角坐标转换为另一坐标系的空间直角坐标的方法。\n\n平移参数：：与空间坐标系（X，Y，Z）坐标原点之间坐标差值，三轴平移一般小于 1000米\n\n旋转参数：通过按顺序旋转三个坐标轴指定角度，可使两个空间直角坐标系的XYZ轴重",
+    "content_length": 420
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > EPSG编码 > CGCS2000编码",
+    "section_title": "CGCS2000编码",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=56 sample=目前，国内均采用CGCS2000投影坐标系，因此本文档仅给出CGCS2000投影坐标系的EPSG编码供查询使用。",
+    "content_preview": "目前，国内均采用CGCS2000投影坐标系，因此本文档仅给出CGCS2000投影坐标系的EPSG编码供查询使用。",
+    "content_length": 56
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > 磁盘空间",
+    "section_title": "磁盘空间",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=注：DOM和Model工具工程路径下中间数据所需磁盘大小是原始数据的数倍，具体与数据格式、纹理中间格式和数据分辨率有关。",
+    "content_preview": "为了避免数据编译发布时因磁盘空间不足导致返工重发，强烈建议在大数据量编译发布之前用小数据量进行测试，计算工程路径中间数据和发布路径成果数据磁盘大小与原始数据大小之间的比值，然后在测试结果基础上乘以1.2系数。\n\n注：DOM和Model工具工程路径下中间数据所需磁盘大小是原始数据的数倍，具体与数据格式、纹理中间格式和数据分辨率有关。",
+    "content_length": 166
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "工具概述 > Cesium加载3DTiles > WebGL版本设置",
+    "section_title": "WebGL版本设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=Cesium加载Stamp工具生成的3DTiles时都需要设置支持WebGL2：requestWebgl2:",
+    "content_preview": "Cesium加载Stamp工具生成的3DTiles时都需要设置支持WebGL2：requestWebgl2: true\n\nvar viewer = new Cesium.Viewer(\"cesiumContainer\", {\n\norderIndependentTranslucency: false, contextOptions :\n\n{requestWebgl2: true,}, imageryProvider : new Cesium.ArcGisMapServerImageryProvider({\n\nurl : 'https://services.arcgisonline.com/Arc",
+    "content_length": 345
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "加密锁驱动安装 > 安装驱动",
+    "section_title": "安装驱动",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=工具运行需要安装授权驱动：GrandDogRunTimeSystemSetup.exe，按照提示默认安装。",
+    "content_preview": "工具运行需要安装授权驱动：GrandDogRunTimeSystemSetup.exe，按照提示默认安装。\n\n注：数据处理工具在配置结束开始编译发布时会进行加密检测，如果没有检测到授权将弹出提示信息，在提示框确定后直接退出工具运行程序。",
+    "content_length": 118
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > 数据规范",
+    "section_title": "数据规范",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=14",
+    "content_preview": "各种数据类型的数据格式见下表：",
+    "content_length": 15
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DOMBuilder > 新建工程",
+    "section_title": "新建工程",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "新建一个影像数据的编译处理工程。",
+    "content_length": 16
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DOMBuilder > 新建图层：将数据发布到新建的图层上",
+    "section_title": "新建图层：将数据发布到新建的图层上",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=追加到图层：将数据发布到已经存在的数据图层上，此时输出路径为选择已经存在的layer.desc文件。",
+    "content_preview": "追加到图层：将数据发布到已经存在的数据图层上，此时输出路径为选择已经存在的layer.desc文件。",
+    "content_length": 50
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DOMBuilder > 参数设置",
+    "section_title": "参数设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=62 sample=WMTS无效值填充色：当成果数据要以WMTS服务方式对外提供时，需要设置无效值的填充色，默认RGB值255，255，25",
+    "content_preview": "无效值颜色：设置DOM无效值填充色，默认RGB值为：0，0，0\n\nWMTS无效值填充色：当成果数据要以WMTS服务方式对外提供时，需要设置无效值的填充色，默认RGB值255，255，255。",
+    "content_length": 95
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DEMBuilder > Stamp：发布成Stamp格式",
+    "section_title": "Stamp：发布成Stamp格式",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=Terrain：发布成Terrain格式，供第三方三维软件（如Cesium）使用。",
+    "content_preview": "Terrain：发布成Terrain格式，供第三方三维软件（如Cesium）使用。\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径\n\n输出路径：设置编译发布数据成果的存储路径，工程类型不同时路径设置方式如下：\n\n新建图层：设定一个空文件夹作为输出路径。\n\n追加到图层：选择已经存在的DEM图层的layer.desc文件（GRID类型）。",
+    "content_length": 182
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DEMBuilder > 删除：从数据列表框中删除选中的记录",
+    "section_title": "删除：从数据列表框中删除选中的记录",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "清空列表：从编译列表删除所有记录。",
+    "content_length": 17
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > DEMBuilder > 上层地形",
+    "section_title": "上层地形",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=设置与编译发布原始数据进行融合的上层数据路径（选择已有GRID地形数据的layer.desc文件）",
+    "content_preview": "设置与编译发布原始数据进行融合的上层数据路径（选择已有GRID地形数据的layer.desc文件）",
+    "content_length": 49
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINBuilder > 追加到图层：将数据发布到已经存在的数据图层上",
+    "section_title": "追加到图层：将数据发布到已经存在的数据图层上",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=追加到图层：选择已经存在的TIN图层的layer.desc文件（GRID类型）。",
+    "content_preview": "工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，工程类型不同时路径设置方式如下：\n\n新建图层：设定一个空文件夹作为输出路径。\n\n追加到图层：选择已经存在的TIN图层的layer.desc文件（GRID类型）。",
+    "content_length": 140
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINBuilder > 删除：从数据列表框中删除选中的记录",
+    "section_title": "删除：从数据列表框中删除选中的记录",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "清空列表：从编译列表删除所有记录。",
+    "content_length": 17
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINBuilder > 上层地形",
+    "section_title": "上层地形",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=设置与编译发布原始数据进行融合的上层数据路径（选择地形数据的layer.desc文件）",
+    "content_preview": "设置与编译发布原始数据进行融合的上层数据路径（选择地形数据的layer.desc文件）",
+    "content_length": 43
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINIncise > 工程设置",
+    "section_title": "工程设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=修正图层：设置待修正的图层路径，即选择TIN格式数据的layer.desc文件。",
+    "content_preview": "地形修正工具是通过矢量面修正已经编译发布的TIN或Roam地形数据。\n\n新建工程：\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n修正图层：设置待修正的图层路径，即选择TIN格式数据的layer.desc文件。\n\n同步修正分析数据：发布后的地形成果数据由浏览数据（display目录）和分析数据（analysis目录）构成，可以设置是否同步修正分析数据。\n\n继续工程：\n\n打开现有工程文件，继续未完成的工程，是和系统崩溃、断电或人工停止等异常情况导致工程没有正常结束的情况。",
+    "content_length": 254
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINIncise > 注：用于修正的矢量面数据不能有自相交",
+    "section_title": "注：用于修正的矢量面数据不能有自相交",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=65 sample=相对深度：将地形修正到以修正数据（shp面）中心点高程减去相对深度值（向下为正、向上为负）的目标高程（目标高程=修正数据",
+    "content_preview": "修正方式：有两种，包括：\n\n生成侧面和底面：主要用于一般的全地面建模方式，避免地面模型叠盖在地形之上引起闪烁，此方式被切割的范围仍然可以看见影像。\n\n不生成侧面和底面：主要用于人、车等运动物体从地面直接进入地铁、矿井等地下模型，或者进入公路、铁路等隧道中，此方式被切割的范围内看不见影像，因此必须有模型配套。\n\n修正数据：设置需要修正的矢量面文件（*.shp）路径\n\n提示：带岛的矢量面需要分割成两个独立的矢量面。\n\n修正范围：设置修正文件的范围面（*.shp）文件路径。\n\n注：存在多段修正，且有公共边的时候需要将公共边、岛删除后作为修正范围。\n\n空洞数据：设置洞（岛）矢量文件（*.shp）路径。",
+    "content_length": 488
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "TerrainBuilder > TINIncise > 编译发布",
+    "section_title": "编译发布",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=141 sample=注：地形数据切割后，切割前数据备份到display_0目录中（如果切割多次则依次为display_1、display_2",
+    "content_preview": "矢量面修正地形的编译发布包括编译、切割和生成分析数据三个阶段，进度条上方会显示当前阶段名称。错误信息显示在错误信息框中，如果没有错误信息则会显示“无错误信息”。\n\n数据编译过程支持断点续编功能，编译过程中可以“暂停”或“停止”，暂停、停止状态也会在进度条上方显示。\n\n注：地形数据切割后，切割前数据备份到display_0目录中（如果切割多次则依次为display_1、display_2等），切割前分析数据会备份到analysis_0目录中（多次切割则依次为analysis_1、analysis_0）。如果需要还原则需要从后向前依次拷贝覆盖即可。",
+    "content_length": 275
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据规范 > 数据格式",
+    "section_title": "数据格式",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=4",
+    "content_preview": "数据规格",
+    "content_length": 4
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据规范 > 纹理要求",
+    "section_title": "纹理要求",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=47 sample=纹理尺寸尽量为2的N次幂，尺寸规格最大不超过2048（推荐1024），长宽比尽量不超过4:1。",
+    "content_preview": "纹理色彩模式只支持RGB模式，普通纹理推荐采用jpg，透明纹理推荐采用tga。\n\n纹理尺寸尽量为2的N次幂，尺寸规格最大不超过2048（推荐1024），长宽比尽量不超过4:1。\n\n纹理不允许出现同图不同名或同名不同图。\n\n不允许用一张纹理贴一个封闭的体，（如Box或球体），比如女儿墙（为Box）的六个面只用一张纹理进行贴图（正确方法是6个面用同一张纹理进行分别贴图）。",
+    "content_length": 185
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据规范 > 导出设置",
+    "section_title": "导出设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=在Revit中将项目基点设置为地理坐标（平面坐标或经纬度坐标），在导出IFC窗口仅设置导出路径后进行导出。",
+    "content_preview": "在Revit中将项目基点设置为地理坐标（平面坐标或经纬度坐标），在导出IFC窗口仅设置导出路径后进行导出。",
+    "content_length": 53
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据规范 > 模型工具发布设置",
+    "section_title": "模型工具发布设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=66 sample=然后在空间参考中按照平面坐标设置椭球体、投影方式、投影带类型、投影带号，并将BIM数据中的项目基点坐标作为X、Y坐标偏移",
+    "content_preview": "模型工具发布的时候需要勾选“3DTiles数据源为平面坐标”，如下图：\n\n然后在空间参考中按照平面坐标设置椭球体、投影方式、投影带类型、投影带号，并将BIM数据中的项目基点坐标作为X、Y坐标偏移值进行设置。\n\n注：不要设置高程偏移值。",
+    "content_length": 117
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 工程设置 > 新建工程",
+    "section_title": "新建工程",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=76 sample=简单纹理模型：一般用纯色纹理或高重复率贴图纹理等的三维模型，如室内模型、管廊内部管线模型等。简单纹理模型无需烘焙，编译发",
+    "content_preview": "新建一个模型数据的编译处理工程。\n\n模型类型： 根据数据特点选择数据类型，默认为建筑模型。\n\n人工精细模型(建筑模型)：指人工参与制作的精细、超精细模型，大量使用了纹理平铺等制作方法。\n\n倾斜单体模型（建筑模型）：基于倾斜模型制作的单体模型，采用真实纹理，基本不使用纹理平铺制作方法。\n\n地面模型：指用建模方法表现地表的三维模型，一般用于需要精细表现的公园、景点等。地面模型制作时需要将地表附着物（如绿篱、栏杆、雕塑、假山石等）单独制作并根据体积大小归入建筑模型或部件模型\n\n部件模型：用建模方法制作的树、路灯、垃圾桶、指示牌等城市部件模型。\n\n简单纹理模型：一般用纯色纹理或高重复率贴图纹理等的三维",
+    "content_length": 476
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据设置 > 高级设置",
+    "section_title": "高级设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=Mesh合并顶点上限：对相邻模型进行合并，合并后每个Mesh对象的顶点数不超过设定值。",
+    "content_preview": "在模型发布时，根据模型特点可以设置部分模型优化参数，具体包括：\n\n模型合并高度：为提升模型渲染效率，按模型高度对同一块内模型进行合并：低于12米、12至24米、24-48米和大于48米\n\n纹理优化：设置模型合并优化的相关参数,主要包括：\n\nMesh合并顶点上限：对相邻模型进行合并，合并后每个Mesh对象的顶点数不超过设定值。\n\n纹理中间格式：采用PNG或JPG，注意采用JPG为中间格式时纹理精度损失较大。",
+    "content_length": 204
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据设置 > 无效纹理裁切：设置是否去除纹理中的无效纹理像素",
+    "section_title": "无效纹理裁切：设置是否去除纹理中的无效纹理像素",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=UV展开最大三角面数：设置模型生成LOD时的UV展开最大三角面数量，当UV展开失败时可以调整此参数。",
+    "content_preview": "CRN压缩质量：值域 16至128（默认64），值越小压缩率越高、纹理质量越差。\n\nosg dds翻转：部分OSG数据使用DDS纹理格式时需要设置\n\n纹理合并尺寸：设置纹理优化合并的最大尺寸。\n\n纹理裁切尺寸：设置纹理拆分的最小尺寸，超过设定值的纹理会被拆分。\n\n光影纹理最大尺寸：设置自动生成的自发光lightmap纹理的最大尺寸\n\n光影纹理放大系数：设置自动生成自发光纹理的尺寸放大倍数：人工精细模型默认值为1，倾斜单体化模型默认值为2。\n\n标准层纹理压缩参数：设置纹理压缩比，对远处纹理清晰度有影响。\n\nUV展开最大三角面数：设置模型生成LOD时的UV展开最大三角面数量，当UV展开失败时可以调",
+    "content_length": 483
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据设置 > 无效纹理裁切：设置是否去除纹理中的无效纹理像素",
+    "section_title": "无效纹理裁切：设置是否去除纹理中的无效纹理像素",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=69 sample=按文件拆分子对象：OBJ、FBX等格式数据支持子对象，将多个模型对象存储为一个OBJ或FBX文件对象时，勾选后可以按子对",
+    "content_preview": "OBJ Y轴向上：部分OBJ模型的Y轴为高程轴时需要设置\n\n按文件拆分子对象：OBJ、FBX等格式数据支持子对象，将多个模型对象存储为一个OBJ或FBX文件对象时，勾选后可以按子对象拆分成管理对象。\n\nOBJ重新生成三角面：默认勾选，重新构建OBJ三角面。\n\n线程数：模型工具支持多线程，建议按照CPU实际线程数-2进行设置。",
+    "content_length": 163
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 数据处理",
+    "section_title": "数据处理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=注：由于模型处理需要用到DirectX，因此发布过程前需要取消“屏幕保护”和“电源节能”休眠设置，否则会出现黑面等现象。",
+    "content_preview": "模型工具的编译发布包括投影变换、编译发布和生成搜索数据三个阶段，进度条上方会显示当前阶段名称。\n\n注：由于模型处理需要用到DirectX，因此发布过程前需要取消“屏幕保护”和“电源节能”休眠设置，否则会出现黑面等现象。",
+    "content_length": 109
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ModelBuilder > 常见错误",
+    "section_title": "常见错误",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=14",
+    "content_preview": "模型工具发布时最常见的错误有：",
+    "content_length": 15
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > 蓝图事件",
+    "section_title": "蓝图事件",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=不支持何事件，目前蓝图出现的非自定义事件，比如键盘事件，蓝图启动事件，在lib_ax",
+    "content_preview": "不支持何事件，目前蓝图出现的非自定义事件，比如键盘事件，蓝图启动事件，在lib_ax 都视为开始运行事件；对于键盘事件，只执行一个流程，下图所示事件在lib_ax都视为启动事件。",
+    "content_length": 89
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > 键盘事件",
+    "section_title": "键盘事件",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=92 sample=如下图所示，在lib_ax只执行A流程，B流程将不会被执行，目前支持键盘事件的目的只是为了能导入郑鑫场景的qiehuan",
+    "content_preview": "如下图所示，在lib_ax只执行A流程，B流程将不会被执行，目前支持键盘事件的目的只是为了能导入郑鑫场景的qiehuan蓝图，在制作蓝图的时候不要使用键盘事件，直接使用蓝图启动运行事件\n\nlib_ax在没有切换夜景的时候显示的是模型白天的样子，切换到夜景状态会显示夜晚状态，再回到白天状态会自动恢复白天状态，所以蓝图不需要制作白天状态,如图所示，红框圈的部分是多余的，只需要保留红框以外的部分，pressed直接连heiye，如第二个实例",
+    "content_length": 219
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > （3）对象设置",
+    "section_title": "（3）对象设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=如下图所示，拆分向量、创建linearcolor、spotlight、设置光源颜色，共同构成lib_ax的一个对象的颜色",
+    "content_preview": "如下图所示，拆分向量、创建linearcolor、spotlight、设置光源颜色，共同构成lib_ax的一个对象的颜色设置。\n\n与颜色设置类似，如下图所示的一组操作构成lib_ax对象的一个旋转设置\n\n同上图一样",
+    "content_length": 107
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > （4）流程控制",
+    "section_title": "（4）流程控制",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=55 sample=如下图：需要说明的是，在导出的时候按照selection1当前的值，只导出匹配的流程，其他不会触发的流程不导出",
+    "content_preview": "如下图：需要说明的是，在导出的时候按照selection1当前的值，只导出匹配的流程，其他不会触发的流程不导出",
+    "content_length": 55
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > （2）texture sample转换为参数",
+    "section_title": "（2）texture sample转换为参数",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=如图texturesample这种在创建材质实例的时候，是不会生成对应的纹理参数的",
+    "content_preview": "如图texturesample这种在创建材质实例的时候，是不会生成对应的纹理参数的\n\n此时选中TextureSample右键“转换成参数”保存，然后再创建材质实例如图\n\n（3）Texture object如下图，通过右键转换成参数",
+    "content_length": 115
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE材质集添加蓝图",
+    "section_title": "UE材质集添加蓝图",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=如果客户的ue数据只做了材质参数集，需先参考下面方法加上蓝图，然后才可以用导出插件导出蓝图和模型：",
+    "content_preview": "如果客户的ue数据只做了材质参数集，需先参考下面方法加上蓝图，然后才可以用导出插件导出蓝图和模型：",
+    "content_length": 49
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE材质集添加蓝图 > 导出蓝图",
+    "section_title": "导出蓝图",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=选择蓝图，文件--导出选择项--选择.x--设置导出路径---设置导出参数--导出。",
+    "content_preview": "选择蓝图，文件--导出选择项--选择.x--设置导出路径---设置导出参数--导出。",
+    "content_length": 42
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE材质集添加蓝图 > 导出模型",
+    "section_title": "导出模型",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=选择模型，文件--导出选择项--选择.x--设置导出路径---设置导出参数--导出（注意bluepringt",
+    "content_preview": "选择模型，文件--导出选择项--选择.x--设置导出路径---设置导出参数--导出（注意bluepringt path要选择你前面导出的蓝图路径）。",
+    "content_length": 74
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 插件安装",
+    "section_title": "插件安装",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=在UE安装目录下找到同名DLL进行备份后，把UE导出插件中的DLL复制到对应目录。",
+    "content_preview": "在UE安装目录下找到同名DLL进行备份后，把UE导出插件中的DLL复制到对应目录。\n\n注：UE插件与UE版本严格对应，具体参照UE插件中说明文档。",
+    "content_length": 73
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出设置",
+    "section_title": "导出设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=51 sample=为了防止纹理导出清晰度不够，需要修改ue设置：编辑->项目设置->渲染：“纹理”->“纹理流送”不勾选",
+    "content_preview": "为了防止纹理导出清晰度不够，需要修改ue设置：编辑->项目设置->渲染：“纹理”->“纹理流送”不勾选",
+    "content_length": 51
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出非复用模型",
+    "section_title": "导出非复用模型",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=82 sample=选择建筑等非复用模型对象，然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.x”，在下一个弹出窗口勾选",
+    "content_preview": "选择建筑等非复用模型对象，然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.x”，在下一个弹出窗口勾选“网格体”的前三项，然后导出选中的非复用模型\n\n导出模型目录内容如下：",
+    "content_length": 95
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出复用动态树",
+    "section_title": "导出复用动态树",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=94 sample=选择要导出的动态树（复用模式）对象，然后在“文件”->“导出选中项”，在弹出的对话框，保存类型选择“.x”，在下一个弹出",
+    "content_preview": "选择要导出的动态树（复用模式）对象，然后在“文件”->“导出选中项”，在弹出的对话框，保存类型选择“.x”，在下一个弹出窗口，勾选“网格体”的前两项，并勾选“静态网格体”下面的“Match Model” ，如下图所示，导出对应的复用模型\n\n导出模型目录内容如下：",
+    "content_length": 131
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出复用部件",
+    "section_title": "导出复用部件",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=100 sample=选择要导出的路牌、垃圾桶等部件对象（复用模式），然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.x”",
+    "content_preview": "选择要导出的路牌、垃圾桶等部件对象（复用模式），然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.x”，在下一个弹出窗口勾选“网格体”的前三项，并勾选“静态网格体”下面的“Match Model” ，然后导出选中的复用模型\n\n导出模型目录内容如下：",
+    "content_length": 133
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出粒子",
+    "section_title": "导出粒子",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=77 sample=选择要导出的粒子对象，然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.sps”，在下一个弹出窗口勾选",
+    "content_preview": "选择要导出的粒子对象，然后选择“文件”->“导出选中项”，在弹出的对话框中保存类型选择“.sps”，在下一个弹出窗口勾选全部选项，然后导出选中的粒子对象。",
+    "content_length": 77
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 导出灯光",
+    "section_title": "导出灯光",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=在导出模型、小品、粒子的过程当中如果存在灯光，则会在导出目录导出灯光，后缀为*.light",
+    "content_preview": "在导出模型、小品、粒子的过程当中如果存在灯光，则会在导出目录导出灯光，后缀为*.light",
+    "content_length": 45
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 蓝图导出",
+    "section_title": "蓝图导出",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=76 sample=选择要导出的蓝图节点，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口勾选",
+    "content_preview": "选择要导出的蓝图节点，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口勾选前4项，然后导出选中的蓝图节点。\n\n注：只能导出“lib_ax对蓝图的支持说明.docx”说明文档中支持的节点的蓝图，",
+    "content_length": 119
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UE导出插件 > 模型导出",
+    "section_title": "模型导出",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=71 sample=选择要导出的模型对象，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口中点",
+    "content_preview": "选择要导出的模型对象，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口中点击“Blueprint Path：……”后面的“Open”按钮选择蓝图的导出目录，并勾选前面3项，然后导出选中的模型对象。",
+    "content_length": 121
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UEModelBuilder > 建筑模型：UE中的建筑模型，一般为非复用模型",
+    "section_title": "建筑模型：UE中的建筑模型，一般为非复用模型",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=48 sample=地面模型：UE中的地形模型（不包含附着地面上的椅子、假山、装饰石头等），在场景中会随地形半透明。",
+    "content_preview": "地面模型：UE中的地形模型（不包含附着地面上的椅子、假山、装饰石头等），在场景中会随地形半透明。\n\n水面模型：UE中的动态水面，不支持生成半透明材质。\n\n部件模型：为非复用模型，为比较小、可视距离比较近、又比较分散的模型，这些模型不进行模型合并，在特别近的距离才可见\n\n对象部件：为在场景当中单独控制位置、缩放、方向等的对象，比如在场景中实时旋转的射灯就不能发布成普通的模型，必须发布成“对象部件”\n\nMatchModel：为复用性模型，如椅子、灯杆、垃圾桶等\n\n灯光：\n\n粒子：\n\n夜景模式：设置是否按夜景模式发布，建筑模型、地面模型、部件模型和水面模型支持非夜景模式。\n\n夜景模式：当发布模型需要",
+    "content_length": 478
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UEModelBuilder > 建筑模型：UE中的建筑模型，一般为非复用模型",
+    "section_title": "建筑模型：UE中的建筑模型，一般为非复用模型",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=48 sample=注：由于随着StampUE的修改Shader有可能需要重新生成，因此不建议在编译发布的时候生成。",
+    "content_preview": "注：由于随着StampUE的修改Shader有可能需要重新生成，因此不建议在编译发布的时候生成。\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。",
+    "content_length": 87
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UEModelBuilder > 生成Shader",
+    "section_title": "生成Shader",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=57 sample=由于StampUE修改可能需要重新生成shader时，可以选择已经生成编译发布的UE图层数据重新生成shader。",
+    "content_preview": "由于StampUE修改可能需要重新生成shader时，可以选择已经生成编译发布的UE图层数据重新生成shader。\n\n注：此功能也可以用StampUE前端完成。",
+    "content_length": 80
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "2）不支持自定义曲线 > UEModelBuilder > 数据处理",
+    "section_title": "数据处理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=注：由于模型处理需要用到DirectX，因此发布过程前需要取消“屏幕保护”和“电源节能”休眠设置，否则会出现黑面等现象。",
+    "content_preview": "模型工具的编译发布包括投影变换、编译发布和生成搜索数据三个阶段，进度条上方会显示当前阶段名称。\n\n注：由于模型处理需要用到DirectX，因此发布过程前需要取消“屏幕保护”和“电源节能”休眠设置，否则会出现黑面等现象。",
+    "content_length": 109
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ObliqueModelBuilder > 数据规范",
+    "section_title": "数据规范",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=14",
+    "content_preview": "倾斜数据类型的数据格式见下表：",
+    "content_length": 15
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ObliqueModelBuilder > 数据设置 > 数据管理",
+    "section_title": "数据管理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=注：3DTiles数据需要选择到*.json文件的上层目录，有多少个*.json文件就需要添加多少个目录。",
+    "content_preview": "添加目录：选择一个或个多个文件目录，支持子目录嵌套。\n\n注：3DTiles数据需要选择到*.json文件的上层目录，有多少个*.json文件就需要添加多少个目录。",
+    "content_length": 81
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ObliqueModelBuilder > 数据设置 > Level偏移",
+    "section_title": "Level偏移",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=43 sample=Level偏移到：允许自定义设置level偏移值，将倾斜数据偏移到指定level级别。",
+    "content_preview": "自动校正级别：天际航老版本修正后的倾斜数据起始级别是从0级开始，需要进行自动校正。\n\nLevel偏移值：允许自定义设置level偏移值将倾斜数据level进行偏移\n\nLevel偏移到：允许自定义设置level偏移值，将倾斜数据偏移到指定level级别。",
+    "content_length": 126
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "ObliqueModelBuilder > 数据设置 > 搜索数据",
+    "section_title": "搜索数据",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=生成搜索数据：倾斜单体多级模型发布时生成搜索数据，以支持Pick查询高亮闪烁或挂接属性。",
+    "content_preview": "生成搜索数据：倾斜单体多级模型发布时生成搜索数据，以支持Pick查询高亮闪烁或挂接属性。\n\n合并块搜索数据：倾斜单体多级模型发布时按块进行搜索数据合并，以提高搜索数据效率。",
+    "content_length": 86
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 数据规范 > 管线点表",
+    "section_title": "管线点表",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "记录管线特征和附属设施信息。",
+    "content_length": 14
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 数据规范 > 管线面表：",
+    "section_title": "管线面表：",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=9",
+    "content_preview": "记录管面得数据信息。",
+    "content_length": 10
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > 类型：附属物标准名称",
+    "section_title": "类型：附属物标准名称",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=78 sample=模型：选择对应的三维模型，格式支持*.usx和*.usb，如果需要附属物模型按照管径大小进行缩放，则需要在与附属物模型同",
+    "content_preview": "模型：选择对应的三维模型，格式支持*.usx和*.usb，如果需要附属物模型按照管径大小进行缩放，则需要在与附属物模型同名的XML文件。Xml文件格式如下：\n\n<?xml version=\"1.0\" encoding=\"gbk\"?>\n\n<ModelScale>\n\n<IsScale>True</IsScale>\n\n<IsRotate>True</IsRotate>\n\n<ScaleReferenceSize>300</ScaleReferenceSize>附属物比例1.0时对应的直径\n\n<IsAutoRotate>True</IsAutoRotate>//新增是否随管线方向自动旋转。\n\n<Need",
+    "content_length": 434
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > 井室纹理",
+    "section_title": "井室纹理",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "井室纹理支持的格式包括：",
+    "content_length": 12
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > 井盖纹理",
+    "section_title": "井盖纹理",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "井盖纹理支持的格式包括：",
+    "content_length": 12
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > 特征纹理",
+    "section_title": "特征纹理",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=11",
+    "content_preview": "特征纹理支持的格式包括：",
+    "content_length": 12
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > *.png，纹理尺寸必须是2的n次方",
+    "section_title": "*.png，纹理尺寸必须是2的n次方",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=13",
+    "content_preview": "一般可不设置，默认取管线纹理。",
+    "content_length": 15
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "PipelineBuilder > 材质设置 > 架空线颜色",
+    "section_title": "架空线颜色",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=12",
+    "content_preview": "设置电力高压架空线的颜色。",
+    "content_length": 13
+  },
+  {
+    "source": "StampTools用户手册.docx",
+    "section_path": "点云数据处理工具 > 数据规范",
+    "section_title": "数据规范",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=14",
+    "content_preview": "点云数据类型的数据格式见下表：",
+    "content_length": 15
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "2024年5月",
+    "section_title": "2024年5月",
+    "reason_code": "compact_too_short",
+    "detail": "compact_len=2",
+    "content_preview": "目录",
+    "content_length": 2
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "概述 > 显卡设置 > 禁用集成显卡",
+    "section_title": "禁用集成显卡",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=79 sample=笔记本电脑和部分台式电脑拥有双显卡（独立显卡和集成显卡），为了提高渲染效率必须从BIOS中禁用集成显卡，禁用方法可根据笔",
+    "content_preview": "笔记本电脑和部分台式电脑拥有双显卡（独立显卡和集成显卡），为了提高渲染效率必须从BIOS中禁用集成显卡，禁用方法可根据笔记本电脑或台式电脑主板型号从网上查询。\n\nThinkpad笔记本电脑的BIOS禁用方法如下图：",
+    "content_length": 107
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "概述 > 显卡设置 > 独立显卡设置",
+    "section_title": "独立显卡设置",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=69 sample=平滑处理：将平滑处理-模式设置为“置换人和应用程序设置”，平滑处理-设置建议中断显卡设为2x（2xMS）、高端显卡设置为",
+    "content_preview": "NVIDIA显卡的“3D设置”需要进行如下设置：\n\n各向异性过滤：建议中端显卡设置为4x，高端显卡设置为8x\n\n平滑处理：将平滑处理-模式设置为“置换人和应用程序设置”，平滑处理-设置建议中断显卡设为2x（2xMS）、高端显卡设置为4x（4xMS）。\n\n电源管理模式：设置为“最高性能优先”",
+    "content_length": 145
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "概述 > 推流启动",
+    "section_title": "推流启动",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=105 sample=运行渲染服务器上的启动脚本：\\SignallingWebServer\\platform_scripts\\cmd下的run",
+    "content_preview": "运行渲染服务器上的启动脚本：\\SignallingWebServer\\platform_scripts\\cmd下的run_local_1.bat、run_local_2.bat或run_local_3.bat。\n\n同一台电脑最多启动三个服务进程（即允许三用户并发访问）。\n\n注：推流服务的部署见StampServer部署手册\n\n渲染服务启动成功界面如下图所示：",
+    "content_length": 180
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "概述 > 基本操作 > 鼠标",
+    "section_title": "鼠标",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=惯性移动：按住鼠标左键快速移动鼠标后松开左键，3D地图将按照鼠标松开时的速度、方向和视觉惯性移动，再次点击鼠标左键停止。",
+    "content_preview": "利用鼠标左键、中键（滚轮）和右键可以实现三维地图平移、缩放、俯仰、旋转等基本操作。\n\n图 1-6 鼠标操作\n\n平移：按住鼠标左键，向任意方向拖动视窗，实现3D地图的移动。\n\n惯性移动：按住鼠标左键快速移动鼠标后松开左键，3D地图将按照鼠标松开时的速度、方向和视觉惯性移动，再次点击鼠标左键停止。\n\n缩放：按住鼠标鼠标中键将滚轮向前滚动实现放大，向后滚动实现缩小。\n\n双击放大：按住鼠标左键在3D视窗中某个位置双击，则3D地图将自动放大并飞行定位到该目标点，单击鼠标左键停止。\n\n俯仰：按住鼠标中键（滚轮）并向前移动鼠标实现以鼠标点为中心的向下俯视，向后移动鼠标实现以鼠标点为中心的向上仰视。\n\n旋转：",
+    "content_length": 400
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 飞行路径",
+    "section_title": "飞行路径",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=81 sample=“飞行路径”控制运动物体（飞机、汽车、摄像机等）在3D场景中按给定路径进行飞行浏览，主要功能包括：路径编辑、路径追加、视",
+    "content_preview": "“飞行路径”控制运动物体（飞机、汽车、摄像机等）在3D场景中按给定路径进行飞行浏览，主要功能包括：路径编辑、路径追加、视频录制和飞行控制，以及路径的导入和导出等。",
+    "content_length": 81
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 飞行路径 > 路径管理",
+    "section_title": "路径管理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=66 sample=导出路径：点击“导出”按钮，可将现在列表下的所有飞行路径以xml文件格式导出，并通过浏览器自动下载（提示不安全文件下载时",
+    "content_preview": "新建路径：设置飞行路径属性后鼠标在场景中鼠标左键点击依次绘制飞行点，系统根据飞行点组中飞行点的顺序生成三维曲线，右键结束绘制即完成新建路径。\n\n路径名称：飞行路径名称。\n\n轨迹名称：飞行路径的飞行点集名称\n\n对象：设置飞行路径的运动物体（摄像机、飞机、汽车等），\n\n提示：运动物体通过StampManage配置。\n\n朝向：运动物体相对飞行路径的水平夹角（0~360度）。以两个飞行点连线方向为0度，顺时针至360度。\n\n俯仰：运动物体相对飞行路径的纵向角度（-90~90度），以以两个飞行点连线方向为0度，向下为负，向上为正。\n\n高度：运动物体相对飞行路径的高度。\n\n速度：运动物体的飞行速度。\n\n光",
+    "content_length": 465
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 视点管理",
+    "section_title": "视点管理",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=导入：将已经存在的视点文件（*.xml）导入到当前视点列表中（以视点名为唯一标识）。",
+    "content_preview": "“视点管理”实现视点的分类管理、视点编辑、视点定位、视点导入和视点导出。\n\n新建目录：实现视点的分类管理；\n\n新建视点：实现当前场景摄像机姿态（位置、高度和俯仰）的保存。\n\n导入：将已经存在的视点文件（*.xml）导入到当前视点列表中（以视点名为唯一标识）。\n\n导出：将当前视点列表中的视点导出为视点文件（*.xml）。\n\n视点定位：双击视点列表下的视点，将以该视点保存的摄像机姿态进行FlyTo定位。\n\n视点编辑：在视点列表中以右键菜单方式实现当前目录或当前视点的属性编辑。\n\n视点删除：在视点列表中以右键菜单方式实现当前目录和当前视点的删除。",
+    "content_length": 273
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 地形透明",
+    "section_title": "地形透明",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=89 sample=“地形透明”通过拉杆条控制地形、地面模型（包括数据类型为Ground的单体模型图层和设置为地面模型的倾斜模型图层）的透明",
+    "content_preview": "“地形透明”通过拉杆条控制地形、地面模型（包括数据类型为Ground的单体模型图层和设置为地面模型的倾斜模型图层）的透明度，从而实现地下管线、地下建构筑物模型的可见、查询和分析。",
+    "content_length": 89
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 场景指北",
+    "section_title": "场景指北",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=“场景指北”实现三维场景自动旋转到北方向，右上角指北针同步指北。该功能的快捷键按钮为键盘按钮：“N”",
+    "content_preview": "“场景指北”实现三维场景自动旋转到北方向，右上角指北针同步指北。该功能的快捷键按钮为键盘按钮：“N”",
+    "content_length": 50
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "快捷菜单 > 屏幕录制",
+    "section_title": "屏幕录制",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=65 sample=“屏幕录制”实现鼠标操作三维场景的录屏功能，录屏时自动去掉各种菜单面板，录屏格式为*.mp4。录屏结果通过浏览器下载功能",
+    "content_preview": "“屏幕录制”实现鼠标操作三维场景的录屏功能，录屏时自动去掉各种菜单面板，录屏格式为*.mp4。录屏结果通过浏览器下载功能进行下载。",
+    "content_length": 65
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > GPSTrack",
+    "section_title": "GPSTrack",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=53 sample=“GPSTrack”实现车辆等运动对象的轨迹模拟或实时点位加载，包括：绘制轨迹、导入轨迹和播放控制等功能。",
+    "content_preview": "“GPSTrack”实现车辆等运动对象的轨迹模拟或实时点位加载，包括：绘制轨迹、导入轨迹和播放控制等功能。\n\n绘制轨迹：在三维场景中鼠标绘制一条路线，设置轨迹名称、运动速度、采样间隔和运动对象，以模拟运动对象的运动轨迹。\n\n导入轨迹：导入符合要求的excel格式轨迹数据，为每条轨迹设置运动对象，进行轨迹回放。\n\n轨迹数据格式：轨迹数据Excel表的第一行为轨迹字段名称，第二行开始记录轨迹点的获取时间、所属轨迹名称、所属轨迹类型和轨迹点坐标（X、Y、Z）。\n\n导入设置：选择符合要求的Excel表和配套的空间参考，然后进行字段映射和模型映射，其中模型映射可以选中三种方式：随机映射、统一设置一个对象",
+    "content_length": 475
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > GB28181",
+    "section_title": "GB28181",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=64 sample=“GB28181”实现基于GB28181协议的视频在线播放及与3D场景进行实时融合，让一个静态三维场景变成一个动态实时三",
+    "content_preview": "“GB28181”实现基于GB28181协议的视频在线播放及与3D场景进行实时融合，让一个静态三维场景变成一个动态实时三维场景。",
+    "content_length": 64
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 模型压平",
+    "section_title": "模型压平",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=131 sample=将3D地图中鼠标绘制的目标压平范围，右键停止绘制。选择压平范围面，压平按钮状态右灰色转为可点击状态，点击压平即可对选择范",
+    "content_preview": "点击“模型压平”按钮后弹出压平设置界面；\n\n不压平图层：可选择不参与压平图层；勾选上的图层不参与压平操作；\n\n基准高程：设置压平高程；点击拾取可拾取场景中地面高程；\n\n范围名称：设置所绘制的压平范围名称；\n\n将3D地图中鼠标绘制的目标压平范围，右键停止绘制。选择压平范围面，压平按钮状态右灰色转为可点击状态，点击压平即可对选择范围内的浏览模型（ModelLayer）或倾斜模型（ObliquePhotoLayer）压平至所设置的压平高程；点击“恢复”按钮则取消压平效果。",
+    "content_length": 235
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 瓦片配色",
+    "section_title": "瓦片配色",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=点击“瓦片配色”按钮则在3D视窗中弹出瓦片配色窗口，其功能是对矢量瓦片进行配色。",
+    "content_preview": "点击“瓦片配色”按钮则在3D视窗中弹出瓦片配色窗口，其功能是对矢量瓦片进行配色。\n\n配置图层：选择需要配色的矢量图层。\n\n符号系统：\n\n单一符号：根据单一符号为矢量配色。\n\n唯一值：根据唯一值为矢量配色。\n\n分段：根据字段分段为矢量配色。\n\n自定义：自定义为矢量配色。\n\n标注：在场景中为矢量图层标注属性。\n\n标注此图层中的要素：设置是否标注此图层中的要素。\n\n标注字段：设置需要标注的属性字段。\n\n放置属性：设置标注的放置属性。\n\n比例范围：设置标注的比例范围。",
+    "content_length": 232
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 楼块配色",
+    "section_title": "楼块配色",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=点击“楼块配色”按钮则在3D视窗中弹出楼块配色窗口，其功能是对矢量楼块进行配色。",
+    "content_preview": "点击“楼块配色”按钮则在3D视窗中弹出楼块配色窗口，其功能是对矢量楼块进行配色。\n\n配置图层：选择需要配色的矢量楼块图层。\n\n轮廓设置：\n\n透明度：设置矢量楼块轮廓的透明度。\n\n颜色：设置矢量楼块轮廓的颜色。\n\n宽度：设置矢量楼块轮廓的宽度。\n\n最大角度：设置矢量楼块轮廓的最大角度。\n\n顶部轮廓：勾选是否设置顶部轮廓。\n\n符号系统：\n\n统一：根据单一符号为矢量楼块配色。\n\n唯一值：根据唯一值为矢量楼块配色。\n\n分段：根据字段分段为矢量楼块配色。",
+    "content_length": 224
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 多屏显示",
+    "section_title": "多屏显示",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=提示1：推流若要多屏显示需启动多个推流exe服务。双屏需要启动两个，三屏需要启动三个服务。",
+    "content_preview": "点击“多屏显示”按钮则在左侧弹出多屏显示面板，其功能是实现多屏联动和多屏设置功能；最多支持三屏显示。\n\n提示1：推流若要多屏显示需启动多个推流exe服务。双屏需要启动两个，三屏需要启动三个服务。\n\n点击“双屏显示”按钮，3D视窗中分屏显示，选择“左边图层”按钮，在数据目录树中选择左屏显示的数据图层，选择“右边图层”按钮，在数据目录树中选择右屏显示的数据图层，双屏对比显示三维数据；\n\n点击“三屏显示”按钮，3D视窗分三屏显示，选择“左边图层”按钮，在数据目录树中选择左屏显示的数据图层，选择“中间图层”按钮，在数据目录树中选择中间屏幕显示的数据图层，选择“右边图层”按钮，在数据目录树中选择右边屏幕",
+    "content_length": 448
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 屏幕截图",
+    "section_title": "屏幕截图",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=60 sample=“屏幕截图”按钮则以当前姿态进行屏幕截图，其功能是将3D场景以当前屏幕分辨率自动截屏生成JPG图片并自动通过浏览器下载。",
+    "content_preview": "“屏幕截图”按钮则以当前姿态进行屏幕截图，其功能是将3D场景以当前屏幕分辨率自动截屏生成JPG图片并自动通过浏览器下载。",
+    "content_length": 60
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 草图浏览",
+    "section_title": "草图浏览",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=点击“草图浏览”按钮弹出草图管理面板，在功能面板设置草图显示的不同效果，其功能是实现3D场景中的草图的浏览。",
+    "content_preview": "点击“草图浏览”按钮弹出草图管理面板，在功能面板设置草图显示的不同效果，其功能是实现3D场景中的草图的浏览。",
+    "content_length": 54
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 路径漫游",
+    "section_title": "路径漫游",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=点击“路径漫游”按钮弹出路径漫游面板，其功能是实现特点路径在3D场景中的漫游控制。",
+    "content_preview": "点击“路径漫游”按钮弹出路径漫游面板，其功能是实现特点路径在3D场景中的漫游控制。\n\n新建路径：点击“新建”按钮，在弹出路径属性窗口中设置路径名称。\n\n漫游控制：对选中路径漫游进行播放/暂停、停止等控制\n\n添加节点：点击“添加”按钮后为选中路径新建漫游节点，及在节点列表属性窗口中为刚添加的节点设置节点属性。\n\n名称：节点名称。\n\n经度：节点所处经度。\n\n纬度：节点所处纬度。\n\n高程：节点所处高程。\n\n朝向：运动物体相对飞行路径的水平夹角（0~360度）。以两个飞行点连线方向为0度，顺时针至360度。\n\n俯仰：运动物体相对飞行路径的纵向夹角（-90~90度），以以两个飞行点连线方向为0度，向下为",
+    "content_length": 369
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "浏览 > 车流穿梭",
+    "section_title": "车流穿梭",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=118 sample=输入名称，选择模型资源后点击确定，鼠标变为绘制状态，在3D场景绘制车辆行驶路径，右键结束绘制；绘制完成后点击“播放”按钮",
+    "content_preview": "系统支持模拟城市道路车流穿梭效果。\n\n点击“车流穿梭”按钮，弹出车流路径功能面板；点击“新建路径”，弹出路径设置面板：\n\n名称：定义路径名称；\n\n穿梭类型：选择车辆穿梭类型，有单线行驶、来回行驶和循环行驶三种类型。\n\n车道宽度：定义车辆穿梭车道的宽度，默认3.6米；\n\n左车道数：设置左车道穿梭车辆数量，默认为2；\n\n左车道数：设置右车道穿梭车辆数量，默认为2；\n\n模型数量：设置路径上车辆穿梭的总数量，默认为10；\n\n模型资源：勾选选择绘制路径所需要的车辆资源。\n\n输入名称，选择模型资源后点击确定，鼠标变为绘制状态，在3D场景绘制车辆行驶路径，右键结束绘制；绘制完成后点击“播放”按钮，所有绘制路",
+    "content_length": 352
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "查询 > 属性查询",
+    "section_title": "属性查询",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=提示：3D场景中的所有对象（建筑、树、小品、管线、矢量等）均可以查询，属性有两种挂接方式",
+    "content_preview": "点击“属性查询”按钮后鼠标在三维场景中目标对象上进行点击查询对象属性。\n\n提示：3D场景中的所有对象（建筑、树、小品、管线、矢量等）均可以查询，属性有两种挂接方式\n\n编译发布方式：对象属性在编译发布时设置查询关键字段和需要挂接的属性字段，查询时通过键字段获取到目标属性的所有属性。该方式查询方式固定，属性无法实时更新。\n\n二维属性挂接方式：在StampManager中通过GIS服务给图层挂接二维数据库表（点、线或面），查询时首先通过编译发布时指定的关键字段获取到目标对象的key和mesh对象（用于高亮闪烁），然后通过key对二维数据库表进行二次查询获取到需要的属性。该方式相对灵活、属性更新方便。",
+    "content_length": 300
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "查询 > 圆域查询",
+    "section_title": "圆域查询",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=105 sample=在图层管理面板上选中需要查询的图层，然后点击“圆域查询”按钮后在左侧弹出圆域查询面板，在查询面板上点击“查询”按钮后鼠标",
+    "content_preview": "在图层管理面板上选中需要查询的图层，然后点击“圆域查询”按钮后在左侧弹出圆域查询面板，在查询面板上点击“查询”按钮后鼠标在3D场景中目标区域中心点绘制圆形区域进行查询，将返回目标图层中与圆相交或包含的所有对象。\n\n在查询结果记录上双击可进行目标对象飞行定位和高亮闪烁，如勾选“详细信息”复选框则同时显示目标对象的其余属性信息。",
+    "content_length": 163
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "查询 > 面域查询",
+    "section_title": "面域查询",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=109 sample=在图层管理面板上选中需要查询的图层，然后点击“面域查询”按钮后在左侧弹出面域查询面板，在查询面板上点击“查询”按钮后鼠标",
+    "content_preview": "在图层管理面板上选中需要查询的图层，然后点击“面域查询”按钮后在左侧弹出面域查询面板，在查询面板上点击“查询”按钮后鼠标在3D场景中目标区域绘制多边形（不支持自相交）进行查询，将返回目标图层中与多边形相交或包含的对象。\n\n在查询结果记录上双击可进行目标对象飞行定位和高亮闪烁，如勾选“详细信息”复选框则同时显示目标对象的其余属性信息。",
+    "content_length": 167
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "查询 > 坐标定位",
+    "section_title": "坐标定位",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=点击“坐标定位”按钮后在3D视窗左上角弹出坐标定位窗口，支持经纬度坐标和平面坐标两种方式进行定位。",
+    "content_preview": "点击“坐标定位”按钮后在3D视窗左上角弹出坐标定位窗口，支持经纬度坐标和平面坐标两种方式进行定位。\n\n提示：平面坐标定位原理：以StampManager中工程配置的空间参考，将输入的平面坐标实时投影变换为经纬度坐标后进行定位。",
+    "content_length": 113
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 通视分析",
+    "section_title": "通视分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=89 sample=点击“通视分析”按钮则在3D视窗左上角弹出通视分析窗口，点击“分析”按钮后鼠标在目标起点和各目标终点点击进行通视分析（绿",
+    "content_preview": "点击“通视分析”按钮则在3D视窗左上角弹出通视分析窗口，点击“分析”按钮后鼠标在目标起点和各目标终点点击进行通视分析（绿色为通视，红色为不可通视），支持对模型和地形进行通视分析。\n\n在通视分析后可以点击“显示高度”按钮后鼠标选中通视分析线，鼠标沿线移动可以查看鼠标当前位置的距地高度。\n\n起点高度：默认值为1.8米（身高）\n\n目标高度：默认值为0米，在目标点需要设置瞭望塔时可以设置为瞭望塔高度。\n\n提示：通视分析以服务端分析为主，也支持客户端添加进来的本地数据（如几何对象、添加的模型等），不可见图层不参与分析。",
+    "content_length": 257
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 视域分析",
+    "section_title": "视域分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=点击“视域分析”按钮则在3D视窗左上角弹出视域分析窗口，点击“分析”按钮后鼠标以目标起点向目标区域方向绘制视椎体进行视域",
+    "content_preview": "点击“视域分析”按钮则在3D视窗左上角弹出视域分析窗口，点击“分析”按钮后鼠标以目标起点向目标区域方向绘制视椎体进行视域分析。\n\n视角：视域分析的平面视角，默认值为53度（双眼有效范围）\n\n高度：视域分析的起点相对于地面的高度，默认值为1.8米（身高）\n\n可见区域：设置可见区域颜色\n\n不可见区域：设置不可见区域颜色\n\n提示：视域分析以服务端分析为主，也支持客户端添加进来的本地数据（如几何对象、添加的模型等），不可见图层不参与分析。",
+    "content_length": 217
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 控高分析",
+    "section_title": "控高分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=51 sample=点击“控高分析”按钮则在左侧弹出控高分析面板，点击“分析”按钮后再3D场景中绘制分析范围进行控高分析。",
+    "content_preview": "点击“控高分析”按钮则在左侧弹出控高分析面板，点击“分析”按钮后再3D场景中绘制分析范围进行控高分析。\n\n控高高度：生成控高面的高度\n\n控高面颜色：生成控高面的颜色\n\n面升降速度：控高面升降的速度\n\n违建颜色：违规建筑高亮显示的颜色",
+    "content_length": 116
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 开挖分析",
+    "section_title": "开挖分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=45 sample=点击“挖填方分析”按钮后在3D视窗左上角弹出挖填方分析窗口，设置各种参数后进行挖填方分析。",
+    "content_preview": "点击“挖填方分析”按钮后在3D视窗左上角弹出挖填方分析窗口，设置各种参数后进行挖填方分析。\n\n开挖数据源：支持两种方式：\n\n自定义开挖：用鼠标在3D场景目标区域绘制多边形（不支持自相交）\n\n按矢量面开挖：按导入的矢量面范围进行开挖（不支持多个矢量面，多个矢量面时只读取第一个矢量面）\n\n矢量面：设置矢量面（*.shp）的导入路径\n\n空间参考：导入矢量面的空间参考文件路径\n\n开挖方式：支持以下几种方式\n\n相对深度：相对于基准高程向下开挖的深度，该方式挖填方底面为平面。\n\n绝对高程：开挖到的绝对高程，该方式挖填方底面为平面\n\n矢量面高程：以矢量面各节点高程构建的空间面为开挖底面，该方式底面为三维空间",
+    "content_length": 448
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 开挖分析",
+    "section_title": "开挖分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=提示：开挖地面模型的原理是采用shader特效不绘制该范围内的地面模型，地面模型的三角面等没有发生变化。",
+    "content_preview": "提示：开挖地面模型的原理是采用shader特效不绘制该范围内的地面模型，地面模型的三角面等没有发生变化。",
+    "content_length": 52
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 退红线分析",
+    "section_title": "退红线分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=点击“退红线分析”按钮则在左侧弹出退红线分析面板，点击“分析”按钮后再3D场景中绘制分析范围进行退红线分析。",
+    "content_preview": "点击“退红线分析”按钮则在左侧弹出退红线分析面板，点击“分析”按钮后再3D场景中绘制分析范围进行退红线分析。\n\n退线距离：生成退红线的距离\n\n缓冲面颜色：生成的缓冲面的颜色",
+    "content_length": 86
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 天际线分析",
+    "section_title": "天际线分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=89 sample=点击“天际线分析”按钮后在3D视窗左上角弹出天际线分析窗口，点及分析后则会在场景中进行天际线分析；点击出图会将当前分析结",
+    "content_preview": "点击“天际线分析”按钮后在3D视窗左上角弹出天际线分析窗口，点及分析后则会在场景中进行天际线分析；点击出图会将当前分析结果以当前屏幕分辨率保存成.jpg图片并通过浏览器自动下载。",
+    "content_length": 89
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 动态视域",
+    "section_title": "动态视域",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=79 sample=点击“动态视域”按钮后在3D视窗左上角弹出动态视域窗口，点击“开始”按钮后鼠标在3D场景中绘制人或车的行进路线（折线），",
+    "content_preview": "点击“动态视域”按钮后在3D视窗左上角弹出动态视域窗口，点击“开始”按钮后鼠标在3D场景中绘制人或车的行进路线（折线），则开始按照设i定参数进行动态视域分析。\n\n分析过程中可以用鼠标以摄像机为中心进行左右摆动或上下俯仰。\n\n运动物体：一般设置人或车\n\n水平视角：分析的水平观察范围（默认值为人眼范围）\n\n垂直视角：分析的垂直观察范围（默认值为人眼范围）\n\n视域距离：分析的有效距离\n\n可见区域：设置可见区域颜色\n\n遮挡区域：设置部可见区域颜色\n\n相对路径：设置运动物体距离路线的相对高度\n\n相对模型：设置摄像机（人眼）距离模型下底面的相对高度\n\n运动速度：设置运动物体的前进速度\n\n循环观察：设置运动",
+    "content_length": 339
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 淹没分析",
+    "section_title": "淹没分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=点击“淹没分析”按钮后在3D视窗左上角弹出淹没分析窗口，设置各种参数后进行淹没分析。",
+    "content_preview": "点击“淹没分析”按钮后在3D视窗左上角弹出淹没分析窗口，设置各种参数后进行淹没分析。\n\n淹没方式：支持以下几种\n\n点源淹没：模拟局部区域积水效果\n\n流域淹没：模拟局部区段河流涨水效果，目前水面只支持平面\n\n面域淹没：模拟局部区域积水效果\n\n水底高程：水底地形高程值\n\n目标水深：水面距水底地形的相对深度\n\n淹没半径：点源淹没半径\n\n淹没面积：淹没范围投影面积\n\n播放频率：动态模拟时水面变化次数\n\n每次升高：动态模拟时每次变化水面升高的高度\n\n水面边界延伸到地面：设置水体四周是否生成面（以水底高程为基准）\n\n提示：淹没分析的淹没面积是由服务端对给定范围最高精度地形（Grid为display，TIN",
+    "content_length": 330
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 地形剖面",
+    "section_title": "地形剖面",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=67 sample=点击“地形剖面”按钮后在3D视窗左上角弹出地形剖面窗口，设置采样间距（值大小与分析距离和分析精度有关）后在3D场景中进行",
+    "content_preview": "点击“地形剖面”按钮后在3D视窗左上角弹出地形剖面窗口，设置采样间距（值大小与分析距离和分析精度有关）后在3D场景中进行地形剖面分析。\n\n在地形剖面分析窗口可以对剖面进行放大、缩小，并可以用鼠标对剖面进行左右移动，鼠标在剖面上移动可以显示当前点的具体坐标。",
+    "content_length": 128
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 日照分析",
+    "section_title": "日照分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=71 sample=点击“日照分析”按钮则在3D视窗左上角弹出日照分析窗口，点击“分析”按钮后鼠标选择目标建筑一楼目标窗台的中心点（或窗台两",
+    "content_preview": "点击“日照分析”按钮则在3D视窗左上角弹出日照分析窗口，点击“分析”按钮后鼠标选择目标建筑一楼目标窗台的中心点（或窗台两个端点）进行日照分析。\n\n分析日期：法定标准时间为大寒日或冬至，也可以选择自定义时间。\n\n自定义：自定义日照分析日期\n\n分析时间：分析日期当天的有效日照起止时间\n\n分析步长：日照分析的采样间距\n\n分析方式：窗台重点分析时选择窗台中心点，满窗日照时需要选择窗台两个端点\n\n统计方法：累计统计方式为累计当天符合要求的多个有效时间段之和，连续统计方式时取各有效时间段最长时间。\n\n累计方法：当统计方法为累计统计方式时累计所有效时间段、累计最长两个时间段和累计最长三个时间段。\n\n日照时间",
+    "content_length": 357
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 全局剖切",
+    "section_title": "全局剖切",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=70 sample=点击“全局剖切”按钮后鼠标在3D场景中目标位置点击出现剖切操作符，选择水平或纵向剖切箭头后，选中对应的移动面（水平面或垂",
+    "content_preview": "点击“全局剖切”按钮后鼠标在3D场景中目标位置点击出现剖切操作符，选择水平或纵向剖切箭头后，选中对应的移动面（水平面或垂直面）进行剖切移动。\n\n剖切过程中可以切换水平剖切或纵向剖切，水平剖切时通过旋转轴调整剖切面方向，可以选中水平面或垂直面移动剖切操作符。\n\n剖切过程中按住鼠标左键可以进行场景移动操作，按住鼠标中键可以对场景进行缩放。\n\n右键退出剖切状态。\n\n图层类型：选择参加剖切的图层类型，默认为全景即全部图层参加剖切\n\n水平箭头：选中呈黄色，进行水平剖切\n\n水平面：选中呈红色，沿水平箭头方向移动则向前或向后进行连续剖切。在剖切状态或非剖切状态时可以左右移动剖切操作符位置。\n\n圆：选中并沿圆",
+    "content_length": 392
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 局部剖切",
+    "section_title": "局部剖切",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=117 sample=点击“局部剖切”按钮后弹出局部剖切功能设置界面，选择水平或纵向剖切箭头后，点击剖切范围，鼠标在3D场景中绘制剖切范围面右",
+    "content_preview": "点击“局部剖切”按钮后弹出局部剖切功能设置界面，选择水平或纵向剖切箭头后，点击剖切范围，鼠标在3D场景中绘制剖切范围面右键结束绘制；点击开始分析，在3D场景中目标位置点击出现剖切操作符，选中对应的移动面（水平面或垂直面）进行剖切移动。\n\n剖切过程中按住鼠标左键可以进行场景移动操作，按住鼠标中键可以对场景进行缩放。\n\n右键退出剖切状态。",
+    "content_length": 168
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 等高线",
+    "section_title": "等高线",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=点击“等高线”按钮则在3D视窗左上角弹出等高线窗口，鼠标在3D场景目标区域绘制多边形进行等高线分析。",
+    "content_preview": "点击“等高线”按钮则在3D视窗左上角弹出等高线窗口，鼠标在3D场景目标区域绘制多边形进行等高线分析。\n\n提示：等高线分析原理是从服务端实时获取到当前场景DEM LOD级别下的DEM分析数据（TIN为analysis，Grid为display）到客户端进行分析的。",
+    "content_length": 131
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 地形路径",
+    "section_title": "地形路径",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=44 sample=点击“地形路径”按钮后在3D视窗左上角弹出地形路径窗口，设置各种参数后进行地形路径分析。",
+    "content_preview": "点击“地形路径”按钮后在3D视窗左上角弹出地形路径窗口，设置各种参数后进行地形路径分析。\n\n采样间距：设置地形路径分析的采样间距，其值与分析的距离相关：距离越远值应该越大。\n\n分析方式：根据地形坡度不同，支持以下三种方式\n\n最安全下山方式：上下坡度为20度\n\n最快上山路线：上下坡度为30度\n\n最短上山路线：上下坡度为90度，为最短路径\n\n上坡度：地形路径分析的上坡的最大角度\n\n下坡度：地形路径分析的下坡的最大角度\n\n路径颜色：设置地形路径分析结果的颜色",
+    "content_length": 228
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 开敞度分析",
+    "section_title": "开敞度分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=58 sample=点击“开敞度分析”按钮则弹出开敞度分析面板，选择显示方式，点击“分析”按钮后再3D场景中绘制分析范围进行开敞度分析。",
+    "content_preview": "点击“开敞度分析”按钮则弹出开敞度分析面板，选择显示方式，点击“分析”按钮后再3D场景中绘制分析范围进行开敞度分析。\n\n视点高度：观察视点生成的高度\n\n观察半径：观察分析的半径范围\n\n线框颜色：定义分析线框颜色\n\n填充颜色：定义可视/不可视区域填充颜色\n\n视点经度：视点所处经度\n\n视点纬度：视点所处纬度\n\n视点高程：视点所处高程",
+    "content_length": 165
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 坡度图",
+    "section_title": "坡度图",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=55 sample=点击“坡度图”按钮弹出坡度图参数设置窗口，设置坡度分段及颜色后鼠标在3D场景目标区域绘制多边形进行坡度图分析。",
+    "content_preview": "点击“坡度图”按钮弹出坡度图参数设置窗口，设置坡度分段及颜色后鼠标在3D场景目标区域绘制多边形进行坡度图分析。\n\n提示：坡度图分析原理是从服务端实时获取到当前场景DEM LOD级别下的DEM分析数据（TIN为analysis，Grid为display）到客户端进行分析的。",
+    "content_length": 136
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 汇水分析",
+    "section_title": "汇水分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=42 sample=点击“汇水分析”按钮弹出汇水分析窗口，鼠标在3D场景目标区域绘制多边形进行汇水分析。",
+    "content_preview": "点击“汇水分析”按钮弹出汇水分析窗口，鼠标在3D场景目标区域绘制多边形进行汇水分析。\n\n提示：汇水分析原理是从服务端实时获取到当前场景DEM LOD级别下的DEM分析数据（TIN为analysis，Grid为display）到客户端进行分析的。",
+    "content_length": 122
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "分析 > 视野分析",
+    "section_title": "视野分析",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=57 sample=点击“视野分析”按钮后弹出视野分析窗口，点击“分析”按钮后鼠标在3D场景目标观察点和视野观察方向点击进行视野观察。",
+    "content_preview": "点击“视野分析”按钮后弹出视野分析窗口，点击“分析”按钮后鼠标在3D场景目标观察点和视野观察方向点击进行视野观察。\n\n进入视野观察状态后，鼠标可以进行左右移动和上下俯仰模拟视野观察，右键退出视野观察状态。\n\n提示：视野观察一般用于模拟从某制高点向某方向观察所能见到的物体对象，或者用于直观模拟某重要位置四周建筑物或山体等对视野的遮挡情况",
+    "content_length": 168
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "量算 > 水平距离",
+    "section_title": "水平距离",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=46 sample=点击“水平距离”按钮后，在3D场景目标点点击进行量算，场景中显示每个节点至首节点的距离总合。",
+    "content_preview": "点击“水平距离”按钮后，在3D场景目标点点击进行量算，场景中显示每个节点至首节点的距离总合。\n\n提示：红色为测量线，黄色为辅助线。",
+    "content_length": 65
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "量算 > 地表距离",
+    "section_title": "地表距离",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=86 sample=提示：地表距离是通过服务端se_analyse基于最高地形精度数据计算返回给客户端，GRID地形数据是通过display",
+    "content_preview": "点击“地表距离”按钮，在3D场景目标点点击进行两点地表距离量算。\n\n提示：地表距离是通过服务端se_analyse基于最高地形精度数据计算返回给客户端，GRID地形数据是通过display数据计算，TIN数据是通过analysis数据计算。",
+    "content_length": 120
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "量算 > 地表面积",
+    "section_title": "地表面积",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=86 sample=提示：地表面积是通过服务端se_analyse基于最高地形精度数据计算返回给客户端，GRID地形数据是通过display",
+    "content_preview": "点击“地表面积”按钮，在3D场景目标区域进行地表面积量算。\n\n提示：地表面积是通过服务端se_analyse基于最高地形精度数据计算返回给客户端，GRID地形数据是通过display数据计算，TIN数据是通过analysis数据计算。",
+    "content_length": 117
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 动态特效",
+    "section_title": "动态特效",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=49 sample=点击“动态特效”按钮弹出动态特效面板，在面板上选中某一个特效后鼠标在3D场景目标位置点击添加特效。",
+    "content_preview": "点击“动态特效”按钮弹出动态特效面板，在面板上选中某一个特效后鼠标在3D场景目标位置点击添加特效。\n\n特效添加后可以进行对象编辑：移动、旋转、缩放等操作。\n\n火：在三维场景中放置火，在弹出界面上设置参数；\n\n烟：在三维场景中放置烟，在弹出界面上设置参数；\n\n蒸汽：在三维场景中放置蒸汽，在弹出界面上设置参数；\n\n火花：在三维场景中放置火花，在弹出界面上设置参数；\n\n烟花：在三维场景中放置烟花，在弹出界面上设置参数；\n\n大烟花：在三维场景中放置大烟花，在弹出界面上设置参数；\n\n喷泉：在三维场景中放置喷泉，在弹出界面上设置参数；\n\n瀑布：在三维场景中放置瀑布，在弹出界面上设置参数；\n\n直流水枪：在三",
+    "content_length": 500
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 二维标绘",
+    "section_title": "二维标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=57 sample=点击“二维标绘”按钮则在左侧弹出二维对象绘制面板，在面板上选中某一个二维对象后鼠标在3D场景目标位置添加二维对象。",
+    "content_preview": "点击“二维标绘”按钮则在左侧弹出二维对象绘制面板，在面板上选中某一个二维对象后鼠标在3D场景目标位置添加二维对象。\n\n符号标注\n\n符号标注参数含义如下：\n\n名称：对象名称\n\n图标：正常显示的图标\n\n高亮图标：鼠标移到标注上后的高亮图标\n\n文字大小：设置文字大小\n\n文字颜色：设置文字颜色\n\n透明度：设置文字透明度\n\n显示背景：设置文字标注是否添加背景\n\n背景颜色：显示背景为“是”时生效，设置背景颜色\n\n显示背景框：设置文字标注是否添加背景框\n\n边框透明度：设置背景框透明度\n\n边框颜色：设置背景框颜色\n\n显示指示线：设置是否显示指示线\n\n指示线长度：设置显示指示线长度\n\n指示线颜色：设置指示线颜色",
+    "content_length": 484
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 二维标绘",
+    "section_title": "二维标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=点击“导入点”按钮弹出导入参数设置框，选择一个SHP点文件，设置各项参数导入到场景中。主要参数含义如下：",
+    "content_preview": "可编辑：设置对象是否可以进行编辑\n\n描述：设置对象的描述信息\n\n动态水面\n\n点击“动态水面”弹出属性设置面板，主要参数含义如下：\n\n名称：设置对象名称\n\n可选择性：设置对象是否可以被选中\n\n可编辑：设置对象是否可以进行编辑\n\n描述：设置对象的描述信息\n\n点击确定按钮后鼠标在3D场景中绘制水面范围，右键结束绘制，完成添加动态水面。\n\n导入点\n\n点击“导入点”按钮弹出导入参数设置框，选择一个SHP点文件，设置各项参数导入到场景中。主要参数含义如下：\n\n矢量点文件：选择要导入的矢量点文件（同时选中.shp及.dbf）\n\n空间参考：选择数据空间参考文件\n\n名称字段：选择要用来标注显示的字段\n\n样式设置",
+    "content_length": 469
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 二维标绘",
+    "section_title": "二维标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=52 sample=点击“导入线”按钮弹出导入参数设置框，选择一个SHP线文件，设置各项参数导入到场景中。主要参数含义如下：",
+    "content_preview": "设置完参数点击确定后，矢量点数据开始导入，导入完成后矢量点对象会显示在二维对象列表下。\n\n导入线\n\n点击“导入线”按钮弹出导入参数设置框，选择一个SHP线文件，设置各项参数导入到场景中。主要参数含义如下：\n\n矢量线文件：设置导入矢量线文件的路径\n\n空间参考：设置导入线文件的空间参考文件路径\n\n名称字段：以设置字段的值域作为每个对象的名称\n\n样式设置：\n\n透明度：设置线对象的透明度（0-255，透明至不透明）\n\n统一设置样式：统一设置线宽和线颜色\n\n按属性设置：按选择字段的值域设置线宽和线颜色\n\n导入面\n\n点击“导入面”按钮弹出导入参数设置框，选择一个SHP面文件，设置各项参数导入到场景中。主要",
+    "content_length": 483
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 二维标绘",
+    "section_title": "二维标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=设置导出数据类型和存储路径等参数后，按照设定的空间参考导出为SHP数据，并自动通过浏览器下载至本地。",
+    "content_preview": "统一样式设置：统一设置\n\n按属性设置：支持按照属性设置文字样式及图标。\n\n导出SHP\n\n设置导出数据类型和存储路径等参数后，按照设定的空间参考导出为SHP数据，并自动通过浏览器下载至本地。",
+    "content_length": 94
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 三维标绘",
+    "section_title": "三维标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=点击“添加模型”按钮后弹出属性设置窗口，鼠标在3D场景目标位置点击，然后在弹出窗口中设置模型路径即可将模型添加到鼠标点击",
+    "content_preview": "点击“添加模型”按钮后弹出属性设置窗口，鼠标在3D场景目标位置点击，然后在弹出窗口中设置模型路径即可将模型添加到鼠标点击位置。\n\n名称：模型的名称，默认“model”\n\n模型文件：添加的usb格式的模型文件（*.usb或*.usx）\n\n纹理路径：选择模型文件纹理所在的路径，上传纹理至服务器\n\n可选择性：设置对象是否可以被选中\n\n可编辑：设置对象是否可以进行编辑\n\n描述：添加模型的文字性描述",
+    "content_length": 196
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 几何标绘",
+    "section_title": "几何标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=54 sample=点击“添加球体”弹出参数设置界面，在界面设置相关参数后鼠标右键在3D场景常按拉伸绘制球体，松开鼠标完成绘制。",
+    "content_preview": "球体\n\n点击“添加球体”弹出参数设置界面，在界面设置相关参数后鼠标右键在3D场景常按拉伸绘制球体，松开鼠标完成绘制。\n\n界面主要参数含义如下：\n\n名称：球的名称\n\n球半径：球体的半径，单位米，默认值为5\n\n填充色：球体填充的颜色，16进制\n\n透明度：球体的透明度，0是完全透明，255是不透明\n\n侧壁材质：选择球体的侧壁材质图片文件\n\n提示：最后绘制球体上的纹理石填充色、侧壁材质混合后的效果。\n\n可选择性：针对“编辑”菜单下的“选择”功能是否可用，默认是\n\n可编辑：针对“编辑”菜单下的编辑功能是否可用，默认是\n\n描述：球体的文字性描述\n\n立方体\n\n点击“添加立方体”弹出参数设置界面，在界面设置相",
+    "content_length": 475
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 军事标绘",
+    "section_title": "军事标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=64 sample=点击“简单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景沿目标路径点击多个控制点，点击右键结束后完成绘",
+    "content_preview": "简单箭头\n\n点击“简单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景沿目标路径点击多个控制点，点击右键结束后完成绘制箭头。\n\n名称：简单箭头的名称，默认为“sArrow”\n\n线颜色：简单箭头外框线的显示颜色，16进制\n\n线透明度：设置简单箭头外框线的透明度，0是完全透明，255是不透明。\n\n线宽：简单箭头外框线的宽度，单位为像素\n\n填充色：简单箭头填充的颜色，16进制\n\n透明度：简单箭头的透明度，0是完全透明，255是不透明\n\n渲染模式：可选择所画的简单箭头是帖地显示、正常显示、还是帖在模型上\n\n渲染顺序：简单箭头的渲染显示顺序，数值越大渲染显示级别越优先，默认值0\n\n可选择",
+    "content_length": 500
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 军事标绘",
+    "section_title": "军事标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=83 sample=点击“简单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置点击两个点定义箭身宽度，然后沿目标路",
+    "content_preview": "自定义箭头\n\n点击“简单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置点击两个点定义箭身宽度，然后沿目标路径定义多个控制点，点击右键结束后完成绘制箭头。\n\n自定义燕尾箭头\n\n点击“自定义燕尾箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置点击两个点定义箭身宽度，然后沿目标路径定义多个控制点，点击右键结束后完成绘制箭头。\n\n双箭头\n\n点击“双箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置点击两个点定义箭头尾部宽度，然后依次在目标位置定义右侧箭头和左侧箭头终点，点击右键结束后完成绘制箭头。。\n\n多箭头\n\n点击“多箭头",
+    "content_length": 497
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 军事标绘",
+    "section_title": "军事标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=97 sample=点击“直角旗标”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景目标位置点击定义旗标位置；向屏幕上方移动鼠标点",
+    "content_preview": "直角旗标\n\n点击“直角旗标”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景目标位置点击定义旗标位置；向屏幕上方移动鼠标点击鼠标左键定义旗标高度，然后移动鼠标左键至目标位置点击定义旗子宽度和方位。\n\n三角旗标\n\n点击“三角旗标”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景目标位置点击定义旗标位置；向屏幕上方移动鼠标点击鼠标左键定义旗标高度，然后移动鼠标左键至目标位置点击定义旗子宽度和方位。\n\n曲线旗标\n\n点击“曲线旗标”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景目标位置点击定义旗标位置；向屏幕上方移动鼠标点击鼠标左键定义旗标高度，然后移动鼠标左键至目标位",
+    "content_length": 485
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "标绘 > 军事标绘",
+    "section_title": "军事标绘",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=72 sample=点击“虚线单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置依次点击定义多个控制点，点击右键结",
+    "content_preview": "虚线单箭头\n\n点击“虚线单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置依次点击定义多个控制点，点击右键结束后完成绘制虚线单箭头。\n\n虚线双箭头\n\n点击“虚线双箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置依次点击定义多个控制点，点击右键结束后完成绘制虚线双箭头。\n\n曲线双箭头\n\n点击“曲线双箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置依次点击定义多个控制点，点击右键结束后完成绘制曲线双箭头。\n\n虚线多边形\n\n点击“虚线多边形”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中目标位置依次点击定义多",
+    "content_length": 322
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 选择",
+    "section_title": "选择",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=41 sample=“选择”按钮，鼠标在3D场景中点选或框选一个或多个对象，被选中对象显示白色包围盒。",
+    "content_preview": "点击 “选择”按钮，鼠标在3D场景中点选或框选一个或多个对象，被选中对象显示白色包围盒。",
+    "content_length": 44
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 移动",
+    "section_title": "移动",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=76 sample=点击“移动”按钮，鼠标在3D场景中选中目标对象，被选中对象集的底面中心点出现三维移动轴（被选中对象显示白色包围盒），并在",
+    "content_preview": "点击“移动”按钮，鼠标在3D场景中选中目标对象，被选中对象集的底面中心点出现三维移动轴（被选中对象显示白色包围盒），并在3D视窗左上角弹出精确移动窗口。\n\n支持直接用鼠标移动对象，也支持在在精确移动窗口中输入数值进行精确移动。\n\n直接用鼠标移动时，鼠标选中轴时则沿轴移动，选中轴平面时则可以在该轴平面进行任意移动。",
+    "content_length": 157
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 旋转",
+    "section_title": "旋转",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=79 sample=点击“旋转”按钮，在3D场景中用鼠标左键选中目标对象，被选中对象集底面中心点出现三维旋转轴（被选中对象会显示白色包围盒）",
+    "content_preview": "点击“旋转”按钮，在3D场景中用鼠标左键选中目标对象，被选中对象集底面中心点出现三维旋转轴（被选中对象会显示白色包围盒），同时3D视窗左上角弹出精确旋转窗口。\n\n支持直接用鼠标旋转对象（沿选中轴旋转），也支持在在精确旋转窗口中输入数值进行精确旋转。",
+    "content_length": 124
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 缩放",
+    "section_title": "缩放",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=76 sample=点击“缩放”按钮，鼠标在3D场景中选中目标对象，被选中对象集的底面中心点出现三维缩放轴（被选中对象显示白色包围盒），并在",
+    "content_preview": "点击“缩放”按钮，鼠标在3D场景中选中目标对象，被选中对象集的底面中心点出现三维缩放轴（被选中对象显示白色包围盒），并在3D视窗左上角弹出精确缩放窗口。\n\n支持直接用鼠标缩放对象，也支持在在精确缩放窗口中输入数值进行精确缩放。\n\n直接用鼠标缩放时，鼠标选中轴时则对对象沿轴方向进行缩放，选中轴平面时则对对象在该轴平面方向进行缩放，选中三轴斜面时则对对象进行整体缩放。",
+    "content_length": 183
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 删除",
+    "section_title": "删除",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=59 sample=“选择”按钮，鼠标在3D场景中点选或框选一个或多个对象，被选中对象显示白色包围盒；点击“删除”按钮，选中的对象被删除。",
+    "content_preview": "点击 “选择”按钮，鼠标在3D场景中点选或框选一个或多个对象，被选中对象显示白色包围盒；点击“删除”按钮，选中的对象被删除。",
+    "content_length": 62
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 移动顶点",
+    "section_title": "移动顶点",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=100 sample=“移动顶点”按钮，在3D场景中鼠标选中目标对象（显示全部顶点），鼠标左键选中顶点则出现三维移动轴。鼠标左键点击选中移动轴",
+    "content_preview": "点击 “移动顶点”按钮，在3D场景中鼠标选中目标对象（显示全部顶点），鼠标左键选中顶点则出现三维移动轴。鼠标左键点击选中移动轴，按住鼠标拖动移动轴至目标位置。如下图所示，右图是左图中三维对象移动顶点的效果。\n\n提示：移动顶点只支持标绘中几何对象、二维对象、部分标绘对象",
+    "content_length": 134
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 增加顶点",
+    "section_title": "增加顶点",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=87 sample=点击“增加顶点”按钮，在3D场景中用鼠标左键选中目标对象（显示全部顶点），鼠标左键在目标线段（几何对象为下底边）上点击并",
+    "content_preview": "点击“增加顶点”按钮，在3D场景中用鼠标左键选中目标对象（显示全部顶点），鼠标左键在目标线段（几何对象为下底边）上点击并按住鼠标左键移动到新的目标位置，放开鼠标左键增加顶点。\n\n提示：顶点编辑只支持标绘中几何对象、二维对象",
+    "content_length": 111
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 删除顶点",
+    "section_title": "删除顶点",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=50 sample=“删除顶点”按钮，在3D场景中用鼠标左键选中对象（显示全部顶点），鼠标左键点击目标顶点则删除该顶点。",
+    "content_preview": "点击 “删除顶点”按钮，在3D场景中用鼠标左键选中对象（显示全部顶点），鼠标左键点击目标顶点则删除该顶点。\n\n提示：删除顶点只支持标绘中几何对象、二维对象、部分标绘对象",
+    "content_length": 84
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 贴地",
+    "section_title": "贴地",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=点击“贴地”按钮，在3D视窗中用鼠标左键选中对象，选中的所有对象自动贴到地形上。",
+    "content_preview": "点击“贴地”按钮，在3D视窗中用鼠标左键选中对象，选中的所有对象自动贴到地形上。",
+    "content_length": 40
+  },
+  {
+    "source": "StampWebRTC用户手册.docx",
+    "section_path": "编辑 > 克隆",
+    "section_title": "克隆",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=63 sample=点击“克隆”按钮，在3D视窗中用鼠标左键选中目标对象，则在原对象位置复制新的对象，并自动以原对象名称加上Clone命名新",
+    "content_preview": "点击“克隆”按钮，在3D视窗中用鼠标左键选中目标对象，则在原对象位置复制新的对象，并自动以原对象名称加上Clone命名新对象。",
+    "content_length": 63
+  },
+  {
+    "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+    "section_path": "文章目录",
+    "section_title": "文章目录",
+    "reason_code": "mixed_script_line",
+    "detail": "ascii=5 cjk=48 other=4",
+    "content_preview": "1.MySQL 数据类型\n\n1.1 数值类型\n\n1.2 字符串类型\n\n1.3 日期时间类型\n\n1.4 ENUM 与 SET（单选/多选）\n\n2.MySQL 表约束\n\n2.1 NOT NULL 非空\n\n2.2 DEFAULT 默认值\n\n2.3 COMMENT 字段注释\n\n2.4 ZEROFILL 补零\n\n2.5 PRIMARY KEY 主键\n\n2.6 AUTO_INCREMENT 自增长\n\n2.7 UNIQUE 唯一键\n\n2.8 FOREIGN KEY 外键\n\n希望读者们多多三连支持\n\n小编会继续更新\n\n你们的鼓励就是我前进的动力！\n\nMySQL 设计表结构时，数据类型选得对、约束用得好 ，表结",
+    "content_length": 333
+  },
+  {
+    "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+    "section_path": "2.MySQL 表约束",
+    "section_title": "2.MySQL 表约束",
+    "reason_code": "single_short_line",
+    "detail": "compact_len=15",
+    "content_preview": "约束 = 保证数据合法、不乱、不重复、不空。",
+    "content_length": 22
+  },
+  {
+    "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+    "section_path": "2.MySQL 表约束 > 2.8 FOREIGN KEY 外键",
+    "section_title": "2.8 FOREIGN KEY 外键",
+    "reason_code": "mixed_script_token",
+    "detail": "token_len=40 sample=mysql表之间的约束关系，那么当用户插入不符合业务逻辑的数据的时候，mysql",
+    "content_preview": "保证关联表数据合法性，防止无效关联。外键用于定义主表和从表之间的关系：外键约束主要定义在从表上，主表则必须是有主键约束或 unique 约束。当定义外键后，要求外键列数据必须在主表的主键列存在或为 null\n\nforeign key (class_id) references myclass(id)\n\n在这里插入图片描述\n\n建立外键的本质其实就是把相关性交给 mysql 去审核了，提前告诉 mysql表之间的约束关系，那么当用户插入不符合业务逻辑的数据的时候，mysql 不允许你插入",
+    "content_length": 244
+  }
+]

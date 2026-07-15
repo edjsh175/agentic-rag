@@ -103,6 +103,16 @@ def _parts(chunk: dict) -> tuple[str, str, str, str, str, dict]:
 
 
 class SectionPathExtractor:
+    """Extract Document / Section hierarchy and catalog-backed business entities.
+
+    Section hierarchy policy (Round-1):
+    - Create one Section node for every prefix of section_path (">"-separated).
+    - Document --has_section--> only the first-level Section.
+    - Parent Section --has_section--> child Section for deeper levels.
+    - evidence links attach to every Section prefix (same chunk), so graph
+      expansion can resolve intermediate nodes; defined_in still targets the leaf.
+    """
+
     def __init__(self, catalog: DomainCatalogLoader | None = None):
         self.catalog = catalog or DomainCatalogLoader()
 
@@ -113,12 +123,38 @@ class SectionPathExtractor:
         evidence = path or content[:500]
 
         document_name = source.strip()
-        section_name = make_section_entity_name(source, path) if source and path else ""
         if document_name:
             result.entities.append(EntityCandidate(document_name, "Document", category, source_chunk_id=chunk_id, evidence_text=evidence))
-        if section_name:
-            result.entities.append(EntityCandidate(section_name, "Section", category, {"section_path": path}, chunk_id, evidence))
-            result.relations.append(RelationCandidate(document_name, "has_section", section_name, chunk_id, evidence))
+
+        section_names: list[str] = []
+        if source and parts:
+            for depth in range(1, len(parts) + 1):
+                prefix_path = " > ".join(parts[:depth])
+                section_name = make_section_entity_name(source, prefix_path)
+                section_names.append(section_name)
+                result.entities.append(
+                    EntityCandidate(
+                        section_name,
+                        "Section",
+                        category,
+                        {"section_path": prefix_path},
+                        chunk_id,
+                        evidence,
+                    )
+                )
+                result.links.append(
+                    ChunkLinkCandidate(section_name, chunk_id, section_path=path, source=source, evidence_text=evidence)
+                )
+            # Document only links to the first-level Section.
+            result.relations.append(
+                RelationCandidate(document_name, "has_section", section_names[0], chunk_id, evidence)
+            )
+            for parent_name, child_name in zip(section_names, section_names[1:]):
+                result.relations.append(
+                    RelationCandidate(parent_name, "has_section", child_name, chunk_id, evidence)
+                )
+
+        leaf_section = section_names[-1] if section_names else ""
 
         product = self.catalog.product_for_category(category)
         if product:
@@ -138,7 +174,7 @@ class SectionPathExtractor:
         for index, part in enumerate(parts[:-1]):
             if part in DATA_SPEC_KEYWORDS:
                 for candidate in parts[index + 1 :]:
-                    if candidate.endswith("表"):
+                    if candidate.endswith("表") and not candidate.endswith("数据结构"):
                         table_name = candidate
                         break
                 break
@@ -153,12 +189,95 @@ class SectionPathExtractor:
             business_names.append(table_name)
         if document_name:
             result.links.append(ChunkLinkCandidate(document_name, chunk_id, section_path=path, source=source, evidence_text=evidence))
-        if section_name:
-            result.links.append(ChunkLinkCandidate(section_name, chunk_id, section_path=path, source=source, evidence_text=evidence))
         for name in business_names:
-            if section_name:
-                result.relations.append(RelationCandidate(name, "defined_in", section_name, chunk_id, evidence))
+            if leaf_section:
+                result.relations.append(RelationCandidate(name, "defined_in", leaf_section, chunk_id, evidence))
             result.links.append(ChunkLinkCandidate(name, chunk_id, section_path=path, source=source, evidence_text=evidence))
+        return result
+
+
+_TABLE_SEGMENT_RE = re.compile(r".+(点表|线表|面表)$")
+_STRUCTURE_SEGMENT_RE = re.compile(r".*(点表?数据结构|线表?数据结构|面表?数据结构)$")
+
+
+def _dataspec_kind(name: str) -> str | None:
+    """Map 点/线/面 naming in table or structure segments to a pairing key.
+
+    Prefer suffix markers so names like ``管线面表`` resolve to 面, not 线.
+    """
+    for kind in ("点", "线", "面"):
+        if name.endswith(f"{kind}表") or name.endswith(f"{kind}数据结构") or name.endswith(f"{kind}表数据结构"):
+            return kind
+    for kind in ("点", "线", "面"):
+        if f"{kind}表" in name or f"{kind}数据" in name:
+            return kind
+    return None
+
+
+class DataSpecTableRelationExtractor:
+    """Pattern rules linking DataTable entities to structure Sections under 数据规范.
+
+    Creates ``DataTable --has_section--> Section`` when the same section_path
+    contains a *点表/*线表/*面表 segment and a matching *数据结构 leaf. Does not
+    invent edges between sibling tables.
+    """
+
+    def extract(self, chunk: dict, context: ExtractionResult | None = None) -> ExtractionResult:
+        chunk_id, content, source, category, path, metadata = _parts(chunk)
+        result = ExtractionResult()
+        parts = [part.strip() for part in path.split(">") if part.strip()]
+        if not source or not parts:
+            return result
+        if not any(part in DATA_SPEC_KEYWORDS for part in parts):
+            return result
+
+        table_indexes = [
+            (index, part) for index, part in enumerate(parts)
+            if _TABLE_SEGMENT_RE.match(part) and not part.endswith("数据结构")
+        ]
+        structure_indexes = [
+            (index, part) for index, part in enumerate(parts)
+            if _STRUCTURE_SEGMENT_RE.match(part)
+        ]
+        if not table_indexes or not structure_indexes:
+            return result
+
+        evidence = path or content[:500]
+        for table_index, table_name in table_indexes:
+            table_kind = _dataspec_kind(table_name)
+            if not table_kind:
+                continue
+            for structure_index, structure_part in structure_indexes:
+                if structure_index <= table_index:
+                    continue
+                if _dataspec_kind(structure_part) != table_kind:
+                    continue
+                structure_path = " > ".join(parts[: structure_index + 1])
+                structure_section = make_section_entity_name(source, structure_path)
+                if not any(item.name == table_name and item.entity_type == "DataTable" for item in (context.entities if context else [])):
+                    result.entities.append(
+                        EntityCandidate(table_name, "DataTable", category, source_chunk_id=chunk_id, evidence_text=evidence)
+                    )
+                if not any(item.name == structure_section and item.entity_type == "Section" for item in (context.entities if context else [])):
+                    result.entities.append(
+                        EntityCandidate(
+                            structure_section,
+                            "Section",
+                            category,
+                            {"section_path": structure_path},
+                            chunk_id,
+                            evidence,
+                        )
+                    )
+                result.relations.append(
+                    RelationCandidate(table_name, "has_section", structure_section, chunk_id, evidence)
+                )
+                result.links.append(
+                    ChunkLinkCandidate(table_name, chunk_id, section_path=path, source=source, evidence_text=evidence)
+                )
+                result.links.append(
+                    ChunkLinkCandidate(structure_section, chunk_id, section_path=path, source=source, evidence_text=evidence)
+                )
         return result
 
 
@@ -288,7 +407,8 @@ class CandidateNormalizer:
 
 
 __all__ = [
-    "CandidateNormalizer", "ChunkLinkCandidate", "ConfigBlockExtractor", "EntityCandidate",
+    "CandidateNormalizer", "ChunkLinkCandidate", "ConfigBlockExtractor",
+    "DataSpecTableRelationExtractor", "EntityCandidate",
     "ExtractionDiagnostic", "ExtractionResult", "FieldCandidate",
     "RelationCandidate", "SectionPathExtractor", "TableFieldExtractor",
 ]

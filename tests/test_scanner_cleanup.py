@@ -192,6 +192,34 @@ class ScannerCleanupTests(unittest.TestCase):
             self.assertIn("new", scanner._index["files"])
             self.assertNotIn("old", scanner._index["files"])
 
+    def test_load_index_migrates_v1_profile_defaults_and_persists_v2(self):
+        module = _load_scanner_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            index_path = base / "file_index.json"
+            index_path.write_text(
+                '{"version":1,"files":{"old":{"file_path":"a.docx"}}}',
+                encoding="utf-8",
+            )
+
+            scanner = module.DirectoryScanner(
+                cfg=SimpleNamespace(
+                    data_dir=base,
+                    watch_dir=base,
+                    watch_file_types=["docx"],
+                    scan_interval=30,
+                ),
+                loader=MagicMock(),
+                index_path=index_path,
+            )
+
+            entry = scanner._index["files"]["old"]
+            persisted = __import__("json").loads(index_path.read_text(encoding="utf-8"))
+            self.assertEqual(scanner._index["version"], 2)
+            self.assertEqual(entry["document_profile"], "section_based")
+            self.assertEqual(entry["chunk_policy_id"], "")
+            self.assertEqual(persisted["version"], 2)
+
     def test_collect_files_filters_temporary_and_hidden_files(self):
         module = _load_scanner_module()
         scanner = object.__new__(module.DirectoryScanner)

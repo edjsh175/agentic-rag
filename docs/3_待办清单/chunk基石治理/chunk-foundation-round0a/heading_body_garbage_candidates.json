@@ -1,0 +1,1602 @@
+[
+  {
+    "id": "heading-0001",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > CD/DVD设置",
+    "text": "CD/DVD设置",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0002",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim /etc/selinux/config",
+    "text": "vim /etc/selinux/config",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0003",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim  /etc/fstab",
+    "text": "vim  /etc/fstab",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0004",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim ~/.bashrc",
+    "text": "vim ~/.bashrc",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0005",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > net.ipv4.tcp_tw_reuse = 1",
+    "text": "net.ipv4.tcp_tw_reuse = 1",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0006",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > name= BaseOS",
+    "text": "name= BaseOS",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0007",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > name= AppStream",
+    "text": "name= AppStream",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0008",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > enabled=1",
+    "text": "enabled=1",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0009",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > vim /etc/samba/smb.conf",
+    "text": "vim /etc/samba/smb.conf",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0010",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y redis",
+    "text": "yum install -y redis",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0011",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > vim /etc/redis/redis.conf",
+    "text": "vim /etc/redis/redis.conf",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0012",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y httpd",
+    "text": "yum install -y httpd",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0013",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > cd /data/setup",
+    "text": "cd /data/setup",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0014",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > Description=Tomcat Server",
+    "text": "Description=Tomcat Server",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0015",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > Type= oneshot",
+    "text": "Type= oneshot",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0016",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > cd /data/setup/node-v22",
+    "text": "cd /data/setup/node-v22",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0017",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > reboot",
+    "text": "reboot",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0018",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y *.rpm",
+    "text": "yum install -y *.rpm",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0019",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "2）USB授权锁 > cd /usr/lib64",
+    "text": "cd /usr/lib64",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0020",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > 服务部署准备 > chmod -R 777 /data",
+    "text": "chmod -R 777 /data",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0021",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampNodeServer部署 > cd /data/StampNodeServer/",
+    "text": "cd /data/StampNodeServer/",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0022",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > StampNodeServer部署 > pm2 save",
+    "text": "pm2 save",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0023",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "Stamp服务部署 > matchmaker部署 > cd /data/matchmaker/",
+    "text": "cd /data/matchmaker/",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0024",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "5349：TLS/TCP，TLS服务",
+    "text": "5349：TLS/TCP，TLS服务",
+    "reason_hint": "port_like"
+  },
+  {
+    "id": "heading-0025",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "3Dtiles数据服务发布 > GB28181服务配置 > Type=simple",
+    "text": "Type=simple",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0026",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "MINIO部署 > 挂载磁盘 > mount -a",
+    "text": "mount -a",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0027",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "MINIO部署 > 安装MinIO > cd /data/setup/minio/",
+    "text": "cd /data/setup/minio/",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0028",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "MINIO部署 > 安装MinIO > MINIO_ROOT_USER=minio",
+    "text": "MINIO_ROOT_USER=minio",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0029",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "HTTPS配置 > 私有CA配置 > vim /etc/ca/openssl.cnf",
+    "text": "vim /etc/ca/openssl.cnf",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0030",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "HTTPS配置 > 私有CA配置 > default_days      = 3650",
+    "text": "default_days      = 3650",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0031",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "HTTPS配置 > 私有CA配置 > prompt             = no",
+    "text": "prompt             = no",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0032",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "HTTPS配置 > 私有CA配置 > vim /etc/ca/v3.ext",
+    "text": "vim /etc/ca/v3.ext",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "heading-0033",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "HTTPS配置 > 私有CA配置 > basicConstraints=CA:FALSE",
+    "text": "basicConstraints=CA:FALSE",
+    "reason_hint": "config_like"
+  },
+  {
+    "id": "heading-0034",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "89：8450",
+    "text": "89：8450",
+    "reason_hint": "port_like"
+  },
+  {
+    "id": "heading-0035",
+    "kind": "heading_candidate",
+    "suggested_label": "garbage_heading",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "常见错误 > mount –a",
+    "text": "mount –a",
+    "reason_hint": "command_like"
+  },
+  {
+    "id": "filter-0036",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.1.8. 虚拟机 CPU设置......................................................................................................................10\n1.1.9. CD/DVD设置...........................................................................................................................11\n1.1.10. 网络设置..........",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0037",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.2. Rocky安装........................................................................................................................................12\n1.2.1. 开始安装....................................................................................................................................12\n1.2",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0038",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.2.6. 用户登录....................................................................................................................................15\n1.3. 系统基础配置....................................................................................................................................16\n1.3.1. R",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0039",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.3.2. SSH设置...................................................................................................................................16\n1.3.3. 防火墙设置................................................................................................................................18\n1.3.4. SELi",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0040",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.3.5. fstab设置...................................................................................................................................18\n1.3.6. ulimit设置.................................................................................................................................19\n1.3.7",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0041",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.3.8. tcp设置......................................................................................................................................20\n1.4. 系统部署准备....................................................................................................................................21\n1.4.1",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0042",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.5.1. 本地 yum源设置......................................................................................................................24\n1.5.2. mesa-libGLU安装.....................................................................................................................26\n1.5.3. Redis安装.........",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0043",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.5.4. Nginx安装.................................................................................................................................28\n1.5.5. Apache安装..............................................................................................................................31\n1.5.6. Tom",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0044",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.5.7. NodeJS安装..............................................................................................................................36\n1.5.8. PostgreSQL安装.......................................................................................................................38\n1.5.9. postgis安",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0045",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "1.5.10. aksusbd安装..............................................................................................................................40",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0046",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "2.1.1. 运维管理部署............................................................................................................................42\n2.1.2. Nginx代理配置.........................................................................................................................42\n2.1.3. 运维管理路径设置.....",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0047",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "2.2.3. 3DTiles和 I3S数据服务配置..................................................................................................46\n2.2.4. 权限配置....................................................................................................................................46\n2.2.5. 登录设置.................",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0048",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "2.3.3. 规划数据库................................................................................................................................48\n2.3.4. 管线更新配置............................................................................................................................49\n2.4. GB28181配置...",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0049",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "2.4.1. GB28181配置...........................................................................................................................49\n2.4.2. ID编码说明..............................................................................................................................50\n2.5. 运动物体配置.....",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0050",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "2.6. CEGUI配置......................................................................................................................................56\n3. Apache服务配置..........................................................................................................................................",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0051",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "3.1.1. 授权服务....................................................................................................................................56\n3.1.2. Port服务....................................................................................................................................57\n3.1.3.",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0052",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "3.1.16. GB28181服务配置...................................................................................................................66\n3.1.17. 3DTiles服务配置......................................................................................................................68\n3.1.18. I3S服务配置........",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0053",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "3.1.19. 文件上传服务............................................................................................................................73\n3.1.20. 影像发布服务............................................................................................................................74\n3.1.21. GRID发布服务..",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0054",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n4\n3.1.22. ROAM发布服务.......................................................................................................................75\n3.1.23. 地形切割服务...................................................................................................................",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0055",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "3.1.28. Mesh转换服务..........................................................................................................................78\n3.2. 重启 Apache服务.............................................................................................................................79\n3.3. Nginx代理设置.",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0056",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "4.3. 三维图层............................................................................................................................................85\n4.3.1. 添加图层....................................................................................................................................85\n4.",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0057",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "4.5.2. Terrain......................................................................................................................................101\n4.6. 3Dtilse服务配置.............................................................................................................................102\n5. ",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0058",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "5.1. SHP数据入库.................................................................................................................................103\n5.2. 删除矢量数据..................................................................................................................................106\n5.3. linux",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0059",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n5\n5.4. 数据注意事项..................................................................................................................................108\n5.5. EPSG编码...............................................................................................................",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0060",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "6.1. Nginx代理配置...............................................................................................................................114\n6.2. WebGL应用部署............................................................................................................................119\n7. 推流部署......",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0061",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "7.1. 推流服务部署..................................................................................................................................120\n7.1.1. matchmaker部署.....................................................................................................................120\n7.1.2. StampNod",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0062",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "7.1.3. WebRTC应用部署..................................................................................................................122\n7.2. 渲染服务部署..................................................................................................................................123\n7.2.1. Stamp渲染引擎部署..",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0063",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "7.2.2. SignallingWebServer部署..................................................................................................123\n7.3. 推流应用测试..................................................................................................................................124",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0064",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n8\n1.1.4. 命名虚拟机\n设置虚拟机名称及存储路径。\n1.1.5. 虚拟磁盘存储\n磁盘大小设置为 2T以内时，选择“将虚拟磁盘存储为单个文件”。\n建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S\n以上（最佳 7000M/S）",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0065",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n16\n1.3. 系统基础配置\n1.3.1. Root 自动登录\n在/etc/gdm/custom.conf 下的[daemon]加如下文字：\n[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=root\n1.3.2. SSH 设置\n打开/etc/ssh/sshd_config文件进行设置，包括：\n（1） 监听设置\n去掉 Port22、ListenAddress0.0.0.0、ListenAddress::前面的#号设置监听端口和监听地址：\n（2） 远程登录设置\n将#PermitRoot",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0066",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n20\n1.3.7. limits 设置\n打开/etc/security/limits.conf文件，在文件末尾添加以下参数以修改最大文件句柄数：\n最大文件数（软控制）：*softnofile65535\n最大文件数（硬控制）：*hardnofile65535\n最大进程数（软控制）：*softnproc65535\n最大进程数（硬控制）：*hardnproc65535\n1.3.8. tcp 设置\n在/etc/sysctl.conf文件末尾添加以下内容：\nTCP端口范围：net.ipv4.ip_local_port_range=150016",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0067",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "启用时间戳检验：net.ipv4.tcp_timestamps=1\nTCP连接重用：net.ipv4.tcp_tw_reuse=1\n不抵御洪水攻击：net.ipv4.tcp_syncookies=0\nnet.ipv4.tcp_max_orphans=262144\n设置完成后执行：sysctl-p\n注意公式：net.ipv4.tcp_max_syn_backlog>=net.core.somaxconn，tcp_tw_reuse依赖 timestamps。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0068",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n22\nsetfacl -d -R --set u:apache:rwx /data/stamp_tmp\nsetfacl -d -R --set u:root:rwx /data/stamp_pub\nsetfacl -d -R --set u:apache:rwx /data/stamp_pub\nsetfacl -d -R --set u:root:rwx /data/stampmanager\nsetfacl -d -R --set u:apache:rwx /data/stampmanager\n1.4.3. 文件上传\n（1）基础软件",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0069",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n27\n（2）Redis配置\n打开/etc/redis/redis.conf（5.0.3版本路径：/etc/redis.conf）文件修改以下内容：\n 将 bind127.0.0.1-::1修改为：#bind127.0.0.1-::1\n 将 protected-modeyes修改为：protected-modeno\n（3）开机启动\nsystemctl enable redis\nsystemctl start redis",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0070",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n28\n1.5.4. Nginx 安装\n（1）安装Nginx1.22\nyum安装nginx1.22：\ncd /data/setup/nginx1.22\nyum install -y *.rpm\n（2）跨域设置\n打开/etc/nginx/conf.d/default.conf文件进行跨域设置：\nadd_header'Access-Control-Allow-Origin'$http_origin;\nadd_header'Access-Control-Allow-Credentials''true';\n（3）Nginx优化\n在/etc/n",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0071",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n32\n 设置 DocmentRoot路径：将 DocumentRoot\"/var/www/html\"修改为\nDocumentRoot\"/data/html\"\n 设置 Directory路径：将<Directory\"/var/www/html\">修改为：\n<Directory\"/data/html\">\n 不记录访问日志：将 CustomLog\"logs/access_log\"combined修改为：\n#CustomLog\"logs/access_log\"combined\n 设置错误日志为每天记录一个文件：将 ErrorLog\"",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0072",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n33\n（3） 服务路径设置\n打开/etc/sysconfig/httpd文件（如果没有则新建），在文件末尾增加 Stamp服务存储路径：\nLD_LIBRARY_PATH=\"/data/stampserver/:/usr/local/lib:$LD_LIBRARY_PATH\"\nexportLD_LIBRARY_PATH\n 修改/usr/lib/systemd/system/httpd.service文件\n在[Service]部分 Environment=LANG=C后增加\nEnvironmentFile=/etc/sysconfig",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0073",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n35\n1.5.6. Tomcat 安装\n（1） 安装 openjdk1.8.0\ncd /data/setup/openjdk1.8/\nyum install -y *.rpm\n（2） 部署 Tomcat\n解压tomcat：\ncd /data/setup/\ntar zvxf apache-tomcat-9.0.89.tar.gz\n将tomcat移到/data根目录下并赋予读写权限：\nmv /data/setup/apache-tomcat-9.0.89/ /data/\nchmod -R 777 /data/apache-tomcat-",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0074",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n39\nalter user postgres with valid until 'infinity';\n\\q\nexit\n（5）设置远程访问：\n修改/var/lib/pgsql/16/data/pg_hba.conf，在文件的\"# IPv4 local\nconnections\"策略中追加一条“允许全部用户，通过全部网络地址访问全部数\n据库”的策略并保存：\nhost all all 0.0.0.0/0 trust\n（6）设置监听地址和端口：\n修改/var/lib/pgsql/16/data/postgresql.conf，设置数据库实例",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0075",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n43\nproxy_set_headerX-Scheme$scheme;\n}\n#SQLite代理设置\nlocation/sqliteQuery{\nproxy_passhttp://127.0.0.1:8080/sqliteQuery;\n}\n配置后重启 nginx：\nsystemctlrestartnginx\n2.1.3. 运维管理路径设置\n在浏览器中输入访问地址（如 http://192.168.10.122/StampManager2），在服务路径界面\n选择/data/stampmanager/作为文件保存路径。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0076",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n44\n备注：不通过 nginx代理的访问地址为：http://192.168.10.122:8080/StampManager2\n在登录界面输入用户名（默认：admin）和密码（默认：123456）进入 StampManager系\n统：\n注：用户名、密码保存在 server.xml 中",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0077",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n47\n 权限校验间隔：设置权限校验请求发送的间隔时间长度\n 权限服务地址：第三方权限服务 IP地址（含端口）\n 数据服务地址：设置 se_sde.so服务的 IP地址，多个 IP用分号(;)隔开，Port服务\n会将数据服务上的数据配置文件（data.data）返回给第三方权限服务进行图层权\n限配置。\n2.2.5. 登录设置\n 用户名：用于登录 StampManager的用户名\n 密码：用于登录 StampManager的密码\n注：用户可以集成第三方用户管理和权限管理体系。\n2.3. 数据库配置\n2.3.1. 三维空间数据库",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0078",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": " 默认字符编码：GB28181服务器返回信息的字符编码，一般采用 GB2312\n 默认连接方式：视频使用方（本地用户）与 GB28181服务器之间采用的传输协议，\n一般为UDP。\n 设置gb28181随机端口连接范围：WebGL需要设置，需要手工写入gb28181_config.xml\n中，具体范围可以根据摄像机数量进行调整。\n<ServerUdpPortMin>10001</ServerUdpPortMin>\n<ServerUdpPortMax>15000</ServerUdpPortMax>",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0079",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n53\n例如：\n网络摄像机（IPC），第 11-13位为132，如 34017101041321000123\n虚拟组织目录，第 11–13位为 216，如 34017101042161000123\n中心信令控制服务器，第 11–13位为 200，如 34017101042001000123\n（4） 网络标识\n指属于哪个网络里面的（由 1位数字组成）\n例如属于社会资源接入网的，第 14位为 8，即 34017101041328000123\n（5） 序号\n指视频使用方（本地用户）的序号（由 6位数字组成），范围为：000000-99999",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0080",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n55\n 运动对象：添加一个带骨骼动画的动画对象（如车轮会转的汽车等，*.dynamic）\n IP地址/端口：动画人存储服务器 IP地址/端口\n 路径：动画人在服务器上的存储路径\n 名称：动画人的名称\n 类型：添加运动物体的类型\n 初始速度：动画对象运动时的初始速度\n 加速速率：动画对象的加速速率\n 减速速率：动画对象的减速速率\n 左转角度：动画对象左转弯的单次响应时的转弯角度\n 右转角度：动画对象右转弯的单次响应时的转弯角度\n 最大速度：动画对象通过加速速率达到的最大速度\n 最小速度：动画对象通过加速速率达到",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0081",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n56\n 类型：添加对象的类型\n2.6. CEGUI 配置\nStampGISActiveX界面支持 CEGUI，配置前将 CEGUI资源拷贝到/data/CEGUI目录中。\n在 CEGUI配置界面中选择 CEGUI资源索引文件（*.scheme）。\n允许添加多个资源，每个资源对应一个资源索引文件。\n3. Apache 服务配置\n3.1. STAMP 服务部署\n3.1.1. 授权服务\n（1） 功能说明\n本服务为系统提供授权服务。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，在“Incl",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0082",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n57\n##授权服务配置开始\nLoadModulese_license_module/data/stampserver/se_license.so\n<Location/license>\nSetHandlerse_license_module\n</Location>\n<IfModulese_license_module>\nDataEngineConfig/data/stampmanager/server.xml\n</IfModule>\n##授权服务配置结束\n3.1.2. Port 服务\n（1） 功能说明\n本服务提供图层权限控制入口，与用",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0083",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n58\n空间分析服务和数据库相关服务等。\n（2） Aapche 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行数据服务配置：\n##数据引擎服务配置开始\nLoadModulese_sde_module/data/stampserver/se_sde.so\n<Location/ubsm>\nSetHandlerse_dem\n</Location>\n<Location/sde>\nSetHandlerse_sde_module\n</Location>\n<Location/sde_pack>\nSetHandlerse",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0084",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "</IfModule>\n##数据引擎服务配置结束\n3.1.4. 三维搜索服务\n（1） 功能说明\n本服务为静态模型（包括模型、树、小品、管线）的空间数据和属性数据查询服务，是\n静态模型高亮闪烁的基础。\n注：需要在 StampManager 中服务配设置-基础配置部分配置字体文件(默认为 wt.dat)。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行搜索服务配置：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0085",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n59\n##搜索服务配置开始\nLoadModulese_search_module/data/stampserver/se_search.so\n<Location/search>\nSetHandlerse_search_module\n</Location>\n<IfModulese_search_module>\nMagicStringsearch\nDataEngineConfig/data/stampmanager/server.xml\n</IfModule>\n##搜索服务配置结束\n3.1.5. 三维分析服务\n（1） 功能说明\n本服务提",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0086",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n60\n本服务提供基于空间数据库（支持 Oracle和 PostgreSQL）直连的管线空间数据和属性数\n据查询与统计。\n注：在StampManager-数据管理-数据配置中工程上配置数据库登录信息、管线配置文件\n和快速查询矢量数据。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线查询服务配置开始\nLoadModulese_query_module/data/stampserver/se_query.so\n<Location/dataquery>\nSetHan",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0087",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "本服务提供基于空间数据库（支持Oracle和 PostgreSQL）的管线分析功能，：碰撞分析\n（包括水平净距、垂直净距）、覆土分析、纵断面、横断面分析等。\n注：在 StampManager-数据管理-数据配置中工程上配置管线净距分析标准配置文件\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线分析服务配置开始\nLoadModulese_pipeline_module/data/stampserver/se_pipeline.so\n<Location/pipeline>\nSetHandlerse_pipeline_mod",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0088",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n61\n<IfModulese_pipeline_module>\nArcConfig/data/stampmanager/server.xml\n</IfModule>\n##管线分析服务配置结束\n3.1.8. 网络分析服务\n（1） 功能说明\n本服务主要提供管线的 Network分析服务，涉及的功能包括：爆管分析、追踪分析和连\n通分析三个服务。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行网络分析服务配置：\n##网络分析服务配置开始\nLoadModulese_network_modul",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0089",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "</IfModule>\n##网络分析服务配置结束\n3.1.9. 管线更新服务\n（1） 功能说明\n本服务主要提供基于空间数据库（支持 Oracle和 PostgreSQL）的增量式三维管线更新，\n需要先更新二维管线数据库，然后根据更新范围进行更新。\n注：1、在 StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设\n置接地地形路径（需与用管线工具发布管线配置的地形数据一致）。\n2、管线更新输出目录下必须要要有管线配置的 resource 目录，如果工程上配置的管线配\n置文件所在目录与更新数据输出目录不一致则需要将 resource 目录拷贝到管线更新数据输出\n目录一份。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0090",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n62\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行管线服务配置：\n##管线更新服务配置开始\nLoadModulese_pipeline_publish_tool_module/data/stampserver/se_pipeline_publish_tool.so\n<Location/se_pipeline_publish_tool>\nSetHandlerse_pipeline_publish_tool\n</Location>\n<IfModulese_pipeline_publi",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0091",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "点、线、面数据在三维场景以矢量瓦片方式绘制。\n注：在 StampManager 中“数据配置/数据管理”数据配置文件的工程上配置数据库信息：\n（2） Apache 配置\n打开/etc/httpd/conf/httpd.conf文件，进行矢量瓦片服务配置：\n##矢量瓦片服务配置开始\nLoadModulese_geo_server_module/data/stampserver/se_geo_server.so\n<Location/geoserver>\nSetHandlerse_geo_server_module\n</Location>\n<IfModulese_geo_server_module>",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0092",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n63\n3.1.11. 矢量编辑服务\n（1） 功能说明\n本服务提供基于空间数据库（支持 Oracle和 PostgreSQL）的空间数据和属性数据的入库、\n编辑、导出服务，比如三维管线实时生成（管线规划审批业务）、工程地质钻孔/勘探线/工程\n范围面的数据库管理。\n注：在 StampManager 的“数据管理/数据配置”上配置矢量数据库信息。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行矢量编辑服务配置：\n##矢量编辑服务配置开始\nLoadModulese_db_sde_modul",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0093",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "</IfModule>\n##矢量编辑服务配置结束\n3.1.12. 三维数据库服务\n（1） 功能说明\n本服务提供三维空间数据（支持 Oracle和 PostgreSQL）的读写优化服务，提供模型入库、\n树/小品入库、Element（二维对象/几何对象）入库、编辑，涉及到编辑平台、规划系统。\n本服务目前仅支持 ActiveX版本，并需要与 generate_edit_active.dll库配合使用。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行数据库服务配置：\n ##数据库服务配置开始\nLoadModulese_db_query_module",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0094",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n64\nSetHandlerse_db_query\n</Location>\n<IfModulese_db_query_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n##数据库服务配置结束\n（3） 权限修改\nOracle数据库需要修改数据库用户权限（PostgreSQL数据库不需要本步骤）。\n将 grantforsde.sql复制到/data/setup/下，给 setup目录赋权限，并执行 grantforsde.sql语句。\n[root@StampServer~",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0095",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "本服务将三维空间数据库中的模型数据、树和小品发布成浏览图层（ModelLayer、\nBillboardLayer和 MatchModelLayer）和以及实时在线增量式动态更新服务。\n（2） Apache 服务配置",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0096",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n65\n打开/etc/httpd/conf/httpd.conf文件，进行数据库服务配置：\n##数据库发布服务配置开始\nLoadModulese_publish_tool_module/data/stampserver/se_model_tool_publish.so\n<Location/se_publish_tool>\nSetHandlerse_publish_tool\n</Location>\n<IfModulese_publish_tool_module>\nPublish_Config/data/stampmanager/serv",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0097",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "使用规划服务进行数据库管理。\n（2） HTTP 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行规划服务配置：\n##数据库规划服务配置开始\nLoadModulese_city_plan_module/data/stampserver/se_city_plan_pg.so\n<Location/se_city_plan>\nSetHandlerse_city_plan\n</Location>\n<IfModulese_city_plan_module>\nCityConfig/data/stampmanager/server.xml\n</IfModule>\n##数据库规划服务",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0098",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n66\n3.1.15. 工程地质分析服务\n（1） 功能说明\n本服务为工程地质系统分析服务，涉及工程地质系统中的分析模块下的场地分析、第四\n纪分析等相关功能：液化分析、类别分析、地基承载力分析、桩基承载力分析、湿陷等级分\n析、沉降变形分析、第四纪地层分布、基岩分布等。\n注：在 StampManager-数据管理-数据配置”的工程上配置数据库信息和地址体配置文件。\n（2） http 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行工程地质分析服务配置：\n##工程地质分析服务配置开始\nLoadModulese_g",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0099",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n67\n</Location>\n<IfModulese_gb28181_server_module>\ngb28181config/data/stampmanager/server.xml\n</IfModule>\n##GB28181服务配置结束\n（3） gb28181_server 部署\n修改/data/stampserver/gb28181_server.conf中gb28181配置文件路径（其他可用默认参数）：\n<?xmlversion=\"1.0\"encoding=\"gbk\"?>\n<ServerConfig>\n<!--#gb2818",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0100",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n69\n##Apache3DTiles数据引擎服务\nLoadModulese_w3ts_module/data/stampserver/se_w3ts.so\n<Location/w3ts>\nSetHandlerse_w3ts_module\n</Location>\n<IfModulese_w3ts_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n（3） 3Dtiles 数据服务发布\n将工具发布生成的 3DTiles数据拷贝到服务器端（如：/data/stamp_dat",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0101",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n71\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行 3Dtiles服务配置\n##ApacheI3S数据引擎服务\nLoadModulese_i3s_module/data/stampserver/se_i3s.so\n<Location/i3s>\nSetHandlerse_i3s_module\n</Location>\n<IfModulese_i3s_module>\nDB_Config/data/stampmanager/server.xml\n</IfModule>\n（3） I3S 数",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0102",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n73\n3.1.19. 文件上传服务\n（1） 功能说明\n文件上传服务主要用于上传文件。\n（2） Apache 服务配置\n打开/etc/httpd/conf/httpd.conf文件，进行文件上传服务配置：\n##文件上传服务配置开始\nLoadModulese_filedownload_module/data/stampserver/se_filedownload.so\n<Location/se_filedownload>\nSetHandlerse_filedownload_module\n</Location>\n<IfModulese_f",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0103",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n80\n3.4. 数据库初始化\n3.4.1. 数据库存储目录\n创建模型数据库存储目录和规划数据库存储目录：\nsupostgres\nmkdir/data/stamp_db/editor_db\nmkdir/data/stamp_db/cityplan_db\nexit\n3.4.2. 三维模型数据库初始化\n在 IE地址栏中输入进行初始化： http://192.168.10.122:8082/se_db_query?type=init_db，\n初始化成功后的返回结果。\n初始化成功后会在/data/stamp_db/editor_db目录下自动",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0104",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n81\n4. 三维数据配置\n4.1. 图层配置文件\n实现三维数据的配置与管理，包括：\n 新建文件：在输入框中输入配置文件名称新建一个数据配置文件，允许新建多个数据\n配置文件\n 删除文件：在数据配置文件的右键菜单上选择“删除”，删除当前选中的数据配置文\n件\n 修改文件名：在数据配置文件的右键菜单上选择“修改”，当前选中数据配置文件的\n名称会自动添加到文件名称输入框中，“新建”按钮变为“修改”按钮，修改后保\n存\n4.2. 工程配置\n工程（Project）是指空间参考和数据标准（如管线标准）相同的数据集，空间参考或数\n据标准不同的数据",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0105",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n82\n 参考高程：地下浏览时的辅助参考面，一般小于等于地下三维对象（管线或模型）\n的最低高程（绝对高程），单位米\n 矢量数据库配置：矢量数据库登录信息，包括：\n 数据库类型：支持 Oracle和 PostgreSQL\n 数据库名称：\n 数据库地址/端口\n 数据库用户名和密码\n 管线配置\n 编码配置：管线编译工具生成的编码配置文件（PipeConfig.config），与管线系统\n查询、统计功能相关\n 管线值域映射：管线编译工具生成的值域映射文件（ValueMap.config），与管线系\n统查询、统计功能相关\n ",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0106",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n83\n（ISO_Horizontal_Spacing.xml），允许自定义（XML文件），与管线系统“水平\n净距分析”、“碰撞分析”、“智能排管”功能相关\n 管 线 垂 直 净 距 标 准 ： 按 照 国 家 或 地 方 定 义 的 管 线 垂 直 净 距 标 准\n（ISO_Vertical_Spacing.xml），允许自定义（XML文件），与管线系统“垂直净\n距分析”、“碰撞分析”功能相关\n 管线建筑水平距离标准：按照国家或地方定义的管线建筑水平距离标准\n（Building_Horizontal_Spacing.xml），允",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0107",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n84\n 规划字段映射：配置规划字段映射文件路径（FieldMapCityPlan.config）\n注：用于规划系统中字段名称的用户自定义显示。\n 工程地质配置\n 地质体字段映射：配置地质体字段映射文件路径（GeoFieldMap.config）\n 地质体值域映射：配置地质体值域射文件路径（GeoValueMap.config）\n 地质体纹理映射：配置地质体纹理映射文件路径（GeoMaterialMap.config）\n注：上述文件由工程地质工具配置产生。\n4.2.2. 目录管理\n在工程下新建一个目录（允许嵌套），目录位于选",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0108",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n102\n 高程：图层的最小、最大高程范围\n 级别：图层的最小和最大级别。\n 历史时间：设置历史时间精度和时间\n 历史名称：设置历史时间的名称\n 可见性：设置图层的初始可见性。\n4.6. 3Dtilse 服务配置\n实现 3DTiles三维数据服务的添加、删除和发布：\n 添加：选择文件夹下的 tileset.json文件将该 3Dtiles数据添加到 3DTiles服务中，添加\n后的3Dtiles数据服务属性（如服务名称、数据范围等）不允许修改。\n 删除：删除选中的 3DTiles数据服务\n 对外发布：将选中的 3DTi",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0109",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n103\n5. 矢量数据入库\n5.1. SHP 数据入库\n在 Windows系统中安装 postgis-bundle-pg11x64-setup-2.5.2-1.exe并用其进行 SHP数据的\n入库和导出\n 启动 PostGIS2.0ShapefileandDBFLoaderExporter设置要连接的数据库。\n 添加需要导入的 SHP数据。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0110",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n106\n注意：需要填写SRID（EPSG 空间坐标编码，自定义坐标系不用填）以提升矢量瓦片切片效\n率.\n5.2. 删除矢量数据\n删除数据可以用 pgAdmin4进行，建议使用 pgAdmin4中查询工具输入 SQL语句进行删\n除（执行按 F5）。\nSELECT DropGeometryTable ('public','tr_hdgx_line0');\n注 1：导入的矢量点、线和面数据都会生成一个临时表，其命名规则为：表名_temp_4490，\n删除的时候要注意同步删除。\n注 2：PgAdmin4 是一个与 PostgreSQL 配套",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0111",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n119\nsystemctlnginxrestart\n6.2. WebGL 应用部署\n将 StampWebGL、PipelineWebGL上传到/data/html目录下，并赋予读写权限：\nchmod-R777/data/html\n然后打开修改应用中的数据服务地址：\n（1）StampWebGL\n打开/data/html/StampWebGL/config/custom_config.js，将 IP 地址批量替换为数据服务器\n（一般为本机）的 IP地址。\n（2）PipelineWebGL\n打开/data/html/PipelineWeb",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0112",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n121\n7.1.2. StampNodeServer 部署\n（1）服务部署\n 将 StampNodeServer 到/data 目录，并赋予权限：\nmv /data/setup/StampNodeServer/ /data/\nchmod -R 777 /data/StampNodeServer\n 为 StampNodeServer 建立守护进程：\ncd /data/StampNodeServer/\npm2 start ./bin/www --name=\"StampNodeServer\"\npm2 save\n 查看守护进程列表：\n",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0113",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": "StampServer 用户手册--北京睿城传奇科技有限公司\n122\n配置后重启 nginx 服务：\nsystemctl restart nginx\n7.1.3. WebRTC 应用部署\n将推流应用 StampWebRTC、PipelineWebRTC、CityplanWebRTCEdit、CityplanWebRTCView\n上传到/data/html目录中，并赋予读写权限：\nchmod-R777/data/html",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0114",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": " 单体模型近裁面（600米为一个单位）：MinVisRange=10\n 单体模型第 1级纹理可见距离：Level21=240\n 单体模型第 2级纹理可见距离：Level20=900\n 单体模型第 3级纹理可见距离：Level19=1500\n7.2.2. SignallingWebServer 部署\n将信令服务（SignallingWebServer）和渲染引擎（StampUE53）拷贝到渲染服务器上（比\n如 E 盘根目录下），渲染服务器要求具有 Nvidia 中高端图形显卡（显存 8G 及以上），比如\nNvida3080、3080Ti、3090、4080、4090、A5000、A550",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0115",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+    "section_path": "",
+    "text": " matchmaker服务端口：\"MatchmakerPort\":9999,\n 信令服务本机 IP地址：\"PublicIp\":\"192.168.10.142\",\n 信令服务使用端口：\"PublicPortList\":[30081,30082,30083],\n HTTPS端口：\"HttpsPort\":443,\n 推流服务端口：\"StreamerPortList\":[10881,10882,10883],\n WebRTC（SFU）端口：\"SFUPortList\":[10871,10872,10873],\n 渲染客户端路径：\"ExePath\":\"E:/StampUE53/\",",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0116",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "2026陕西耕地保护系统问题收集.docx",
+    "section_path": "权限管理",
+    "text": "有的服务有行政区划代码可过滤，有的如自然保护区数据没有行政区划代码或者是ArcGIS、Geoserver、超图（“一张图”过程中用别人的服务不可控、新疆的ArcGIS服务瓦片）等等发的服务，得弄个遮罩----先做新疆 3月底完成\n\n希望登录页面和首页合并少一个页面跳转，增加浏览使用性",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0117",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "2026陕西耕地保护系统问题收集.docx",
+    "section_path": "分析功能 重要基于这个推进实现业务 > 耕地质量等级分析",
+    "text": "和坡度分析类似数据库",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0118",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "",
+    "text": "1.陕西地信====================================================",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0119",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "普通视点定位",
+    "text": "11.陕西耕地保护=======================================================",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0120",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "Service",
+    "text": "DAO）是为了高内聚、低耦合，将界面控制、业务逻辑、数据访问分离。\n\n层级 英文名称 主要职责 通俗理解 表示层 Controller / Web 层 接收请求、参数校验、响应结果 前台/接待：接待客户，收下订单，告诉客户“已收到” 业务层 Service 层 核心业务逻辑、事务管理、权限控制 大厨/业务员：处理具体业务（如：下单要检查库存、计算价格） 数据访问层 DAO / Mapper 层 与数据库交互（增删改查CRUD） 后厨采购：去仓库（数据库）取菜或存菜 调用流程： Client请求 → Controller（接收参数） → Service（处理业务） → DAO（操作DB） → 返",
+    "reason_hint": "mixed_script_line"
+  },
+  {
+    "id": "filter-0121",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "@Async\t标记方法异步执行",
+    "text": "3. 线程池 & 异步",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0122",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "Spring 中如何实现异步（最常用）：",
+    "text": "1. 启动类加注解：",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0123",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "private OrderService orderService;",
+    "text": "@GetMapping(\"/order\")",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0124",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "实景三维新功能.txt",
+    "section_path": "return \"订单创建成功\";",
+    "text": "}\n\n}",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0125",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 安装模式",
+    "text": "采用默认的典型模式进行安装。",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0126",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 操作系统安装",
+    "text": "设置为“稍后安装操作系统”",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0127",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 命名虚拟机",
+    "text": "设置虚拟机名称及存储路径。",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0128",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 虚拟磁盘存储",
+    "text": "磁盘大小设置为2T以内时，选择“将虚拟磁盘存储为单个文件”。\n\n建议采用支持PCIE3.0或PCIE4.0的M.2或U.2的固态硬盘，硬盘顺序读写速度3500M/S以上（最佳7000M/S）",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0129",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 创建虚拟机",
+    "text": "完成虚拟机创建。",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0130",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 内存设置",
+    "text": "根据主机内存大小设置虚拟机8G（最少8G，推荐16G及以上，一般为主机内存的25%）。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0131",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > CPU设置",
+    "text": "根据主机CPU数量和内核数设置虚拟机的CPU数量和内核数，普通电脑CPU数量为1CPU。普通电脑一般设置为1CPU、4核（主机核数的25%）",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0132",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 创建虚拟机 > 显卡设置",
+    "text": "在虚拟机显示器设置界面上勾选“3D加速图形”，这是启用物理机上的显卡，否则模型发布服务、模型更新服务、倾斜发布服务等进行数据发布会因找不到显卡而报错。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0133",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 语言设置",
+    "text": "选择中文、简体中文（中国）",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0134",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 安装目的地",
+    "text": "选择自定义分区，具体分区如下：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0135",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > /boot：引导分区，分区大小为1024M",
+    "text": "Swap：交换分区（虚拟内存），分区大小一般是内存的2倍，如果内存时8G，则设置16384M（16G）",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0136",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > /boot/efi：分区大小一般是200M",
+    "text": "/：根分区，分区大小设置204800M（200G）以上\n\n/var：分区大小设置102400M（100G）以上\n\n/data：数据分区，剩下的所有空间给/data，文件系统选择ext4\n\n注意：由于小文件读写性能方面ext4比xfs优越，因此文件系统格式不能选择默认的xfs。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0137",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 时间和日期",
+    "text": "设置为亚洲、上海",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0138",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > KDUMP",
+    "text": "设置为不启用KDUMP",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0139",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > root用户",
+    "text": "设置root用户密码（如：123456），并勾选“允许root用户使用密码进行SSH设置”",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0140",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > Rocky安装 > 许可证",
+    "text": "点击许可证，统一许可协议。",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0141",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > 上传速度优化",
+    "text": "去掉下面几行前面的#，使设置生效：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0142",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > fstab设置",
+    "text": "打开/etc/fstab文件，使用noatime提升文件系统性能和静止磁盘自检：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0143",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > ulimit设置",
+    "text": "在/etc/profile文件：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0144",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > ulimit -n 65535",
+    "text": "打开.bashrc文件:",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0145",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim ~/.bashrc",
+    "text": "在文件中加入:",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0146",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > vim /etc/sysctl.conf",
+    "text": "在文件末尾添加以下内容（依次为：tcp端口范围、tcp超时设置、TCP半连接数、TCP连接数、启用时间戳检验和不抵御洪水攻击）：\n\nnet.ipv4.ip_local_port_range=15001 65000\n\nnet.ipv4.tcp_fin_timeout = 15\n\nnet.ipv4.tcp_max_syn_backlog = 262144",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0147",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "操作系统安装 > 系统基础配置 > 设置完成后执行：sysctl -p",
+    "text": "注意公式：net.ipv4.tcp_max_syn_backlog>= net.core.somaxconn，tcp_tw_reuse依赖timestamps。",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0148",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > enabled=1",
+    "text": "执行以下命令：",
+    "reason_hint": "compact_too_short"
+  },
+  {
+    "id": "filter-0149",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > 离线安装包下载",
+    "text": "对于有些云服务器不能配置yum本地源或yum本地源中没有所需安装包，这可以通过yum只下载不安装方式下载所需安装包。\n\nyum install -y --downloadonly --downloaddir=/download python-devel\n\n# --downloadonly 表示只下载，不安装",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0150",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > vim /etc/samba/smb.conf",
+    "text": "在[global]下增加：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0151",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 软件安装准备 > （5）权限设置",
+    "text": "对上传文件赋予读写权限：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0152",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （1）安装Redis",
+    "text": "Rokcy9.5自带的redis是6.2.17版本，可以直接通过本地yum源进行安装：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0153",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y redis",
+    "text": "安装完成后查看版本：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0154",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > yum install -y httpd",
+    "text": "安装完成后查看apache版本：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0155",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > <Directory \"/data/html\">",
+    "text": "设置错误日志为每天记录一个文件：将ErrorLog \"logs/error_log\" 修改为：\n\nErrorLog \"| /usr/sbin/rotatelogs logs/%Y_%m_%d_error_log 86400 480\"\n\n设置错误日志记录内容：将LogLevelwarn日志级别修改为只记录致命错误日志：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0156",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > 服务路径设置",
+    "text": "修改/usr/lib/systemd/system/httpd.service文件\n\nvim /usr/lib/systemd/system/httpd.service\n\n在[Service]部分Environment=LANG=C后增加\n\nEnvironment=\"LD_LIBRARY_PATH=/data/stampserver/:/usr/local/lib\"\n\n在[Service]部分末尾添加以下内容：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0157",
+    "kind": "filter_reject",
+    "suggested_label": "review",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > 部署Tomcat",
+    "text": "解压tomcat：",
+    "reason_hint": "single_short_line"
+  },
+  {
+    "id": "filter-0158",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > cd /data/setup/",
+    "text": "tar zvxf apache-tomcat-9.0.97.tar.gz\n\n将tomcat移到/data根目录下并赋予读写权限：\n\nmv /data/setup/apache-tomcat-9.0.97/ /data/\n\nchmod -R 777 /data/apache-tomcat-9.0.97\n\n在/usr/lib/systemd/system/目录中用vim新建tomcat.service文件：\n\nvim /usr/lib/systemd/system/tomcat.service\n\n在tomcat.service文件中加入以下内容：",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0159",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （1）nodejs部署",
+    "text": "对node-v22.12.0压缩包解压（注意：必须用解压方式否则启动报错）并赋予权限，配置nodejs的软链接；",
+    "reason_hint": "mixed_script_token"
+  },
+  {
+    "id": "filter-0160",
+    "kind": "filter_reject",
+    "suggested_label": "false_positive",
+    "label": null,
+    "source": "StampServer用户手册_Rocky9 .docx",
+    "section_path": "基础软件安装 > 基础软件安装 > （2）pm2部署",
+    "text": "将pm2解压（须在linux目录下用tar解压）后拷贝到node目录下并赋予读写权限：",
+    "reason_hint": "mixed_script_token"
+  }
+]

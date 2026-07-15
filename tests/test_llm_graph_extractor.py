@@ -195,6 +195,9 @@ def test_llm_graph_extractor_http_call(isolated_storage):
         payload = call_args[1]["json"]
         assert payload["model"] == "test-model"
         assert payload["messages"][0]["role"] == "user"
+        # qwen3 thinking mode must be disabled for stable JSON graph extraction
+        assert payload.get("think") is False
+        assert payload.get("format") == "json"
 
 
 def test_llm_graph_extractor_failure_handled(isolated_storage):

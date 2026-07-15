@@ -68,6 +68,17 @@ interface UploadResult {
   errors: number
 }
 
+export type DocumentProfile = 'section_based' | 'technical_manual' | 'procedure' | 'api_doc' | 'table_doc' | 'record_list'
+
+export const DOCUMENT_PROFILE_OPTIONS: ReadonlyArray<{ value: DocumentProfile; label: string }> = [
+  { value: 'section_based', label: '通用章节' },
+  { value: 'technical_manual', label: '分层用户手册' },
+  { value: 'procedure', label: '部署/操作步骤' },
+  { value: 'api_doc', label: 'API/接口文档' },
+  { value: 'table_doc', label: '表结构/配置字典' },
+  { value: 'record_list', label: '问题/功能清单' },
+]
+
 interface HealthResult {
   status: string
   models: Record<string, string>
@@ -319,10 +330,16 @@ export async function setEmbeddingModel(model: string) {
 }
 
 /** 上传文档到知识库 */
-export async function uploadDocument(file: File, kbName?: string, signal?: AbortSignal) {
+export async function uploadDocument(
+  file: File,
+  kbName?: string,
+  documentProfile: DocumentProfile = 'section_based',
+  signal?: AbortSignal,
+) {
   const form = new FormData()
   form.append('file', file)
   if (kbName) form.append('kb_name', kbName)
+  form.append('document_profile', documentProfile)
   const { data } = await http.post<UploadResult>('/upload', form, { signal })
   return data
 }
@@ -410,12 +427,13 @@ interface StoredMessage {
   sources?: any[]
 }
 
-/** 从服务器加载聊天记录 */
+/** 从服务器加载聊天记录；无记录时返回 null，便于回退 localStorage */
 export async function loadServerChat(fingerprint: string) {
   try {
     const { data } = await http.get<{ messages: StoredMessage[] }>('/chat/history', {
       headers: { 'X-Device-Fingerprint': fingerprint },
     })
+    if (!data.messages?.length) return null
     return data.messages
   } catch (e: any) {
     if (e.response?.status === 404) return null

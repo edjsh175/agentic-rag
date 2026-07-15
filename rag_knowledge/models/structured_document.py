@@ -26,6 +26,12 @@ class CanonicalDocumentElement:
     heading_level: int = 0
     section_index: int = 0
     chunk_in_section: int = 0
+    element_id: str = ""
+    source_raw_block_ids: list[str] | None = None
+    source_document_id: str = ""
+    source_snapshot_hash: str = ""
+    content_role: str = "ordinary_body"
+    related_element_ids: list[str] | None = None
 
 
 def join_section_path(section_path: list[str] | tuple[str, ...] | None) -> str:
@@ -98,6 +104,13 @@ def canonical_element_to_document(element: CanonicalDocumentElement) -> Document
         "content_type": element.content_type,
         "chunking_method": element.chunking_method,
         "searchable_text": element.searchable_text,
+        "element_id": element.element_id,
+        "source_element_ids": [element.element_id] if element.element_id else [],
+        "source_raw_block_ids": list(element.source_raw_block_ids or []),
+        "source_document_id": element.source_document_id or "",
+        "source_snapshot_hash": element.source_snapshot_hash or "",
+        "content_role": element.content_role or "ordinary_body",
+        "related_element_ids": list(element.related_element_ids or []),
     }
     if element.page_label not in ("", None):
         metadata["page_number"] = element.page_label

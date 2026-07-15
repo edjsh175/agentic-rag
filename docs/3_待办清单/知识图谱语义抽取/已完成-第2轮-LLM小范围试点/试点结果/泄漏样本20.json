@@ -1,0 +1,102 @@
+[
+  {
+    "section_entity": "StampTools用户手册::1、纹理错误",
+    "leaf": "1、纹理错误",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::2)不支持自定义曲线 > UE材质集添加蓝图 > 设置Collection：选择材质参数集",
+    "leaf": "设置Collection：选择材质参数集",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::2）不支持自定义曲线 > UE材质集添加蓝图 > 设置Collection：选择材质参数集",
+    "leaf": "设置Collection：选择材质参数集",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::ModelBuilder > 常见错误",
+    "leaf": "常见错误",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 使用状态映射",
+    "leaf": "使用状态映射",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 字段映射 > 导出配置：导出字段映射结果为字段映射文件",
+    "leaf": "导出配置：导出字段映射结果为字段映射文件",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::加密锁驱动安装",
+    "leaf": "加密锁驱动安装",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::加密锁驱动安装 > 安装运行环境",
+    "leaf": "安装运行环境",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::工具概述 > 空间参考 > 投影参数",
+    "leaf": "投影参数",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::工具概述 > 运行环境",
+    "leaf": "运行环境",
+    "reason": "keyword_suggests_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 一般管线：二维示意图管线分圆管和方管生成图如下",
+    "leaf": "一般管线：二维示意图管线分圆管和方管生成图如下",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 井室面类型映射",
+    "leaf": "井室面类型映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 井室：生成井室",
+    "leaf": "井室：生成井室",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 井盖类型映射",
+    "leaf": "井盖类型映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 井类型映射",
+    "leaf": "井类型映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 压力映射",
+    "leaf": "压力映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 变径线：方井中由粗变细的线，该线为0.07米的细线",
+    "leaf": "变径线：方井中由粗变细的线，该线为0.07米的细线",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 埋设方式映射",
+    "leaf": "埋设方式映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 断面形状映射",
+    "leaf": "断面形状映射",
+    "reason": "deep_section_no_business_entity"
+  },
+  {
+    "section_entity": "StampTools用户手册::PipelineBuilder > 值域映射 > 材质映射",
+    "leaf": "材质映射",
+    "reason": "deep_section_no_business_entity"
+  }
+]
