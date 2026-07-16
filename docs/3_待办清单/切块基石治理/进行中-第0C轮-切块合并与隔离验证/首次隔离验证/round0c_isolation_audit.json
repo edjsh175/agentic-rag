@@ -1,26 +1,30 @@
 {
-  "generated_at": "2026-07-15T06:19:29.400011+00:00",
+  "generated_at": "2026-07-15T10:16:11.565699+00:00",
   "watch_directory": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory",
   "notes": "Isolation only: UnstructuredChapterLoader + technical_manual_merge + reassign_chunk_adjacency. Does not write chroma_db or call /rebuild. section_id may be shared by multiple chunks in the same document; go/no-go uses cross-document section_id collisions.",
   "identity": {
     "section_id_within_doc_sharing_ok": true,
     "section_id": {
       "field": "section_id",
-      "total": 282,
-      "unique": 180,
-      "duplicate_value_count": 39,
-      "duplicate_occurrence_sum": 141,
+      "total": 299,
+      "unique": 170,
+      "duplicate_value_count": 53,
+      "duplicate_occurrence_sum": 182,
       "sample_duplicates": [
         [
           "sec_218b88ed22e4bc37",
           9
         ],
         [
-          "sec_f6649e83a0b0997e",
-          8
+          "sec_d8fc233aa62979b1",
+          9
         ],
         [
-          "sec_d8fc233aa62979b1",
+          "sec_a01accf07a254df4",
+          9
+        ],
+        [
+          "sec_f6649e83a0b0997e",
           7
         ],
         [
@@ -32,10 +36,6 @@
           6
         ],
         [
-          "sec_a01accf07a254df4",
-          6
-        ],
-        [
           "sec_e53666eaea51762f",
           6
         ],
@@ -44,12 +44,12 @@
           6
         ],
         [
-          "sec_48231c18a6a840cb",
+          "sec_139487eac422406d",
           5
         ],
         [
-          "sec_139487eac422406d",
-          4
+          "sec_21e3883b0c741195",
+          5
         ]
       ]
     },
@@ -60,47 +60,47 @@
     },
     "chunk_uid": {
       "field": "chunk_uid",
-      "total": 282,
-      "unique": 282,
+      "total": 299,
+      "unique": 299,
       "duplicate_value_count": 0,
       "duplicate_occurrence_sum": 0,
       "sample_duplicates": []
     },
     "source_document_id": {
       "field": "source_document_id",
-      "total": 282,
+      "total": 299,
       "unique": 3,
       "duplicate_value_count": 3,
-      "duplicate_occurrence_sum": 282,
+      "duplicate_occurrence_sum": 299,
       "sample_duplicates": [
         [
           "dabea820bb1f16e57521639160e83cd5",
-          153
+          171
         ],
         [
           "1901d73315c477d9279fcd0ed3806ac4",
-          66
+          67
         ],
         [
           "4a86064f85bcf560b28472911056c56e",
-          63
+          61
         ]
       ]
     },
-    "section_source_pair_count": 282,
+    "section_source_pair_count": 299,
     "broken_prev_next_links": 0
   },
   "overall": {
     "scope": "content_type=text; heading/table/code/embedded_image and explicit same-section table_context excluded",
-    "before_all_chunk_count": 366,
-    "after_all_chunk_count": 282,
-    "before_count": 341,
-    "after_count": 243,
-    "before_lt_100_rate": 0.33724340175953077,
-    "before_lt_200_rate": 0.592375366568915,
-    "before_gt_1200_rate": 0.03519061583577713,
-    "after_lt_100_rate": 0.024691358024691357,
-    "after_lt_200_rate": 0.09465020576131687,
+    "before_all_chunk_count": 640,
+    "after_all_chunk_count": 299,
+    "before_count": 615,
+    "after_count": 260,
+    "before_lt_100_rate": 0.6292682926829268,
+    "before_lt_200_rate": 0.7983739837398374,
+    "before_gt_1200_rate": 0.01788617886178862,
+    "after_lt_100_rate": 0.026923076923076925,
+    "after_lt_200_rate": 0.07307692307692308,
     "after_gt_1200_rate": 0.0,
     "prd_lt_100_gate": 0.05,
     "prd_lt_200_gate": 0.15,
@@ -114,67 +114,67 @@
     {
       "source": "StampServer用户手册_Rocky9 .docx",
       "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampServer用户手册_Rocky9 .docx",
-      "element_count": 181,
-      "final_chunk_count": 153,
+      "element_count": 399,
+      "final_chunk_count": 171,
       "before_all": {
-        "count": 181,
-        "median": 186,
-        "lt_100_rate": 0.35911602209944754,
-        "lt_200_rate": 0.5303867403314917,
-        "in_300_800_rate": 0.24861878453038674,
-        "gt_1200_rate": 0.055248618784530384
+        "count": 399,
+        "median": 42,
+        "lt_100_rate": 0.6967418546365914,
+        "lt_200_rate": 0.7994987468671679,
+        "in_300_800_rate": 0.11027568922305764,
+        "gt_1200_rate": 0.022556390977443608
       },
       "after_all": {
-        "count": 153,
-        "median": 433,
-        "lt_100_rate": 0.11764705882352941,
-        "lt_200_rate": 0.1568627450980392,
-        "in_300_800_rate": 0.6928104575163399,
-        "gt_1200_rate": 0.0196078431372549
+        "count": 171,
+        "median": 403,
+        "lt_100_rate": 0.1111111111111111,
+        "lt_200_rate": 0.16374269005847952,
+        "in_300_800_rate": 0.7134502923976608,
+        "gt_1200_rate": 0.017543859649122806
       },
       "before": {
-        "count": 167,
-        "median": 188,
-        "lt_100_rate": 0.33532934131736525,
-        "lt_200_rate": 0.5149700598802395,
-        "in_300_800_rate": 0.2694610778443114,
-        "gt_1200_rate": 0.041916167664670656
+        "count": 385,
+        "median": 42,
+        "lt_100_rate": 0.6987012987012987,
+        "lt_200_rate": 0.8025974025974026,
+        "in_300_800_rate": 0.11428571428571428,
+        "gt_1200_rate": 0.015584415584415584
       },
       "after": {
-        "count": 135,
-        "median": 452,
-        "lt_100_rate": 0.037037037037037035,
-        "lt_200_rate": 0.08148148148148149,
-        "in_300_800_rate": 0.7851851851851852,
+        "count": 153,
+        "median": 411,
+        "lt_100_rate": 0.0392156862745098,
+        "lt_200_rate": 0.09803921568627451,
+        "in_300_800_rate": 0.7973856209150327,
         "gt_1200_rate": 0.0
       },
       "flush_reason_counts": {
-        "merge_under_target_min": 37,
-        "already_at_target_min": 21,
-        "merge_same_l1_short_leaf": 21,
+        "merge_under_target_min": 227,
+        "already_at_target_min": 48,
+        "merge_same_l1_short_leaf": 28,
         "different_l1_hard_boundary": 28,
-        "next_leaf_not_short": 32,
         "merge_command_follow": 1,
-        "soft_max_exceeded": 11,
+        "next_leaf_not_short": 25,
         "l2_bucket_target_reached": 15,
-        "projected_over_soft_max": 3,
+        "projected_over_soft_max": 7,
+        "soft_max_exceeded": 8,
         "flush_before_atomic": 5,
         "atomic_keep": 5,
         "different_parent": 1,
         "flush_eof": 1
       },
       "skip_reason_counts": {
-        "already_at_target_min": 21,
+        "already_at_target_min": 48,
         "different_l1_hard_boundary": 28,
-        "next_leaf_not_short": 32,
-        "soft_max_exceeded": 11,
+        "next_leaf_not_short": 25,
         "l2_bucket_target_reached": 15,
-        "projected_over_soft_max": 3,
+        "projected_over_soft_max": 7,
+        "soft_max_exceeded": 8,
         "different_parent": 1
       },
       "merge_opportunity_counts": {
-        "merge_under_target_min": 37,
-        "merge_same_l1_short_leaf": 21,
+        "merge_under_target_min": 227,
+        "merge_same_l1_short_leaf": 28,
         "merge_command_follow": 1
       },
       "sample_skip_events": [
@@ -210,112 +210,112 @@
           "prev_path": "操作系统安装 > 系统基础配置 > Root自动登录",
           "next_path": "操作系统安装 > 系统基础配置 > SSH设置",
           "prev_order": 15,
-          "next_order": 19,
+          "next_order": 21,
           "bucket_len": 309,
-          "next_len": 340
+          "next_len": 29
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "操作系统安装 > 系统基础配置 > SSH设置",
           "next_path": "操作系统安装 > 系统基础配置 > 防火墙设置",
-          "prev_order": 19,
-          "next_order": 20,
+          "prev_order": 21,
+          "next_order": 24,
           "bucket_len": 340,
           "next_len": 69
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "操作系统安装 > 系统基础配置 > fstab设置",
-          "next_path": "操作系统安装 > 系统基础配置 > ulimit设置",
-          "prev_order": 20,
-          "next_order": 23,
-          "bucket_len": 384,
-          "next_len": 168
+          "next_path": "操作系统安装 > 系统基础配置 > fstab设置",
+          "prev_order": 24,
+          "next_order": 31,
+          "bucket_len": 335,
+          "next_len": 23
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "操作系统安装 > 系统基础配置 > limits设置",
           "next_path": "操作系统安装 > 系统基础配置 > tcp设置",
-          "prev_order": 23,
-          "next_order": 25,
-          "bucket_len": 343,
-          "next_len": 465
+          "prev_order": 31,
+          "next_order": 41,
+          "bucket_len": 392,
+          "next_len": 19
         },
         {
           "reason": "different_l1_hard_boundary",
           "prev_path": "操作系统安装 > 系统基础配置 > tcp设置",
           "next_path": "基础软件安装 > 目录创建",
-          "prev_order": 25,
-          "next_order": 26,
+          "prev_order": 41,
+          "next_order": 44,
           "bucket_len": 465,
-          "next_len": 277
-        },
-        {
-          "reason": "next_leaf_not_short",
-          "prev_path": "基础软件安装 > 目录创建",
-          "next_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
-          "prev_order": 26,
-          "next_order": 27,
-          "bucket_len": 277,
-          "next_len": 487
+          "next_len": 7
         },
         {
           "reason": "already_at_target_min",
-          "prev_path": "基础软件安装 > 软件安装准备 > 离线安装包下载",
-          "next_path": "基础软件安装 > 软件安装准备 > SMB安装",
-          "prev_order": 27,
-          "next_order": 29,
-          "bucket_len": 695,
-          "next_len": 346
+          "prev_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+          "next_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+          "prev_order": 44,
+          "next_order": 47,
+          "bucket_len": 352,
+          "next_len": 32
+        },
+        {
+          "reason": "already_at_target_min",
+          "prev_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+          "next_path": "基础软件安装 > 软件安装准备 > 离线安装包下载",
+          "prev_order": 47,
+          "next_order": 55,
+          "bucket_len": 461,
+          "next_len": 58
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "基础软件安装 > 软件安装准备 > SMB安装",
-          "next_path": "基础软件安装 > 软件安装准备 > 安装文件上传",
-          "prev_order": 29,
-          "next_order": 30,
-          "bucket_len": 346,
-          "next_len": 117
+          "next_path": "基础软件安装 > 软件安装准备 > SMB安装",
+          "prev_order": 55,
+          "next_order": 59,
+          "bucket_len": 355,
+          "next_len": 23
         },
         {
           "reason": "different_l1_hard_boundary",
           "prev_path": "基础软件安装 > 软件安装准备 > 安装文件上传",
           "next_path": "",
-          "prev_order": 30,
-          "next_order": 31,
-          "bucket_len": 117,
+          "prev_order": 59,
+          "next_order": 63,
+          "bucket_len": 316,
           "next_len": 9
         },
         {
           "reason": "different_l1_hard_boundary",
           "prev_path": "",
           "next_path": "基础软件安装 > 基础软件安装 > （1）安装Redis",
-          "prev_order": 31,
-          "next_order": 32,
+          "prev_order": 63,
+          "next_order": 64,
           "bucket_len": 9,
-          "next_len": 91
+          "next_len": 43
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "基础软件安装 > 基础软件安装 > （3）开机启动",
-          "next_path": "基础软件安装 > 基础软件安装 > mesa-libGLU安装",
-          "prev_order": 32,
-          "next_order": 35,
-          "bucket_len": 336,
-          "next_len": 168
+          "next_path": "基础软件安装 > 基础软件安装 > （3）开机启动",
+          "prev_order": 64,
+          "next_order": 71,
+          "bucket_len": 313,
+          "next_len": 21
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "基础软件安装 > 基础软件安装 > HTTP设置",
-          "next_path": "基础软件安装 > 基础软件安装 > 服务路径设置",
-          "prev_order": 35,
-          "next_order": 38,
-          "bucket_len": 881,
-          "next_len": 226
+          "next_path": "基础软件安装 > 基础软件安装 > HTTP设置",
+          "prev_order": 71,
+          "next_order": 80,
+          "bucket_len": 330,
+          "next_len": 30
         }
       ],
       "lineage": {
-        "final_chunks": 153,
+        "final_chunks": 171,
         "missing_source_element_ids": 0,
         "missing_source_raw_block_ids": 0,
         "missing_chunk_uid": 0,
@@ -330,88 +330,97 @@
     {
       "source": "StampTools用户手册.docx",
       "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampTools用户手册.docx",
-      "element_count": 89,
-      "final_chunk_count": 66,
+      "element_count": 109,
+      "final_chunk_count": 67,
       "before_all": {
-        "count": 89,
-        "median": 179,
-        "lt_100_rate": 0.2696629213483146,
-        "lt_200_rate": 0.5617977528089888,
-        "in_300_800_rate": 0.1797752808988764,
-        "gt_1200_rate": 0.033707865168539325
+        "count": 109,
+        "median": 121,
+        "lt_100_rate": 0.41284403669724773,
+        "lt_200_rate": 0.6788990825688074,
+        "in_300_800_rate": 0.13761467889908258,
+        "gt_1200_rate": 0.027522935779816515
       },
       "after_all": {
-        "count": 66,
-        "median": 416.0,
-        "lt_100_rate": 0.15151515151515152,
-        "lt_200_rate": 0.22727272727272727,
-        "in_300_800_rate": 0.5909090909090909,
-        "gt_1200_rate": 0.015151515151515152
+        "count": 67,
+        "median": 393,
+        "lt_100_rate": 0.13432835820895522,
+        "lt_200_rate": 0.1791044776119403,
+        "in_300_800_rate": 0.6119402985074627,
+        "gt_1200_rate": 0.014925373134328358
       },
       "before": {
-        "count": 79,
-        "median": 156,
-        "lt_100_rate": 0.3037974683544304,
-        "lt_200_rate": 0.5949367088607594,
-        "in_300_800_rate": 0.16455696202531644,
-        "gt_1200_rate": 0.02531645569620253
+        "count": 99,
+        "median": 114,
+        "lt_100_rate": 0.45454545454545453,
+        "lt_200_rate": 0.7171717171717171,
+        "in_300_800_rate": 0.12121212121212122,
+        "gt_1200_rate": 0.020202020202020204
       },
       "after": {
-        "count": 47,
-        "median": 460,
-        "lt_100_rate": 0.02127659574468085,
-        "lt_200_rate": 0.10638297872340426,
-        "in_300_800_rate": 0.723404255319149,
+        "count": 48,
+        "median": 424.5,
+        "lt_100_rate": 0.0,
+        "lt_200_rate": 0.041666666666666664,
+        "in_300_800_rate": 0.75,
         "gt_1200_rate": 0.0
       },
       "flush_reason_counts": {
-        "merge_same_l1_short_leaf": 10,
-        "next_leaf_not_short": 12,
-        "already_at_target_min": 15,
-        "merge_under_target_min": 18,
+        "merge_under_target_min": 33,
+        "merge_same_l1_short_leaf": 14,
+        "already_at_target_min": 20,
         "flush_before_atomic": 10,
         "atomic_keep": 10,
+        "next_leaf_not_short": 10,
         "different_l1_hard_boundary": 7,
-        "l2_bucket_target_reached": 5,
+        "l2_bucket_target_reached": 3,
         "different_parent": 1,
         "flush_eof": 1
       },
       "skip_reason_counts": {
-        "next_leaf_not_short": 12,
-        "already_at_target_min": 15,
+        "already_at_target_min": 20,
+        "next_leaf_not_short": 10,
         "different_l1_hard_boundary": 7,
-        "l2_bucket_target_reached": 5,
+        "l2_bucket_target_reached": 3,
         "different_parent": 1
       },
       "merge_opportunity_counts": {
-        "merge_same_l1_short_leaf": 10,
-        "merge_under_target_min": 18
+        "merge_under_target_min": 33,
+        "merge_same_l1_short_leaf": 14
       },
       "sample_skip_events": [
         {
-          "reason": "next_leaf_not_short",
+          "reason": "already_at_target_min",
           "prev_path": "工具概述 > 纹理格式",
-          "next_path": "工具概述 > 空间参考 > 投影参数",
+          "next_path": "工具概述 > 纹理格式",
           "prev_order": 1,
-          "next_order": 4,
-          "bucket_len": 583,
-          "next_len": 503
+          "next_order": 6,
+          "bucket_len": 314,
+          "next_len": 267
+        },
+        {
+          "reason": "already_at_target_min",
+          "prev_path": "工具概述 > 空间参考 > 投影参数",
+          "next_path": "工具概述 > 空间参考 > 投影参数",
+          "prev_order": 6,
+          "next_order": 8,
+          "bucket_len": 326,
+          "next_len": 483
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "工具概述 > 空间参考 > 投影参数",
           "next_path": "工具概述 > 空间参考 > 坐标偏移",
-          "prev_order": 4,
-          "next_order": 5,
-          "bucket_len": 503,
-          "next_len": 202
+          "prev_order": 8,
+          "next_order": 9,
+          "bucket_len": 483,
+          "next_len": 35
         },
         {
           "reason": "next_leaf_not_short",
           "prev_path": "工具概述 > 编译日志",
           "next_path": "工具概述 > Cesium加载3DTiles > WebGL版本设置",
-          "prev_order": 12,
-          "next_order": 14,
+          "prev_order": 18,
+          "next_order": 20,
           "bucket_len": 285,
           "next_len": 378
         },
@@ -419,8 +428,8 @@
           "reason": "already_at_target_min",
           "prev_path": "工具概述 > Cesium加载3DTiles > WebGL版本设置",
           "next_path": "工具概述 > Cesium加载3DTiles > skipLevelOfDetail设置",
-          "prev_order": 14,
-          "next_order": 15,
+          "prev_order": 20,
+          "next_order": 21,
           "bucket_len": 378,
           "next_len": 59
         },
@@ -428,8 +437,8 @@
           "reason": "different_l1_hard_boundary",
           "prev_path": "工具概述 > Cesium加载3DTiles > skipLevelOfDetail设置",
           "next_path": "加密锁驱动安装 > 安装运行环境",
-          "prev_order": 15,
-          "next_order": 16,
+          "prev_order": 21,
+          "next_order": 22,
           "bucket_len": 59,
           "next_len": 90
         },
@@ -437,8 +446,8 @@
           "reason": "different_l1_hard_boundary",
           "prev_path": "加密锁驱动安装 > 安装驱动",
           "next_path": "TerrainBuilder > 数据规范",
-          "prev_order": 16,
-          "next_order": 18,
+          "prev_order": 22,
+          "next_order": 24,
           "bucket_len": 250,
           "next_len": 21
         },
@@ -446,35 +455,35 @@
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > DOMBuilder > 工程设置",
           "next_path": "TerrainBuilder > DOMBuilder > 数据设置",
-          "prev_order": 20,
-          "next_order": 21,
+          "prev_order": 26,
+          "next_order": 27,
           "bucket_len": 378,
           "next_len": 297
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > DOMBuilder > 编译级别",
-          "next_path": "TerrainBuilder > DOMBuilder > 数据编译",
-          "prev_order": 21,
-          "next_order": 23,
-          "bucket_len": 485,
-          "next_len": 84
+          "next_path": "TerrainBuilder > DOMBuilder > 编译级别",
+          "prev_order": 27,
+          "next_order": 29,
+          "bucket_len": 334,
+          "next_len": 149
         },
         {
           "reason": "next_leaf_not_short",
           "prev_path": "TerrainBuilder > DOMBuilder > 数据编译",
           "next_path": "TerrainBuilder > DEMBuilder > 工程设置",
-          "prev_order": 23,
-          "next_order": 24,
-          "bucket_len": 84,
+          "prev_order": 29,
+          "next_order": 31,
+          "bucket_len": 235,
           "next_len": 357
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > DEMBuilder > 工程设置",
           "next_path": "TerrainBuilder > DEMBuilder > 数据设置",
-          "prev_order": 24,
-          "next_order": 25,
+          "prev_order": 31,
+          "next_order": 32,
           "bucket_len": 357,
           "next_len": 184
         },
@@ -482,8 +491,8 @@
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > DEMBuilder > 编译级别",
           "next_path": "TerrainBuilder > DEMBuilder > 数据编译",
-          "prev_order": 25,
-          "next_order": 27,
+          "prev_order": 32,
+          "next_order": 35,
           "bucket_len": 395,
           "next_len": 114
         },
@@ -491,8 +500,8 @@
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > TINBuilder > 工程设置",
           "next_path": "TerrainBuilder > TINBuilder > 数据设置",
-          "prev_order": 27,
-          "next_order": 29,
+          "prev_order": 35,
+          "next_order": 37,
           "bucket_len": 474,
           "next_len": 169
         },
@@ -500,8 +509,8 @@
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > TINBuilder > 编译级别",
           "next_path": "TerrainBuilder > TINBuilder > 数据编译",
-          "prev_order": 29,
-          "next_order": 31,
+          "prev_order": 37,
+          "next_order": 40,
           "bucket_len": 335,
           "next_len": 114
         },
@@ -509,23 +518,14 @@
           "reason": "already_at_target_min",
           "prev_path": "TerrainBuilder > TINIncise > 工程设置",
           "next_path": "TerrainBuilder > TINIncise > 数据设置",
-          "prev_order": 31,
-          "next_order": 33,
+          "prev_order": 40,
+          "next_order": 43,
           "bucket_len": 447,
-          "next_len": 656
-        },
-        {
-          "reason": "already_at_target_min",
-          "prev_path": "TerrainBuilder > TINIncise > 数据设置",
-          "next_path": "TerrainBuilder > TINIncise > 编译级别",
-          "prev_order": 33,
-          "next_order": 34,
-          "bucket_len": 656,
-          "next_len": 139
+          "next_len": 43
         }
       ],
       "lineage": {
-        "final_chunks": 66,
+        "final_chunks": 67,
         "missing_source_element_ids": 0,
         "missing_source_raw_block_ids": 0,
         "missing_chunk_uid": 0,
@@ -540,60 +540,62 @@
     {
       "source": "StampWebRTC用户手册.docx",
       "path": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory\\word\\StampWebRTC用户手册.docx",
-      "element_count": 96,
-      "final_chunk_count": 63,
+      "element_count": 132,
+      "final_chunk_count": 61,
       "before_all": {
-        "count": 96,
-        "median": 126.5,
-        "lt_100_rate": 0.3645833333333333,
-        "lt_200_rate": 0.7291666666666666,
-        "in_300_800_rate": 0.13541666666666666,
-        "gt_1200_rate": 0.03125
+        "count": 132,
+        "median": 81.0,
+        "lt_100_rate": 0.553030303030303,
+        "lt_200_rate": 0.8484848484848485,
+        "in_300_800_rate": 0.045454545454545456,
+        "gt_1200_rate": 0.022727272727272728
       },
       "after_all": {
-        "count": 63,
-        "median": 377,
-        "lt_100_rate": 0.015873015873015872,
-        "lt_200_rate": 0.12698412698412698,
-        "in_300_800_rate": 0.8095238095238095,
+        "count": 61,
+        "median": 366,
+        "lt_100_rate": 0.03278688524590164,
+        "lt_200_rate": 0.04918032786885246,
+        "in_300_800_rate": 0.8688524590163934,
         "gt_1200_rate": 0.0
       },
       "before": {
-        "count": 95,
-        "median": 125,
-        "lt_100_rate": 0.3684210526315789,
-        "lt_200_rate": 0.7263157894736842,
-        "in_300_800_rate": 0.1368421052631579,
-        "gt_1200_rate": 0.031578947368421054
+        "count": 131,
+        "median": 81,
+        "lt_100_rate": 0.5572519083969466,
+        "lt_200_rate": 0.8473282442748091,
+        "in_300_800_rate": 0.04580152671755725,
+        "gt_1200_rate": 0.022900763358778626
       },
       "after": {
-        "count": 61,
-        "median": 380,
-        "lt_100_rate": 0.0,
-        "lt_200_rate": 0.11475409836065574,
-        "in_300_800_rate": 0.8360655737704918,
+        "count": 59,
+        "median": 371,
+        "lt_100_rate": 0.01694915254237288,
+        "lt_200_rate": 0.03389830508474576,
+        "in_300_800_rate": 0.8983050847457628,
         "gt_1200_rate": 0.0
       },
       "flush_reason_counts": {
         "different_l1_hard_boundary": 8,
-        "merge_same_l1_short_leaf": 44,
-        "merge_under_target_min": 1,
-        "l2_bucket_target_reached": 25,
-        "next_leaf_not_short": 14,
-        "already_at_target_min": 1,
+        "merge_under_target_min": 30,
+        "merge_same_l1_short_leaf": 52,
+        "already_at_target_min": 7,
+        "l2_bucket_target_reached": 28,
         "flush_before_atomic": 1,
         "atomic_keep": 1,
+        "next_leaf_not_short": 3,
+        "projected_over_soft_max": 1,
         "flush_eof": 1
       },
       "skip_reason_counts": {
         "different_l1_hard_boundary": 8,
-        "l2_bucket_target_reached": 25,
-        "next_leaf_not_short": 14,
-        "already_at_target_min": 1
+        "already_at_target_min": 7,
+        "l2_bucket_target_reached": 28,
+        "next_leaf_not_short": 3,
+        "projected_over_soft_max": 1
       },
       "merge_opportunity_counts": {
-        "merge_same_l1_short_leaf": 44,
-        "merge_under_target_min": 1
+        "merge_under_target_min": 30,
+        "merge_same_l1_short_leaf": 52
       },
       "sample_skip_events": [
         {
@@ -603,104 +605,95 @@
           "prev_order": 1,
           "next_order": 2,
           "bucket_len": 2,
-          "next_len": 125
+          "next_len": 26
+        },
+        {
+          "reason": "already_at_target_min",
+          "prev_path": "概述 > 显卡设置 > 独立显卡设置",
+          "next_path": "概述 > 显卡设置 > 独立显卡设置",
+          "prev_order": 2,
+          "next_order": 6,
+          "bucket_len": 320,
+          "next_len": 119
         },
         {
           "reason": "l2_bucket_target_reached",
-          "prev_path": "概述 > 显卡设置 > 独立显卡设置",
-          "next_path": "概述 > 推流启动",
-          "prev_order": 2,
-          "next_order": 5,
-          "bucket_len": 441,
-          "next_len": 180
-        },
-        {
-          "reason": "next_leaf_not_short",
           "prev_path": "概述 > 推流启动",
           "next_path": "概述 > 基本操作 > 鼠标",
-          "prev_order": 5,
-          "next_order": 6,
-          "bucket_len": 180,
-          "next_len": 400
+          "prev_order": 6,
+          "next_order": 8,
+          "bucket_len": 338,
+          "next_len": 53
         },
         {
           "reason": "already_at_target_min",
           "prev_path": "概述 > 基本操作 > 鼠标",
           "next_path": "概述 > 基本操作 > 键盘",
-          "prev_order": 6,
-          "next_order": 7,
+          "prev_order": 8,
+          "next_order": 10,
           "bucket_len": 400,
           "next_len": 51
-        },
-        {
-          "reason": "next_leaf_not_short",
-          "prev_path": "快捷菜单 > 图层管理",
-          "next_path": "快捷菜单 > 飞行路径",
-          "prev_order": 9,
-          "next_order": 10,
-          "bucket_len": 144,
-          "next_len": 972
         },
         {
           "reason": "l2_bucket_target_reached",
           "prev_path": "快捷菜单 > 飞行路径",
           "next_path": "快捷菜单 > 视点管理",
-          "prev_order": 10,
-          "next_order": 11,
-          "bucket_len": 972,
-          "next_len": 273
+          "prev_order": 12,
+          "next_order": 16,
+          "bucket_len": 1150,
+          "next_len": 36
         },
         {
-          "reason": "l2_bucket_target_reached",
+          "reason": "already_at_target_min",
           "prev_path": "快捷菜单 > 光影控制",
-          "next_path": "快捷菜单 > 天气特效",
-          "prev_order": 11,
-          "next_order": 13,
-          "bucket_len": 486,
-          "next_len": 263
+          "next_path": "快捷菜单 > 光影控制",
+          "prev_order": 16,
+          "next_order": 19,
+          "bucket_len": 350,
+          "next_len": 134
         },
         {
           "reason": "l2_bucket_target_reached",
-          "prev_path": "快捷菜单 > 地形透明",
-          "next_path": "快捷菜单 > 模型透明",
-          "prev_order": 13,
-          "next_order": 15,
-          "bucket_len": 386,
+          "prev_path": "快捷菜单 > 天气特效",
+          "next_path": "快捷菜单 > 地形透明",
+          "prev_order": 19,
+          "next_order": 22,
+          "bucket_len": 431,
+          "next_len": 89
+        },
+        {
+          "reason": "l2_bucket_target_reached",
+          "prev_path": "快捷菜单 > 地下浏览",
+          "next_path": "快捷菜单 > 相机碰撞",
+          "prev_order": 22,
+          "next_order": 26,
+          "bucket_len": 325,
           "next_len": 44
-        },
-        {
-          "reason": "l2_bucket_target_reached",
-          "prev_path": "快捷菜单 > 场景指北",
-          "next_path": "快捷菜单 > 场景环绕",
-          "prev_order": 15,
-          "next_order": 20,
-          "bucket_len": 348,
-          "next_len": 42
         },
         {
           "reason": "different_l1_hard_boundary",
           "prev_path": "快捷菜单 > 屏幕录制",
           "next_path": "浏览 > 场景漫游",
-          "prev_order": 20,
-          "next_order": 22,
-          "bucket_len": 141,
-          "next_len": 332
+          "prev_order": 26,
+          "next_order": 30,
+          "bucket_len": 271,
+          "next_len": 51
         },
         {
-          "reason": "next_leaf_not_short",
+          "reason": "l2_bucket_target_reached",
           "prev_path": "浏览 > 场景漫游",
           "next_path": "浏览 > GPSTrack",
-          "prev_order": 22,
-          "next_order": 23,
+          "prev_order": 30,
+          "next_order": 32,
           "bucket_len": 332,
-          "next_len": 632
+          "next_len": 53
         },
         {
           "reason": "l2_bucket_target_reached",
           "prev_path": "浏览 > GPSTrack",
           "next_path": "浏览 > GB28181",
-          "prev_order": 23,
-          "next_order": 24,
+          "prev_order": 32,
+          "next_order": 34,
           "bucket_len": 632,
           "next_len": 64
         },
@@ -708,32 +701,41 @@
           "reason": "l2_bucket_target_reached",
           "prev_path": "浏览 > 地形平整",
           "next_path": "浏览 > 模型压平",
-          "prev_order": 24,
-          "next_order": 27,
+          "prev_order": 34,
+          "next_order": 39,
           "bucket_len": 430,
-          "next_len": 235
+          "next_len": 20
         },
         {
           "reason": "l2_bucket_target_reached",
           "prev_path": "浏览 > 独立场景",
           "next_path": "浏览 > 瓦片配色",
-          "prev_order": 27,
-          "next_order": 29,
+          "prev_order": 39,
+          "next_order": 42,
           "bucket_len": 329,
-          "next_len": 232
+          "next_len": 40
+        },
+        {
+          "reason": "already_at_target_min",
+          "prev_path": "浏览 > 楼块配色",
+          "next_path": "浏览 > 楼块配色",
+          "prev_order": 42,
+          "next_order": 45,
+          "bucket_len": 302,
+          "next_len": 182
         },
         {
           "reason": "next_leaf_not_short",
           "prev_path": "浏览 > 楼块配色",
           "next_path": "浏览 > 多屏显示",
-          "prev_order": 29,
-          "next_order": 31,
-          "bucket_len": 486,
+          "prev_order": 45,
+          "next_order": 46,
+          "bucket_len": 182,
           "next_len": 448
         }
       ],
       "lineage": {
-        "final_chunks": 63,
+        "final_chunks": 61,
         "missing_source_element_ids": 0,
         "missing_source_raw_block_ids": 0,
         "missing_chunk_uid": 0,
@@ -748,30 +750,32 @@
   ],
   "webrtc_diagnosis": {
     "source": "StampWebRTC用户手册.docx",
-    "element_count": 96,
-    "final_chunk_count": 63,
-    "lt_200_before": 0.7263157894736842,
-    "lt_200_after": 0.11475409836065574,
+    "element_count": 132,
+    "final_chunk_count": 61,
+    "lt_200_before": 0.8473282442748091,
+    "lt_200_after": 0.03389830508474576,
     "flush_reason_counts": {
       "different_l1_hard_boundary": 8,
-      "merge_same_l1_short_leaf": 44,
-      "merge_under_target_min": 1,
-      "l2_bucket_target_reached": 25,
-      "next_leaf_not_short": 14,
-      "already_at_target_min": 1,
+      "merge_under_target_min": 30,
+      "merge_same_l1_short_leaf": 52,
+      "already_at_target_min": 7,
+      "l2_bucket_target_reached": 28,
       "flush_before_atomic": 1,
       "atomic_keep": 1,
+      "next_leaf_not_short": 3,
+      "projected_over_soft_max": 1,
       "flush_eof": 1
     },
     "skip_reason_counts": {
       "different_l1_hard_boundary": 8,
-      "l2_bucket_target_reached": 25,
-      "next_leaf_not_short": 14,
-      "already_at_target_min": 1
+      "already_at_target_min": 7,
+      "l2_bucket_target_reached": 28,
+      "next_leaf_not_short": 3,
+      "projected_over_soft_max": 1
     },
     "merge_opportunity_counts": {
-      "merge_same_l1_short_leaf": 44,
-      "merge_under_target_min": 1
+      "merge_under_target_min": 30,
+      "merge_same_l1_short_leaf": 52
     },
     "sample_skip_events": [
       {
@@ -781,104 +785,95 @@
         "prev_order": 1,
         "next_order": 2,
         "bucket_len": 2,
-        "next_len": 125
+        "next_len": 26
+      },
+      {
+        "reason": "already_at_target_min",
+        "prev_path": "概述 > 显卡设置 > 独立显卡设置",
+        "next_path": "概述 > 显卡设置 > 独立显卡设置",
+        "prev_order": 2,
+        "next_order": 6,
+        "bucket_len": 320,
+        "next_len": 119
       },
       {
         "reason": "l2_bucket_target_reached",
-        "prev_path": "概述 > 显卡设置 > 独立显卡设置",
-        "next_path": "概述 > 推流启动",
-        "prev_order": 2,
-        "next_order": 5,
-        "bucket_len": 441,
-        "next_len": 180
-      },
-      {
-        "reason": "next_leaf_not_short",
         "prev_path": "概述 > 推流启动",
         "next_path": "概述 > 基本操作 > 鼠标",
-        "prev_order": 5,
-        "next_order": 6,
-        "bucket_len": 180,
-        "next_len": 400
+        "prev_order": 6,
+        "next_order": 8,
+        "bucket_len": 338,
+        "next_len": 53
       },
       {
         "reason": "already_at_target_min",
         "prev_path": "概述 > 基本操作 > 鼠标",
         "next_path": "概述 > 基本操作 > 键盘",
-        "prev_order": 6,
-        "next_order": 7,
+        "prev_order": 8,
+        "next_order": 10,
         "bucket_len": 400,
         "next_len": 51
-      },
-      {
-        "reason": "next_leaf_not_short",
-        "prev_path": "快捷菜单 > 图层管理",
-        "next_path": "快捷菜单 > 飞行路径",
-        "prev_order": 9,
-        "next_order": 10,
-        "bucket_len": 144,
-        "next_len": 972
       },
       {
         "reason": "l2_bucket_target_reached",
         "prev_path": "快捷菜单 > 飞行路径",
         "next_path": "快捷菜单 > 视点管理",
-        "prev_order": 10,
-        "next_order": 11,
-        "bucket_len": 972,
-        "next_len": 273
+        "prev_order": 12,
+        "next_order": 16,
+        "bucket_len": 1150,
+        "next_len": 36
       },
       {
-        "reason": "l2_bucket_target_reached",
+        "reason": "already_at_target_min",
         "prev_path": "快捷菜单 > 光影控制",
-        "next_path": "快捷菜单 > 天气特效",
-        "prev_order": 11,
-        "next_order": 13,
-        "bucket_len": 486,
-        "next_len": 263
+        "next_path": "快捷菜单 > 光影控制",
+        "prev_order": 16,
+        "next_order": 19,
+        "bucket_len": 350,
+        "next_len": 134
       },
       {
         "reason": "l2_bucket_target_reached",
-        "prev_path": "快捷菜单 > 地形透明",
-        "next_path": "快捷菜单 > 模型透明",
-        "prev_order": 13,
-        "next_order": 15,
-        "bucket_len": 386,
+        "prev_path": "快捷菜单 > 天气特效",
+        "next_path": "快捷菜单 > 地形透明",
+        "prev_order": 19,
+        "next_order": 22,
+        "bucket_len": 431,
+        "next_len": 89
+      },
+      {
+        "reason": "l2_bucket_target_reached",
+        "prev_path": "快捷菜单 > 地下浏览",
+        "next_path": "快捷菜单 > 相机碰撞",
+        "prev_order": 22,
+        "next_order": 26,
+        "bucket_len": 325,
         "next_len": 44
-      },
-      {
-        "reason": "l2_bucket_target_reached",
-        "prev_path": "快捷菜单 > 场景指北",
-        "next_path": "快捷菜单 > 场景环绕",
-        "prev_order": 15,
-        "next_order": 20,
-        "bucket_len": 348,
-        "next_len": 42
       },
       {
         "reason": "different_l1_hard_boundary",
         "prev_path": "快捷菜单 > 屏幕录制",
         "next_path": "浏览 > 场景漫游",
-        "prev_order": 20,
-        "next_order": 22,
-        "bucket_len": 141,
-        "next_len": 332
+        "prev_order": 26,
+        "next_order": 30,
+        "bucket_len": 271,
+        "next_len": 51
       },
       {
-        "reason": "next_leaf_not_short",
+        "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 场景漫游",
         "next_path": "浏览 > GPSTrack",
-        "prev_order": 22,
-        "next_order": 23,
+        "prev_order": 30,
+        "next_order": 32,
         "bucket_len": 332,
-        "next_len": 632
+        "next_len": 53
       },
       {
         "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > GPSTrack",
         "next_path": "浏览 > GB28181",
-        "prev_order": 23,
-        "next_order": 24,
+        "prev_order": 32,
+        "next_order": 34,
         "bucket_len": 632,
         "next_len": 64
       },
@@ -886,62 +881,62 @@
         "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 地形平整",
         "next_path": "浏览 > 模型压平",
-        "prev_order": 24,
-        "next_order": 27,
+        "prev_order": 34,
+        "next_order": 39,
         "bucket_len": 430,
-        "next_len": 235
+        "next_len": 20
       },
       {
         "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 独立场景",
         "next_path": "浏览 > 瓦片配色",
-        "prev_order": 27,
-        "next_order": 29,
+        "prev_order": 39,
+        "next_order": 42,
         "bucket_len": 329,
-        "next_len": 232
+        "next_len": 40
+      },
+      {
+        "reason": "already_at_target_min",
+        "prev_path": "浏览 > 楼块配色",
+        "next_path": "浏览 > 楼块配色",
+        "prev_order": 42,
+        "next_order": 45,
+        "bucket_len": 302,
+        "next_len": 182
       },
       {
         "reason": "next_leaf_not_short",
         "prev_path": "浏览 > 楼块配色",
         "next_path": "浏览 > 多屏显示",
-        "prev_order": 29,
-        "next_order": 31,
-        "bucket_len": 486,
+        "prev_order": 45,
+        "next_order": 46,
+        "bucket_len": 182,
         "next_len": 448
       },
       {
         "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 多屏显示",
         "next_path": "浏览 > 屏幕截图",
-        "prev_order": 31,
-        "next_order": 32,
+        "prev_order": 46,
+        "next_order": 47,
         "bucket_len": 448,
         "next_len": 60
       },
       {
-        "reason": "next_leaf_not_short",
-        "prev_path": "浏览 > 草图浏览",
-        "next_path": "浏览 > 路径漫游",
-        "prev_order": 32,
-        "next_order": 34,
-        "bucket_len": 144,
-        "next_len": 369
-      },
-      {
-        "reason": "next_leaf_not_short",
+        "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 路径漫游",
         "next_path": "浏览 > 车流穿梭",
-        "prev_order": 34,
-        "next_order": 35,
-        "bucket_len": 369,
-        "next_len": 352
+        "prev_order": 47,
+        "next_order": 51,
+        "bucket_len": 529,
+        "next_len": 59
       },
       {
         "reason": "l2_bucket_target_reached",
         "prev_path": "浏览 > 车流穿梭",
         "next_path": "浏览 > 场景设置",
-        "prev_order": 35,
-        "next_order": 36,
+        "prev_order": 51,
+        "next_order": 53,
         "bucket_len": 352,
         "next_len": 72
       },
@@ -949,10 +944,19 @@
         "reason": "different_l1_hard_boundary",
         "prev_path": "浏览 > 工程设置",
         "next_path": "查询 > 属性查询",
-        "prev_order": 36,
-        "next_order": 38,
+        "prev_order": 53,
+        "next_order": 56,
         "bucket_len": 205,
-        "next_len": 300
+        "next_len": 81
+      },
+      {
+        "reason": "l2_bucket_target_reached",
+        "prev_path": "查询 > 属性查询",
+        "next_path": "查询 > 圆域查询",
+        "prev_order": 56,
+        "next_order": 58,
+        "bucket_len": 300,
+        "next_len": 163
       }
     ]
   },

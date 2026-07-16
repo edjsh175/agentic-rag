@@ -22,7 +22,7 @@ from rag_knowledge.services.chunk_health_audit import count_docx_media
 
 logger = logging.getLogger(__name__)
 
-OUT_DIR = ROOT / "docs/3_待办清单/chunk-foundation-parallel-prep"
+OUT_DIR = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/第0E轮媒体与PDF预研"
 DEFAULT_DOCS = [
     "StampServer用户手册_Rocky9 .docx",
     "StampTools用户手册.docx",

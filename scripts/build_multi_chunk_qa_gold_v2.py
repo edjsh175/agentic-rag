@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SEED = ROOT / "docs/3_待办清单/chunk-foundation-round0a/multi_chunk_qa_gold.json"
-AUDIT = ROOT / "docs/3_待办清单/chunk-foundation-round0a/chunk_health_audit.json"
-OUT = ROOT / "docs/3_待办清单/chunk-foundation-parallel-prep/multi_chunk_qa_gold_v2.json"
+SEED = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0A轮-基线审计与问题定位/multi_chunk_qa_gold.json"
+AUDIT = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0A轮-基线审计与问题定位/审计产物/chunk_health_audit.json"
+OUT = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v2.json"
 
 SNAPSHOT = "19421c7f8fb3124f"
 SERVER = "StampServer用户手册_Rocky9 .docx"

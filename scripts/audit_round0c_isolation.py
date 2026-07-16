@@ -38,8 +38,9 @@ OUT_DIR = (
     ROOT
     / "docs"
     / "3_待办清单"
-    / "chunk基石治理"
-    / "chunk-foundation-round0c-isolation"
+    / "切块基石治理"
+    / "进行中-第0C轮-切块合并与隔离验证"
+    / "首次隔离验证"
 )
 
 # Flush reasons that are expected bookkeeping, not skip diagnostics.

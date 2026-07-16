@@ -19,8 +19,8 @@ from rag_knowledge.evaluation.multi_evidence_metrics import score_answer, summar
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GOLD = ROOT / "docs/3_待办清单/chunk-foundation-parallel-prep/multi_chunk_qa_gold_v2.json"
-DEFAULT_OUT_DIR = ROOT / "docs/3_待办清单/chunk-foundation-parallel-prep"
+DEFAULT_GOLD = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v2.json"
+DEFAULT_OUT_DIR = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
 
 
 def _load_json(path: Path) -> Any:

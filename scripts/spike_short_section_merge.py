@@ -27,8 +27,8 @@ from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader
 
 logger = logging.getLogger(__name__)
 
-OUT_DIR = ROOT / "docs/3_待办清单/chunk-foundation-parallel-prep"
-GOLD = OUT_DIR / "multi_chunk_qa_gold_v2.json"
+OUT_DIR = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/第0C轮设计与留痕"
+GOLD = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v2.json"
 
 DEFAULT_DOCS = [
     "StampServer用户手册_Rocky9 .docx",
