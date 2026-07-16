@@ -17,6 +17,8 @@ from pathlib import Path
 PHASE1_EXTENSIONS = {".docx", ".md", ".txt", ".xlsx"}
 PHASE2_EXTENSIONS = {
     ".pdf", ".pptx", ".html", ".htm", ".sql", ".cnf", ".conf", ".cfg", ".ini", ".xml",
+}
+MEDIA_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
     ".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv",
 }
@@ -36,6 +38,8 @@ def support_for_suffix(suffix: str) -> tuple[str, str]:
         return "manual_queue", "LEGACY_DOC_REQUIRES_CONVERSION"
     if value == ".xls":
         return "manual_queue", "LEGACY_SPREADSHEET_REQUIRES_CONVERSION"
+    if value in MEDIA_EXTENSIONS:
+        return "manual_queue", "MEDIA_PROCESSING_DEFERRED"
     if value in DEPENDENCY_EXTENSIONS:
         return "excluded", "DEPENDENCY_ASSET"
     if value in ARCHIVE_EXTENSIONS:
@@ -77,6 +81,17 @@ def _container_features(path: Path) -> tuple[str, dict]:
             features = {"sheet_count": len(workbook.sheetnames)}
             workbook.close()
             return "", features
+        except Exception:
+            return "", {"parse_status": "invalid_or_unreadable"}
+    if suffix == ".pdf":
+        try:
+            import fitz
+            doc = fitz.open(path)
+            text = ""
+            for page in doc:
+                text += page.get_text()
+            doc.close()
+            return text, {}
         except Exception:
             return "", {"parse_status": "invalid_or_unreadable"}
     if suffix in {".md", ".txt", ".html", ".htm", ".sql", ".cnf", ".conf", ".cfg", ".ini", ".xml"}:

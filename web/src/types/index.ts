@@ -172,6 +172,7 @@ export interface ScanResult {
   new_files: number
   skipped_files: number
   errors: number
+  decisions?: IngestionDecision[]
 }
 
 /** 博客爬取响应 */
@@ -347,5 +348,16 @@ export interface GraphQualityReport {
   errors: string[]
   warnings: string[]
   stats: Record<string, any>
+}
+
+export interface IngestionDecision {
+  file_name: string
+  file_path: string
+  file_hash: string
+  status: 'queued' | 'excluded'
+  reason_code: string
+  locator?: string | null
+  message: string
+  created_at: string
 }
 

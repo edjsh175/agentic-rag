@@ -37,7 +37,14 @@ from rag_knowledge.services.document_profiles import (
     get_chunk_policy,
     normalize_document_profile,
 )
-from rag_knowledge.services.canonical_adapters import ADAPTER_EXTENSIONS, load_canonical_documents
+from rag_knowledge.services.canonical_adapters import ADAPTER_EXTENSIONS, load_canonical_documents, load_canonical_result
+from rag_knowledge.services.document_support import (
+    IngestionDecision,
+    FormatDisposition,
+    classify_suffix,
+    make_decision,
+)
+from dataclasses import dataclass
 from rag_knowledge.services.section_chunk_merge import (
     CHUNKING_METHOD,
     TARGET_SOFT_MAX,
@@ -56,6 +63,13 @@ TOC_LINE_RE = re.compile(r"^\s*(?:\d+(?:\.\d+)*)?\s*[\u4e00-\u9fffA-Za-z].*?(?:\
 URL_LINE_RE = re.compile(r"^\s*(?:https?://\S+|www\.\S+|\[[^\]]+\]\(https?://[^)]+\))\s*$", re.I)
 VERSION_HINT_RE = re.compile(r"(?:v?\d+(?:\.\d+)+|rocky\s*\d+|centos\s*\d+|windows\s*server\s*\d+)", re.I)
 TOC_MARKER_RE = re.compile(r"^(?:目录|contents?)(?:\s+\d+)?$", re.I)
+
+
+@dataclass
+class FileLoadResult:
+    chunks: list[Document]
+    category: str
+    decisions: list[IngestionDecision]
 
 
 class FileLoader:
@@ -110,6 +124,45 @@ class FileLoader:
     # 对外接口
     # ------------------------------------------------------------------
 
+    def load_with_decisions(
+        self,
+        file_path: str,
+        *,
+        document_profile: DocumentProfile | str | None = None,
+    ) -> FileLoadResult:
+        """
+        加载并处理一个文件，产生分块与决策。
+        """
+        path = Path(file_path)
+        suffix = path.suffix.lower()
+        disp = classify_suffix(suffix)
+
+        if disp.action == "excluded":
+            dec = make_decision(path, status="excluded", reason_code=disp.reason_code)
+            return FileLoadResult([], "text", [dec])
+
+        if disp.action == "queued":
+            dec = make_decision(path, status="queued", reason_code=disp.reason_code)
+            category = FileCategory.TEXT
+            if suffix in IMAGE_EXTS:
+                category = FileCategory.IMAGE
+            elif suffix in VIDEO_EXTS:
+                category = FileCategory.VIDEO
+            return FileLoadResult([], category, [dec])
+
+        if suffix in TEXT_EXTS:
+            chunks, decisions = self._load_text_with_decisions(file_path, document_profile=document_profile)
+            return FileLoadResult(chunks, FileCategory.TEXT, decisions)
+        elif suffix in IMAGE_EXTS:
+            dec = make_decision(path, status="queued", reason_code="MEDIA_PROCESSING_DEFERRED")
+            return FileLoadResult([], FileCategory.IMAGE, [dec])
+        elif suffix in VIDEO_EXTS:
+            dec = make_decision(path, status="queued", reason_code="MEDIA_PROCESSING_DEFERRED")
+            return FileLoadResult([], FileCategory.VIDEO, [dec])
+        else:
+            dec = make_decision(path, status="excluded", reason_code="UNSUPPORTED_EXTENSION")
+            return FileLoadResult([], FileCategory.TEXT, [dec])
+
     def load(
         self,
         file_path: str,
@@ -117,29 +170,14 @@ class FileLoader:
         document_profile: DocumentProfile | str | None = None,
     ) -> tuple[list[Document], str]:
         """
-        加载并处理一个文件
-
-        参数：
-          file_path: 文件绝对路径
-
-        返回：
-          (chunks, category)
-          chunks   — 切分后的 Document 列表
-          category — 文件分类（text / image / video）
-
-        抛出：
-          ValueError — 不支持的文件类型
+        兼容接口：内部调用 load_with_decisions，若存在文件级 queued/excluded 决策则抛出 ValueError。
         """
-        suffix = Path(file_path).suffix.lower()
-
-        if suffix in TEXT_EXTS:
-            return self._load_text(file_path, document_profile=document_profile), FileCategory.TEXT
-        elif suffix in IMAGE_EXTS:
-            return self._load_image(file_path), FileCategory.IMAGE
-        elif suffix in VIDEO_EXTS:
-            return self._load_video(file_path), FileCategory.VIDEO
-        else:
-            raise ValueError(f"不支持的文件类型: {suffix}")
+        res = self.load_with_decisions(file_path, document_profile=document_profile)
+        if res.decisions:
+            for d in res.decisions:
+                if not d.locator:
+                    raise ValueError(f"{d.reason_code}: {Path(file_path).name}")
+        return res.chunks, res.category
 
     @staticmethod
     def detect_category(file_path: str) -> str | None:
@@ -163,7 +201,15 @@ class FileLoader:
         *,
         document_profile: DocumentProfile | str | None = None,
     ) -> list[Document]:
-        """文本类文件加载，优先 unstructured 章节切片，失败回退旧逻辑"""
+        chunks, _ = self._load_text_with_decisions(file_path, document_profile=document_profile)
+        return chunks
+
+    def _load_text_with_decisions(
+        self,
+        file_path: str,
+        *,
+        document_profile: DocumentProfile | str | None = None,
+    ) -> tuple[list[Document], list[IngestionDecision]]:
         path = Path(file_path)
         suffix = path.suffix.lower()
         profile = normalize_document_profile(document_profile)
@@ -173,25 +219,25 @@ class FileLoader:
             raise ValueError(f"LEGACY_DOC_REQUIRES_CONVERSION: {path.name}")
 
         if suffix in ADAPTER_EXTENSIONS:
-            chunks = apply_document_profile(load_canonical_documents(path), profile, policy=policy)
+            canonical_res = load_canonical_result(path)
+            chunks = apply_document_profile(canonical_res.documents, profile, policy=policy)
             chunks = self._split_documents_preserving_blocks(chunks)
-            if suffix == ".pdf" and self._extract_images:
-                for desc in self._describe_embedded_images(file_path):
-                    chunks.append(Document(
-                        page_content=desc,
-                        metadata={
-                            "source": path.name,
-                            "category": FileCategory.TEXT,
-                            "content_type": "embedded_image",
-                            "content_role": "media_evidence",
-                            "section_title": "",
-                            "section_path": "",
-                        },
-                    ))
             chunks = self._post_process_chunks(chunks)
-            return finalize_profile_chunks(chunks, profile, policy)
+            return finalize_profile_chunks(chunks, profile, policy), canonical_res.decisions
 
-        # 优先使用 unstructured 按标题切片（仅 .txt / .md / .docx）
+        decisions = []
+        if suffix == ".docx":
+            try:
+                with zipfile.ZipFile(file_path) as z:
+                    media_files = [name for name in z.namelist() if name.startswith("word/media/")]
+                    for idx, name in enumerate(media_files, 1):
+                        decisions.append(make_decision(
+                            path, status="queued", reason_code="EMBEDDED_MEDIA_PROCESSING_DEFERRED",
+                            locator=f"docx:media:{idx}"
+                        ))
+            except Exception:
+                pass
+
         if self._use_unstructured and suffix in SUPPORTED_EXTS:
             try:
                 chunks = self._unstructured_loader.load(file_path)
@@ -203,24 +249,9 @@ class FileLoader:
         else:
             chunks = apply_document_profile(self._load_text_legacy(file_path), profile, policy=policy)
 
-        # 提取内嵌图片并用视觉模型描述，每条描述作为独立 chunk
-        if suffix in (".pdf", ".docx") and self._extract_images:
-            image_descs = self._describe_embedded_images(file_path)
-            for desc in image_descs:
-                chunks.append(Document(
-                    page_content=desc,
-                    metadata={
-                        "source": path.name,
-                        "category": FileCategory.TEXT,
-                        "content_type": "embedded_image",
-                        "section_title": "",
-                        "section_path": "",
-                    },
-                ))
-
         chunks = self._mark_table_context_chunks(chunks)
         chunks = self._post_process_chunks(chunks)
-        return finalize_profile_chunks(chunks, profile, policy)
+        return finalize_profile_chunks(chunks, profile, policy), decisions
 
     def _load_text_legacy(self, file_path: str) -> list[Document]:
         """旧版文本加载逻辑（固定长度切分）"""

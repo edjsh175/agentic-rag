@@ -200,10 +200,19 @@ enabled = false   # 构建在维护窗口用 CLI --include-llm 执行，非常�
 ```text
 1. data/eval_graph_rag_dataset.json
 2. data/eval_graph_rag_baseline.json / with_graph.json
-3. docs/3_待办清单/graph-round4-ab-report.md
-4. docs/3_待办清单/graph-round4-section13_checklist.md
+3. GraphRAG_A_B验收报告模板.md（完成后填实测数据）
+4. GraphRAG_§13成功标准勾选表.md
 5. docs/3_待办清单/2026-07-13-知识图谱PRD剩余轮次总览.md 状态更新为「四轮已完成」
 ```
+
+预制模板：
+
+- [GraphRAG专项问题集草案.md](GraphRAG专项问题集草案.md)
+- [GraphRAG评测数据集字段规范.md](GraphRAG评测数据集字段规范.md)
+- [GraphRAG_A_B验收报告模板.md](GraphRAG_A_B验收报告模板.md)
+- [GraphRAG_§13成功标准勾选表.md](GraphRAG_§13成功标准勾选表.md)
+- [GraphRAG人工判定规则.md](GraphRAG人工判定规则.md)
+- [图谱生产部署建议.md](图谱生产部署建议.md)
 
 ---
 

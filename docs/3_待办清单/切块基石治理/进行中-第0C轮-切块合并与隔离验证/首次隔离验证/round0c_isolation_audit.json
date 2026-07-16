@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T10:16:11.565699+00:00",
+  "generated_at": "2026-07-16T02:07:31.056290+00:00",
   "watch_directory": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\watch_directory",
   "notes": "Isolation only: UnstructuredChapterLoader + technical_manual_merge + reassign_chunk_adjacency. Does not write chroma_db or call /rebuild. section_id may be shared by multiple chunks in the same document; go/no-go uses cross-document section_id collisions.",
   "identity": {

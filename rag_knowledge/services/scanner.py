@@ -28,6 +28,12 @@ from rag_knowledge.services.index_cleanup import cleanup_indexed_file
 from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.document_profiles import normalize_document_profile
 
+from rag_knowledge.services.document_support import (
+    IngestionDecisionStore,
+    classify_suffix,
+    make_decision,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,15 +58,30 @@ class DirectoryScanner:
         store=None,
         loader=None,
         index_path: Path | None = None,
+        decision_path: Path | None = None,
         refresh_retrieval: bool = True,
+        new_chunk_review_status: str = "pending",
     ):
+        if new_chunk_review_status not in {"pending", "approved"}:
+            raise ValueError("new_chunk_review_status must be pending or approved")
         self._cfg = cfg or Config()
         self._store = store or VectorStore()
         self._loader = loader or FileLoader()
         self._scheduler: BackgroundScheduler | None = None
         self._index_path = index_path or (self._cfg.data_dir / "file_index.json")
         self._refresh_retrieval = refresh_retrieval
+        self._new_chunk_review_status = new_chunk_review_status
         self._index: dict = self._load_index()
+
+        # Initialize IngestionDecisionStore
+        if decision_path is None:
+            if index_path is not None:
+                self._decision_path = index_path.parent / "ingestion_decisions.json"
+            else:
+                self._decision_path = self._cfg.data_dir / "ingestion_decisions.json"
+        else:
+            self._decision_path = Path(decision_path)
+        self._decision_store = IngestionDecisionStore(self._decision_path)
 
         # MVP: 文档分类映射表（相对路径 → doc_category），上传时写入，扫描时读取
         self._dc_map_path = self._cfg.data_dir / "doc_category_map.json"
@@ -183,9 +204,11 @@ class DirectoryScanner:
             self._rebuild_hash_profile_map = {}
         self._index = {"version": 2, "files": {}}
         self._save_index()
+        self._decision_store.reset()
 
     def reload_index(self) -> None:
         self._index = self._load_index()
+        self._decision_store.reload()
 
     def get_index(self) -> dict:
         """获取文件索引快照"""
@@ -197,108 +220,264 @@ class DirectoryScanner:
     # ------------------------------------------------------------------
 
     def _collect_files(self, directory: Path) -> list[Path]:
-        """递归收集所有匹配扩展名的文件"""
-        exts = {f".{t}" for t in self._cfg.watch_file_types}
+        """递归收集监视目录下的所有正常文件（跳过 ~$ 临时文件和以 . 开头的文件）"""
         return [
             p for p in directory.rglob("*")
             if p.is_file()
-            and p.suffix.lower() in exts
             and not p.name.startswith("~$")
             and not p.name.startswith(".")
         ]
 
-    def _process(self, file_path: Path, base: Path) -> str:
-        """处理单个文件，返回状态: new / skipped / error"""
-        fhash = self._hash(file_path)
-        if not fhash:
-            return "error"
-
-        rel_path = file_path.relative_to(base)
-        rel = str(rel_path)
-        kb_name = "已发布文章" if rel_path.parts[0] == "已发布文章" else "文章附件"
-        record = self._index.get("files", {}).get(fhash)
-
-        # 已存在且路径相同 → 跳过
-        if record and record.get("file_path") == rel:
-            return "skipped"
-
-        # 已存在但路径不同（文件被移动/重命名）→ 更新路径
-        if record:
-            record.update(file_path=rel, file_name=file_path.name,
-                          last_modified=datetime.fromtimestamp(file_path.stat().st_mtime).isoformat())
-            self._save_index()
-            return "skipped"
-
-        # 新文件 → 加载 + 向量化 + 建立索引
-        category = FileLoader.detect_category(str(file_path))
-        if not category:
-            return "skipped"
-
-        document_profile = self._resolve_document_profile(rel, fhash)
-        try:
-            chunks, _ = self._loader.load(str(file_path), document_profile=document_profile)
-        except Exception as e:
-            logger.error("加载失败 %s: %s", file_path, e)
-            return "error"
-
-        if not chunks:
-            logger.warning("文件内容为空，跳过: %s", file_path.name)
-            return "skipped"
-
-        # 为每个 chunk 标记所属知识库 + MVP 新增元数据
-        kb_path = str(rel_path.parent)
-        doc_category = self._resolve_doc_category(rel_path, rel, fhash)
-        if doc_category:
-            self._rebuild_dc_map.pop(rel, None)
-            self._rebuild_hash_dc_map.pop(fhash, None)
-        for d in chunks:
-            d.metadata["kb_name"] = kb_name
-            d.metadata["kb_path"] = kb_path
-            d.metadata["doc_category"] = doc_category    # MVP: 文档分类
-            d.metadata["document_profile"] = document_profile
-            d.metadata.setdefault("section_title", "")    # MVP: 章节标题（由 loader 填充）
-            d.metadata.setdefault("section_path", "")     # MVP: 章节路径
-            d.metadata.setdefault("section_index", 0)     # MVP: 章节序号
-            d.metadata.setdefault("chunk_in_section", 0)  # MVP: 章内块序号
-            d.metadata["review_status"] = "pending"       # MVP: 新入库默认待审核
-            d.metadata["geo_wkt"] = None                  # MVP: 预留空间字段
+    def scan(self) -> dict:
+        """
+        立即执行一次完整扫描
+        """
+        watch_dir = self._cfg.watch_dir
+        logger.info("开始扫描目录: %s", watch_dir)
 
         t0 = time.time()
-        chunk_ids = self._store.add_chunks(chunks)
+        new = skip = queued_cnt = excluded_cnt = err = 0
+        details = []
+
+        files = self._collect_files(watch_dir)
+        logger.info("发现 %d 个待检查文件", len(files))
+
+        for fp in files:
+            try:
+                fhash = self._hash(fp)
+                if not fhash:
+                    err += 1
+                    details.append({
+                        "status": "error",
+                        "path": str(fp),
+                        "reason_code": "HASH_FAILED",
+                        "locator": None,
+                        "message": f"计算哈希失败: {fp.name}",
+                    })
+                    continue
+
+                rel_path = fp.relative_to(watch_dir)
+                rel = str(rel_path)
+
+                enabled_exts = {f".{ext.lower()}" for ext in self._cfg.watch_file_types}
+                disp = classify_suffix(fp.suffix, enabled_extensions=enabled_exts)
+
+                if disp.action == "excluded":
+                    excluded_cnt += 1
+                    dec = make_decision(fp, status="excluded", reason_code=disp.reason_code, file_hash=fhash)
+                    if getattr(self, "_decision_store", None) is not None:
+                        self._decision_store.replace_for_file(file_path=rel, file_hash=fhash, decisions=[dec])
+                    details.append({
+                        "status": "excluded",
+                        "path": rel,
+                        "reason_code": disp.reason_code,
+                        "locator": None,
+                        "message": dec.message,
+                    })
+                    continue
+
+                if disp.action == "queued":
+                    queued_cnt += 1
+                    dec = make_decision(fp, status="queued", reason_code=disp.reason_code, file_hash=fhash)
+                    if getattr(self, "_decision_store", None) is not None:
+                        self._decision_store.replace_for_file(file_path=rel, file_hash=fhash, decisions=[dec])
+                    details.append({
+                        "status": "queued",
+                        "path": rel,
+                        "reason_code": disp.reason_code,
+                        "locator": None,
+                        "message": dec.message,
+                    })
+                    continue
+
+                # Process action: "process"
+                record = self._index.get("files", {}).get(fhash)
+
+                if record and record.get("file_path") == rel:
+                    skip += 1
+                    continue
+
+                if record:
+                    excluded_cnt += 1
+                    dec = make_decision(
+                        fp,
+                        status="excluded",
+                        reason_code="DUPLICATE_CONTENT",
+                        file_hash=fhash,
+                        message=f"内容与 {record.get('file_path', '')} 重复",
+                    )
+                    self._decision_store.replace_for_file(
+                        file_path=rel,
+                        file_hash=fhash,
+                        decisions=[dec],
+                    )
+                    details.append({
+                        "status": "excluded",
+                        "path": rel,
+                        "reason_code": "DUPLICATE_CONTENT",
+                        "locator": None,
+                        "message": dec.message,
+                    })
+                    skip += 1
+                    continue
+
+                category = FileLoader.detect_category(str(fp))
+                if not category:
+                    skip += 1
+                    continue
+
+                document_profile = self._resolve_document_profile(rel, fhash)
+                try:
+                    load_res = self._loader.load_with_decisions(str(fp), document_profile=document_profile)
+                except Exception as e:
+                    logger.error("加载解析失败 %s: %s", fp, e)
+                    dec = make_decision(fp, status="queued", reason_code="FORMAT_PARSE_FAILED", file_hash=fhash, message=str(e))
+                    if getattr(self, "_decision_store", None) is not None:
+                        self._decision_store.replace_for_file(file_path=rel, file_hash=fhash, decisions=[dec])
+                    queued_cnt += 1
+                    details.append({
+                        "status": "queued",
+                        "path": rel,
+                        "reason_code": "FORMAT_PARSE_FAILED",
+                        "locator": None,
+                        "message": str(e),
+                    })
+                    continue
+
+                if load_res.decisions:
+                    if getattr(self, "_decision_store", None) is not None:
+                        self._decision_store.replace_for_file(file_path=rel, file_hash=fhash, decisions=load_res.decisions)
+                    has_queued = any(d.status == "queued" for d in load_res.decisions)
+                    if has_queued:
+                        queued_cnt += 1
+                    for d in load_res.decisions:
+                        details.append({
+                            "status": d.status,
+                            "path": rel,
+                            "reason_code": d.reason_code,
+                            "locator": d.locator,
+                            "message": d.message,
+                        })
+                else:
+                    if getattr(self, "_decision_store", None) is not None:
+                        self._decision_store.replace_for_file(file_path=rel, file_hash=fhash, decisions=[])
+
+                if not load_res.chunks:
+                    logger.warning("文件内容为空，不生成 Chunk: %s", fp.name)
+                    if not load_res.decisions:
+                        skip += 1
+                    continue
+
+                kb_name = "已发布文章" if rel_path.parts[0] == "已发布文章" else "文章附件"
+                kb_path = str(rel_path.parent)
+                doc_category = self._resolve_doc_category(rel_path, rel, fhash)
+                if doc_category:
+                    self._rebuild_dc_map.pop(rel, None)
+                    self._rebuild_hash_dc_map.pop(fhash, None)
+
+                for d in load_res.chunks:
+                    d.metadata["kb_name"] = kb_name
+                    d.metadata["kb_path"] = kb_path
+                    d.metadata["doc_category"] = doc_category
+                    d.metadata["document_profile"] = document_profile
+                    d.metadata.setdefault("section_title", "")
+                    d.metadata.setdefault("section_path", "")
+                    d.metadata.setdefault("section_index", 0)
+                    d.metadata.setdefault("chunk_in_section", 0)
+                    d.metadata["review_status"] = self._new_chunk_review_status
+                    d.metadata["geo_wkt"] = None
+
+                t_store_0 = time.time()
+                try:
+                    chunk_ids = self._store.add_chunks(load_res.chunks)
+                except Exception as e:
+                    err += 1
+                    logger.error("向量库写入失败 %s: %s", fp, e)
+                    details.append({
+                        "status": "error",
+                        "path": rel,
+                        "reason_code": "VECTOR_STORE_WRITE_FAILED",
+                        "locator": None,
+                        "message": f"向量库写入失败: {e}",
+                    })
+                    continue
+
+                elapsed_store = time.time() - t_store_0
+                st = fp.stat()
+                rec = FileRecord(
+                    file_hash=fhash, file_path=rel, file_name=fp.name,
+                    file_size=st.st_size, category=load_res.category,
+                    last_modified=datetime.fromtimestamp(st.st_mtime).isoformat(),
+                    added_at=datetime.now().isoformat(),
+                    doc_category=doc_category,
+                    document_profile=document_profile,
+                    chunk_policy_id=str(load_res.chunks[0].metadata.get("chunk_policy_id") or ""),
+                    chunk_ids=chunk_ids,
+                )
+                self._index.setdefault("files", {})[fhash] = {
+                    "file_path": rec.file_path, "file_name": rec.file_name,
+                    "file_size": rec.file_size, "category": rec.category,
+                    "kb_name": kb_name, "doc_category": doc_category,
+                    "document_profile": rec.document_profile,
+                    "chunk_policy_id": rec.chunk_policy_id,
+                    "last_modified": rec.last_modified, "added_at": rec.added_at,
+                    "chunk_ids": rec.chunk_ids,
+                }
+                self._consume_document_profile_selection(rel)
+                new += 1
+                logger.info(
+                    "新文件: %s (%s) | %d 块 | %.2fs",
+                    fp.name, load_res.category, len(load_res.chunks), elapsed_store,
+                )
+
+            except Exception as e:
+                err += 1
+                logger.error("处理异常 %s: %s", fp, e)
+                details.append({
+                    "status": "error",
+                    "path": str(fp),
+                    "reason_code": "UNEXPECTED_ERROR",
+                    "locator": None,
+                    "message": str(e),
+                })
+
+        cleaned = self._clean_removed(watch_dir)
+        self._save_index()
+
+        if self._refresh_retrieval and (
+            new or any(item.should_rebuild_bm25 for item in cleaned)
+        ):
+            BM25Store().rebuild()
+            from rag_knowledge.services.query_cache import clear_query_cache
+            clear_query_cache()
+
         elapsed = time.time() - t0
-        st = file_path.stat()
-        rec = FileRecord(
-            file_hash=fhash, file_path=rel, file_name=file_path.name,
-            file_size=st.st_size, category=category,
-            last_modified=datetime.fromtimestamp(st.st_mtime).isoformat(),
-            added_at=datetime.now().isoformat(),
-            doc_category=doc_category,
-            document_profile=document_profile,
-            chunk_policy_id=str(chunks[0].metadata.get("chunk_policy_id") or ""),
-            chunk_ids=chunk_ids,
-        )
-        self._index.setdefault("files", {})[fhash] = {
-            "file_path": rec.file_path, "file_name": rec.file_name,
-            "file_size": rec.file_size, "category": rec.category,
-            "kb_name": kb_name, "doc_category": doc_category,
-            "document_profile": rec.document_profile,
-            "chunk_policy_id": rec.chunk_policy_id,
-            "last_modified": rec.last_modified, "added_at": rec.added_at,
-            "chunk_ids": rec.chunk_ids,
+        parts = [f"新增 {new}"]
+        if skip: parts.append(f"跳过 {skip}")
+        if queued_cnt: parts.append(f"排队 {queued_cnt}")
+        if excluded_cnt: parts.append(f"排除 {excluded_cnt}")
+        if err: parts.append(f"失败 {err}")
+        if cleaned: parts.append(f"清理 {len(cleaned)}")
+        logger.info("扫描完成 | %s | %.2fs", " / ".join(parts), elapsed)
+
+        return {
+            "new_files": new,
+            "skipped_files": skip,
+            "queued_files": queued_cnt,
+            "excluded_files": excluded_cnt,
+            "errors": err,
+            "details": details,
         }
-        self._consume_document_profile_selection(rel)
-        logger.info(
-            "新文件: %s (%s) | %d 块 | %.2fs",
-            file_path.name, category, len(chunks), elapsed,
-        )
-        return "new"
 
     def _clean_removed(self, base: Path) -> list:
-        """清理已被删除文件的索引记录，同时删除对应向量。"""
+        """清理已被删除文件的索引记录，同时删除对应向量和决策。"""
         files = self._index.get("files", {})
         removed_hashes = [h for h, r in files.items() if not (base / r["file_path"]).exists()]
         cleaned = []
         for file_hash in removed_hashes:
+            r = files[file_hash]
+            if getattr(self, "_decision_store", None) is not None:
+                self._decision_store.replace_for_file(file_path=r["file_path"], file_hash=file_hash, decisions=[])
             cleaned.append(
                 cleanup_indexed_file(
                     file_hash,
@@ -307,6 +486,8 @@ class DirectoryScanner:
                     persist=False,
                 )
             )
+        if getattr(self, "_decision_store", None) is not None:
+            self._decision_store.prune_missing(base)
         return cleaned
 
     # ------------------------------------------------------------------

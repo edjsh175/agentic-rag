@@ -258,10 +258,56 @@ def test_successful_rebuild_swaps_staging_and_refreshes_live_only_after_commit(
         ("disconnect",),
     ]
     live_scanner.reload_index.assert_called_once_with()
-    live_checker.assert_consistent.assert_called_once_with()
+    live_checker.assert_consistent.assert_not_called()
     rebuild_bm25.assert_called_once_with()
     invalidate.assert_called_once_with("rebuild_commit")
     assert not (data_dir / "rebuild_state.json").exists()
+
+
+def test_post_commit_validation_failure_does_not_clear_committed_collection(
+    tmp_path, fixed_operation_time, monkeypatch
+):
+    live_store = TrackingStore()
+    coordinator, data_dir, _live_index, staged_scanner = _make_coordinator(
+        tmp_path,
+        live_store=live_store,
+    )
+    staging_index = data_dir / "rebuild" / OPERATION_ID / "file_index.json"
+
+    def _write_staging_index():
+        staging_index.parent.mkdir(parents=True, exist_ok=True)
+        staging_index.write_text(
+            '{"version":1,"files":{"staging":{"chunk_ids":["c2"]}}}',
+            encoding="utf-8",
+        )
+        return {"new_files": 1, "skipped_files": 0, "errors": 0}
+
+    staged_scanner.scan.side_effect = _write_staging_index
+
+    class FailsAfterCommitService:
+        calls = 0
+
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+            pass
+
+        def assert_consistent(self, *, source=None):
+            type(self).calls += 1
+            if type(self).calls == 2:
+                raise KnowledgeBaseConsistencyError({"summary": {"consistent": False}})
+            return {"summary": {"consistent": True}}
+
+    monkeypatch.setattr(
+        "rag_knowledge.services.rebuild_coordinator.KnowledgeBaseConsistencyService",
+        FailsAfterCommitService,
+    )
+
+    with pytest.raises(KnowledgeBaseConsistencyError):
+        coordinator.run()
+
+    assert ("clear",) not in live_store.events
+    state = json.loads((data_dir / "rebuild_state.json").read_text(encoding="utf-8"))
+    assert state["stage"] == "post_commit_validation"
+    assert state["status"] == "failed_after_commit"
 
 
 def test_rebuild_coordinator_rejects_concurrent_rebuild(tmp_path):
@@ -296,3 +342,44 @@ def test_rebuild_coordinator_removes_lock_after_failure(tmp_path, fixed_operatio
         coordinator.run()
 
     assert not (data_dir / "rebuild.lock").exists()
+
+
+def test_rebuild_coordinator_decisions_transaction(tmp_path, fixed_operation_time):
+    live_store = TrackingStore()
+    coordinator, data_dir, _live_index, staged_scanner = _make_coordinator(tmp_path, live_store=live_store)
+
+    live_decision = data_dir / "ingestion_decisions.json"
+    live_decision.write_text('{"version": 1, "decisions": {"d1": {"status": "queued"}}}', encoding="utf-8")
+
+    def mock_scan():
+        staging_decision = data_dir / "rebuild" / OPERATION_ID / "ingestion_decisions.json"
+        staging_decision.parent.mkdir(parents=True, exist_ok=True)
+        staging_decision.write_text('{"version": 1, "decisions": {"d2": {"status": "excluded"}}}', encoding="utf-8")
+        return {"new_files": 1, "skipped_files": 0, "errors": 0}
+
+    staged_scanner.scan.side_effect = mock_scan
+
+    coordinator.run()
+
+    assert live_decision.exists()
+    assert json.loads(live_decision.read_text(encoding="utf-8")) == {"version": 1, "decisions": {"d2": {"status": "excluded"}}}
+
+    # Test rollback
+    live_decision.write_text('{"version": 1, "decisions": {"d1": {"status": "queued"}}}', encoding="utf-8")
+
+    # Mock fork to return a TrackingStore child that raises exception on rename_collection
+    def failing_fork(collection_name):
+        child = TrackingStore(collection_name)
+        child.events = live_store.events
+        child.rename_collection = MagicMock(side_effect=Exception("swap fail"))
+        return child
+
+    live_store.fork = failing_fork
+
+    staged_scanner.scan.side_effect = mock_scan
+
+    with pytest.raises(Exception, match="swap fail"):
+        coordinator.run()
+
+    assert live_decision.exists()
+    assert json.loads(live_decision.read_text(encoding="utf-8")) == {"version": 1, "decisions": {"d1": {"status": "queued"}}}

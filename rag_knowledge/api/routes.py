@@ -391,6 +391,7 @@ def upload(file: UploadFile = File(...), kb_name: str = Form("文章附件"),
         new_files=scan_result["new_files"],
         skipped_files=scan_result["skipped_files"],
         errors=scan_result["errors"],
+        decisions=scan_result.get("details"),
     )
 
 
@@ -405,7 +406,10 @@ def trigger_scan():
         _invalidate_retrieval_caches("scan")
         return ScanResponse(
             message=f"新增 {r['new_files']} / 跳过 {r['skipped_files']} / 失败 {r['errors']}",
-            **r,
+            new_files=r["new_files"],
+            skipped_files=r["skipped_files"],
+            errors=r["errors"],
+            decisions=r.get("details"),
         )
     except Exception as e:
         raise HTTPException(500, detail=str(e))
@@ -582,6 +586,9 @@ def rebuild_knowledge(request: RebuildRequest):
                 store=staged_store,
                 index_path=staging_index,
                 refresh_retrieval=False,
+                new_chunk_review_status=(
+                    "approved" if request.approve_all_chunks else "pending"
+                ),
             )
 
         return RebuildCoordinator(
@@ -592,6 +599,9 @@ def rebuild_knowledge(request: RebuildRequest):
             invalidate_retrieval_caches=_invalidate_retrieval_caches,
             rebuild_bm25=_rebuild_bm25,
             staging_scanner_factory=_staging_scanner_factory,
+            staging_review_status=(
+                "approved" if request.approve_all_chunks else "pending"
+            ),
         ).run()
     except RebuildAlreadyRunningError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

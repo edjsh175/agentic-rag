@@ -18,6 +18,7 @@ import type {
   ReviewStatus,
   Stats,
   ScanResult,
+  IngestionDecision,
   GraphData,
   EntityChunkDetail,
   GraphAliasItem,
@@ -66,6 +67,7 @@ interface UploadResult {
   new_files: number
   skipped_files: number
   errors: number
+  decisions?: IngestionDecision[]
 }
 
 export type DocumentProfile = 'section_based' | 'technical_manual' | 'procedure' | 'api_doc' | 'table_doc' | 'record_list'

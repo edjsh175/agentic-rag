@@ -355,9 +355,18 @@ async function handleUpload(e: Event) {
   showToast('正在入库…')
   try {
     const result = await uploadDocument(file, targetKb, uploadDocumentProfile.value)
+    let decMsg = ''
+    if (result.decisions && result.decisions.length > 0) {
+      decMsg = '\n\n**决策及状态明细：**\n'
+      result.decisions.forEach(d => {
+        const statusText = d.status === 'queued' ? '⏳ 排队中' : '🚫 已排除'
+        const locatorStr = d.locator ? ` (位置: \`${d.locator}\`)` : ''
+        decMsg += `- **${d.file_name}** [${statusText}]：${d.message}${locatorStr}\n`
+      })
+    }
     messages.value.push({
       id: Date.now().toString(), role: 'assistant',
-      content: `已上传 **${result.file_name}** → 知识库「${targetKb}」`,
+      content: `已上传 **${result.file_name}** → 知识库「${targetKb}」\n- 新增分块数: ${result.chunks_count} | 扫描新增: ${result.new_files} | 跳过: ${result.skipped_files} | 错误: ${result.errors}${decMsg}`,
     })
     stats.value = await getStats()
     await persist()
@@ -380,9 +389,18 @@ async function handleScan() {
   scanningOverlay.value = true
   try {
     const r = await triggerScan()
+    let decMsg = ''
+    if (r.decisions && r.decisions.length > 0) {
+      decMsg = '\n\n**决策及状态明细：**\n'
+      r.decisions.forEach(d => {
+        const statusText = d.status === 'queued' ? '⏳ 排队中' : '🚫 已排除'
+        const locatorStr = d.locator ? ` (位置: \`${d.locator}\`)` : ''
+        decMsg += `- **${d.file_name}** [${statusText}]：${d.message}${locatorStr}\n`
+      })
+    }
     messages.value.push({
       id: Date.now().toString(), role: 'assistant',
-      content: `扫描完成：新增 ${r.new_files} 个，跳过 ${r.skipped_files} 个，失败 ${r.errors} 个`,
+      content: `扫描完成：新增 ${r.new_files} 个，跳过 ${r.skipped_files} 个，失败 ${r.errors} 个${decMsg}`,
     })
     stats.value = await getStats()
     await persist()

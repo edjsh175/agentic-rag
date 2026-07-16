@@ -1,6 +1,6 @@
 # Round 0C：短 Section 合并与邻接设计（冻结稿）
 
-状态：生产模块已接线（`section_chunk_merge` → `FileLoader` DOCX）。P1 身份修复与同 L1 有界短 L2 叶子合并已完成隔离复测：`section_id` 文档作用域、`chunk_uid` 全局唯一、Final 后重算 prev/next，Element/Raw/来源 Section 血缘随合并保留。报告见 `../../../进行中-第0C轮-切块合并与隔离验证/L2合并隔离验证/`；**不写正式 Chroma**。当前仍为 No-Go。
+状态：生产模块已接线（`section_chunk_merge` → `FileLoader` / `document_profile`）。P1 身份修复与同 L1 有界短 L2 叶子合并已完成隔离复测与 0G 重建；live 结账见 [GOV-0G-20260716-001](../../../进行中-第0C轮-切块合并与隔离验证/GOV-0G-20260716-001-门禁未过人工豁免上线.md)。
 
 ---
 
@@ -104,4 +104,4 @@ WebRTC：`95 → 51`，`<200 71.6% → 19.6%`。跨文档 Section 碰撞、Chunk
 
 身份、邻接和全部来源血缘检查继续为 0 缺陷。证据：`../../../进行中-第0C轮-切块合并与隔离验证/最终隔离验证/`。
 
-结论：Chunk 基石实测门禁通过；Round 0G 仍因 FR-10 整体/category、0E/OCR 纳入范围和 Go 清单未完成而保持 `enter_0g=False`。
+结论：Chunk 基石实测门禁通过；0G 已执行并人工豁免上线。**自动 FR-10 evidence_recall 门禁未通过**（32.50% &lt; 44.17%）。总账见 [GOV-0G-20260716-001](../../../进行中-第0C轮-切块合并与隔离验证/GOV-0G-20260716-001-门禁未过人工豁免上线.md)。

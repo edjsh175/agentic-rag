@@ -244,7 +244,82 @@ class ScannerCleanupTests(unittest.TestCase):
             self.assertIn("valid.docx", file_names)
             self.assertNotIn("~$valid.docx", file_names)
             self.assertNotIn(".hidden.txt", file_names)
-            self.assertNotIn("valid.zip", file_names)
+            self.assertIn("valid.zip", file_names)
+
+    def test_scanner_decision_lifecycle_and_counts(self):
+        module = _load_scanner_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            index_path = base / "file_index.json"
+            dec_path = base / "ingestion_decisions.json"
+
+            # Setup mock VectorStore
+            store_mock = MagicMock()
+            store_mock.add_chunks.return_value = ["chunk1"]
+
+            # Setup mock loader
+            loader_mock = MagicMock()
+            from rag_knowledge.services.loader import FileLoadResult
+            from rag_knowledge.services.document_support import make_decision
+            from langchain_core.documents import Document
+
+            pdf_result = FileLoadResult(
+                chunks=[Document(page_content="page 1 text", metadata={"chunk_policy_id": "policy1"})],
+                category="text",
+                decisions=[make_decision(base / "test.pdf", status="queued", reason_code="PDF_PAGE_REQUIRES_OCR", file_hash="hash_pdf", locator="page:2")]
+            )
+
+            loader_mock.load_with_decisions.side_effect = lambda fp, **kwargs: (
+                pdf_result if fp.endswith(".pdf") else (
+                    FileLoadResult([], "text", [make_decision(fp, status="queued", reason_code="LEGACY_DOC_REQUIRES_CONVERSION", file_hash="hash_doc")])
+                )
+            )
+
+            scanner = module.DirectoryScanner(
+                cfg=SimpleNamespace(
+                    data_dir=base,
+                    watch_dir=base,
+                    watch_file_types=["pdf", "docx"],
+                    scan_interval=30,
+                ),
+                store=store_mock,
+                loader=loader_mock,
+                index_path=index_path,
+                decision_path=dec_path,
+                refresh_retrieval=False,
+            )
+
+            # Create pdf and legacy doc
+            (base / "test.pdf").write_bytes(b"pdf data")
+            (base / "legacy.doc").write_bytes(b"doc data")
+            (base / "dependency.jar").write_bytes(b"jar data")
+
+            # First scan
+            r = scanner.scan()
+
+            self.assertEqual(r["new_files"], 1)
+            self.assertEqual(r["queued_files"], 2)
+            self.assertEqual(r["excluded_files"], 1)
+            self.assertEqual(r["errors"], 0)
+
+            # Check decision store content
+            scanner._decision_store.reload()
+            decisions = list(scanner._decision_store.snapshot()["decisions"].values())
+            self.assertEqual(len(decisions), 3)
+
+            # Test relocation: move test.pdf to moved.pdf
+            (base / "moved.pdf").write_bytes((base / "test.pdf").read_bytes())
+            (base / "test.pdf").unlink()
+
+            # Relocation happens in next scan with parse failure simulation
+            loader_mock.load_with_decisions.side_effect = lambda fp, **kwargs: (
+                Exception("corrupted pdf") if fp.endswith(".pdf") else pdf_result
+            )
+
+            r2 = scanner.scan()
+            scanner._decision_store.reload()
+            decisions = list(scanner._decision_store.snapshot()["decisions"].values())
+            self.assertFalse(any(d["file_name"] == "test.pdf" for d in decisions))
 
 
 if __name__ == "__main__":

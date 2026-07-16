@@ -1,7 +1,7 @@
 # 知识图谱执行 PRD — 第 3 轮：安全全量重建
 
 - **记录日期**：2026-07-13
-- **状态**：**工程就绪 / chunk 治理阻塞** — dry-run 已通过；chunk 修复后再 execute
+- **状态**：**进行中（execute 已启动，等待全库 LLM 重建完成）** — 2026-07-16 已完成 chunk 重建后一致性门禁与 dry-run，当前执行 `rebuild-safe --execute --include-llm`
 - **轮次编号**：Round-3 / MVP-3C
 - **母文档**：`../2026-07-09-知识图谱语义抽取升级整体计划与PRD.md`
 - **前置条件**（全部满足方可开工）：
@@ -230,10 +230,16 @@ Phase J  audit_after + diff 报告 + 主干完整率核对
 ```text
 1. SafeRebuildService 正式版 + 测试
 2. data/rebuild_safe_execute_round3.json / .md
-3. data/graph_audit_diff_round3.md（before/after 对比）
-4. docs/3_待办清单/graph-round3-full-rebuild/section10_metrics.md
+3. 第3轮before_after_diff报告模板.md（完成后填实测数据）
+4. 第3轮执行验收记录.md（含 §10 指标核对表）
 5. 主干完整率抽检记录（可附在 diff 报告）
 ```
+
+等待 execute 期间已预制的验收材料：
+
+- [第3轮执行验收记录.md](第3轮执行验收记录.md)
+- [第3轮before_after_diff报告模板.md](第3轮before_after_diff报告模板.md)
+- [第3轮候选治理与恢复SOP.md](第3轮候选治理与恢复SOP.md)
 
 ---
 

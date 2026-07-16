@@ -3,60 +3,60 @@
 本报告为 dry-run 候选，不会被生产 Scanner 自动消费。
 
 - 文件总数：150
-- 支持状态：{'phase2_supported': 56, 'excluded': 25, 'phase1_supported': 53, 'manual_queue': 16}
-- 建议 Profile：{'section_based': 71, 'table_doc': 3, 'record_list': 2, 'procedure': 19, 'technical_manual': 8, 'api_doc': 6}
+- 支持状态：{'manual_queue': 64, 'excluded': 25, 'phase1_supported': 53, 'phase2_supported': 8}
+- 建议 Profile：{'table_doc': 3, 'section_based': 23, 'record_list': 2, 'procedure': 19, 'technical_manual': 8, 'api_doc': 6}
 
 | 路径 | 格式 | 建议 Profile | 支持状态 | 排除原因 |
 |---|---|---|---|---|
-| images/01801c0c4ca841dba108b898cc3624cf.png | .png | section_based | phase2_supported |  |
-| images/20210929151307.png | .png | section_based | phase2_supported |  |
-| images/35695-20230906145857937-1471873834.gif | .gif | section_based | phase2_supported |  |
-| images/35695-20240529225347158-1507288531.jpg | .jpg | section_based | phase2_supported |  |
-| images/39a82c774ac44642a51aae884a49a7de.jpg | .jpg | section_based | phase2_supported |  |
-| images/427dff4fde234bbeae0771f4444291a7.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614103541732-648227024.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614103631402-62970626.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614103650816-1826175778.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614103912132-1347923047.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614104022278-457997157.png | .png | section_based | phase2_supported |  |
-| images/433790-20230614173212501-1373650274.png | .png | section_based | phase2_supported |  |
+| images/01801c0c4ca841dba108b898cc3624cf.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/20210929151307.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/35695-20230906145857937-1471873834.gif | .gif |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/35695-20240529225347158-1507288531.jpg | .jpg |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/39a82c774ac44642a51aae884a49a7de.jpg | .jpg |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/427dff4fde234bbeae0771f4444291a7.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614103541732-648227024.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614103631402-62970626.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614103650816-1826175778.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614103912132-1347923047.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614104022278-457997157.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/433790-20230614173212501-1373650274.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | images/avatar-default.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
-| images/d9b0f6363dfe4b409839c2ea6902fb93.png | .png | section_based | phase2_supported |  |
+| images/d9b0f6363dfe4b409839c2ea6902fb93.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | images/enter.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
-| images/image_2026_04_27_17_20_42.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_21_56.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_22_37.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_23_34.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_25_54.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_26_31.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_27_07.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_28_03.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_28_43.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_29_15.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_32_12.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_35_41.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_55_04.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_55_45.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_17_56_45.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_06_06.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_08_03.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_09_18.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_09_57.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_11_01.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_14_23.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_18_23_31.png | .png | section_based | phase2_supported |  |
-| images/image_2026_04_27_19_53_48.png | .png | section_based | phase2_supported |  |
+| images/image_2026_04_27_17_20_42.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_21_56.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_22_37.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_23_34.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_25_54.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_26_31.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_27_07.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_28_03.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_28_43.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_29_15.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_32_12.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_35_41.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_55_04.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_55_45.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_17_56_45.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_06_06.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_08_03.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_09_18.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_09_57.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_11_01.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_14_23.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_18_23_31.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/image_2026_04_27_19_53_48.png | .png |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | images/lite-mode-check.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
 | images/lite-mode-on.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
-| images/logo.gif | .gif | section_based | phase2_supported |  |
+| images/logo.gif | .gif |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | images/logo.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
 | images/message.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
 | images/myblog.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
 | images/newpost.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
 | images/search.svg | .svg |  | excluded | UNSUPPORTED_EXTENSION |
-| images/XGIP01_2026_04_27_17_18_44.jpg | .jpg | section_based | phase2_supported |  |
-| images/YDXNNJ_XGIP_2026_04_27_17_42_28.jpg | .jpg | section_based | phase2_supported |  |
-| images/微信收款码.bmp | .bmp | section_based | phase2_supported |  |
+| images/XGIP01_2026_04_27_17_18_44.jpg | .jpg |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/YDXNNJ_XGIP_2026_04_27_17_42_28.jpg | .jpg |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| images/微信收款码.bmp | .bmp |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | other/blog-common.min.css | .css |  | excluded | DEPENDENCY_ASSET |
 | other/blog-common.min.js.下载 | .下载 |  | excluded | UNSUPPORTED_EXTENSION |
 | other/bundle-codinglife-mobile.min.css | .css |  | excluded | DEPENDENCY_ASSET |
@@ -86,14 +86,14 @@
 | pdf/GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf | .pdf | section_based | phase2_supported |  |
 | upload/2026陕西耕地保护系统问题收集.docx | .docx | record_list | phase1_supported |  |
 | upload/实景三维新功能.txt | .txt | record_list | phase1_supported |  |
-| video/1049b158cbe44271a2b10fa04a71493c.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/36fb62e820ec40229e012dd917f3b411.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/40e05d109e694aae9d5ae34cac1e1512.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/678b8746cc0d4a6f84918e53c9ed89dd.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/89d956df6ba549b98109bdbf44e78e5c.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/b5f3acff791a457ebbf219ce44f5a801.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/d5f98b73d89b49a39d330124e66153fd.mp4 | .mp4 | section_based | phase2_supported |  |
-| video/f9c51f04a7ca4db7acc94be0cfdd78f7.mp4 | .mp4 | section_based | phase2_supported |  |
+| video/1049b158cbe44271a2b10fa04a71493c.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/36fb62e820ec40229e012dd917f3b411.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/40e05d109e694aae9d5ae34cac1e1512.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/678b8746cc0d4a6f84918e53c9ed89dd.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/89d956df6ba549b98109bdbf44e78e5c.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/b5f3acff791a457ebbf219ce44f5a801.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/d5f98b73d89b49a39d330124e66153fd.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
+| video/f9c51f04a7ca4db7acc94be0cfdd78f7.mp4 | .mp4 |  | manual_queue | MEDIA_PROCESSING_DEFERRED |
 | word/09f0700814684fb985d4b8573168fcf0.docx | .docx | section_based | phase1_supported |  |
 | word/335b1bd4ff7e4141a97a1d8c2479ff6a.docx | .docx | section_based | phase1_supported |  |
 | word/ArcGIS Cache图层添加说明.docx | .docx | section_based | phase1_supported |  |

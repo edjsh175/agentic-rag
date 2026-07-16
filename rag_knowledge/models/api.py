@@ -47,6 +47,7 @@ class UploadResponse(BaseModel):
     new_files: int = 0
     skipped_files: int = 0
     errors: int = 0
+    decisions: Optional[list[dict]] = None
 
 
 class ScanResponse(BaseModel):
@@ -54,10 +55,12 @@ class ScanResponse(BaseModel):
     new_files: int
     skipped_files: int
     errors: int
+    decisions: Optional[list[dict]] = None
 
 
 class RebuildRequest(BaseModel):
     confirmation: Literal["REBUILD_KNOWLEDGE_BASE"]
+    approve_all_chunks: bool = False
 
 
 class StatsResponse(BaseModel):

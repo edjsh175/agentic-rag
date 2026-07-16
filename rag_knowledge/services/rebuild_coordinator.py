@@ -38,16 +38,33 @@ def _commit_swap(
     live_index: Path,
     staging_index: Path,
     index_backup: Path,
+    live_decision: Path,
+    staging_decision: Path,
+    decision_backup: Path,
 ) -> None:
     shutil.copy2(live_index, index_backup)
+
+    decision_backup_exists = False
+    if live_decision.exists():
+        shutil.copy2(live_decision, decision_backup)
+        decision_backup_exists = True
+
     live_store.rename_collection(backup_name)
     try:
         staged_store.rename_collection(live_name)
         os.replace(staging_index, live_index)
+        if staging_decision.exists():
+            os.replace(staging_decision, live_decision)
+        elif live_decision.exists():
+            live_decision.unlink()
     except Exception:
         staged_store.rename_collection(staging_name)
         live_store.rename_collection(live_name)
         shutil.copy2(index_backup, live_index)
+        if decision_backup_exists:
+            shutil.copy2(decision_backup, live_decision)
+        elif live_decision.exists():
+            live_decision.unlink()
         raise
 
 
@@ -62,7 +79,10 @@ class RebuildCoordinator:
         invalidate_retrieval_caches: Callable[[str], None],
         rebuild_bm25: Callable[[], None],
         staging_scanner_factory: Callable | None = None,
+        staging_review_status: str = "pending",
     ):
+        if staging_review_status not in {"pending", "approved"}:
+            raise ValueError("staging_review_status must be pending or approved")
         self._cfg = cfg
         self._store = store
         self._scanner = scanner
@@ -70,6 +90,7 @@ class RebuildCoordinator:
         self._invalidate_retrieval_caches = invalidate_retrieval_caches
         self._rebuild_bm25 = rebuild_bm25
         self._staging_scanner_factory = staging_scanner_factory
+        self._staging_review_status = staging_review_status
 
     def run(self) -> dict:
         data_dir = Path(self._cfg.data_dir)
@@ -92,6 +113,18 @@ class RebuildCoordinator:
         with self._exclusive_lock(lock_path, operation_id):
             graph_backup_path = _backup_sqlite(Path(self._cfg.relational_db_path), graph_backup)
             work_dir.mkdir(parents=True, exist_ok=True)
+            live_decision = data_dir / "ingestion_decisions.json"
+            staging_decision = work_dir / "ingestion_decisions.json"
+            decision_backup = work_dir / "ingestion_decisions.before.json"
+
+            if live_decision.exists():
+                shutil.copy2(live_decision, staging_decision)
+            else:
+                staging_decision.write_text(
+                    json.dumps({"version": 1, "decisions": {}}, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+
             if live_index.exists():
                 shutil.copy2(live_index, staging_index)
             else:
@@ -108,6 +141,7 @@ class RebuildCoordinator:
                 "graph_backup_path": graph_backup_path,
             }
 
+            committed = False
             try:
                 self._write_state(state_path, {**base_state, "stage": "staging", "status": "running"})
                 staged_store = self._store.fork(staging_name)
@@ -135,11 +169,21 @@ class RebuildCoordinator:
                     live_index=live_index,
                     staging_index=staging_index,
                     index_backup=index_backup,
+                    live_decision=live_decision,
+                    staging_decision=staging_decision,
+                    decision_backup=decision_backup,
                 )
+                committed = True
+
+                committed_index_data = json.loads(live_index.read_text(encoding="utf-8"))
+                committed_chunk_snapshot = staged_store.get_chunk_stats_source()
+                KnowledgeBaseConsistencyService(
+                    index_data=committed_index_data,
+                    chunk_snapshot=committed_chunk_snapshot,
+                ).assert_consistent()
 
                 self._store.disconnect()
                 self._scanner.reload_index()
-                self._consistency_service.assert_consistent()
                 self._rebuild_bm25()
                 self._invalidate_retrieval_caches("rebuild_commit")
                 if state_path.exists():
@@ -155,13 +199,14 @@ class RebuildCoordinator:
                     "errors": result["errors"],
                 }
             except KnowledgeBaseConsistencyError as exc:
-                self._cleanup_staging_store(staged_store)
+                if not committed:
+                    self._cleanup_staging_store(staged_store)
                 self._write_state(
                     state_path,
                     {
                         **base_state,
-                        "stage": "validating",
-                        "status": "failed_before_commit",
+                        "stage": "post_commit_validation" if committed else "validating",
+                        "status": "failed_after_commit" if committed else "failed_before_commit",
                         "error": str(exc),
                         "report": exc.report,
                     },
@@ -185,8 +230,8 @@ class RebuildCoordinator:
                     state_path,
                     {
                         **base_state,
-                        "stage": "committing",
-                        "status": "rolled_back",
+                        "stage": "post_commit" if committed else "committing",
+                        "status": "failed_after_commit" if committed else "rolled_back",
                         "error": str(exc),
                     },
                 )
@@ -200,6 +245,7 @@ class RebuildCoordinator:
             store=staged_store,
             index_path=staging_index,
             refresh_retrieval=False,
+            new_chunk_review_status=self._staging_review_status,
         )
 
     @staticmethod
