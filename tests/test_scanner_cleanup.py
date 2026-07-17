@@ -192,7 +192,7 @@ class ScannerCleanupTests(unittest.TestCase):
             self.assertIn("new", scanner._index["files"])
             self.assertNotIn("old", scanner._index["files"])
 
-    def test_load_index_migrates_v1_profile_defaults_and_persists_v2(self):
+    def test_load_index_marks_legacy_profile_without_inventing_default(self):
         module = _load_scanner_module()
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -215,10 +215,40 @@ class ScannerCleanupTests(unittest.TestCase):
 
             entry = scanner._index["files"]["old"]
             persisted = __import__("json").loads(index_path.read_text(encoding="utf-8"))
-            self.assertEqual(scanner._index["version"], 2)
-            self.assertEqual(entry["document_profile"], "section_based")
+            self.assertEqual(scanner._index["version"], 3)
+            self.assertNotIn("document_profile", entry)
+            self.assertEqual(entry["document_profile_source"], "legacy")
             self.assertEqual(entry["chunk_policy_id"], "")
-            self.assertEqual(persisted["version"], 2)
+            self.assertEqual(persisted["version"], 3)
+
+    def test_reset_index_does_not_inherit_untrusted_legacy_profile(self):
+        module = _load_scanner_module()
+        scanner = object.__new__(module.DirectoryScanner)
+        scanner._index = {
+            "version": 3,
+            "files": {
+                "legacy": {
+                    "file_path": "word\\manual.docx",
+                    "document_profile": "section_based",
+                    "document_profile_source": "legacy",
+                },
+                "trusted": {
+                    "file_path": "word\\api.docx",
+                    "document_profile": "api_doc",
+                    "document_profile_source": "profile_map",
+                },
+            },
+        }
+        scanner._save_index = lambda: None
+        scanner._decision_store = MagicMock()
+
+        scanner.reset_index()
+
+        self.assertNotIn("word/manual.docx", scanner._rebuild_profile_map)
+        self.assertNotIn("legacy", scanner._rebuild_hash_profile_map)
+        self.assertEqual(scanner._rebuild_profile_map["word/api.docx"], "api_doc")
+        self.assertEqual(scanner._rebuild_hash_profile_map["trusted"], "api_doc")
+        self.assertEqual(scanner._index, {"version": 3, "files": {}})
 
     def test_collect_files_filters_temporary_and_hidden_files(self):
         module = _load_scanner_module()

@@ -36,6 +36,13 @@ from rag_knowledge.services.document_support import (
 
 logger = logging.getLogger(__name__)
 
+_INDEX_VERSION = 3
+_TRUSTED_PROFILE_SOURCES = {"explicit", "inherited", "profile_map", "default"}
+
+
+def _normalize_profile_path(value: str) -> str:
+    return str(value or "").replace("\\", "/")
+
 
 def _fmt_size(n: int) -> str:
     """文件大小友好显示"""
@@ -90,8 +97,14 @@ class DirectoryScanner:
         self._rebuild_hash_dc_map: dict[str, str] = {}
         self._profile_map_path = self._cfg.data_dir / "document_profile_map.json"
         self._profile_selection_map_path = self._cfg.data_dir / "document_profile_selection.json"
-        self._profile_map: dict = self._load_json_map(self._profile_map_path)
-        self._profile_selection_map: dict = self._load_json_map(self._profile_selection_map_path)
+        self._profile_map: dict = {
+            _normalize_profile_path(key): value
+            for key, value in self._load_json_map(self._profile_map_path).items()
+        }
+        self._profile_selection_map: dict = {
+            _normalize_profile_path(key): value
+            for key, value in self._load_json_map(self._profile_selection_map_path).items()
+        }
         self._rebuild_profile_map: dict[str, str] = {}
         self._rebuild_hash_profile_map: dict[str, str] = {}
 
@@ -189,20 +202,24 @@ class DirectoryScanner:
                 if entry.get("doc_category")
             }
             self._rebuild_profile_map = {
-                entry["file_path"]: entry.get("document_profile", "section_based")
+                _normalize_profile_path(entry["file_path"]): entry["document_profile"]
                 for entry in files.values()
                 if entry.get("file_path")
+                and entry.get("document_profile")
+                and entry.get("document_profile_source") in _TRUSTED_PROFILE_SOURCES
             }
             self._rebuild_hash_profile_map = {
-                file_hash: entry.get("document_profile", "section_based")
+                file_hash: entry["document_profile"]
                 for file_hash, entry in files.items()
+                if entry.get("document_profile")
+                and entry.get("document_profile_source") in _TRUSTED_PROFILE_SOURCES
             }
         else:
             self._rebuild_dc_map = {}
             self._rebuild_hash_dc_map = {}
             self._rebuild_profile_map = {}
             self._rebuild_hash_profile_map = {}
-        self._index = {"version": 2, "files": {}}
+        self._index = {"version": _INDEX_VERSION, "files": {}}
         self._save_index()
         self._decision_store.reset()
 
@@ -326,7 +343,7 @@ class DirectoryScanner:
                     skip += 1
                     continue
 
-                document_profile = self._resolve_document_profile(rel, fhash)
+                document_profile, document_profile_source = self._resolve_document_profile_with_source(rel, fhash)
                 try:
                     load_res = self._loader.load_with_decisions(str(fp), document_profile=document_profile)
                 except Exception as e:
@@ -380,6 +397,7 @@ class DirectoryScanner:
                     d.metadata["kb_path"] = kb_path
                     d.metadata["doc_category"] = doc_category
                     d.metadata["document_profile"] = document_profile
+                    d.metadata["document_profile_source"] = document_profile_source
                     d.metadata.setdefault("section_title", "")
                     d.metadata.setdefault("section_path", "")
                     d.metadata.setdefault("section_index", 0)
@@ -411,6 +429,7 @@ class DirectoryScanner:
                     added_at=datetime.now().isoformat(),
                     doc_category=doc_category,
                     document_profile=document_profile,
+                    document_profile_source=document_profile_source,
                     chunk_policy_id=str(load_res.chunks[0].metadata.get("chunk_policy_id") or ""),
                     chunk_ids=chunk_ids,
                 )
@@ -419,6 +438,7 @@ class DirectoryScanner:
                     "file_size": rec.file_size, "category": rec.category,
                     "kb_name": kb_name, "doc_category": doc_category,
                     "document_profile": rec.document_profile,
+                    "document_profile_source": rec.document_profile_source,
                     "chunk_policy_id": rec.chunk_policy_id,
                     "last_modified": rec.last_modified, "added_at": rec.added_at,
                     "chunk_ids": rec.chunk_ids,
@@ -510,12 +530,12 @@ class DirectoryScanner:
         if self._index_path.exists():
             try:
                 index = json.loads(self._index_path.read_text(encoding="utf-8"))
-                changed = index.get("version") != 2
-                index["version"] = 2
+                changed = index.get("version") != _INDEX_VERSION
+                index["version"] = _INDEX_VERSION
                 files = index.setdefault("files", {})
                 for entry in files.values():
-                    if "document_profile" not in entry:
-                        entry["document_profile"] = "section_based"
+                    if "document_profile_source" not in entry:
+                        entry["document_profile_source"] = "legacy"
                         changed = True
                     if "chunk_policy_id" not in entry:
                         entry["chunk_policy_id"] = ""
@@ -528,7 +548,7 @@ class DirectoryScanner:
                 return index
             except Exception as e:
                 logger.warning("索引文件损坏，将重建: %s", e)
-        return {"version": 2, "files": {}}
+        return {"version": _INDEX_VERSION, "files": {}}
 
     def _save_index(self):
         try:
@@ -582,25 +602,31 @@ class DirectoryScanner:
     def set_document_profile(self, relative_path: str, document_profile: str) -> None:
         """Persist an uploader's explicit selection until the scanner consumes it."""
         profile = normalize_document_profile(document_profile).value
-        self._profile_selection_map[relative_path] = profile
+        self._profile_selection_map[_normalize_profile_path(relative_path)] = profile
         self._save_profile_selection_map()
 
     def _resolve_document_profile(self, rel: str, file_hash: str) -> str:
+        return self._resolve_document_profile_with_source(rel, file_hash)[0]
+
+    def _resolve_document_profile_with_source(self, rel: str, file_hash: str) -> tuple[str, str]:
+        rel = _normalize_profile_path(rel)
         explicit = self._profile_selection_map.get(rel, "")
         if explicit:
-            return normalize_document_profile(explicit).value
+            return normalize_document_profile(explicit).value, "explicit"
 
         inherited = self._rebuild_profile_map.get(rel) or self._rebuild_hash_profile_map.get(file_hash, "")
         if inherited:
-            return normalize_document_profile(inherited).value
+            return normalize_document_profile(inherited).value, "inherited"
 
         mapped = self._profile_map.get(rel, "")
         if isinstance(mapped, dict):
             mapped = mapped.get("document_profile", "")
-        return normalize_document_profile(mapped).value
+        if mapped:
+            return normalize_document_profile(mapped).value, "profile_map"
+        return normalize_document_profile(None).value, "default"
 
     def _consume_document_profile_selection(self, rel: str) -> None:
-        if self._profile_selection_map.pop(rel, None) is not None:
+        if self._profile_selection_map.pop(_normalize_profile_path(rel), None) is not None:
             self._save_profile_selection_map()
 
     def _resolve_doc_category(self, rel_path: Path, rel: str, file_hash: str) -> str:

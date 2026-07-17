@@ -155,6 +155,7 @@ class RebuildCoordinator:
                 index_data = json.loads(staging_index.read_text(encoding="utf-8"))
                 chunk_snapshot = staged_store.get_chunk_stats_source()
                 KnowledgeBaseConsistencyService(
+                    cfg=self._cfg,
                     index_data=index_data,
                     chunk_snapshot=chunk_snapshot,
                 ).assert_consistent()
@@ -178,6 +179,7 @@ class RebuildCoordinator:
                 committed_index_data = json.loads(live_index.read_text(encoding="utf-8"))
                 committed_chunk_snapshot = staged_store.get_chunk_stats_source()
                 KnowledgeBaseConsistencyService(
+                    cfg=self._cfg,
                     index_data=committed_index_data,
                     chunk_snapshot=committed_chunk_snapshot,
                 ).assert_consistent()

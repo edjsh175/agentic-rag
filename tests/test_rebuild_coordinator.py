@@ -344,7 +344,7 @@ def test_rebuild_coordinator_removes_lock_after_failure(tmp_path, fixed_operatio
     assert not (data_dir / "rebuild.lock").exists()
 
 
-def test_rebuild_coordinator_decisions_transaction(tmp_path, fixed_operation_time):
+def test_rebuild_coordinator_decisions_transaction(tmp_path, fixed_operation_time, monkeypatch):
     live_store = TrackingStore()
     coordinator, data_dir, _live_index, staged_scanner = _make_coordinator(tmp_path, live_store=live_store)
 
@@ -358,6 +358,18 @@ def test_rebuild_coordinator_decisions_transaction(tmp_path, fixed_operation_tim
         return {"new_files": 1, "skipped_files": 0, "errors": 0}
 
     staged_scanner.scan.side_effect = mock_scan
+
+    class AlwaysConsistentService:
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+            pass
+
+        def assert_consistent(self, *, source=None):
+            return {"summary": {"consistent": True}}
+
+    monkeypatch.setattr(
+        "rag_knowledge.services.rebuild_coordinator.KnowledgeBaseConsistencyService",
+        AlwaysConsistentService,
+    )
 
     coordinator.run()
 

@@ -75,6 +75,7 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
         Document(
             page_content="ModelBuilder usage guide and workflow.",
             metadata={
+                "chunk_uid": "chk_modelbuilder",
                 "source": "modelbuilder.md",
                 "doc_category": "ModelBuilderDoc",
                 "review_status": "approved",
@@ -83,6 +84,7 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
         Document(
             page_content="UEModelBuilder usage guide and data settings.",
             metadata={
+                "chunk_uid": "chk_uemodelbuilder",
                 "source": "uemodelbuilder.md",
                 "doc_category": "UEModelBuilderDoc",
                 "review_status": "approved",
@@ -91,6 +93,7 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
         Document(
             page_content="ObliqueModelBuilder usage guide.",
             metadata={
+                "chunk_uid": "chk_obliquemodelbuilder",
                 "source": "obliquemodelbuilder.md",
                 "doc_category": "ObliqueModelBuilderDoc",
                 "review_status": "approved",

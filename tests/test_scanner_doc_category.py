@@ -96,6 +96,21 @@ class ScannerDocCategoryTests(unittest.TestCase):
         self.assertEqual(mapped, "technical_manual")
         self.assertEqual(default, "section_based")
 
+    def test_document_profile_resolution_normalizes_windows_paths_and_reports_source(self):
+        DirectoryScanner = _load_directory_scanner()
+        scanner = object.__new__(DirectoryScanner)
+        scanner._profile_selection_map = {}
+        scanner._rebuild_profile_map = {}
+        scanner._rebuild_hash_profile_map = {}
+        scanner._profile_map = {"word/manual.docx": "technical_manual"}
+
+        profile, source = scanner._resolve_document_profile_with_source(
+            "word\\manual.docx", "hash-1"
+        )
+
+        self.assertEqual(profile, "technical_manual")
+        self.assertEqual(source, "profile_map")
+
     def test_document_profile_selection_is_consumed_only_after_success(self):
         DirectoryScanner = _load_directory_scanner()
         scanner = object.__new__(DirectoryScanner)

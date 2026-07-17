@@ -9,7 +9,6 @@
 """
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from rag_knowledge.runtime_guard import validate_chroma_runtime
@@ -170,13 +169,21 @@ class VectorStore:
         返回：
           每个 Document 在 Chroma 中的 ID 列表
         """
-        store = self._get_store()
         doc_ids = []
+        seen_ids: set[str] = set()
         for doc in chunks:
-            doc_id = str(uuid.uuid4())
-            doc.metadata = self._normalize_metadata(doc.metadata)
-            doc.metadata["chunk_id"] = doc_id
+            doc_id = str((doc.metadata or {}).get("chunk_uid") or "").strip()
+            if not doc_id:
+                raise ValueError("chunk_uid is required for vector storage")
+            if doc_id in seen_ids:
+                raise ValueError(f"duplicate chunk_uid in batch: {doc_id}")
+            seen_ids.add(doc_id)
+            metadata = dict(doc.metadata or {})
+            metadata["chunk_uid"] = doc_id
+            metadata["chunk_id"] = doc_id
+            doc.metadata = self._normalize_metadata(metadata)
             doc_ids.append(doc_id)
+        store = self._get_store()
         store.add_documents(chunks, ids=doc_ids)
         return doc_ids
 

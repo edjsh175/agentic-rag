@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ def _make_test_doc(content: str, review_status: str = "pending") -> Document:
     return Document(
         page_content=content,
         metadata={
+            "chunk_uid": f"chk_{hashlib.sha1(content.encode('utf-8')).hexdigest()[:24]}",
             "kb_name": "articles",
             "review_status": review_status,
             "doc_category": "other",
