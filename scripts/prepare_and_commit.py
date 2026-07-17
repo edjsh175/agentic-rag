@@ -109,7 +109,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 5. 提示用户输入提交信息或使用默认提交信息
-    commit_msg = "feat: support robust vector store chunk ids and sync staging consistency docs"
+    commit_msg = "docs: sync progress documentation and timelines"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 6. 执行 Git commit
