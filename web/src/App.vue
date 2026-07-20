@@ -52,6 +52,9 @@ import 'github-markdown-css/github-markdown.css'
         </svg>
         图谱管理
       </RouterLink>
+      <RouterLink class="nav-btn" to="/admin/qa-debug">
+        问答证据调试
+      </RouterLink>
     </nav>
 
     <!-- 视图容器 -->

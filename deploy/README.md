@@ -25,6 +25,7 @@ Compose 挂载 `/data/rag_python/data:/app/data` 会**完全覆盖**镜像内 `d
 ```text
 rag_relational.db
 file_index.json
+document_profile_map.json
 retrieval_intent_policies.json
 domain_catalog.json
 agents.json
@@ -35,6 +36,17 @@ ls -la /data/rag_python/data
 ```
 
 **不得**用空目录覆盖已有正式 data，否则 Intent Policy / Graph 会静默降级。
+
+### 2.1 图谱检索开关
+
+如果当前发布包只完成了向量库重建、尚未同步重建图谱，请保持：
+
+```ini
+[graph_retrieval]
+enabled = false
+```
+
+否则会出现“新 Chunk ID + 旧图谱关联”混用，导致图谱增强检索命中旧链路。
 
 ### 3. Ollama 地址
 

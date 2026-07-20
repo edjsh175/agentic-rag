@@ -76,6 +76,19 @@ def test_evidence_anchor_recall_by_source_and_section():
     assert result["score"] == 1.0
 
 
+def test_anchor_is_required_for_pass_and_supports_section_and_chunk_ids():
+    item = {
+        "id": "anchored", "category": "fact", "answerability": "full",
+        "required_facts": ["事实"], "forbidden_claims": [],
+        "evidence_anchors": [{"document": "manual.docx", "section_id": "sec-1", "chunk_id": "chunk-1"}],
+    }
+    missed = score_answer(item, "事实", [{"source": "manual.docx", "section_id": "other", "chunk_id": "chunk-1"}])
+    assert missed["passed"] is False
+    assert missed["evidence_anchor_recall"]["missed"][0]["reason"] == "section_id_mismatch"
+    matched = score_answer(item, "事实", [{"source": "manual.docx", "section_id": "sec-1", "chunk_id": "chunk-1"}])
+    assert matched["passed"] is True
+
+
 def test_summarize_scores_buckets():
     rows = [
         score_answer(

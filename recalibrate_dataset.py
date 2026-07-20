@@ -19,7 +19,7 @@ def _freeze_ab_results() -> None:
         print("No A/B results found at data/retrieval_ab_results.json, skipping archiving.")
         return
 
-    archive_dir = Path("data/retrieval_ab_results_archive")
+    archive_dir = Path("data/archive/retrieval_ab_results")
     archive_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     dst = archive_dir / f"retrieval_ab_results_{ts}.json"

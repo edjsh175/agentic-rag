@@ -9,6 +9,11 @@ import {
   reviewGraphCandidates,
 } from '../api'
 import type { GraphCandidateBatch, GraphCandidateItem, GraphQualityReport } from '../types'
+import {
+  entityTypeLabel,
+  linkTypeLabel,
+  relationTypeLabel,
+} from '../utils/graphLabels'
 
 const batchStatus = ref('all')
 const candidateStatus = ref('all')
@@ -44,9 +49,13 @@ function textValue(value: unknown, fallback = '-') {
 }
 
 function candidateSummary(item: GraphCandidateItem) {
-  if (item.candidate_kind === 'entity') return `新增实体：${textValue(item.payload.name)}（${textValue(item.payload.entity_type)}）`
+  if (item.candidate_kind === 'entity') {
+    return `新增实体：${textValue(item.payload.name)}（${entityTypeLabel(textValue(item.payload.entity_type))}）`
+  }
   if (item.candidate_kind === 'alias') return `${textValue(item.payload.entity_name)} 又名 ${textValue(item.payload.alias)}`
-  if (item.candidate_kind === 'relation') return `${textValue(item.payload.source_name)} --${textValue(item.payload.relation_type)}--> ${textValue(item.payload.target_name)}`
+  if (item.candidate_kind === 'relation') {
+    return `${textValue(item.payload.source_name)} --${relationTypeLabel(textValue(item.payload.relation_type))}--> ${textValue(item.payload.target_name)}`
+  }
   if (item.candidate_kind === 'field') return `${textValue(item.payload.table_name)} 包含字段 ${textValue(item.payload.field_name)}`
   if (item.candidate_kind === 'link') return `${textValue(item.payload.entity_name)} --证据来自--> ${textValue(item.payload.chunk_id)}`
   return item.payload.message || item.payload.code || '-'
@@ -57,13 +66,13 @@ function candidateFields(item: GraphCandidateItem): CandidateField[] {
   const rows: CandidateField[] = []
   if (item.candidate_kind === 'entity') {
     rows.push({ label: '实体', value: textValue(item.payload.name) })
-    rows.push({ label: '实体类型', value: textValue(item.payload.entity_type) })
+    rows.push({ label: '实体类型', value: entityTypeLabel(textValue(item.payload.entity_type)) })
   } else if (item.candidate_kind === 'alias') {
     rows.push({ label: '实体', value: textValue(item.payload.entity_name) })
     rows.push({ label: '别名', value: textValue(item.payload.alias) })
   } else if (item.candidate_kind === 'relation') {
     rows.push({ label: '源实体', value: textValue(item.payload.source_name) })
-    rows.push({ label: '关系', value: textValue(item.payload.relation_type) })
+    rows.push({ label: '关系', value: relationTypeLabel(textValue(item.payload.relation_type)) })
     rows.push({ label: '目标实体', value: textValue(item.payload.target_name) })
   } else if (item.candidate_kind === 'field') {
     rows.push({ label: '数据表', value: textValue(item.payload.table_name) })
@@ -71,7 +80,7 @@ function candidateFields(item: GraphCandidateItem): CandidateField[] {
   } else if (item.candidate_kind === 'link') {
     rows.push({ label: '实体', value: textValue(item.payload.entity_name) })
     rows.push({ label: '证据 chunk', value: textValue(item.payload.chunk_id) })
-    rows.push({ label: '关联类型', value: textValue(item.payload.link_type, 'evidence') })
+    rows.push({ label: '关联类型', value: linkTypeLabel(textValue(item.payload.link_type, 'evidence')) })
   }
   if (chunkId) rows.push({ label: 'chunk_id', value: chunkId })
   if (item.evidence_text) rows.push({ label: '证据文本', value: item.evidence_text })
@@ -82,7 +91,7 @@ function candidatePreview(item: GraphCandidateItem): CandidatePreview {
   if (item.candidate_kind === 'entity') {
     return {
       source: textValue(item.payload.name),
-      sourceType: textValue(item.payload.entity_type, 'Entity'),
+      sourceType: entityTypeLabel(textValue(item.payload.entity_type, 'Entity')),
       edge: '',
       target: '',
       targetType: '',
@@ -91,42 +100,42 @@ function candidatePreview(item: GraphCandidateItem): CandidatePreview {
   if (item.candidate_kind === 'alias') {
     return {
       source: textValue(item.payload.entity_name),
-      sourceType: 'Entity',
-      edge: 'alias',
+      sourceType: '实体',
+      edge: '别名',
       target: textValue(item.payload.alias),
-      targetType: 'Alias',
+      targetType: '别名',
     }
   }
   if (item.candidate_kind === 'relation') {
     return {
       source: textValue(item.payload.source_name),
-      sourceType: 'Source',
-      edge: textValue(item.payload.relation_type),
+      sourceType: '源实体',
+      edge: relationTypeLabel(textValue(item.payload.relation_type)),
       target: textValue(item.payload.target_name),
-      targetType: 'Target',
+      targetType: '目标实体',
     }
   }
   if (item.candidate_kind === 'field') {
     return {
       source: textValue(item.payload.table_name),
-      sourceType: 'DataTable',
-      edge: 'has_field',
+      sourceType: entityTypeLabel('DataTable'),
+      edge: relationTypeLabel('has_field'),
       target: textValue(item.payload.field_name),
-      targetType: 'Field',
+      targetType: entityTypeLabel('Field'),
     }
   }
   if (item.candidate_kind === 'link') {
     return {
       source: textValue(item.payload.entity_name),
-      sourceType: 'Entity',
-      edge: 'evidence',
+      sourceType: '实体',
+      edge: linkTypeLabel('evidence'),
       target: textValue(item.payload.chunk_id),
-      targetType: 'Chunk',
+      targetType: '知识块',
     }
   }
   return {
     source: textValue(item.payload.message || item.payload.code),
-    sourceType: 'Diagnostic',
+    sourceType: '诊断',
     edge: '',
     target: '',
     targetType: '',

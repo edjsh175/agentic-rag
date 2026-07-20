@@ -109,7 +109,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 5. 提示用户输入提交信息或使用默认提交信息
-    commit_msg = "docs: sync progress documentation and timelines"
+    commit_msg = "feat: update graph edge styling, add product backbone preview service, add evidence pack, and sync documentation"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 6. 执行 Git commit

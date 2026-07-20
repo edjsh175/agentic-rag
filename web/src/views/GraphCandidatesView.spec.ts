@@ -112,9 +112,9 @@ describe('GraphCandidatesView', () => {
 
     expect(api.listGraphCandidateBatches).toHaveBeenCalled()
     expect(api.listGraphCandidateItems).toHaveBeenCalledWith('batch-1', undefined)
-    expect(wrapper.text()).toContain('新增实体：StampServer（Product）')
+    expect(wrapper.text()).toContain('新增实体：StampServer（产品）')
     expect(wrapper.text()).toContain('PipelineBuilder 又名 管线发布工具')
-    expect(wrapper.text()).toContain('StampServer用户手册_Rocky9.docx --has_section--> 操作系统安装 > 创建虚拟机 > 安装模式')
+    expect(wrapper.text()).toContain('StampServer用户手册_Rocky9.docx --包含章节--> 操作系统安装 > 创建虚拟机 > 安装模式')
     expect(wrapper.text()).toContain('StampServer --证据来自--> c74ae810-63c9-495f-921a-ef6116a50d36')
     expect(wrapper.text()).toContain('证据关联')
     expect(wrapper.text()).toContain('skip generic term')

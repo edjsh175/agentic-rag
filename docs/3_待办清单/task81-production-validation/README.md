@@ -24,7 +24,7 @@
 | batch mode | `profile_sync` |
 | 备份 | `backups/rag_relational-pre-task81-apply-20260710-151353.db` |
 | 备份 SHA256 | `A8D8C0B8C60D36A5131A8EF8399529B3915A9727D1EC2549E8A2950260893F7A` |
-| 候选导出（未纳入 git） | `data/task81_profile_sync_candidates.json` |
+| 候选导出（未纳入 git） | `data/archive/task81/task81_profile_sync_candidates.json` |
 
 ## 复验命令
 

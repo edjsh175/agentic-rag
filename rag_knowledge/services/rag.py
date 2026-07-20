@@ -30,6 +30,7 @@ from rag_knowledge.services.query_contextualizer import (
 )
 from rag_knowledge.services.web_search import WebSearch
 from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
+from rag_knowledge.services.evidence_pack import build_evidence_pack, govern_answer
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,8 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 6. {general_knowledge_rule}
 7. 外部网页仅在 context 中标记为“外部来源”时可用，必须引用，并与知识库来源明确区分。
 8. 禁止推测、补全隐含逻辑或把通用知识伪装成知识库内容。宁可少答，不得编造。
+9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
+10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
 
 ## 输出规则
 
@@ -1488,7 +1491,8 @@ class RagChain:
                      thinking: bool | None = None,
                      web_search: bool | None = None,
                      allow_general_knowledge: bool | None = None,
-                     agent_prompt: str | None = None) -> dict:
+                     agent_prompt: str | None = None,
+                     include_evidence: bool = False) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
 
@@ -1530,6 +1534,7 @@ class RagChain:
             if not source_docs and not allow_general:
                 return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
+            retrieved_source_docs = list(source_docs)
             history, history_summary = self._history_compressor.compress(history)
             source_docs, context, history = self._budget.trim(
                 source_docs, context, history, q, agent_prompt=agent_prompt
@@ -1568,13 +1573,16 @@ class RagChain:
 
             if not answer_content.strip():
                 return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
-
-            return {
+            answer_content = govern_answer(answer_content, q, source_docs)
+            result = {
                 "answer": answer_content,
-                "source_documents": self._filter_cited_sources(
-                    answer_content, source_docs
-                ),
+                "source_documents": self._filter_cited_sources(answer_content, source_docs),
             }
+            if include_evidence:
+                result["evidence_chain"] = build_evidence_pack(
+                    answer_content, retrieved_source_docs, source_docs
+                )
+            return result
         except Exception as e:
             logger.error("异步查询失败: %s", e)
             return {"answer": f"查询出错: {str(e)}", "source_documents": []}

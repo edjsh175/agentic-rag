@@ -40,6 +40,10 @@ class QueryResponse(BaseModel):
     source_documents: list
 
 
+class AdminQaDebugResponse(QueryResponse):
+    evidence_chain: dict
+
+
 class UploadResponse(BaseModel):
     message: str
     chunks_count: int
@@ -431,6 +435,35 @@ class GraphEdge(BaseModel):
 class GraphDataResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+
+class ProductBackboneEntityRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    graph_type: str = Field("Module", min_length=1)
+    layer: Optional[str] = None
+    subtype: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    alias_candidates: Optional[list[str] | str] = None
+
+
+class ProductBackboneEntityUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    graph_type: Optional[str] = Field(None, min_length=1)
+    layer: Optional[str] = None
+    subtype: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    alias_candidates: Optional[list[str] | str] = None
+
+
+class ProductBackboneRelationRequest(BaseModel):
+    source_id: str = Field(..., min_length=1)
+    target_id: str = Field(..., min_length=1)
+    relation_type: str = Field(..., min_length=1)
+    evidence_text: Optional[str] = None
 
 
 class EntityChunkDetailResponse(BaseModel):

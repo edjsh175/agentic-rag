@@ -1,7 +1,8 @@
 # 知识图谱执行 PRD — 第 3 轮：安全全量重建
 
 - **记录日期**：2026-07-13
-- **状态**：**进行中（execute 已启动，等待全库 LLM 重建完成）** — 2026-07-16 已完成 chunk 重建后一致性门禁与 dry-run，当前执行 `rebuild-safe --execute --include-llm`
+- **状态复核**：2026-07-20
+- **状态**：**未完成（仅 dry-run 留痕；execute 报告/日志/post-audit 现场均缺失）** — 不得把历史「execute 已启动」写成已完成
 - **轮次编号**：Round-3 / MVP-3C
 - **母文档**：`../2026-07-09-知识图谱语义抽取升级整体计划与PRD.md`
 - **前置条件**（全部满足方可开工）：
@@ -12,6 +13,8 @@
 - **是否启用 LLM**：**是（全库，与规则合并，且必须服从主干边界）**
 
 > **2026-07-14 口径**：本轮不是「全靠 LLM 冲业务实体」，而是在**官方产品关系主干**已入库的前提下，用规则 + 受限 LLM 做可回滚全量补全。
+>
+> **2026-07-20 现场**：dry-run 已归档到 `data/archive/rebuild_reports/rebuild_safe_dry_run_pre_round3.*`；`rebuild_safe_execute_round3.*`、`graph_round3_execute*.log`、`graph_audit_post_round3.json` 及文档中的 `data/backups/rag_relational_pre_round3*.db` **均不存在**。7 月 17 日 `data/archive/rebuild/20260717-*` 是 RebuildCoordinator 快照，不是本轮 execute 验收物。详见 [第3轮执行验收记录.md](./第3轮执行验收记录.md) 与 [剩余轮次总览 §1.1](../2026-07-13-知识图谱PRD剩余轮次总览.md)。
 
 ---
 
@@ -151,16 +154,17 @@ Phase J  audit_after + diff 报告 + 主干完整率核对
 # 0. 停止所有后端 / 评估进程
 # 0.1 确认第 2.5 轮已完成（否则停止）
 
-# 1. Dry-run（必须）
+# 1. Dry-run（必须；新报告写 data/ 根。历史 7/16 报告见 data/archive/rebuild_reports/）
 .\venv\Scripts\python.exe run_graph_build.py rebuild-safe --dry-run `
   --output-json data/rebuild_safe_dry_run_pre_round3.json `
   --output-md data/rebuild_safe_dry_run_pre_round3.md
 
 # 2. 人工确认 preserved 含 seed:product_backbone / superseded 来源统计
 
-# 3. 正式重建（实现 R3-2 后）
+# 3. 正式重建（须先停占用 DB 的进程；完成后把报告迁入 data/archive/rebuild_reports/）
 .\venv\Scripts\python.exe run_graph_build.py rebuild-safe --execute `
   --include-llm `
+  --backup-dir data/backups `
   --output-json data/rebuild_safe_execute_round3.json `
   --output-md data/rebuild_safe_execute_round3.md
 
@@ -228,16 +232,24 @@ Phase J  audit_after + diff 报告 + 主干完整率核对
 ## 9. 交付物
 
 ```text
-1. SafeRebuildService 正式版 + 测试
-2. data/rebuild_safe_execute_round3.json / .md
+1. SafeRebuildService 正式版 + 测试（代码已落地；现场 execute 验收未完成）
+2. data/rebuild_safe_execute_round3.json / .md（验收通过后归档到 data/archive/rebuild_reports/）
 3. 第3轮before_after_diff报告模板.md（完成后填实测数据）
-4. 第3轮执行验收记录.md（含 §10 指标核对表）
+4. 第3轮执行验收记录.md（含 §10 指标核对表；当前为「未完成」口径）
 5. 主干完整率抽检记录（可附在 diff 报告）
+6. data/graph_audit_post_round3.json（验收通过后归档到 data/archive/graph_rounds/）
 ```
 
-等待 execute 期间已预制的验收材料：
+**已有留痕（非完成证明）**：
 
-- [第3轮执行验收记录.md](第3轮执行验收记录.md)
+```text
+data/archive/rebuild_reports/rebuild_safe_dry_run_pre_round3.json
+data/archive/rebuild_reports/rebuild_safe_dry_run_pre_round3.md
+```
+
+等待 / 收口 execute 时使用的验收材料：
+
+- [第3轮执行验收记录.md](第3轮执行验收记录.md)（当前口径：**未完成**）
 - [第3轮before_after_diff报告模板.md](第3轮before_after_diff报告模板.md)
 - [第3轮候选治理与恢复SOP.md](第3轮候选治理与恢复SOP.md)
 
@@ -246,9 +258,11 @@ Phase J  audit_after + diff 报告 + 主干完整率核对
 ## 10. 给 Codex 的执行提示
 
 ```text
-仅在第 2.5 轮产品关系主干已 apply 后，按本 PRD：
-1. 先实现 SafeRebuildService 正式版与 --execute CLI，保留 seed:product_backbone
-2. dry-run 通过后再写正式库操作
-3. 全库 rebuild 必须 --include-llm + 分拆审批 + 主干冲突拒收
-4. 产出 §10 指标核对表与主干完整率核对
+第 2.5 轮主干已 apply；SafeRebuildService/--execute 代码已落地。
+现场缺口是证据链，不是「再实现一遍 execute」：
+1. 停占用进程；基线若已变则重跑 dry-run
+2. 正式 --execute --include-llm，落盘 rebuild_safe_execute_round3.* 与日志
+3. 分拆审批 + 主干冲突拒收；apply 后 cleanup / audit / quality / Task8.1 Gate
+4. 填 §10 指标表与主干完整率；通过后再开第 4 轮
+5. 不要把 data/archive/rebuild/20260717-* 当成 Round 3 完成证明
 ```

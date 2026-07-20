@@ -1,9 +1,9 @@
 # 第 3 轮 before/after diff 报告模板
 
 - **记录日期**：待填
-- **before 来源**：`data/rebuild_safe_dry_run_pre_round3.json` / execute 内置 audit_before
-- **after 来源**：`data/rebuild_safe_execute_round3.json`、`data/graph_audit_post_round3.json`
-- **前置条件**：`rebuild-safe --execute --include-llm` 完成
+- **before 来源（历史 dry-run）**：`data/archive/rebuild_reports/rebuild_safe_dry_run_pre_round3.json`；若重跑 dry-run / execute，以当次报告内 `audit_before` 为准
+- **after 来源（尚未生成）**：`data/rebuild_safe_execute_round3.json`、`data/graph_audit_post_round3.json`（生成后迁入 `data/archive/`）
+- **前置条件**：`rebuild-safe --execute --include-llm` **完成且报告落盘**（2026-07-20 现场尚未满足，见 [第3轮执行验收记录.md](./第3轮执行验收记录.md)）
 
 ## 1. 结论摘要
 

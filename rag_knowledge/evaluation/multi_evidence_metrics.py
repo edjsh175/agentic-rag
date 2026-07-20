@@ -76,29 +76,42 @@ def evidence_anchor_recall(
     sources: list[dict[str, Any]],
     anchors: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Match soft anchors on source filename and optional section_path substring."""
+    """Match document, Section and optional Chunk anchors with explicit miss reasons."""
     if not anchors:
         return {"score": 1.0, "matched": [], "missed": []}
 
     matched: list[dict[str, Any]] = []
     missed: list[dict[str, Any]] = []
     for anchor in anchors:
-        want_source = str(anchor.get("source") or "")
+        want_source = str(anchor.get("source") or anchor.get("document") or "")
         want_section = str(anchor.get("section_path_contains") or "")
+        want_section_id = str(anchor.get("section_id") or "")
+        want_chunk_id = str(anchor.get("chunk_id") or "")
         hit = False
+        reason = "no_source"
         for src in sources or []:
             name = str(src.get("source") or src.get("filename") or "")
             section = str(src.get("section_path") or "")
+            section_id = str(src.get("section_id") or "")
+            chunk_id = str(src.get("chunk_id") or "")
             if want_source and want_source not in name and name not in want_source:
+                reason = "document_mismatch"
                 continue
             if want_section and want_section not in section:
+                reason = "section_path_mismatch"
+                continue
+            if want_section_id and want_section_id != section_id:
+                reason = "section_id_mismatch"
+                continue
+            if want_chunk_id and want_chunk_id != chunk_id:
+                reason = "chunk_id_mismatch"
                 continue
             hit = True
             break
         if hit:
             matched.append(anchor)
         else:
-            missed.append(anchor)
+            missed.append({"anchor": anchor, "reason": reason})
     return {
         "score": len(matched) / len(anchors),
         "matched": matched,
@@ -122,6 +135,8 @@ def score_answer(
     checks: dict[str, bool] = {
         "no_forbidden_claims": len(forbidden) == 0,
     }
+    if item.get("evidence_anchors"):
+        checks["evidence_anchor_recall"] = anchors["score"] == 1.0
 
     if answerability == "none":
         checks["correct_refusal"] = refusal
@@ -143,13 +158,13 @@ def score_answer(
     if answerability == "conflict":
         passed = checks["no_forbidden_claims"] and checks.get("conflict_multi_value", False) and checks.get(
             "conflict_hint", False
-        )
+        ) and checks.get("evidence_anchor_recall", True)
     elif answerability == "none":
-        passed = checks["correct_refusal"] and checks["no_forbidden_claims"]
+        passed = checks["correct_refusal"] and checks["no_forbidden_claims"] and checks.get("evidence_anchor_recall", True)
     elif answerability == "partial":
-        passed = checks["no_forbidden_claims"] and checks.get("partial_or_refusal_ok", False)
+        passed = checks["no_forbidden_claims"] and checks.get("partial_or_refusal_ok", False) and checks.get("evidence_anchor_recall", True)
     else:
-        passed = checks["no_forbidden_claims"] and checks.get("fact_coverage_ge_0_7", False)
+        passed = checks["no_forbidden_claims"] and checks.get("fact_coverage_ge_0_7", False) and checks.get("evidence_anchor_recall", True)
 
     return {
         "id": item.get("id"),
@@ -191,6 +206,9 @@ def summarize_scores(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "passed": sum(1 for i in items if i.get("passed")),
                 "pass_rate": sum(1 for i in items if i.get("passed")) / len(items),
                 "mean_completeness": sum(float(i.get("completeness") or 0.0) for i in items) / len(items),
+                "mean_evidence_recall": sum(
+                    float((i.get("evidence_anchor_recall") or {}).get("score") or 0.0) for i in items
+                ) / len(items),
             }
         return out
 

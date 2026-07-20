@@ -56,7 +56,7 @@
 
 ### 当前阶段：检索能力优化 + 交付前查漏补缺
 
-正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 **2026-07-10**：检索优化主线已完成；知识库一致性/受控重建/测试隔离/图谱重建已收口；**Task 8.1/8.2 正式库 Profile 事实已 apply 并通过专项 Gate**。剩余重点是 Git/SVN 交付清理、legacy Profile 瘦身与全图 104 条 Phase B `missing_evidence` 治理。
+正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 **2026-07-20**：检索优化主线已完成；知识库一致性/受控重建/测试隔离/图谱重建底座已收口；**Task 8.1/8.2 正式库 Profile 事实已 apply 并通过专项 Gate**。图谱 **第 3 轮（rebuild-safe execute）现场未完成**（无 execute 报告/post-audit；仅有 dry-run 与 RebuildCoordinator 归档，见 `docs/3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md` §1.1）。生成物归档约定见 `docs/5_操作指南与规范/data目录约定.md`。剩余重点含：收口第 3 轮证据链、Git/SVN 交付清理、legacy Profile 瘦身与全图 `missing_evidence` 治理。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）

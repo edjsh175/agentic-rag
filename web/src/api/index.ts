@@ -32,6 +32,10 @@ import type {
   GraphEntityUpsert,
   GraphEntityUpdate,
   GraphRelationCreate,
+  ProductBackboneEntityPayload,
+  ProductBackboneEntityUpdatePayload,
+  ProductBackboneRelationPayload,
+  QaDebugResult,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -467,6 +471,40 @@ export async function getGraphData(docCategory?: string) {
     ? `?doc_category=${encodeURIComponent(docCategory)}`
     : ''
   return getJSON<GraphData>(`/admin/knowledge_graph/data${query}`)
+}
+
+export async function queryAdminDebug(question: string, signal?: AbortSignal) {
+  return postJSON<QaDebugResult>('/admin/qa-debug', { question }, signal)
+}
+
+export async function getProductBackbonePreview() {
+  return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview')
+}
+
+export async function createProductBackboneEntity(payload: ProductBackboneEntityPayload) {
+  return postJSON<any>('/admin/knowledge_graph/product_backbone_preview/entities', payload)
+}
+
+export async function updateProductBackboneEntity(entityId: string, payload: ProductBackboneEntityUpdatePayload) {
+  const { data } = await http.patch(
+    `/admin/knowledge_graph/product_backbone_preview/entities/${encodeURIComponent(entityId)}`,
+    payload
+  )
+  return data
+}
+
+export async function deleteProductBackboneEntity(entityId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/product_backbone_preview/entities/${encodeURIComponent(entityId)}`)
+  return data
+}
+
+export async function createProductBackboneRelation(payload: ProductBackboneRelationPayload) {
+  return postJSON<any>('/admin/knowledge_graph/product_backbone_preview/relations', payload)
+}
+
+export async function deleteProductBackboneRelation(relationId: string) {
+  const { data } = await http.delete(`/admin/knowledge_graph/product_backbone_preview/relations/${encodeURIComponent(relationId)}`)
+  return data
 }
 
 /** 获取实体关联的证据 Chunk */

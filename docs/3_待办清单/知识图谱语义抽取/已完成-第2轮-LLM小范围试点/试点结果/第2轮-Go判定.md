@@ -83,17 +83,20 @@ qwen3 默认 thinking 会导致 `format=json` 下 `message.content` 为空并大
 ## 5. 交付物索引
 
 ```text
-data/graph_audit_pre_round2.json
-data/graph_audit_post_round2.json
-data/manual_graph_facts_pre_round2.json
-data/manual_graph_facts_post_round2.json
-data/backups/rag_relational_pre_round2.db
-data/graph_round2_batch_export.json
-data/graph_round2_approve_ids.json
-data/graph_round2_quality.json
+# 现归档位置（2026-07-20 data/ 整理后）
+data/archive/graph_rounds/graph_audit_pre_round2.json
+data/archive/graph_rounds/graph_audit_post_round2.json
+data/archive/graph_rounds/manual_graph_facts_pre_round2.json
+data/archive/graph_rounds/manual_graph_facts_post_round2.json
+data/archive/graph_rounds/graph_round2_batch_export.json
+data/archive/graph_rounds/graph_round2_approve_ids.json
+data/archive/graph_rounds/graph_round2_quality.json
+# 备份：文档路径 data/backups/rag_relational_pre_round2.db（以现场是否仍存在为准）
 docs/3_待办清单/知识图谱语义抽取/已完成-第2轮-LLM小范围试点/试点结果/泄漏样本20.json
 docs/3_待办清单/知识图谱语义抽取/已完成-第2轮-LLM小范围试点/试点结果/泄漏样本20.md
 docs/3_待办清单/知识图谱语义抽取/已完成-第2轮-LLM小范围试点/试点结果/人工抽检样本.csv
 docs/3_待办清单/知识图谱语义抽取/已完成-第2轮-LLM小范围试点/试点结果/人工抽检精度.json
 docs/3_待办清单/知识图谱语义抽取/已完成-第2轮-LLM小范围试点/试点结果/第2轮-Go判定.md
 ```
+
+路径约定见 `docs/5_操作指南与规范/data目录约定.md`。

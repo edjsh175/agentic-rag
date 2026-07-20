@@ -152,4 +152,51 @@ describe('graphLayout', () => {
     expect(() => layout.tick(10)).not.toThrow()
     layout.destroy()
   })
+
+  it('freezes nodes in static mode and resumes motion when re-enabled', () => {
+    const a = node('a', 100, 100)
+    const b = node('b', 300, 100)
+    const layout = createGraphLayout({ width: 800, height: 600, autoStart: false })
+    layout.setGraph([a, b], [edge('a', 'b')], 'initial')
+    layout.tick(20)
+
+    layout.setPhysicsEnabled(false)
+    expect(layout.isPhysicsEnabled()).toBe(false)
+    expect(layout.getAlpha()).toBe(0)
+    expect(a.fx).toBe(a.x)
+    expect(a.fy).toBe(a.y)
+    expect(b.fx).toBe(b.x)
+    expect(b.fy).toBe(b.y)
+
+    const frozenX = a.x
+    const frozenY = a.y
+    layout.tick(50)
+    expect(a.x).toBe(frozenX)
+    expect(a.y).toBe(frozenY)
+
+    layout.setPhysicsEnabled(true)
+    expect(layout.isPhysicsEnabled()).toBe(true)
+    expect(a.fx).toBeNull()
+    expect(a.fy).toBeNull()
+    expect(layout.getAlpha()).toBeGreaterThan(0)
+    layout.destroy()
+  })
+
+  it('keeps manual drag positions when physics is static', () => {
+    const a = node('a', 120, 140)
+    const layout = createGraphLayout({ width: 800, height: 600, autoStart: false })
+    layout.setGraph([a], [], 'initial')
+    layout.setPhysicsEnabled(false)
+
+    layout.beginNodeDrag('a')
+    layout.moveNode('a', 220, 260)
+    layout.endNodeDrag('a')
+
+    expect(a.x).toBe(220)
+    expect(a.y).toBe(260)
+    expect(a.fx).toBe(220)
+    expect(a.fy).toBe(260)
+    expect(layout.getAlpha()).toBe(0)
+    layout.destroy()
+  })
 })

@@ -268,6 +268,59 @@ export interface GraphRelationCreate {
   review_status?: string | null
 }
 
+export interface EvidenceItem {
+  index?: number
+  document: string
+  source: string
+  section_id: string
+  section_path: string
+  chunk_id: string
+  snippet: string
+  drop_reason?: string
+}
+
+export interface EvidenceChain {
+  cited: EvidenceItem[]
+  retrieved_uncited: EvidenceItem[]
+  gaps: Record<string, string>[]
+  conflicts: { key: string; values: EvidenceItem[] }[]
+}
+
+export interface QaDebugResult {
+  answer: string
+  source_documents: SourceDoc[]
+  evidence_chain: EvidenceChain
+}
+
+export interface ProductBackboneEntityPayload {
+  name: string
+  graph_type: string
+  layer?: string | null
+  subtype?: string | null
+  description?: string | null
+  source?: string | null
+  status?: string | null
+  alias_candidates?: string[] | string | null
+}
+
+export interface ProductBackboneEntityUpdatePayload {
+  name?: string
+  graph_type?: string
+  layer?: string | null
+  subtype?: string | null
+  description?: string | null
+  source?: string | null
+  status?: string | null
+  alias_candidates?: string[] | string | null
+}
+
+export interface ProductBackboneRelationPayload {
+  source_id: string
+  target_id: string
+  relation_type: string
+  evidence_text?: string | null
+}
+
 export interface EntityChunkDetail {
   chunk_id: string
   file_name: string

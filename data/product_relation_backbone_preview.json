@@ -1,0 +1,2106 @@
+{
+  "schema_version": 1,
+  "source_ref": "docs/3_待办清单/知识图谱语义抽取/已完成-第2.5轮-产品关系主干/产品关系材料/2026-07-16-产品实体分层清单-待业务确认.md",
+  "status": "pending_confirmation",
+  "entities": [
+    {
+      "name": "StampGIS三维产品",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "ProductFamily",
+      "source": "架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "当前产品关系主干根实体"
+    },
+    {
+      "name": "StampGIS Client",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "Product",
+      "source": "002产品体系.pptx",
+      "status": "PPT补充",
+      "description": "客户端产品入口"
+    },
+    {
+      "name": "StampGIS Server",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "Product",
+      "source": "StampServer用户手册、002产品体系.pptx",
+      "status": "手册确认",
+      "description": "服务端产品入口",
+      "alias_candidates": [
+        "StampServer"
+      ]
+    },
+    {
+      "name": "StampGIS Tools",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "Product",
+      "source": "StampTools用户手册、002产品体系.pptx",
+      "status": "手册确认",
+      "description": "数据处理工具集产品入口",
+      "alias_candidates": [
+        "StampTools"
+      ]
+    },
+    {
+      "name": "StampManager",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "ManagementProduct",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Stamp服务、数据、工程和图层的运维管理平台"
+    },
+    {
+      "name": "工具与数据处理层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "CoreLayer",
+      "source": "白皮书、架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "对应工具集/数据处理"
+    },
+    {
+      "name": "系统数据与存储层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "CoreLayer",
+      "source": "白皮书、架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "对应系统数据/数据存储"
+    },
+    {
+      "name": "系统服务层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "CoreLayer",
+      "source": "白皮书、架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "对应系统服务/三维服务"
+    },
+    {
+      "name": "客户端与渲染层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "CoreLayer",
+      "source": "白皮书、架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "对应客户端/三维渲染"
+    },
+    {
+      "name": "业务应用层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "CoreLayer",
+      "source": "白皮书、架构截图、产品实体分层清单",
+      "status": "待确认",
+      "description": "对应业务应用"
+    },
+    {
+      "name": "二次开发与集成层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "SupportLayer",
+      "source": "白皮书、002产品体系.pptx",
+      "status": "待确认",
+      "description": "SDK、COM、语言接口、协议、第三方服务"
+    },
+    {
+      "name": "运维管理层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "SupportLayer",
+      "source": "StampServer用户手册",
+      "status": "待确认",
+      "description": "StampManager及管理配置模块"
+    },
+    {
+      "name": "运行与部署基础设施层",
+      "graph_type": "Module",
+      "layer": "总体分层框架",
+      "subtype": "SupportLayer",
+      "source": "StampServer用户手册、白皮书",
+      "status": "待确认",
+      "description": "操作系统、中间件、数据库、授权驱动和基础依赖"
+    },
+    {
+      "name": "TerrainBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "地形、影像数据编译发布",
+      "alias_candidates": [
+        "TerrarainBuilder"
+      ]
+    },
+    {
+      "name": "ModelBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "精细模型、地面模型、简单纹理模型、BIM模型编译"
+    },
+    {
+      "name": "UEModelBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "Unreal Engine模型、蓝图、材质和资源处理",
+      "alias_candidates": [
+        "ue_model_tools"
+      ]
+    },
+    {
+      "name": "ObliqueModelBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "倾斜模型发布、切割、压平和更新",
+      "alias_candidates": [
+        "ObliqueBuilder"
+      ]
+    },
+    {
+      "name": "PipelineBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "管点、管线、管面数据映射并自动生成三维管线",
+      "alias_candidates": [
+        "PiplineBuilder"
+      ]
+    },
+    {
+      "name": "点云数据处理工具",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "MainTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "点云和高斯泼溅数据编译发布",
+      "alias_candidates": [
+        "PointCloudBuilder"
+      ]
+    },
+    {
+      "name": "DOMBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "SubTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "DOM影像编译、分级和发布"
+    },
+    {
+      "name": "DEMBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "SubTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "DEM地形编译、分级和发布"
+    },
+    {
+      "name": "TINBuilder",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "SubTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "基于特征点线构建高精度TIN地形"
+    },
+    {
+      "name": "TINIncise",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "SubTool",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "TIN数据切割与发布"
+    },
+    {
+      "name": "UE蓝图处理",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "ToolCapability",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "处理时间轴、事件和蓝图节点"
+    },
+    {
+      "name": "UE材质集添加蓝图",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "ToolCapability",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "创建、设置、保存和编译材质蓝图"
+    },
+    {
+      "name": "UE导出插件",
+      "graph_type": "Tool",
+      "layer": "工具与数据处理层",
+      "subtype": "ToolPlugin",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "导出模型、动态树、部件、粒子、灯光和蓝图"
+    },
+    {
+      "name": "2D GIS数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "SystemData",
+      "source": "白皮书",
+      "status": "白皮书补充",
+      "description": "二维GIS数据总类"
+    },
+    {
+      "name": "3D GIS数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "SystemData",
+      "source": "白皮书",
+      "status": "白皮书补充",
+      "description": "三维GIS数据总类"
+    },
+    {
+      "name": "矢量数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "SpatialData",
+      "source": "架构截图、PPT、白皮书",
+      "status": "手册中亦作为服务对象",
+      "description": "点、线、面等矢量空间数据"
+    },
+    {
+      "name": "DEM数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "TerrainData",
+      "source": "StampTools用户手册、PPT",
+      "status": "手册确认",
+      "description": "数字高程模型数据"
+    },
+    {
+      "name": "DOM数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "ImageryData",
+      "source": "StampTools用户手册、PPT",
+      "status": "手册确认",
+      "description": "数字正射影像数据"
+    },
+    {
+      "name": "TIN数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "TerrainData",
+      "source": "StampTools用户手册、PPT",
+      "status": "手册确认",
+      "description": "不规则三角网高精度地形"
+    },
+    {
+      "name": "GRID数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "TerrainData",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "栅格地形发布数据"
+    },
+    {
+      "name": "ROAM数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "TerrainData",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "ROAM地形发布数据"
+    },
+    {
+      "name": "模型数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "ModelData",
+      "source": "架构截图、手册、PPT",
+      "status": "手册确认",
+      "description": "精细模型、地面模型等三维模型"
+    },
+    {
+      "name": "BIM模型",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "ModelData",
+      "source": "StampTools用户手册、白皮书",
+      "status": "手册确认",
+      "description": "Revit、IFC、3DTiles BIM数据"
+    },
+    {
+      "name": "倾斜数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "ModelData",
+      "source": "架构截图、StampTools用户手册、白皮书",
+      "status": "手册确认",
+      "description": "倾斜摄影与倾斜模型数据"
+    },
+    {
+      "name": "点云数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "PointCloudData",
+      "source": "架构截图、StampTools用户手册",
+      "status": "手册确认",
+      "description": "激光点云数据"
+    },
+    {
+      "name": "高斯数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "GaussianData",
+      "source": "架构截图、StampTools用户手册",
+      "status": "手册确认",
+      "description": "高斯泼溅数据"
+    },
+    {
+      "name": "管线数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "PipelineData",
+      "source": "StampTools用户手册、PPT",
+      "status": "手册确认",
+      "description": "管点、管线、管面和属性数据"
+    },
+    {
+      "name": "业务数据",
+      "graph_type": "Module",
+      "layer": "系统数据与存储层",
+      "subtype": "BusinessData",
+      "source": "架构截图、白皮书",
+      "status": "白皮书补充",
+      "description": "规划指标、行业属性等业务数据"
+    },
+    {
+      "name": "3DTiles",
+      "graph_type": "Format",
+      "layer": "系统数据与存储层",
+      "subtype": "ModelServiceResource",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维模型服务资源；与3DTiles服务分开登记"
+    },
+    {
+      "name": "I3S标准",
+      "graph_type": "Format",
+      "layer": "二次开发与集成层",
+      "subtype": "3DDataStandard",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维场景服务标准"
+    },
+    {
+      "name": "WMS",
+      "graph_type": "Format",
+      "layer": "系统数据与存储层",
+      "subtype": "ServiceResourceType",
+      "source": "StampServer用户手册、白皮书、PPT",
+      "status": "手册确认",
+      "description": "OGC地图服务资源"
+    },
+    {
+      "name": "WMTS",
+      "graph_type": "Format",
+      "layer": "系统数据与存储层",
+      "subtype": "ServiceResourceType",
+      "source": "StampServer用户手册、白皮书、PPT",
+      "status": "手册确认",
+      "description": "OGC瓦片地图服务资源"
+    },
+    {
+      "name": "MVT",
+      "graph_type": "Format",
+      "layer": "系统数据与存储层",
+      "subtype": "ServiceResourceType",
+      "source": "StampServer用户手册、白皮书",
+      "status": "手册确认",
+      "description": "Mapbox矢量瓦片资源"
+    },
+    {
+      "name": "授权服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "为系统及其它服务提供授权"
+    },
+    {
+      "name": "Port服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "图层权限控制入口，与用户和权限管理配合"
+    },
+    {
+      "name": "Apache数据服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "非静态瓦片URL代理",
+      "alias_candidates": [
+        "基础数据服务"
+      ]
+    },
+    {
+      "name": "Nginx数据服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "地形、影像、模型、管线等静态瓦片数据调度"
+    },
+    {
+      "name": "三维搜索服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "模型、树、小品、管线的空间数据和属性查询",
+      "alias_candidates": [
+        "基础搜索服务"
+      ]
+    },
+    {
+      "name": "三维分析服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "通视、阴影、地表面积、挖填方、淹没、地形路径、地形剖面",
+      "alias_candidates": [
+        "基础分析服务"
+      ]
+    },
+    {
+      "name": "管线查询服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Oracle/PostgreSQL管线空间、属性查询与统计"
+    },
+    {
+      "name": "管线分析服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "碰撞、水平净距、垂直净距、覆土、纵断面、横断面分析"
+    },
+    {
+      "name": "网络分析服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "爆管、追踪和连通分析"
+    },
+    {
+      "name": "工程地质服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "场地、第四纪、液化、承载力、湿陷、沉降、地层和基岩分析",
+      "alias_candidates": [
+        "工程地质分析服务"
+      ]
+    },
+    {
+      "name": "管线更新服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "基于二维数据库更新范围进行增量式三维管线更新"
+    },
+    {
+      "name": "矢量瓦片服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "点、线、面数据以矢量瓦片方式绘制",
+      "alias_candidates": [
+        "矢量服务"
+      ]
+    },
+    {
+      "name": "矢量编辑服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "空间和属性数据入库、编辑、导出；管线实时生成"
+    },
+    {
+      "name": "三维数据库服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "模型、树、小品、Element数据入库和编辑；三维数据读写优化"
+    },
+    {
+      "name": "三维数据库发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "数据库模型、树、小品发布为图层并支持增量更新"
+    },
+    {
+      "name": "三维规划服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "规划方案模型、矢量和规划指标等业务数据管理"
+    },
+    {
+      "name": "GB28181视频服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "连接第三方GB28181视频服务；当前视频编码为H264"
+    },
+    {
+      "name": "3DTiles服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "将倾斜、模型和管线数据对外发布为3DTiles数据服务"
+    },
+    {
+      "name": "I3S服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "发布I3S数据服务；当前仅支持管线数据"
+    },
+    {
+      "name": "文件上传服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "上传服务端发布所需文件"
+    },
+    {
+      "name": "影像发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "发布上传到服务器端的DOM数据"
+    },
+    {
+      "name": "GRID发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "将上传的DEM数据发布成GRID格式"
+    },
+    {
+      "name": "ROAM发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "将上传的DEM数据发布成ROAM格式"
+    },
+    {
+      "name": "地形切割服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "对已发布TIN和ROAM数据在线实时切割"
+    },
+    {
+      "name": "模型LOD发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "将上传模型发布成ModelLOD数据"
+    },
+    {
+      "name": "倾斜发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "倾斜数据在线发布、切割和更新"
+    },
+    {
+      "name": "管线发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "发布管线数据"
+    },
+    {
+      "name": "部件发布服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "发布Billboard/MatchModel部件，需与Mesh转换服务配合"
+    },
+    {
+      "name": "Mesh转换服务",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "StampServerService",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "USX/USB模型转换为StampGIS内部格式；LoadModule示例被注释"
+    },
+    {
+      "name": "se_license.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "授权服务.so信息名"
+    },
+    {
+      "name": "se_port.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Port服务.so信息名"
+    },
+    {
+      "name": "se_sde.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Apache数据服务.so信息名"
+    },
+    {
+      "name": "ngx_sde_module.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Nginx数据服务.so信息名"
+    },
+    {
+      "name": "se_search.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维搜索服务.so信息名"
+    },
+    {
+      "name": "se_analysis.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维分析服务.so信息名"
+    },
+    {
+      "name": "se_query.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "管线查询服务.so信息名"
+    },
+    {
+      "name": "se_pipeline.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "管线分析服务.so信息名"
+    },
+    {
+      "name": "se_network.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "网络分析服务.so信息名"
+    },
+    {
+      "name": "se_geologic.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "工程地质服务.so信息名"
+    },
+    {
+      "name": "se_pipeline_publish_tool.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "管线更新服务.so信息名"
+    },
+    {
+      "name": "se_geo_server.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "矢量瓦片服务.so信息名"
+    },
+    {
+      "name": "se_db_sde.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "矢量编辑服务.so信息名"
+    },
+    {
+      "name": "se_db_query_pg.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维数据库服务.so信息名"
+    },
+    {
+      "name": "se_model_tool_publish.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维数据库发布服务.so信息名"
+    },
+    {
+      "name": "se_city_plan_pg.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维规划服务.so信息名"
+    },
+    {
+      "name": "se_gb28181_module.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "GB28181视频服务.so信息名"
+    },
+    {
+      "name": "se_w3ts.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "3DTiles服务.so信息名"
+    },
+    {
+      "name": "se_i3s.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "I3S服务.so信息名"
+    },
+    {
+      "name": "se_filedownload.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "文件上传服务.so信息名"
+    },
+    {
+      "name": "se_dom.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "影像发布服务.so信息名"
+    },
+    {
+      "name": "se_grid.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "GRID发布服务.so信息名"
+    },
+    {
+      "name": "se_roam.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "ROAM发布服务.so信息名"
+    },
+    {
+      "name": "se_tin_incise.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "地形切割服务.so信息名"
+    },
+    {
+      "name": "se_model_lod.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "模型LOD发布服务.so信息名"
+    },
+    {
+      "name": "se_oblique_publish.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "倾斜发布服务.so信息名"
+    },
+    {
+      "name": "se_pipeline_publish.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "管线发布服务.so信息名"
+    },
+    {
+      "name": "se_parts_publish.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "部件发布服务.so信息名"
+    },
+    {
+      "name": "se_mesh_convert.so",
+      "graph_type": "Service",
+      "layer": "系统服务层",
+      "subtype": "ServiceLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Mesh转换服务.so信息名"
+    },
+    {
+      "name": "ActiveX",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "RenderingSystem",
+      "source": "StampServer用户手册、002产品体系.pptx",
+      "status": "已确认",
+      "description": "StampGIS客户端及渲染体系；插件式客户端渲染"
+    },
+    {
+      "name": "StampUE",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "RenderingSystem",
+      "source": "StampTools用户手册",
+      "status": "已确认",
+      "description": "StampGIS客户端及渲染体系；UE图层数据、Shader和前端能力"
+    },
+    {
+      "name": "WebGL",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "RenderingSystem",
+      "source": "白皮书、StampServer用户手册",
+      "status": "已确认",
+      "description": "浏览器免插件前端渲染"
+    },
+    {
+      "name": "WebRTC",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "TransportTechnology",
+      "source": "白皮书、架构截图",
+      "status": "归属待确认",
+      "description": "云端渲染传输技术叶子；不作为一级渲染体系"
+    },
+    {
+      "name": "C++ API",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "RenderingInterface",
+      "source": "白皮书",
+      "status": "归属待确认",
+      "description": "原生渲染和开发接口"
+    },
+    {
+      "name": "DirectX",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "GraphicsAPI",
+      "source": "白皮书",
+      "status": "归属待确认",
+      "description": "图形API"
+    },
+    {
+      "name": "Vulkan",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "GraphicsAPI",
+      "source": "白皮书",
+      "status": "归属待确认",
+      "description": "图形API"
+    },
+    {
+      "name": "插件模式",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "ClientMode",
+      "source": "白皮书、PPT和手册",
+      "status": "手册确认",
+      "description": "插件式客户端渲染"
+    },
+    {
+      "name": "免插件模式",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "ClientMode",
+      "source": "白皮书",
+      "status": "白皮书确认",
+      "description": "浏览器免插件渲染"
+    },
+    {
+      "name": "CEGUI",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "ClientUIComponent",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "客户端GUI配置组件"
+    },
+    {
+      "name": "generate_edit_active.dll",
+      "graph_type": "Module",
+      "layer": "客户端与渲染层",
+      "subtype": "ClientLibrary",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "三维数据库读写优化服务当前仅支持ActiveX时配合的组件"
+    },
+    {
+      "name": "三维规划审批",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "架构截图、白皮书",
+      "status": "白皮书确认",
+      "description": "规划审批类业务应用"
+    },
+    {
+      "name": "三维管线管理",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "架构截图、PPT",
+      "status": "待确认",
+      "description": "管线查询、统计、分析、建模、更新、拓扑分析"
+    },
+    {
+      "name": "地下基础设施管理",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "架构截图、白皮书",
+      "status": "白皮书确认",
+      "description": "管线、地铁、地下综合体、人防、桩基、隧道、地质体"
+    },
+    {
+      "name": "自然资源管理",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "架构截图、白皮书",
+      "status": "白皮书确认",
+      "description": "自然资源大数据平台、实景中国等"
+    },
+    {
+      "name": "BIM应用",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "架构截图、白皮书",
+      "status": "白皮书确认",
+      "description": "BIM轻量化、BIM报建审批、工程建设管理"
+    },
+    {
+      "name": "CIM应用",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "白皮书",
+      "status": "白皮书确认",
+      "description": "规划仿真、工程建设管理、公共安全、城管执法、城市体检"
+    },
+    {
+      "name": "应急管理",
+      "graph_type": "Module",
+      "layer": "业务应用层",
+      "subtype": "BusinessApplication",
+      "source": "白皮书",
+      "status": "白皮书规范名",
+      "description": "应急一张图、应急指挥、应急处置"
+    },
+    {
+      "name": "SDK",
+      "graph_type": "Module",
+      "layer": "二次开发与集成层",
+      "subtype": "DevelopmentKit",
+      "source": "白皮书",
+      "status": "白皮书补充",
+      "description": "开发环境，与RunTime统一"
+    },
+    {
+      "name": "COM",
+      "graph_type": "Module",
+      "layer": "二次开发与集成层",
+      "subtype": "DevelopmentInterface",
+      "source": "白皮书",
+      "status": "白皮书补充",
+      "description": "丰富的COM二次开发接口"
+    },
+    {
+      "name": "HTTP",
+      "graph_type": "Format",
+      "layer": "二次开发与集成层",
+      "subtype": "Protocol",
+      "source": "PPT、StampServer用户手册",
+      "status": "手册确认",
+      "description": "服务访问协议"
+    },
+    {
+      "name": "OGC",
+      "graph_type": "Format",
+      "layer": "二次开发与集成层",
+      "subtype": "StandardFamily",
+      "source": "PPT、白皮书",
+      "status": "白皮书补充",
+      "description": "第三方地理信息服务标准族"
+    },
+    {
+      "name": "GB28181",
+      "graph_type": "Format",
+      "layer": "二次开发与集成层",
+      "subtype": "VideoStandard",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "视频接入标准"
+    },
+    {
+      "name": "服务设置",
+      "graph_type": "Module",
+      "layer": "运维管理层",
+      "subtype": "ManagementModule",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "Stamp服务基础设置"
+    },
+    {
+      "name": "三维图层管理",
+      "graph_type": "Module",
+      "layer": "运维管理层",
+      "subtype": "ManagementModule",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "DEM、DOM、模型、BIM、管线、倾斜等图层管理"
+    },
+    {
+      "name": "矢量服务管理",
+      "graph_type": "Module",
+      "layer": "运维管理层",
+      "subtype": "ManagementModule",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "VectorTile、TileBlock、WMS、WMTS、MVT、ArcGIS MapServer"
+    },
+    {
+      "name": "模型服务管理",
+      "graph_type": "Module",
+      "layer": "运维管理层",
+      "subtype": "ManagementModule",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "3DTiles、Terrain"
+    },
+    {
+      "name": "CEGUI配置",
+      "graph_type": "Module",
+      "layer": "运维管理层",
+      "subtype": "ManagementModule",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "客户端GUI配置"
+    },
+    {
+      "name": "Linux",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "OperatingSystem",
+      "source": "StampServer用户手册、白皮书、PPT",
+      "status": "手册确认",
+      "description": "StampServer运行环境"
+    },
+    {
+      "name": "Windows 10",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "OperatingSystem",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "StampTools运行环境"
+    },
+    {
+      "name": "Windows 11",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "OperatingSystem",
+      "source": "StampTools用户手册",
+      "status": "手册确认",
+      "description": "StampTools运行环境"
+    },
+    {
+      "name": "Apache HTTP Server",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "Middleware",
+      "source": "StampServer用户手册、白皮书",
+      "status": "手册确认",
+      "description": "动态服务模块承载"
+    },
+    {
+      "name": "Nginx",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "Middleware",
+      "source": "StampServer用户手册、白皮书",
+      "status": "手册确认",
+      "description": "静态瓦片调度和代理"
+    },
+    {
+      "name": "PostgreSQL",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "Database",
+      "source": "StampServer用户手册、白皮书",
+      "status": "手册确认",
+      "description": "空间和业务数据库"
+    },
+    {
+      "name": "Oracle",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "Database",
+      "source": "StampServer用户手册、PPT",
+      "status": "手册确认",
+      "description": "空间和业务数据库"
+    },
+    {
+      "name": "SafeNet / aksusbd",
+      "graph_type": "Module",
+      "layer": "运行与部署基础设施层",
+      "subtype": "LicenseDriver",
+      "source": "StampServer用户手册、白皮书",
+      "status": "手册确认",
+      "description": "StampServer授权驱动"
+    },
+    {
+      "name": "标准规范体系",
+      "graph_type": "Module",
+      "layer": "标准与安全横向维度",
+      "subtype": "CrossCuttingEntity",
+      "source": "白皮书",
+      "status": "白皮书确认",
+      "description": "贯穿工具、数据、服务、客户端和应用"
+    },
+    {
+      "name": "安全保障体系",
+      "graph_type": "Module",
+      "layer": "标准与安全横向维度",
+      "subtype": "CrossCuttingEntity",
+      "source": "白皮书",
+      "status": "白皮书确认",
+      "description": "贯穿五层架构"
+    },
+    {
+      "name": "服务授权",
+      "graph_type": "Module",
+      "layer": "标准与安全横向维度",
+      "subtype": "SecurityCapability",
+      "source": "StampServer用户手册、PPT",
+      "status": "手册确认",
+      "description": "Stamp服务许可控制"
+    },
+    {
+      "name": "图层访问控制",
+      "graph_type": "Module",
+      "layer": "标准与安全横向维度",
+      "subtype": "SecurityCapability",
+      "source": "StampServer用户手册、PPT",
+      "status": "手册确认",
+      "description": "按用户角色控制可访问图层"
+    }
+  ],
+  "relations": [
+    {
+      "source": "StampGIS Client",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampGIS Server",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampGIS Tools",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampManager",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "工具与数据处理层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "系统数据与存储层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "系统服务层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "客户端与渲染层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "业务应用层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "运维管理层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "运行与部署基础设施层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "系统数据与存储层",
+      "relation_type": "requires",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "系统服务层",
+      "relation_type": "requires",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "客户端与渲染层",
+      "relation_type": "requires",
+      "target": "系统服务层"
+    },
+    {
+      "source": "业务应用层",
+      "relation_type": "requires",
+      "target": "客户端与渲染层"
+    },
+    {
+      "source": "TerrainBuilder",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "ModelBuilder",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "UEModelBuilder",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "ObliqueModelBuilder",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "PipelineBuilder",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "点云数据处理工具",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "DOMBuilder",
+      "relation_type": "belongs_to",
+      "target": "TerrainBuilder"
+    },
+    {
+      "source": "DEMBuilder",
+      "relation_type": "belongs_to",
+      "target": "TerrainBuilder"
+    },
+    {
+      "source": "TINBuilder",
+      "relation_type": "belongs_to",
+      "target": "TerrainBuilder"
+    },
+    {
+      "source": "TINIncise",
+      "relation_type": "belongs_to",
+      "target": "TerrainBuilder"
+    },
+    {
+      "source": "UE蓝图处理",
+      "relation_type": "belongs_to",
+      "target": "UEModelBuilder"
+    },
+    {
+      "source": "UE材质集添加蓝图",
+      "relation_type": "belongs_to",
+      "target": "UEModelBuilder"
+    },
+    {
+      "source": "UE导出插件",
+      "relation_type": "belongs_to",
+      "target": "UEModelBuilder"
+    },
+    {
+      "source": "2D GIS数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "3D GIS数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "矢量数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "DEM数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "DOM数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "TIN数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "GRID数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "ROAM数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "模型数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "BIM模型",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "倾斜数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "点云数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "高斯数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "管线数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "业务数据",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "3DTiles",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "WMS",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "WMTS",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "MVT",
+      "relation_type": "belongs_to",
+      "target": "系统数据与存储层"
+    },
+    {
+      "source": "授权服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "Port服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "Apache数据服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "Nginx数据服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "三维搜索服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "三维分析服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "管线查询服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "管线分析服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "网络分析服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "工程地质服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "管线更新服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "矢量瓦片服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "矢量编辑服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "三维数据库服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "三维数据库发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "三维规划服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "GB28181视频服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "3DTiles服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "I3S服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "文件上传服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "影像发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "GRID发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "ROAM发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "地形切割服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "模型LOD发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "倾斜发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "管线发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "部件发布服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "Mesh转换服务",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "se_license.so",
+      "relation_type": "belongs_to",
+      "target": "授权服务"
+    },
+    {
+      "source": "se_port.so",
+      "relation_type": "belongs_to",
+      "target": "Port服务"
+    },
+    {
+      "source": "se_sde.so",
+      "relation_type": "belongs_to",
+      "target": "Apache数据服务"
+    },
+    {
+      "source": "ngx_sde_module.so",
+      "relation_type": "belongs_to",
+      "target": "Nginx数据服务"
+    },
+    {
+      "source": "se_search.so",
+      "relation_type": "belongs_to",
+      "target": "三维搜索服务"
+    },
+    {
+      "source": "se_analysis.so",
+      "relation_type": "belongs_to",
+      "target": "三维分析服务"
+    },
+    {
+      "source": "se_query.so",
+      "relation_type": "belongs_to",
+      "target": "管线查询服务"
+    },
+    {
+      "source": "se_pipeline.so",
+      "relation_type": "belongs_to",
+      "target": "管线分析服务"
+    },
+    {
+      "source": "se_network.so",
+      "relation_type": "belongs_to",
+      "target": "网络分析服务"
+    },
+    {
+      "source": "se_geologic.so",
+      "relation_type": "belongs_to",
+      "target": "工程地质服务"
+    },
+    {
+      "source": "se_pipeline_publish_tool.so",
+      "relation_type": "belongs_to",
+      "target": "管线更新服务"
+    },
+    {
+      "source": "se_geo_server.so",
+      "relation_type": "belongs_to",
+      "target": "矢量瓦片服务"
+    },
+    {
+      "source": "se_db_sde.so",
+      "relation_type": "belongs_to",
+      "target": "矢量编辑服务"
+    },
+    {
+      "source": "se_db_query_pg.so",
+      "relation_type": "belongs_to",
+      "target": "三维数据库服务"
+    },
+    {
+      "source": "se_model_tool_publish.so",
+      "relation_type": "belongs_to",
+      "target": "三维数据库发布服务"
+    },
+    {
+      "source": "se_city_plan_pg.so",
+      "relation_type": "belongs_to",
+      "target": "三维规划服务"
+    },
+    {
+      "source": "se_gb28181_module.so",
+      "relation_type": "belongs_to",
+      "target": "GB28181视频服务"
+    },
+    {
+      "source": "se_w3ts.so",
+      "relation_type": "belongs_to",
+      "target": "3DTiles服务"
+    },
+    {
+      "source": "se_i3s.so",
+      "relation_type": "belongs_to",
+      "target": "I3S服务"
+    },
+    {
+      "source": "se_filedownload.so",
+      "relation_type": "belongs_to",
+      "target": "文件上传服务"
+    },
+    {
+      "source": "se_dom.so",
+      "relation_type": "belongs_to",
+      "target": "影像发布服务"
+    },
+    {
+      "source": "se_grid.so",
+      "relation_type": "belongs_to",
+      "target": "GRID发布服务"
+    },
+    {
+      "source": "se_roam.so",
+      "relation_type": "belongs_to",
+      "target": "ROAM发布服务"
+    },
+    {
+      "source": "se_tin_incise.so",
+      "relation_type": "belongs_to",
+      "target": "地形切割服务"
+    },
+    {
+      "source": "se_model_lod.so",
+      "relation_type": "belongs_to",
+      "target": "模型LOD发布服务"
+    },
+    {
+      "source": "se_oblique_publish.so",
+      "relation_type": "belongs_to",
+      "target": "倾斜发布服务"
+    },
+    {
+      "source": "se_pipeline_publish.so",
+      "relation_type": "belongs_to",
+      "target": "管线发布服务"
+    },
+    {
+      "source": "se_parts_publish.so",
+      "relation_type": "belongs_to",
+      "target": "部件发布服务"
+    },
+    {
+      "source": "se_mesh_convert.so",
+      "relation_type": "belongs_to",
+      "target": "Mesh转换服务"
+    },
+    {
+      "source": "CEGUI",
+      "relation_type": "belongs_to",
+      "target": "ActiveX"
+    },
+    {
+      "source": "generate_edit_active.dll",
+      "relation_type": "belongs_to",
+      "target": "ActiveX"
+    },
+    {
+      "source": "三维规划审批",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "三维管线管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "地下基础设施管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "自然资源管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "BIM应用",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "CIM应用",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "应急管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "SDK",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "COM",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "HTTP",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "OGC",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "I3S标准",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "服务设置",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "三维图层管理",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "矢量服务管理",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "模型服务管理",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "CEGUI配置",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "Linux",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "Windows 10",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "Windows 11",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "Apache HTTP Server",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "Nginx",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "PostgreSQL",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "Oracle",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "SafeNet / aksusbd",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "服务授权",
+      "relation_type": "requires",
+      "target": "授权服务"
+    },
+    {
+      "source": "图层访问控制",
+      "relation_type": "requires",
+      "target": "Port服务"
+    },
+    {
+      "source": "TerrainBuilder",
+      "relation_type": "supports_format",
+      "target": "WMTS"
+    },
+    {
+      "source": "ModelBuilder",
+      "relation_type": "supports_format",
+      "target": "3DTiles"
+    },
+    {
+      "source": "ObliqueModelBuilder",
+      "relation_type": "supports_format",
+      "target": "3DTiles"
+    },
+    {
+      "source": "3DTiles服务",
+      "relation_type": "supports_format",
+      "target": "3DTiles"
+    },
+    {
+      "source": "GB28181视频服务",
+      "relation_type": "supports_format",
+      "target": "GB28181"
+    },
+    {
+      "source": "三维数据库服务",
+      "relation_type": "requires",
+      "target": "ActiveX"
+    },
+    {
+      "source": "DirectX",
+      "relation_type": "belongs_to",
+      "target": "ActiveX"
+    },
+    {
+      "source": "WebRTC",
+      "relation_type": "belongs_to",
+      "target": "Vulkan"
+    },
+    {
+      "source": "Vulkan",
+      "relation_type": "belongs_to",
+      "target": "StampUE"
+    },
+    {
+      "source": "插件模式",
+      "relation_type": "belongs_to",
+      "target": "客户端与渲染层"
+    },
+    {
+      "source": "ActiveX",
+      "relation_type": "belongs_to",
+      "target": "插件模式"
+    },
+    {
+      "source": "StampUE",
+      "relation_type": "belongs_to",
+      "target": "插件模式"
+    },
+    {
+      "source": "免插件模式",
+      "relation_type": "belongs_to",
+      "target": "客户端与渲染层"
+    },
+    {
+      "source": "WebGL",
+      "relation_type": "belongs_to",
+      "target": "免插件模式"
+    },
+    {
+      "source": "C++ API",
+      "relation_type": "belongs_to",
+      "target": "ActiveX"
+    },
+    {
+      "source": "C++ API",
+      "relation_type": "belongs_to",
+      "target": "StampUE"
+    },
+    {
+      "source": "Vulkan",
+      "relation_type": "belongs_to",
+      "target": "免插件模式"
+    },
+    {
+      "source": "WebGL",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "C++ API",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    }
+  ]
+}

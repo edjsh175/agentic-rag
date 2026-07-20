@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   getGraphData,
+  getProductBackbonePreview,
+  createProductBackboneEntity,
+  updateProductBackboneEntity,
+  deleteProductBackboneEntity,
+  createProductBackboneRelation,
+  deleteProductBackboneRelation,
   getEntityChunks,
   deleteEntity,
   deleteRelation,
@@ -23,6 +30,17 @@ import {
   type GraphLayoutController,
   type LayoutNode,
 } from '../utils/graphLayout'
+import {
+  entitySubtypeLabel,
+  entityTypeBadge,
+  entityTypeLabel,
+  linkTypeLabel,
+  relationTypeLabel,
+} from '../utils/graphLabels'
+import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
+
+const route = useRoute()
+const isProductBackbonePreview = computed(() => route.query.source === 'product_backbone_preview')
 
 // 颜色映射系统
 const colors: Record<string, string> = {
@@ -54,6 +72,14 @@ interface VisualNode extends GraphNode {
 }
 
 // 可视化边接口
+interface NodeStyle {
+  radius: number
+  fill: string
+  stroke: string
+  labelFont: string
+  badgeText: string
+}
+
 interface VisualEdge extends GraphEdge {}
 interface DrawableEdge extends VisualEdge {
   parallelOffset: number
@@ -109,6 +135,66 @@ const visualEdges = ref<VisualEdge[]>([])
 let graphLayout: GraphLayoutController | null = null
 const parallelEdgeGap = 26
 
+const parseNodeProperties = (node: GraphNode) => {
+  if (!node.properties_json) return {}
+  try {
+    return JSON.parse(node.properties_json) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+
+const getNodeStyle = (node: GraphNode): NodeStyle => {
+  const properties = parseNodeProperties(node)
+  const subtype = typeof properties.subtype === 'string' ? properties.subtype : ''
+  const layer = typeof properties.layer === 'string' ? properties.layer : ''
+  const baseFill = colors[node.type] || colors.Default
+  const style: NodeStyle = {
+    radius: 22,
+    fill: baseFill,
+    stroke: '#ffffff',
+    labelFont: '10px sans-serif',
+    badgeText: entityTypeBadge(node.type),
+  }
+
+  if (node.type === 'Format') {
+    style.radius = 20
+  }
+
+  if (subtype === 'ServiceLibrary') {
+    return { ...style, radius: 20, fill: '#475569', labelFont: '9px sans-serif', badgeText: '库' }
+  }
+  if (subtype === 'ProductFamily') {
+    return { ...style, radius: 34, fill: '#7c3aed', labelFont: 'bold 12px sans-serif', badgeText: '产品' }
+  }
+  if (subtype === 'CoreLayer') {
+    return { ...style, radius: 30, fill: '#0891b2', labelFont: 'bold 11px sans-serif', badgeText: '层' }
+  }
+  if (subtype === 'SupportLayer') {
+    return { ...style, radius: 30, fill: '#0f766e', labelFont: 'bold 11px sans-serif', badgeText: '层' }
+  }
+  if (subtype === 'CrossCuttingDimension') {
+    return { ...style, radius: 30, fill: '#0e7490', labelFont: 'bold 11px sans-serif', badgeText: '横切' }
+  }
+  if (subtype === 'Product' || subtype === 'ManagementProduct') {
+    return { ...style, radius: 27, fill: '#9333ea', labelFont: 'bold 11px sans-serif', badgeText: '产品' }
+  }
+  if (subtype === 'MainTool') {
+    return { ...style, radius: 25, fill: '#2563eb', labelFont: 'bold 10px sans-serif', badgeText: '工具' }
+  }
+  if (subtype === 'RenderingSystem') {
+    return { ...style, radius: 25, fill: '#4f46e5', labelFont: 'bold 10px sans-serif', badgeText: '渲染' }
+  }
+  if (subtype === 'StampServerService') {
+    return { ...style, radius: 25, fill: '#059669', labelFont: 'bold 10px sans-serif', badgeText: '服务' }
+  }
+  if (layer === '客户端与渲染层') {
+    return { ...style, fill: '#6366f1' }
+  }
+
+  return style
+}
+
 // 选中与交互状态
 const selectedNodeId = ref<string | null>(null)
 const hoveredNodeId = ref<string | null>(null)
@@ -120,6 +206,26 @@ const detailsTab = ref<'relations' | 'chunks'>('relations')
 const selectedNode = computed(() => {
   return visualNodes.value.find(n => n.id === selectedNodeId.value) || null
 })
+
+const selectedNodeProperties = computed<Record<string, any>>(() => {
+  if (!selectedNode.value?.properties_json) return {}
+  try {
+    return JSON.parse(selectedNode.value.properties_json)
+  } catch {
+    return {}
+  }
+})
+
+const aliasCandidatesText = (value: unknown) => {
+  return Array.isArray(value) ? value.join('\n') : String(value || '')
+}
+
+const parseAliasCandidates = (value: string) => {
+  return value
+    .split(/[\n,，]/)
+    .map(item => item.trim())
+    .filter(Boolean)
+}
 
 // 节点 ID 到节点的快速映射表，用于快速根据 ID 寻找真实实体名称
 const nodeMap = computed(() => {
@@ -179,6 +285,11 @@ const entityForm = ref({
   description: '',
   confidence: '1',
   review_status: 'approved',
+  layer: '',
+  subtype: '',
+  source: '',
+  status: '',
+  alias_candidates: '',
 })
 const entitySaving = ref(false)
 
@@ -191,6 +302,31 @@ const relationForm = ref({
   evidence_text: '',
 })
 const relationSaving = ref(false)
+const isLinkMode = ref(false)
+const linkStartNodeId = ref<string | null>(null)
+const linkHoverNodeId = ref<string | null>(null)
+const linkCursorPos = ref<{ x: number; y: number } | null>(null)
+const isPhysicsEnabled = ref(true)
+
+const clearLinkDraft = () => {
+  linkStartNodeId.value = null
+  linkHoverNodeId.value = null
+  linkCursorPos.value = null
+}
+
+const linkModeHint = computed(() => {
+  if (!isLinkMode.value) return ''
+  if (!linkStartNodeId.value) {
+    return '拖动：从源实体拉到目标实体；松开后填写关系类型'
+  }
+  const source = nodeMap.value.get(linkStartNodeId.value)
+  const sourceLabel = source?.label || '源实体'
+  if (linkHoverNodeId.value) {
+    const target = nodeMap.value.get(linkHoverNodeId.value)
+    return `源：${sourceLabel} → 目标：${target?.label || '目标实体'}`
+  }
+  return `源：${sourceLabel} → 目标：移动到目标实体`
+})
 
 const chunkLinkInput = ref('')
 const chunkLinkSaving = ref(false)
@@ -227,7 +363,9 @@ const fetchGraph = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const data = await getGraphData(selectedCategory.value)
+    const data = isProductBackbonePreview.value
+      ? await getProductBackbonePreview()
+      : await getGraphData(selectedCategory.value)
     graphData.value = data
     
     // 初始化物理仿真节点
@@ -285,7 +423,20 @@ watch([selectedTypes, searchQuery], () => {
 }, { deep: true })
 
 watch(selectedCategory, () => {
+  if (isProductBackbonePreview.value) return
   fetchGraph()
+})
+
+watch(isProductBackbonePreview, () => {
+  selectedCategory.value = 'all'
+  isLinkMode.value = false
+  clearLinkDraft()
+  clearSelection()
+  fetchGraph()
+})
+
+watch(isLinkMode, (enabled) => {
+  if (!enabled) clearLinkDraft()
 })
 
 // 监听过滤后的节点列表，如果当前选中的实体被隐藏，则自动清除选中状态，防止图谱异常灰化
@@ -330,23 +481,28 @@ const drawGraph = () => {
   ctx.scale(scale.value, scale.value)
   
   const nodes = filteredNodesList.value
-  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  const nodesById = new Map(nodes.map(n => [n.id, n]))
   
   // 是否有高亮节点
   const hasSelection = selectedNodeId.value !== null
   const selectedId = selectedNodeId.value
   const neighbors = neighborNodeIds.value
+  const isLinking = isLinkMode.value && !!linkStartNodeId.value
+  const linkSourceId = linkStartNodeId.value
+  const linkTargetId = linkHoverNodeId.value
   
   // --- 1. 绘制关系连线 ---
   buildDrawableEdges(visualEdges.value).forEach(edge => {
-    const n1 = nodeMap.get(edge.source)
-    const n2 = nodeMap.get(edge.target)
+    const n1 = nodesById.get(edge.source)
+    const n2 = nodesById.get(edge.target)
     if (!n1 || !n2) return
     
     let isHighlighted = false
     let isFaded = false
     
-    if (hasSelection) {
+    if (isLinking) {
+      isFaded = true
+    } else if (hasSelection) {
       if (edge.source === selectedId || edge.target === selectedId) {
         isHighlighted = true
       } else {
@@ -364,9 +520,18 @@ const drawGraph = () => {
   nodes.forEach(node => {
     let isSelected = false
     let isNeighbor = false
+    let isLinkTarget = false
     let isFaded = false
     
-    if (hasSelection) {
+    if (isLinking) {
+      if (node.id === linkSourceId) {
+        isSelected = true
+      } else if (linkTargetId && node.id === linkTargetId) {
+        isLinkTarget = true
+      } else {
+        isFaded = true
+      }
+    } else if (hasSelection) {
       if (node.id === selectedId) {
         isSelected = true
       } else if (neighbors.has(node.id)) {
@@ -378,8 +543,22 @@ const drawGraph = () => {
       isNeighbor = true
     }
     
-    drawNode(ctx, node, isSelected, isNeighbor, isFaded)
+    drawNode(ctx, node, isSelected, isNeighbor, isFaded, isLinkTarget)
   })
+
+  // --- 3. 连线模式草稿边 ---
+  if (isLinking && linkSourceId) {
+    const source = nodesById.get(linkSourceId)
+    if (source) {
+      const target = linkTargetId ? nodesById.get(linkTargetId) : null
+      const end = target
+        ? { x: target.x, y: target.y, radius: getNodeStyle(target).radius }
+        : linkCursorPos.value
+          ? { x: linkCursorPos.value.x, y: linkCursorPos.value.y, radius: 0 }
+          : null
+      if (end) drawLinkDraft(ctx, source, end)
+    }
+  }
   
   ctx.restore()
 }
@@ -425,7 +604,8 @@ const drawEdge = (
   isFaded: boolean,
   isSectionEdge: boolean
 ) => {
-  const nodeRadius = 22
+  const sourceRadius = getNodeStyle(n1).radius
+  const targetRadius = getNodeStyle(n2).radius
   const arrowSize = 6
   
   const dx = n2.x - n1.x
@@ -441,12 +621,26 @@ const drawEdge = (
   const curveOffset = edge.parallelTotal > 1 ? edge.parallelOffset * canonicalDirection : 0
   
   // 连线端点偏置到节点边缘，避开内部重合
-  const sourceBorderX = n1.x + ux * nodeRadius
-  const sourceBorderY = n1.y + uy * nodeRadius
-  const targetBorderX = n2.x - ux * nodeRadius
-  const targetBorderY = n2.y - uy * nodeRadius
+  const sourceBorderX = n1.x + ux * sourceRadius
+  const sourceBorderY = n1.y + uy * sourceRadius
+  const targetBorderX = n2.x - ux * targetRadius
+  const targetBorderY = n2.y - uy * targetRadius
   const controlX = (sourceBorderX + targetBorderX) / 2 + normalX * curveOffset
   const controlY = (sourceBorderY + targetBorderY) / 2 + normalY * curveOffset
+
+  const sourceProps = parseNodeProperties(n1)
+  const targetProps = parseNodeProperties(n2)
+  const previewStyle = isProductBackbonePreview.value
+    ? resolvePreviewEdgeStyle({
+        relationType: edge.label,
+        sourceSubtype: typeof sourceProps.subtype === 'string' ? sourceProps.subtype : null,
+        targetSubtype: typeof targetProps.subtype === 'string' ? targetProps.subtype : null,
+        sourceType: n1.type,
+        targetType: n2.type,
+        highlighted: isHighlighted,
+        faded: isFaded,
+      })
+    : null
   
   ctx.beginPath()
   ctx.moveTo(sourceBorderX, sourceBorderY)
@@ -455,10 +649,14 @@ const drawEdge = (
   } else {
     ctx.lineTo(targetBorderX, targetBorderY)
   }
-  ctx.strokeStyle = isHighlighted
-    ? '#a855f7'
-    : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.07)' : '#cbd5e1'))
-  ctx.lineWidth = isHighlighted ? 2.2 : (isSectionEdge ? 0.55 : 0.8)
+  ctx.strokeStyle = previewStyle
+    ? previewStyle.color
+    : (isHighlighted
+      ? '#a855f7'
+      : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.07)' : '#cbd5e1')))
+  ctx.lineWidth = previewStyle
+    ? previewStyle.width
+    : (isHighlighted ? 2.2 : (isSectionEdge ? 0.55 : 0.8))
   ctx.stroke()
   
   const tangentX = curveOffset ? targetBorderX - controlX : ux
@@ -479,9 +677,11 @@ const drawEdge = (
     targetBorderY - arrowUy * arrowSize + arrowUx * (arrowSize / 1.4)
   )
   ctx.closePath()
-  ctx.fillStyle = isHighlighted
-    ? '#a855f7'
-    : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.1)' : '#94a3b8'))
+  ctx.fillStyle = previewStyle
+    ? previewStyle.color
+    : (isHighlighted
+      ? '#a855f7'
+      : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.1)' : '#94a3b8')))
   ctx.fill()
   
   // 选中节点的一跳关系边永远显示关系标签，其余普通边保持隐藏，避免噪点
@@ -505,10 +705,12 @@ const drawEdge = (
     ctx.rotate(angle)
     
     ctx.font = isHighlighted ? 'bold 9px sans-serif' : '9px sans-serif'
-    ctx.fillStyle = isHighlighted ? '#7e22ce' : (isFaded ? 'rgba(148, 163, 184, 0.3)' : '#64748b')
+    ctx.fillStyle = previewStyle
+      ? previewStyle.labelColor
+      : (isHighlighted ? '#7e22ce' : (isFaded ? 'rgba(148, 163, 184, 0.3)' : '#64748b'))
     ctx.textAlign = 'center'
     ctx.textBaseline = 'bottom'
-    ctx.fillText(edge.label, 0, -2)
+    ctx.fillText(relationTypeLabel(edge.label), 0, -2)
     ctx.restore()
   }
 }
@@ -519,10 +721,11 @@ const drawNode = (
   node: VisualNode,
   isSelected: boolean,
   isNeighbor: boolean,
-  isFaded: boolean
+  isFaded: boolean,
+  isLinkTarget = false
 ) => {
-  const nodeRadius = 22
-  const fill = colors[node.type] || colors.Default
+  const nodeStyle = getNodeStyle(node)
+  const nodeRadius = nodeStyle.radius
   
   ctx.save()
   // 如果当前属于被遮罩淡出状态，则整体应用低透明度，彻底降噪
@@ -532,31 +735,33 @@ const drawNode = (
   
   ctx.beginPath()
   ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
-  ctx.fillStyle = fill
+  ctx.fillStyle = nodeStyle.fill
   ctx.fill()
   
   // 描边画圆
   ctx.beginPath()
   ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
-  ctx.strokeStyle = isSelected ? '#a855f7' : (isNeighbor ? '#818cf8' : '#ffffff')
-  ctx.lineWidth = isSelected ? 3.5 : (isNeighbor ? 2.5 : 1.5)
+  ctx.strokeStyle = isSelected
+    ? '#a855f7'
+    : (isLinkTarget ? '#0d9488' : (isNeighbor ? '#818cf8' : nodeStyle.stroke))
+  ctx.lineWidth = isSelected || isLinkTarget ? 3.5 : (isNeighbor ? 2.5 : 1.5)
   ctx.stroke()
   
-  if (isSelected && !isFaded) {
-    ctx.shadowColor = 'rgba(168, 85, 247, 0.45)'
+  if ((isSelected || isLinkTarget) && !isFaded) {
+    ctx.shadowColor = isLinkTarget ? 'rgba(13, 148, 136, 0.45)' : 'rgba(168, 85, 247, 0.45)'
     ctx.shadowBlur = 10
   }
   
   // 写实体类型首字母缩写
-  ctx.font = 'bold 9px monospace'
+  ctx.font = nodeRadius >= 30 ? 'bold 10px monospace' : 'bold 9px monospace'
   ctx.fillStyle = '#ffffff'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(node.type.substring(0, 2).toUpperCase(), node.x, node.y)
+  ctx.fillText(nodeStyle.badgeText, node.x, node.y)
   
   // 节点名称文字
-  ctx.font = isSelected ? 'bold 11px sans-serif' : '10px sans-serif'
-  ctx.fillStyle = isSelected ? '#1e293b' : (isFaded ? '#94a3b8' : '#334155')
+  ctx.font = (isSelected || isLinkTarget) ? 'bold 11px sans-serif' : nodeStyle.labelFont
+  ctx.fillStyle = isSelected || isLinkTarget ? '#1e293b' : (isFaded ? '#94a3b8' : '#334155')
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   
@@ -566,6 +771,52 @@ const drawNode = (
   }
   ctx.fillText(labelText, node.x, node.y + nodeRadius + 5)
   
+  ctx.restore()
+}
+
+const drawLinkDraft = (
+  ctx: CanvasRenderingContext2D,
+  source: VisualNode,
+  end: { x: number; y: number; radius: number }
+) => {
+  const sourceRadius = getNodeStyle(source).radius
+  const dx = end.x - source.x
+  const dy = end.y - source.y
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  if (dist < 4) return
+
+  const ux = dx / dist
+  const uy = dy / dist
+  const startX = source.x + ux * sourceRadius
+  const startY = source.y + uy * sourceRadius
+  const endX = end.x - ux * end.radius
+  const endY = end.y - uy * end.radius
+  const color = end.radius > 0 ? '#0d9488' : '#14b8a6'
+  const arrowSize = 8
+
+  ctx.save()
+  ctx.setLineDash([8, 6])
+  ctx.beginPath()
+  ctx.moveTo(startX, startY)
+  ctx.lineTo(endX, endY)
+  ctx.strokeStyle = color
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  ctx.beginPath()
+  ctx.moveTo(endX, endY)
+  ctx.lineTo(
+    endX - ux * arrowSize + uy * (arrowSize / 1.4),
+    endY - uy * arrowSize - ux * (arrowSize / 1.4)
+  )
+  ctx.lineTo(
+    endX - ux * arrowSize - uy * (arrowSize / 1.4),
+    endY - uy * arrowSize + ux * (arrowSize / 1.4)
+  )
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
   ctx.restore()
 }
 
@@ -590,6 +841,21 @@ let startPanY = 0
 const handleMouseDown = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
   const clickedNode = findNodeAt(coords.x, coords.y)
+
+  if (isProductBackbonePreview.value && isLinkMode.value) {
+    if (clickedNode) {
+      linkStartNodeId.value = clickedNode.id
+      linkHoverNodeId.value = null
+      linkCursorPos.value = { x: coords.x, y: coords.y }
+      selectedNodeId.value = clickedNode.id
+      isRightSidebarOpen.value = true
+      detailsTab.value = 'relations'
+    } else {
+      clearLinkDraft()
+    }
+    drawGraph()
+    return
+  }
   
   if (clickedNode) {
     draggedNodeId.value = clickedNode.id
@@ -610,6 +876,17 @@ const handleMouseDown = (e: MouseEvent) => {
 // 鼠标移动
 const handleMouseMove = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
+
+  if (isProductBackbonePreview.value && isLinkMode.value && linkStartNodeId.value) {
+    linkCursorPos.value = { x: coords.x, y: coords.y }
+    const hoverNode = findNodeAt(coords.x, coords.y)
+    linkHoverNodeId.value = hoverNode && hoverNode.id !== linkStartNodeId.value
+      ? hoverNode.id
+      : null
+    hoveredNodeId.value = hoverNode ? hoverNode.id : null
+    drawGraph()
+    return
+  }
   
   if (draggedNodeId.value) {
     const node = visualNodes.value.find(n => n.id === draggedNodeId.value)
@@ -627,7 +904,24 @@ const handleMouseMove = (e: MouseEvent) => {
 }
 
 // 鼠标放开
-const handleMouseUp = () => {
+const handleMouseUp = (e?: MouseEvent) => {
+  if (isProductBackbonePreview.value && isLinkMode.value && linkStartNodeId.value) {
+    const sourceId = linkStartNodeId.value
+    const targetNode = e ? findNodeAt(getGraphCoords(e).x, getGraphCoords(e).y) : null
+    clearLinkDraft()
+    if (targetNode && targetNode.id !== sourceId) {
+      relationForm.value = {
+        source_id: sourceId,
+        target_id: targetNode.id,
+        relation_type: 'belongs_to',
+        confidence: '1',
+        evidence_text: '',
+      }
+      isRelationModalOpen.value = true
+    }
+    drawGraph()
+    return
+  }
   if (draggedNodeId.value) graphLayout?.endNodeDrag(draggedNodeId.value)
   draggedNodeId.value = null
   isPanning = false
@@ -660,9 +954,9 @@ const handleWheel = (e: WheelEvent) => {
 
 // 寻找特定坐标下的节点
 const findNodeAt = (x: number, y: number) => {
-  const nodeRadius = 22
   const nodes = filteredNodesList.value
   return nodes.find(n => {
+    const nodeRadius = getNodeStyle(n).radius
     const dx = n.x - x
     const dy = n.y - y
     return dx * dx + dy * dy < nodeRadius * nodeRadius
@@ -696,8 +990,19 @@ const resetView = () => {
 
 const restartLayout = () => graphLayout?.restartLayout()
 
+const togglePhysicsMode = () => {
+  isPhysicsEnabled.value = !isPhysicsEnabled.value
+  graphLayout?.setPhysicsEnabled(isPhysicsEnabled.value)
+  drawGraph()
+}
+
 // 拉取某个实体的证据 Chunks (懒加载)，增加请求归属检查防串
 const loadEvidenceChunks = async (entityId: string) => {
+  if (isProductBackbonePreview.value) {
+    evidenceChunks.value = []
+    loadingChunks.value = false
+    return
+  }
   loadingChunks.value = true
   try {
     const chunks = await getEntityChunks(entityId)
@@ -716,6 +1021,11 @@ const loadEvidenceChunks = async (entityId: string) => {
 }
 
 const loadAliases = async (entityId: string) => {
+  if (isProductBackbonePreview.value) {
+    aliases.value = []
+    aliasesLoading.value = false
+    return
+  }
   aliasesLoading.value = true
   try {
     const items = await listEntityAliases(entityId)
@@ -743,12 +1053,18 @@ const openCreateEntityModal = () => {
     description: '',
     confidence: '1',
     review_status: 'approved',
+    layer: isProductBackbonePreview.value ? '' : '',
+    subtype: '',
+    source: '',
+    status: isProductBackbonePreview.value ? '待确认' : '',
+    alias_candidates: '',
   }
   isEntityModalOpen.value = true
 }
 
 const openEditEntityModal = () => {
   if (!selectedNode.value) return
+  const properties = selectedNodeProperties.value
   entityModalMode.value = 'edit'
   entityForm.value = {
     name: selectedNode.value.label,
@@ -758,6 +1074,11 @@ const openEditEntityModal = () => {
     description: selectedNode.value.description || '',
     confidence: String(selectedNode.value.confidence ?? 1),
     review_status: selectedNode.value.review_status || 'approved',
+    layer: String(properties.layer || selectedNode.value.doc_category || ''),
+    subtype: String(properties.subtype || ''),
+    source: String(properties.source || ''),
+    status: String(properties.status || ''),
+    alias_candidates: aliasCandidatesText(properties.alias_candidates),
   }
   isEntityModalOpen.value = true
 }
@@ -765,6 +1086,31 @@ const openEditEntityModal = () => {
 const saveEntity = async () => {
   entitySaving.value = true
   try {
+    if (isProductBackbonePreview.value) {
+      const payload = {
+        name: entityForm.value.name,
+        graph_type: entityForm.value.entity_type,
+        layer: entityForm.value.layer || null,
+        subtype: entityForm.value.subtype || null,
+        description: entityForm.value.description || null,
+        source: entityForm.value.source || null,
+        status: entityForm.value.status || null,
+        alias_candidates: parseAliasCandidates(entityForm.value.alias_candidates),
+      }
+      const saved = entityModalMode.value === 'create'
+        ? await createProductBackboneEntity(payload)
+        : selectedNodeId.value
+          ? await updateProductBackboneEntity(selectedNodeId.value, payload)
+          : null
+      if (saved?.id) {
+        selectedNodeId.value = saved.id
+        isRightSidebarOpen.value = true
+      }
+      isEntityModalOpen.value = false
+      await fetchGraph()
+      return
+    }
+
     const payload = {
       name: entityForm.value.name,
       entity_type: entityForm.value.entity_type,
@@ -807,6 +1153,18 @@ const openRelationModal = () => {
 const saveRelation = async () => {
   relationSaving.value = true
   try {
+    if (isProductBackbonePreview.value) {
+      await createProductBackboneRelation({
+        source_id: relationForm.value.source_id,
+        target_id: relationForm.value.target_id,
+        relation_type: relationForm.value.relation_type,
+        evidence_text: relationForm.value.evidence_text || null,
+      })
+      isRelationModalOpen.value = false
+      await fetchGraph()
+      return
+    }
+
     await createGraphRelation({
       source_id: relationForm.value.source_id,
       target_id: relationForm.value.target_id,
@@ -824,6 +1182,7 @@ const saveRelation = async () => {
 }
 
 const addAlias = async () => {
+  if (isProductBackbonePreview.value) return
   if (!selectedNodeId.value || !aliasInput.value.trim()) return
   aliasSaving.value = true
   try {
@@ -841,6 +1200,7 @@ const addAlias = async () => {
 }
 
 const removeAlias = async (aliasId: string) => {
+  if (isProductBackbonePreview.value) return
   if (!confirm('确认删除这个 alias 吗？')) return
   try {
     await deleteEntityAlias(aliasId)
@@ -853,6 +1213,7 @@ const removeAlias = async (aliasId: string) => {
 }
 
 const addChunkLink = async () => {
+  if (isProductBackbonePreview.value) return
   if (!selectedNodeId.value || !chunkLinkInput.value.trim()) return
   chunkLinkSaving.value = true
   try {
@@ -885,7 +1246,11 @@ watch(selectedNodeId, (entityId) => {
 const handleDeleteRelation = async (relationId: string) => {
   if (!confirm('确认要删除这条关系连接吗？这将永久从知识图谱中移除该边。')) return
   try {
-    await deleteRelation(relationId)
+    if (isProductBackbonePreview.value) {
+      await deleteProductBackboneRelation(relationId)
+    } else {
+      await deleteRelation(relationId)
+    }
     // 本地移除边，同步刷新画面
     graphData.value.edges = graphData.value.edges.filter(edge => edge.id !== relationId)
     visualEdges.value = visualEdges.value.filter(edge => edge.id !== relationId)
@@ -897,6 +1262,7 @@ const handleDeleteRelation = async (relationId: string) => {
 
 // 解除 Chunks 与实体的证据链接关系
 const handleUnlinkChunk = async (chunkId: string) => {
+  if (isProductBackbonePreview.value) return
   if (!selectedNodeId.value) return
   if (!confirm('确定要解除该实体与当前原文片段的关联链吗？')) return
   try {
@@ -922,7 +1288,11 @@ const confirmDeleteEntity = async () => {
   
   isDeleting.value = true
   try {
-    await deleteEntity(selectedNode.value.id)
+    if (isProductBackbonePreview.value) {
+      await deleteProductBackboneEntity(selectedNode.value.id)
+    } else {
+      await deleteEntity(selectedNode.value.id)
+    }
     
     // 移除本地数据中的实体及所有关联边
     const deletedId = selectedNode.value.id
@@ -978,6 +1348,7 @@ onMounted(() => {
     height: canvasHeight.value,
     onTick: drawGraph,
   })
+  graphLayout.setPhysicsEnabled(isPhysicsEnabled.value)
   window.addEventListener('resize', handleResize)
   fetchGraph()
 })
@@ -1010,7 +1381,7 @@ onUnmounted(() => {
         </div>
         
         <!-- 数据分类 -->
-        <div class="filter-group">
+        <div v-if="!isProductBackbonePreview" class="filter-group">
           <label>所属分类 (doc_category)</label>
           <select v-model="selectedCategory" class="filter-select">
             <option value="all">全部分类</option>
@@ -1039,7 +1410,7 @@ onUnmounted(() => {
                   class="type-dot" 
                   :style="{ backgroundColor: colors[type] || colors.Default }"
                 ></span>
-                {{ type }}
+                {{ entityTypeLabel(type) }}
               </label>
             </div>
           </div>
@@ -1060,7 +1431,7 @@ onUnmounted(() => {
                 class="type-tag" 
                 :style="{ backgroundColor: colors[node.type] || colors.Default }"
               >
-                {{ node.type.substring(0, 2).toUpperCase() }}
+                {{ entityTypeBadge(node.type) }}
               </span>
               <span class="entity-name">{{ node.label }}</span>
             </li>
@@ -1083,6 +1454,14 @@ onUnmounted(() => {
           <span v-if="selectedCategory !== 'all'" class="category-badge">
             当前分类: {{ selectedCategory }}
           </span>
+          <span v-if="isProductBackbonePreview" class="category-badge">
+            产品主干预览
+          </span>
+          <span v-if="isProductBackbonePreview" class="edge-legend" data-test="edge-legend">
+            <span class="edge-legend-item"><i style="background:rgba(120,132,180,0.7)"></i>属于</span>
+            <span class="edge-legend-item"><i style="background:rgba(185,150,105,0.7)"></i>依赖</span>
+            <span class="edge-legend-item edge-legend-note">高层更粗更实，底层更细更淡</span>
+          </span>
         </div>
         
         <div class="kg-controls">
@@ -1092,13 +1471,32 @@ onUnmounted(() => {
           <button @click="openRelationModal" class="icon-btn" data-test="open-create-relation">
             新建关系
           </button>
+          <button
+            v-if="isProductBackbonePreview"
+            @click="isLinkMode = !isLinkMode"
+            class="icon-btn"
+            :class="{ active: isLinkMode }"
+            data-test="toggle-link-mode"
+          >
+            {{ isLinkMode ? '退出连线' : '连线模式' }}
+          </button>
+          <button
+            @click="togglePhysicsMode"
+            class="icon-btn"
+            :class="{ active: isPhysicsEnabled }"
+            data-test="toggle-physics-mode"
+            :title="isPhysicsEnabled ? '当前为动态：节点互相推挤碰撞；点击切换为静态冻结' : '当前为静态：布局已冻结；点击切换为动态物理'"
+          >
+            {{ isPhysicsEnabled ? '动态布局' : '静态布局' }}
+          </button>
           <button @click="resetView" class="icon-btn" title="复位视图">
             复位布局
           </button>
           <button 
             @click="restartLayout" 
             class="icon-btn"
-            title="重新计算整张图的布局"
+            title="重新计算整张图的布局（仅动态模式下生效）"
+            :disabled="!isPhysicsEnabled"
           >
             重新布局
           </button>
@@ -1106,7 +1504,18 @@ onUnmounted(() => {
       </header>
 
       <!-- 画布容器 -->
-      <div class="canvas-container" ref="containerRef">
+      <div
+        class="canvas-container"
+        ref="containerRef"
+        :class="{ 'link-mode': isLinkMode }"
+      >
+        <div
+          v-if="isLinkMode"
+          class="link-mode-hint"
+          data-test="link-mode-hint"
+        >
+          {{ linkModeHint }}
+        </div>
         <canvas 
           ref="canvasRef" 
           @mousedown="handleMouseDown"
@@ -1139,7 +1548,7 @@ onUnmounted(() => {
               class="type-badge" 
               :style="{ backgroundColor: colors[selectedNode.type] || colors.Default }"
             >
-              {{ selectedNode.type }}
+              {{ entityTypeLabel(selectedNode.type) }}
             </span>
             <div class="header-actions">
               <button @click="openEditEntityModal" class="mini-btn" data-test="open-edit-entity">编辑实体</button>
@@ -1175,6 +1584,26 @@ onUnmounted(() => {
             <span class="meta-label">实体说明:</span>
             <p class="meta-text">{{ selectedNode.description }}</p>
           </div>
+          <div class="meta-row" v-if="selectedNodeProperties.layer">
+            <span class="meta-label">功能层:</span>
+            <span class="meta-val">{{ selectedNodeProperties.layer }}</span>
+          </div>
+          <div class="meta-row" v-if="selectedNodeProperties.subtype">
+            <span class="meta-label">实体子类型:</span>
+            <span class="meta-val">{{ entitySubtypeLabel(selectedNodeProperties.subtype) }}</span>
+          </div>
+          <div class="meta-row" v-if="selectedNodeProperties.source">
+            <span class="meta-label">来源:</span>
+            <span class="meta-val">{{ selectedNodeProperties.source }}</span>
+          </div>
+          <div class="meta-row" v-if="selectedNodeProperties.status">
+            <span class="meta-label">整理状态:</span>
+            <span class="meta-val">{{ selectedNodeProperties.status }}</span>
+          </div>
+          <div class="meta-row" v-if="selectedNodeProperties.alias_candidates?.length">
+            <span class="meta-label">别名候选:</span>
+            <span class="meta-val">{{ selectedNodeProperties.alias_candidates.join('、') }}</span>
+          </div>
         </div>
 
         <div class="metadata-card alias-card">
@@ -1182,7 +1611,7 @@ onUnmounted(() => {
             <span class="meta-label">Aliases</span>
             <span class="meta-val" v-if="aliasesLoading">加载中...</span>
           </div>
-          <div class="alias-create-row">
+          <div v-if="!isProductBackbonePreview" class="alias-create-row">
             <input
               v-model="aliasInput"
               class="filter-input compact-input"
@@ -1196,7 +1625,7 @@ onUnmounted(() => {
           <ul class="alias-list">
             <li v-for="alias in aliases" :key="alias.id" class="alias-item">
               <span>{{ alias.alias }}</span>
-              <button class="delete-text-btn" @click="removeAlias(alias.id)">删除</button>
+              <button v-if="!isProductBackbonePreview" class="delete-text-btn" @click="removeAlias(alias.id)">删除</button>
             </li>
             <li v-if="!aliasesLoading && aliases.length === 0" class="empty-inline">暂无 alias</li>
           </ul>
@@ -1239,7 +1668,7 @@ onUnmounted(() => {
                     {{ nodeMap.get(rel.source)?.label || rel.source }}
                   </span>
                   <span class="rel-arrow">
-                    ── <strong>{{ rel.label }}</strong> ──&gt;
+                    ── <strong>{{ relationTypeLabel(rel.label) }}</strong> ──&gt;
                   </span>
                   <span 
                     class="node-link" 
@@ -1255,7 +1684,7 @@ onUnmounted(() => {
                   <span class="rel-meta" v-if="rel.evidence_text">
                     证据: "{{ rel.evidence_text.substring(0, 25) }}..."
                   </span>
-                  <button 
+                  <button
                     @click="handleDeleteRelation(rel.id)" 
                     class="delete-text-btn"
                   >
@@ -1277,7 +1706,7 @@ onUnmounted(() => {
             </div>
             
             <div v-else class="chunks-container">
-              <div class="chunk-link-form">
+              <div v-if="!isProductBackbonePreview" class="chunk-link-form">
                 <input
                   v-model="chunkLinkInput"
                   class="filter-input compact-input"
@@ -1300,7 +1729,7 @@ onUnmounted(() => {
                       章节: {{ chunk.section_title }}
                     </p>
                   </div>
-                  <span class="chunk-type">{{ chunk.link_type }}</span>
+                  <span class="chunk-type">{{ linkTypeLabel(chunk.link_type) }}</span>
                 </header>
 
                 <div class="chunk-preview-text">
@@ -1321,7 +1750,8 @@ onUnmounted(() => {
                   >
                     {{ expandedChunkId === chunk.chunk_id ? '收起原文' : '查看完整原文' }}
                   </button>
-                  <button 
+                  <button
+                    v-if="!isProductBackbonePreview"
                     @click="handleUnlinkChunk(chunk.chunk_id)" 
                     class="delete-text-btn"
                   >
@@ -1398,15 +1828,29 @@ onUnmounted(() => {
           <input v-model="entityForm.name" class="modal-input" data-test="entity-name" />
           <label class="form-label">类型</label>
           <select v-model="entityForm.entity_type" class="filter-select" data-test="entity-type">
-            <option v-for="type in availableTypes" :key="type" :value="type">{{ type }}</option>
+            <option v-for="type in availableTypes" :key="type" :value="type">{{ entityTypeLabel(type) }}</option>
           </select>
-          <label class="form-label">分类</label>
-          <select v-model="entityForm.doc_category" class="filter-select">
-            <option value="">未设置</option>
-            <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
-          </select>
-          <label class="form-label">规范名</label>
-          <input v-model="entityForm.canonical_name" class="modal-input" />
+          <template v-if="isProductBackbonePreview">
+            <label class="form-label">功能层</label>
+            <input v-model="entityForm.layer" class="modal-input" data-test="entity-layer" />
+            <label class="form-label">实体子类型</label>
+            <input v-model="entityForm.subtype" class="modal-input" data-test="entity-subtype" />
+            <label class="form-label">来源</label>
+            <input v-model="entityForm.source" class="modal-input" data-test="entity-source" />
+            <label class="form-label">状态</label>
+            <input v-model="entityForm.status" class="modal-input" data-test="entity-status" />
+            <label class="form-label">别名候选</label>
+            <textarea v-model="entityForm.alias_candidates" class="modal-textarea" data-test="entity-alias-candidates"></textarea>
+          </template>
+          <template v-else>
+            <label class="form-label">分类</label>
+            <select v-model="entityForm.doc_category" class="filter-select">
+              <option value="">未设置</option>
+              <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+            </select>
+            <label class="form-label">规范名</label>
+            <input v-model="entityForm.canonical_name" class="modal-input" />
+          </template>
           <label class="form-label">说明</label>
           <textarea v-model="entityForm.description" class="modal-textarea"></textarea>
         </div>
@@ -1427,7 +1871,7 @@ onUnmounted(() => {
         </header>
         <div class="modal-body form-body">
           <label class="form-label">源实体</label>
-          <select v-model="relationForm.source_id" class="filter-select">
+          <select v-model="relationForm.source_id" class="filter-select" data-test="relation-source">
             <option value="">请选择</option>
             <option v-for="node in graphData.nodes" :key="`source-${node.id}`" :value="node.id">{{ node.label }}</option>
           </select>
@@ -1438,7 +1882,7 @@ onUnmounted(() => {
           </select>
           <label class="form-label">关系类型</label>
           <select v-model="relationForm.relation_type" class="filter-select">
-            <option v-for="type in relationTypes" :key="type" :value="type">{{ type }}</option>
+            <option v-for="type in relationTypes" :key="type" :value="type">{{ relationTypeLabel(type) }}</option>
           </select>
           <label class="form-label">证据说明</label>
           <input v-model="relationForm.evidence_text" class="modal-input" />
@@ -1682,6 +2126,32 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.edge-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.edge-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edge-legend-item i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.edge-legend-note {
+  color: #94a3b8;
+}
+
 .kg-controls {
   display: flex;
   gap: 8px;
@@ -1703,6 +2173,19 @@ onUnmounted(() => {
   border-color: #94a3b8;
 }
 
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.icon-btn:disabled:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
 .icon-btn.active {
   background: #eff6ff;
   border-color: #3b82f6;
@@ -1715,6 +2198,31 @@ onUnmounted(() => {
   height: 100%;
   position: relative;
   background: #f8fafc;
+}
+
+.canvas-container.link-mode,
+.canvas-container.link-mode canvas {
+  cursor: crosshair;
+}
+
+.link-mode-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: calc(100% - 32px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #f8fafc;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
 }
 
 .canvas-container canvas {

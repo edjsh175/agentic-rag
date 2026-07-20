@@ -20,7 +20,7 @@ data/chunk_audit/<run_id>/
   summary.md
 ```
 
-Spike 使用 `data/chunk_audit/_spike_<run_id>/`（gitignore）。
+Spike 使用 `data/chunk_audit/_spike_<run_id>/`（gitignore）。历史 spike 已迁至 `data/archive/chunk_audit/`（见 `docs/5_操作指南与规范/data目录约定.md`）。
 
 ---
 

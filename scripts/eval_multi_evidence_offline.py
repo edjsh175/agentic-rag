@@ -58,12 +58,12 @@ def _to_markdown(payload: dict[str, Any]) -> str:
         "",
         "## By category",
         "",
-        "| category | total | passed | pass_rate | mean_completeness |",
-        "|---|---:|---:|---:|---:|",
+        "| category | total | passed | pass_rate | mean_completeness | mean_evidence_recall |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
     for name, row in sorted((summary.get("by_category") or {}).items()):
         lines.append(
-            f"| {name} | {row['total']} | {row['passed']} | {row['pass_rate']:.2%} | {row['mean_completeness']:.2%} |"
+            f"| {name} | {row['total']} | {row['passed']} | {row['pass_rate']:.2%} | {row['mean_completeness']:.2%} | {row.get('mean_evidence_recall', 0):.2%} |"
         )
     lines.extend(
         [
@@ -100,6 +100,7 @@ def _sources_from_retrieve_docs(docs: list[dict[str, Any]]) -> list[dict[str, An
         out.append(
             {
                 "source": meta.get("source") or "",
+                "section_id": meta.get("section_id") or "",
                 "section_path": meta.get("section_path") or "",
                 "chunk_id": meta.get("chunk_id") or "",
                 "content": doc.get("content") or "",
@@ -174,6 +175,7 @@ def run_qa(items: list[dict[str, Any]], limit: int | None) -> list[dict[str, Any
                 sources.append(
                     {
                         "source": meta.get("source") or "",
+                        "section_id": meta.get("section_id") or "",
                         "section_path": meta.get("section_path") or "",
                         "chunk_id": meta.get("chunk_id") or "",
                         "content": content,
@@ -243,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
         "gold_path": str(args.gold),
+        "gold_version": args.gold.stem,
+        "evaluator_version": "fr10-evidence-v3",
         "notes": notes,
         "summary": summary,
         "results": rows,

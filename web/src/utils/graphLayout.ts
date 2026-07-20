@@ -47,6 +47,8 @@ export interface GraphLayoutController {
   moveNode(nodeId: string, x: number, y: number): void
   endNodeDrag(nodeId: string): void
   restartLayout(): void
+  setPhysicsEnabled(enabled: boolean): void
+  isPhysicsEnabled(): boolean
   tick(iterations?: number): void
   getAlpha(): number
   getAlphaMin(): number
@@ -72,6 +74,7 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
   let edges: LayoutEdge[] = []
   let activeEdgeSignature = ''
   let destroyed = false
+  let physicsEnabled = true
 
   const linkForce = forceLink<LayoutNode, InternalLink>()
     .id(node => node.id)
@@ -126,10 +129,45 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     node.vy = 0
   }
 
+  const pinAllNodes = () => {
+    nodes.forEach(node => {
+      node.fx = node.x
+      node.fy = node.y
+      node.vx = 0
+      node.vy = 0
+    })
+  }
+
+  const freezeSimulation = () => {
+    pinAllNodes()
+    simulation.alphaTarget(0)
+    simulation.alpha(0)
+    simulation.stop()
+    options.onTick?.()
+  }
+
   const start = (alpha: number) => {
+    if (!physicsEnabled) {
+      freezeSimulation()
+      return
+    }
     simulation.alphaTarget(idleAlpha)
     simulation.alpha(alpha)
     if (autoStart) simulation.restart()
+  }
+
+  const setPhysicsEnabled = (enabled: boolean) => {
+    if (destroyed) return
+    physicsEnabled = enabled
+    if (!enabled) {
+      freezeSimulation()
+      return
+    }
+    nodes.forEach(node => {
+      node.fx = null
+      node.fy = null
+    })
+    start(0.35)
   }
 
   const edgeSignature = (items: LayoutEdge[]) => items
@@ -212,6 +250,13 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
   }
 
   const beginNodeDrag = (nodeId: string) => {
+    if (!physicsEnabled) {
+      const node = nodes.find(candidate => candidate.id === nodeId)
+      if (!node) return
+      node.fx = node.x
+      node.fy = node.y
+      return
+    }
     const activeIds = neighborsOf(new Set([nodeId]))
     nodes.forEach(node => {
       if (node.id === nodeId) {
@@ -241,12 +286,21 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
   const endNodeDrag = (nodeId: string) => {
     const node = nodes.find(candidate => candidate.id === nodeId)
     if (!node) return
+    if (!physicsEnabled) {
+      node.fx = node.x
+      node.fy = node.y
+      node.vx = 0
+      node.vy = 0
+      options.onTick?.()
+      return
+    }
     node.fx = null
     node.fy = null
     start(0.14)
   }
 
   const restartLayout = () => {
+    if (!physicsEnabled) return
     anchorX.clear()
     anchorY.clear()
     nodes.forEach(node => {
@@ -264,6 +318,8 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     moveNode,
     endNodeDrag,
     restartLayout,
+    setPhysicsEnabled,
+    isPhysicsEnabled: () => physicsEnabled,
     tick(iterations = 1) {
       simulation.tick(iterations)
       options.onTick?.()

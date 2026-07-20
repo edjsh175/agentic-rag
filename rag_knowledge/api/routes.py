@@ -27,7 +27,7 @@ from fastapi.responses import StreamingResponse
 
 from rag_knowledge.config import Config
 from rag_knowledge.services.agent_service import load_agents
-from rag_knowledge.models.api import QueryRequest, QueryResponse, UploadResponse
+from rag_knowledge.models.api import AdminQaDebugResponse, QueryRequest, QueryResponse, UploadResponse
 from rag_knowledge.models.api import (
     AdminChunkListResponse,
     AdminChunkUpdateRequest,
@@ -61,6 +61,7 @@ from rag_knowledge.services.rebuild_coordinator import RebuildAlreadyRunningErro
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
+from rag_knowledge.services.product_backbone_preview import ProductBackbonePreviewService
 from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateApplier, GraphQualityService
 from rag_knowledge.services.graph_governance import (
     approve_all_allowed,
@@ -78,6 +79,11 @@ from rag_knowledge.models.api import (
     EntityChunkLinkRequest,
     EntityChunkLinkResponse,
     GraphDataResponse,
+    GraphEdge,
+    GraphNode,
+    ProductBackboneEntityRequest,
+    ProductBackboneEntityUpdateRequest,
+    ProductBackboneRelationRequest,
     EntityChunkDetailResponse,
     GraphAliasCreateRequest,
     GraphAliasItem,
@@ -1002,6 +1008,115 @@ def get_graph_data(doc_category: Optional[str] = None):
         return KnowledgeGraphService().list_graph_data(doc_category=doc_category)
     except Exception as e:
         logger.error("Failed to list graph data: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/qa-debug", response_model=AdminQaDebugResponse)
+async def admin_qa_debug(req: QueryRequest):
+    """Run one request with its transient EvidencePack for administration/debugging."""
+    if not req.question.strip():
+        raise HTTPException(400, detail="问题不能为空")
+    try:
+        history = [h.dict() for h in req.history] if req.history else None
+        kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
+        doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+        result = await _rag.aquery(
+            req.question, history, llm_model=req.llm_model, vision_model=req.vision_model,
+            kb_name=kb_name, doc_category=doc_category, thinking=req.thinking,
+            web_search=req.web_search, allow_general_knowledge=req.allow_general_knowledge,
+            agent_prompt=req.agent_prompt, include_evidence=True,
+        )
+        return AdminQaDebugResponse(
+            answer=result["answer"], source_documents=result["source_documents"],
+            evidence_chain=result.get("evidence_chain") or {},
+        )
+    except Exception as e:
+        logger.error("问答调试失败: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/knowledge_graph/product_backbone_preview", response_model=GraphDataResponse)
+def get_product_backbone_preview():
+    """Return the unconfirmed product backbone preview graph without touching KG tables."""
+    try:
+        return ProductBackbonePreviewService().list_graph_data()
+    except FileNotFoundError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to list product backbone preview: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/product_backbone_preview/entities", response_model=GraphNode, status_code=201)
+def create_product_backbone_entity(req: ProductBackboneEntityRequest):
+    """Create a product backbone preview entity in the JSON seed only."""
+    try:
+        return ProductBackbonePreviewService().create_entity(req.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to create product backbone entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.patch("/admin/knowledge_graph/product_backbone_preview/entities/{entity_id}", response_model=GraphNode)
+def update_product_backbone_entity(entity_id: str, req: ProductBackboneEntityUpdateRequest):
+    """Update a product backbone preview entity in the JSON seed only."""
+    changes = req.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(400, detail="at least one product backbone entity field is required")
+    try:
+        return ProductBackbonePreviewService().update_entity(entity_id, changes)
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to update product backbone entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/product_backbone_preview/entities/{entity_id}")
+def delete_product_backbone_entity(entity_id: str):
+    """Delete a product backbone preview entity and cascade its JSON relations."""
+    try:
+        ProductBackbonePreviewService().delete_entity(entity_id)
+        return {"success": True, "message": "product backbone entity deleted"}
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to delete product backbone entity: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/product_backbone_preview/relations", response_model=GraphEdge, status_code=201)
+def create_product_backbone_relation(req: ProductBackboneRelationRequest):
+    """Create a product backbone preview relation in the JSON seed only."""
+    try:
+        return ProductBackbonePreviewService().create_relation(req.model_dump())
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to create product backbone relation: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.delete("/admin/knowledge_graph/product_backbone_preview/relations/{relation_id}")
+def delete_product_backbone_relation(relation_id: str):
+    """Delete a product backbone preview relation from the JSON seed only."""
+    try:
+        ProductBackbonePreviewService().delete_relation(relation_id)
+        return {"success": True, "message": "product backbone relation deleted"}
+    except KeyError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to delete product backbone relation: %s", e)
         raise HTTPException(500, detail=str(e))
 
 

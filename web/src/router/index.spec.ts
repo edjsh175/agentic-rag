@@ -10,6 +10,7 @@ describe('application routes', () => {
       '/admin/chunks',
       '/admin/graph-candidates',
       '/admin/graph',
+      '/admin/qa-debug',
     ])
   })
 })

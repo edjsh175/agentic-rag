@@ -1,8 +1,10 @@
 # 第 3 轮候选治理与恢复 SOP
 
 - **记录日期**：2026-07-16
+- **现场复核**：2026-07-20
 - **适用范围**：`rebuild-safe --execute --include-llm` 执行后验收与异常处理
 - **原则**：保护官方主干、保护人工事实、保护 profile_sync；低置信不阻塞 apply，但必须留痕。
+- **前置提醒**：截至 2026-07-20，Round 3 execute **未验收完成**，且下文列出的两份命名保护备份在现场**均缺失**。恢复时优先核对 `data/archive/rebuild/20260717-*/rag_relational.before.db` 与 live `data/rag_relational.db`；下次 execute 前须重新写入 `data/backups/`。
 
 ## 1. 低置信候选处理
 
@@ -47,11 +49,15 @@
 
 ## 5. 备份保护
 
-不得覆盖：
+**期望保留、勿覆盖**（下次 execute 成功后应重新生成；2026-07-20 现场均缺失）：
 
 1. `data/backups/rag_relational_pre_round3.db`
 2. `data/backups/rag_relational_half_execute_aborted.db`
 3. 本次 execute 生成的 timestamped 备份
+
+**当前可用参考快照**（不是 Round 3 专用命名备份）：
+
+- `data/archive/rebuild/20260717-101707-191444/rag_relational.before.db`
 
 恢复前必须先确认目标路径是正式库路径，并停止所有占用进程。
 

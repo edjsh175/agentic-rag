@@ -190,7 +190,7 @@ config.ini [graph_extraction.llm]
 ## 9. 交付物
 
 ```text
-1. data/graph_audit_pre_round2.json / post_round2.json
+1. data/archive/graph_rounds/graph_audit_pre_round2.json / post_round2.json（2026-07-20 起归档；命令历史仍写 data/ 根）
 2. 试点结果/人工抽检样本.csv
 3. 试点结果/第2轮-Go判定.md（Go/No-Go 结论）
 4. 试点 batch export：run_graph_build.py export --batch <id> --output ...

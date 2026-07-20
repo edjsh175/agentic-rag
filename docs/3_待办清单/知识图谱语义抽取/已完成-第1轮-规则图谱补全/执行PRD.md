@@ -225,7 +225,7 @@ DataTable 实体数不变或略增
 
 ```text
 1. 代码：SectionPathExtractor 升级 + DataSpec 规则 + 测试
-2. 报告：data/graph_audit_round1_after.json
+2. 报告：data/archive/graph_rounds/graph_audit_round1_after.json（原 `data/graph_audit_round1_after.json`）
 3. 文档：本节 PRD 顶部状态改为「已完成」并填日期
 ```
 

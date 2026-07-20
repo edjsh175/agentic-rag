@@ -196,7 +196,7 @@ Step 9  本 PRD 与总览标记「已完成」，解锁第 3 轮
 2. data/product_relation_backbone.json
 3. （如有）domain_catalog.json 身份补丁
 4. seed batch export / apply 审计
-5. data/graph_audit_post_round2_5.json（或等价命名）
+5. data/archive/graph_rounds/graph_audit_post_round2_5.json（原 `data/graph_audit_post_round2_5.json`）
 6. 本 PRD 顶部状态改为「已完成」并填日期与 batch id
 ```
 
