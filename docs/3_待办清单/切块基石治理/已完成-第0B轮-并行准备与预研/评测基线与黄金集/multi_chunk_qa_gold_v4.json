@@ -1,0 +1,1166 @@
+[
+  {
+    "id": "mq-001",
+    "question": "当执行 xfs_repair 修复分区时，如果提示文件系统已挂载，需要先执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "先执行 umount -f /dev/mapper/rl-var，再进行 xfs_repair。",
+    "required_facts": [
+      "umount -f /dev/mapper/rl-var",
+      "xfs_repair"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_12376c731a4186a6",
+        "section_path_contains": "常见错误"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "单点命令对照用例 A",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-007",
+    "question": "/boot/efi 分区大小一般如何规划？",
+    "answerability": "full",
+    "ground_truth": "文档将 /boot/efi 分区大小写为 200M。",
+    "required_facts": [
+      "/boot/efi",
+      "200M"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_75e24f963d502d6a",
+        "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "单点事实",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-014",
+    "question": "文档是否支持 JPG/WebP/CRN/DDS 纹理格式？",
+    "answerability": "full",
+    "ground_truth": "纹理格式清单包含 JPG、WebP、CRN 和 DDS。",
+    "required_facts": [
+      "JPG",
+      "WebP",
+      "CRN",
+      "DDS"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "工具概述"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "格式名混排召回",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-016",
+    "question": "Nginx HTTPS 配置示例的 listen 端口是多少？",
+    "answerability": "full",
+    "ground_truth": "示例配置为 listen 443 ssl。",
+    "required_facts": [
+      "listen 443 ssl"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f479010826b1c073",
+        "section_path_contains": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "配置项单点",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-018",
+    "question": "WebGL 外网部署如何修改应用访问地址？",
+    "answerability": "full",
+    "ground_truth": "编辑 /data/html/StampWebGL/config/custom_config.js，将 SERVERIP 修改为外网地址。",
+    "required_facts": [
+      "custom_config.js",
+      "SERVERIP",
+      "外网地址"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_58cb6d74b59bddd6",
+        "section_path_contains": "应用系统部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "用例 B 子步骤",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-021",
+    "question": "上传速度优化在安装流程中的位置和作用是什么？",
+    "answerability": "full",
+    "ground_truth": "在 sshd_config 中启用 GSSAPIAuthentication no、GSSAPICleanupCredentials no 和 UseDNS no，然后重启 sshd。",
+    "required_facts": [
+      "GSSAPIAuthentication no",
+      "GSSAPICleanupCredentials no",
+      "UseDNS no",
+      "systemctl restart sshd.service"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_61cdad3da6ee5bff",
+        "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "完整性检查",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-024",
+    "question": "修改 fstab 后如何重新挂载 /data？",
+    "answerability": "full",
+    "ground_truth": "先执行 systemctl daemon-reload，再执行 mount -o remount /data。",
+    "required_facts": [
+      "systemctl daemon-reload",
+      "mount -o remount /data"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "fstab设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "命令+解释",
+    "category": "fact",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-031",
+    "category": "fact",
+    "question": "StampServer 分区表中 /boot 的建议大小是多少？",
+    "answerability": "full",
+    "ground_truth": "文档将 /boot 分区大小写为 1024M。",
+    "required_facts": [
+      "/boot",
+      "1024M"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_75e24f963d502d6a",
+        "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-033",
+    "category": "fact",
+    "question": "sshd_config 中 PermitRootLogin 应如何设置？",
+    "answerability": "full",
+    "ground_truth": "允许 root 密码登录的相关项按手册开启。",
+    "required_facts": [
+      "PermitRootLogin",
+      "sshd_config"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "SSH"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-034",
+    "category": "fact",
+    "question": "sysctl 中需放开的内核参数示例有哪些？",
+    "answerability": "full",
+    "ground_truth": "如 fs.file-max、net.core 等手册列出的项。",
+    "required_facts": [
+      "sysctl",
+      "file-max 或 net.core"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_a54fe3120b9d5c34",
+        "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-035",
+    "category": "fact",
+    "question": "Nginx 使用 CA 证书时，文档中的证书和私钥路径是什么？",
+    "answerability": "full",
+    "ground_truth": "证书路径为 /etc/nginx/ssl/stamp.crt，私钥路径为 /etc/nginx/ssl/stamp.key。",
+    "required_facts": [
+      "/etc/nginx/ssl/stamp.crt",
+      "/etc/nginx/ssl/stamp.key"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f479010826b1c073",
+        "section_path_contains": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-036",
+    "category": "fact",
+    "question": "Turnserver listening-port 默认值是多少？",
+    "answerability": "full",
+    "ground_truth": "UDP 外网部署示例将 Turnserver 的 listening-port 设置为 3478。",
+    "required_facts": [
+      "listening-port=3478"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-039",
+    "category": "fact",
+    "question": "PipelineBuilder 导出字段映射文件的扩展名或用途是什么？",
+    "answerability": "full",
+    "ground_truth": "导出为字段映射文件供管线复用。",
+    "required_facts": [
+      "字段映射",
+      "导出"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "字段映射"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-040",
+    "category": "fact",
+    "question": "加密锁检测失败时应先检查什么？",
+    "answerability": "full",
+    "ground_truth": "驱动安装与授权状态。",
+    "required_facts": [
+      "加密锁",
+      "驱动或授权"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "加密锁"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-041",
+    "category": "fact",
+    "question": "手册中的系统基础防火墙设置如何处理 firewalld 和 SELinux？",
+    "answerability": "full",
+    "ground_truth": "文档要求停止并禁用 firewalld，并将 SELINUX=enforcing 改为 SELINUX=disabled。",
+    "required_facts": [
+      "systemctl stop firewalld",
+      "systemctl disable firewalld",
+      "SELINUX=disabled"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "防火墙"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-042",
+    "category": "fact",
+    "question": "创建虚拟机时，手册对固态硬盘接口和顺序读写性能有什么建议？",
+    "answerability": "full",
+    "ground_truth": "建议使用支持 PCIE3.0 或 PCIE4.0 的 M.2 或 U.2 固态硬盘，顺序读写速度 3500M/S 以上，最佳 7000M/S。",
+    "required_facts": [
+      "PCIE3.0或PCIE4.0",
+      "M.2或U.2",
+      "3500M/S"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f3a81ff9c2f84ed5",
+        "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-043",
+    "category": "fact",
+    "question": "文档中 ENU、EPSG 投影的原点和偏移值在哪里设置？",
+    "answerability": "full",
+    "ground_truth": "ENU、EPSG 投影的原点经纬度坐标和平面坐标偏移值可在对应界面设置。",
+    "required_facts": [
+      "ENU",
+      "EPSG",
+      "原点经纬度坐标",
+      "平面坐标偏移值"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-044",
+    "category": "fact",
+    "question": "WebRTC 渲染服务器的文档化运行环境要求是什么？",
+    "answerability": "full",
+    "ground_truth": "单用户访问要求至少 48G 内存、8G 显存、12 核 CPU 和 50M 带宽。",
+    "required_facts": [
+      "内存：48G及以上",
+      "显卡：8G及以上显存",
+      "CPU：12核及以上",
+      "带宽：50M及以上"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_id": "sec_ea83ec72079158a1",
+        "section_path_contains": "概述"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-048",
+    "category": "fact",
+    "question": "Turnserver realm 配置项的作用是什么？",
+    "answerability": "full",
+    "ground_truth": "设定认证域/realm。",
+    "required_facts": [
+      "realm"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-049",
+    "category": "fact",
+    "question": "Rocky 安装介质 baseurl 示例指向哪里？",
+    "answerability": "full",
+    "ground_truth": "BaseOS 和 AppStream 的 baseurl 分别指向 file:///media/cdrom/BaseOS 与 file:///media/cdrom/AppStream。",
+    "required_facts": [
+      "baseurl=file:///media/cdrom/BaseOS",
+      "baseurl=file:///media/cdrom/AppStream"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-050",
+    "category": "fact",
+    "question": "StampServer 数据目录通常挂载在哪个路径？",
+    "answerability": "full",
+    "ground_truth": "/data",
+    "required_facts": [
+      "/data"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_75e24f963d502d6a",
+        "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 fact filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-002",
+    "question": "WebRTC 外网部署在文档中包含哪些具体方式？请分别说明关键配置步骤。",
+    "answerability": "full",
+    "ground_truth": "文档分别给出 UDP 与 TCP 外网部署：两者均从 /etc/coturn/turnserver.conf 配置开始；TCP 方式额外设置 no-udp 与 no-dtls；应用侧修改 SERVERIP 后运行渲染脚本。",
+    "required_facts": [
+      "/etc/coturn/turnserver.conf",
+      "no-udp",
+      "no-dtls",
+      "SERVERIP"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_58cb6d74b59bddd6",
+        "section_path_contains": "应用系统部署"
+      },
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      },
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e3883b0c741195",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "完整流程已全部覆盖（在证据不足时）"
+    ],
+    "notes": "PRD 用例 B",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-009",
+    "question": "如何修改 SSH 以允许 root 密码登录？",
+    "answerability": "full",
+    "ground_truth": "修改 /etc/ssh/sshd_config 相关项并重启 sshd。",
+    "required_facts": [
+      "sshd_config",
+      "systemctl restart sshd"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "SSH"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "跨命令步骤",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-010",
+    "question": "StampTools 管线字段映射如何导出？",
+    "answerability": "full",
+    "ground_truth": "在 PipelineBuilder 字段映射中导出为字段映射文件。",
+    "required_facts": [
+      "字段映射",
+      "导出"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "字段映射"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "工具流程",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-011",
+    "question": "PipelineBuilder 值域映射中的用户定义值、显示值和标准值如何关联？",
+    "answerability": "full",
+    "ground_truth": "用户定义值来自字段值域；显示值默认等于用户定义值但可自定义；标准值把用户定义值映射为标准附属设施并影响生成。",
+    "required_facts": [
+      "用户定义值",
+      "显示值",
+      "标准值"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "值域映射"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多步骤",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-012",
+    "question": "StampTools 加密锁驱动安装需要哪些前置步骤？",
+    "answerability": "full",
+    "ground_truth": "先安装 Microsoft Visual C++ 2015-2019 运行环境，再安装 GrandDogRunTimeSystemSetup.exe 授权驱动；编译发布时会执行加密锁检测。",
+    "required_facts": [
+      "Microsoft Visual C++ 2015-2019",
+      "GrandDogRunTimeSystemSetup.exe",
+      "加密检测"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": "加密锁"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "安装流程",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-013",
+    "question": "ModelBuilder 文档列出的两类纹理错误分别是什么？",
+    "answerability": "full",
+    "ground_truth": "一类是缺失纹理，另一类是纹理尺寸大于设定尺寸导致的压缩问题。",
+    "required_facts": [
+      "缺失纹理",
+      "纹理压缩",
+      "设定尺寸"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_id": "sec_4fc07bf1493fb2b5",
+        "section_path_contains": "ModelBuilder"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "故障排查",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-017",
+    "question": "如何用 vim 修改 sysctl 并生效？",
+    "answerability": "full",
+    "ground_truth": "vim /etc/sysctl.conf 后执行 sysctl -p。",
+    "required_facts": [
+      "vim /etc/sysctl.conf",
+      "sysctl -p"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_a54fe3120b9d5c34",
+        "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "命令不得被当成 Section 后丢失上下文",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-019",
+    "question": "WebRTC 渲染服务器启动前，文档列出的运行环境和启动方式是什么？",
+    "answerability": "full",
+    "ground_truth": "运行环境包括至少 48G 内存和 8G 显存；禁用集成显卡后，可运行 run_local_1.bat、run_local_2.bat 或 run_local_3.bat。",
+    "required_facts": [
+      "内存：48G及以上",
+      "显卡：8G及以上显存",
+      "run_local_1.bat"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_id": "sec_ea83ec72079158a1",
+        "section_path_contains": "概述"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "流程尾部步骤",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-025",
+    "question": "Turnserver 用户凭证如何配置？",
+    "answerability": "full",
+    "ground_truth": "在 turnserver.conf 中配置 user=<用户名>:<密码> 和 realm=<认证域>。",
+    "required_facts": [
+      "user=",
+      "realm="
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "配置块完整性",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-028",
+    "question": "修改 httpd 服务路径后，文档要求执行哪些 systemctl 命令？",
+    "answerability": "full",
+    "ground_truth": "依次执行 systemctl daemon-reload、systemctl enable httpd 和 systemctl start httpd。",
+    "required_facts": [
+      "systemctl daemon-reload",
+      "systemctl enable httpd",
+      "systemctl start httpd"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "服务路径设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "notes": "多命令窗口",
+    "category": "procedure",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-059",
+    "category": "procedure",
+    "question": "WebRTC UDP 外网：从 Turnserver 到信令修改的步骤。",
+    "answerability": "full",
+    "ground_truth": "UDP 外网部署先编辑 /etc/coturn/turnserver.conf，再配置 listening-port、tls-listening-port、external-ip、长期凭证、user 和 realm，随后按文档继续处理信令服务。",
+    "required_facts": [
+      "/etc/coturn/turnserver.conf",
+      "listening-port=3478",
+      "tls-listening-port=5349",
+      "external-ip",
+      "realm="
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-060",
+    "category": "procedure",
+    "question": "WebRTC TCP 外网部署中 Turnserver 的关键改动是什么？",
+    "answerability": "full",
+    "ground_truth": "在 turnserver.conf 中配置监听和 external-ip，并设置 no-udp 与 no-dtls 以强制通过 TCP 推流。",
+    "required_facts": [
+      "listening-port=3478",
+      "external-ip",
+      "no-udp",
+      "no-dtls"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e3883b0c741195",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "完整流程如下"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-065",
+    "category": "procedure",
+    "question": "配置 httpd 服务路径后，文档给出的服务启用顺序是什么？",
+    "answerability": "full",
+    "ground_truth": "执行 systemctl daemon-reload、systemctl enable httpd、systemctl start httpd。",
+    "required_facts": [
+      "systemctl daemon-reload",
+      "systemctl enable httpd",
+      "systemctl start httpd"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "服务路径设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-067",
+    "category": "procedure",
+    "question": "启动 WebRTC 渲染服务前，文档列出的硬件条件和启动脚本是什么？",
+    "answerability": "full",
+    "ground_truth": "单用户运行环境要求至少 48G 内存和 8G 显存；启动脚本为 run_local_1.bat、run_local_2.bat 或 run_local_3.bat。",
+    "required_facts": [
+      "内存：48G及以上",
+      "显卡：8G及以上显存",
+      "run_local_1.bat"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_id": "sec_ea83ec72079158a1",
+        "section_path_contains": "概述"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-068",
+    "category": "procedure",
+    "question": "修改 WebRTC 应用的外网地址后，文档要求如何继续启动和访问？",
+    "answerability": "full",
+    "ground_truth": "将 stamp_core_config.js 中的 SERVERIP 修改为外网 IP，运行 run_local_1.bat、run_local_2.bat 或 run_local_3.bat 后访问 StampWebRTC。",
+    "required_facts": [
+      "stamp_core_config.js",
+      "SERVERIP",
+      "run_local_1.bat",
+      "访问StampWebRTC"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_58cb6d74b59bddd6",
+        "section_path_contains": "应用系统部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-070",
+    "category": "procedure",
+    "question": "上传速度优化的配置与验证步骤。",
+    "answerability": "full",
+    "ground_truth": "在 sshd_config 中启用 GSSAPIAuthentication no、GSSAPICleanupCredentials no 和 UseDNS no，再重启 sshd 服务。",
+    "required_facts": [
+      "GSSAPIAuthentication no",
+      "GSSAPICleanupCredentials no",
+      "UseDNS no",
+      "systemctl restart sshd.service"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_61cdad3da6ee5bff",
+        "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-072",
+    "category": "procedure",
+    "question": "ModelBuilder 文档如何解释缺失纹理和纹理压缩两类错误？",
+    "answerability": "full",
+    "ground_truth": "缺失纹理表示纹理不存在；纹理压缩表示大于设定尺寸的纹理无法被拆分压缩到设定尺寸。",
+    "required_facts": [
+      "缺失纹理",
+      "纹理不存在",
+      "纹理压缩",
+      "设定尺寸"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_id": "sec_4fc07bf1493fb2b5",
+        "section_path_contains": "ModelBuilder"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 procedure filler",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-101",
+    "category": "table",
+    "question": "端口一览表中网络穿透服务的 TLS 端口是多少？",
+    "answerability": "full",
+    "ground_truth": "端口一览表将网络穿透服务的 TLS 端口列为 5439。",
+    "required_facts": [
+      "网络穿透服务",
+      "TLS端口",
+      "5439"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-102",
+    "category": "table",
+    "question": "分区容量表中 /boot、/var、/data 的推荐值？",
+    "answerability": "full",
+    "ground_truth": "/boot 为 1024M，/var 为 102400M（100G）以上，/data 使用剩余空间并选择 ext4。",
+    "required_facts": [
+      "/boot",
+      "1024M",
+      "/var",
+      "102400M",
+      "/data",
+      "ext4"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_75e24f963d502d6a",
+        "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-103",
+    "category": "table",
+    "question": "UDP 外网部署的 Turnserver 配置中列出哪些关键键？",
+    "answerability": "full",
+    "ground_truth": "关键键包括 listening-port、tls-listening-port、listening-ip、external-ip、min-port、max-port、user、realm、cert 和 pkey。",
+    "required_facts": [
+      "listening-port",
+      "tls-listening-port",
+      "external-ip",
+      "user=",
+      "realm=",
+      "cert=",
+      "pkey="
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-105",
+    "category": "table",
+    "question": "端口一览表中 443 分别对应什么服务？",
+    "answerability": "full",
+    "ground_truth": "数据服务器的推流 HTTPS 服务和 Windows 渲染服务器的 HttpsPort 均列为 443。",
+    "required_facts": [
+      "推流服务",
+      "https服务",
+      "HttpsPort",
+      "443"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-106",
+    "category": "table",
+    "question": "创建虚拟机时，手册给出的内存最小值和推荐值是什么？",
+    "answerability": "full",
+    "ground_truth": "虚拟机内存最少 8G，推荐 16G 及以上。",
+    "required_facts": [
+      "最少8G",
+      "推荐16G及以上"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f3a81ff9c2f84ed5",
+        "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-108",
+    "category": "table",
+    "question": "Nginx HTTPS 配置中的端口映射示例 89:8450 表示什么？",
+    "answerability": "full",
+    "ground_truth": "89:8450 表示外部端口 89 映射到 HTTPS 端口 8450；文档还要求配置后重启 nginx。",
+    "required_facts": [
+      "89：8450",
+      "service nginx restart"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f479010826b1c073",
+        "section_path_contains": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  },
+  {
+    "id": "mq-109",
+    "category": "table",
+    "question": "端口一览表中 StampManager 服务端口是多少？",
+    "answerability": "full",
+    "ground_truth": "端口一览表将 StampManager 服务列为 8080。",
+    "required_facts": [
+      "StampManager服务",
+      "8080"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 table",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "approved",
+    "review_basis": "v4 source evidence review"
+  }
+]

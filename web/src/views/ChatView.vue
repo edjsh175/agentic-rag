@@ -271,6 +271,13 @@ async function handleSend(text: string, image?: File) {
           msg.thinking = (msg.thinking || '') + thought
           scrollDown()
         },
+        onFinalAnswer: (answer) => {
+          const msg = lastAiMsg()
+          msg.status = undefined
+          msg.content = answer
+          msg.loading = false
+          scrollDown()
+        },
         onSources: (sources) => {
           currentSources.value = sources
           lastAiMsg().sources = sources

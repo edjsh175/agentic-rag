@@ -69,6 +69,48 @@ class QueryPlannerTests(unittest.TestCase):
         self.assertEqual(plan.candidate_k, self.planner._cfg.retrieval_candidate_k)
         self.assertTrue(plan.enable_rerank)
 
+    def test_conflicting_port_question_adds_evidence_scope_queries(self):
+        self.planner._classify_via_llm = MagicMock(return_value=("config", 0.95))
+
+        plan = self.planner.plan(
+            "Turnserver 的 TLS 监听端口是多少？如果出现多个值应如何处理？",
+            [
+                RetrievalQuery(
+                    "Turnserver 的 TLS 监听端口是多少？如果出现多个值应如何处理？",
+                    "original",
+                    1.0,
+                )
+            ],
+        )
+
+        conflict_queries = [
+            query for query in plan.queries if query.kind == "planner_conflict"
+        ]
+        self.assertEqual(
+            [query.text for query in conflict_queries],
+            ["Turnserver TLS 端口说明", "Turnserver TLS 端口配置"],
+        )
+        self.assertTrue(all(query.weight == 0.6 for query in conflict_queries))
+        self.assertEqual(plan.top_k, 6)
+        self.assertEqual(plan.candidate_k, 18)
+
+    def test_explicit_port_values_add_evidence_scope_queries(self):
+        self.planner._classify_via_llm = MagicMock(return_value=("config", 0.95))
+
+        plan = self.planner.plan(
+            "Turnserver TLS 端口在端口表与正文是否一致？出现 5439 与 5349 时应如何回答？"
+        )
+
+        self.assertIn("planner_conflict", [query.kind for query in plan.queries])
+        self.assertEqual(plan.top_k, 6)
+
+    def test_table_and_config_values_add_evidence_scope_queries(self):
+        self.planner._classify_via_llm = MagicMock(return_value=("config", 0.95))
+
+        plan = self.planner.plan("若表格写 5439、配置示例写 5349，能否只答其中一个？")
+
+        self.assertIn("planner_conflict", [query.kind for query in plan.queries])
+
     def test_troubleshooting_question_uses_larger_candidate_pool(self):
         self.planner._classify_via_llm = MagicMock(
             return_value=("troubleshooting", 0.95)

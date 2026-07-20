@@ -1,0 +1,41 @@
+{
+  "gold_version": "v4-candidate",
+  "status": "not_frozen",
+  "parent_gold": "multi_chunk_qa_gold_v3_2.json",
+  "parent_gold_sha256": "d51d0168799c875283154b675ac9dba7fa8361e670d64b9c037862c2fe2643d7",
+  "corpus_snapshot_hash": "708f0949d3dc3f5348588aec876019bd9e7ccf5a0279b7ed3de4924551fabaf1",
+  "scope_policy": {
+    "fr10_retrieval": "90 text-answerable items only; eligible for evidence-recall gates after manual review",
+    "answer_governance": "10 conflict and 10 refusal items; excluded from evidence-recall gates"
+  },
+  "candidate_files": {
+    "fr10_retrieval": "multi_chunk_qa_gold_v4_retrieval_candidate.json",
+    "answer_governance": "multi_chunk_qa_gold_v4_governance_candidate.json"
+  },
+  "counts": {
+    "retrieval": 90,
+    "governance": 20
+  },
+  "excluded_items": {
+    "reason": "OCR/media capability is deferred outside v4.",
+    "category": "ocr",
+    "count": 10,
+    "ids": [
+      "mq-026",
+      "mq-111",
+      "mq-112",
+      "mq-113",
+      "mq-114",
+      "mq-115",
+      "mq-116",
+      "mq-117",
+      "mq-118",
+      "mq-119"
+    ]
+  },
+  "freeze_requirement": "Every retrieval item must have a manually approved evidence review record; do not compare candidate results with v3.2 120-item metrics.",
+  "candidate_sha256": {
+    "retrieval": "37c6c8b234901c55946a78efe137bde8fbc739d857b8ca06d87847c50f6fd63b",
+    "governance": "6d4a8352d37ab0639031ee559db098b13e7aec9d409c5b1487a9aee7d86c5f29"
+  }
+}

@@ -254,6 +254,7 @@ async def query_stream(req: QueryRequest):
     事件格式：
       data: {"type": "sources", "data": [...]}
       data: {"type": "token",   "data": "..."}
+      data: {"type": "final_answer", "data": "..."}  # 可选，最终证据校验改写
       data: {"type": "done"}
     """
     if not req.question.strip():

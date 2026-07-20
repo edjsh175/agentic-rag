@@ -55,6 +55,17 @@ _CONFIG_PATTERNS = [
     r"(?i).*(工程设置|数据设置|参数设置|配置项)",
 ]
 
+_CONFLICT_VALUE_PATTERNS = [
+    r"(?i)(多个|不同|冲突|不一致|矛盾).{0,8}(值|取值|端口|配置|参数)",
+    r"(?i)(值|取值|端口|配置|参数).{0,8}(多个|不同|冲突|不一致|矛盾)",
+    r"(?i)(端口|配置|参数).{0,24}(是否|能否).{0,16}(一致|相同)",
+    r"(?i)(出现|分别为|取值为).{0,24}\d{2,5}.{0,16}(与|和|及|/)\s*\d{2,5}",
+    r"(?i)(表格|正文|配置示例).{0,24}\d{2,5}.{0,24}\d{2,5}",
+]
+
+_CONFLICT_TOP_K = 6
+_CONFLICT_CANDIDATE_K = 18
+
 _PROCEDURE_STAGE_WORDS = [
     "工程设置",
     "数据设置",
@@ -211,6 +222,9 @@ class QueryPlanner:
         queries = self._dedupe_queries(protected_queries)
 
         top_k, candidate_k, rerank_for_intent = self._params_for_intent(intent)
+        if self._conflict_evidence_words(q):
+            top_k = max(top_k, _CONFLICT_TOP_K)
+            candidate_k = max(candidate_k, _CONFLICT_CANDIDATE_K)
         rerank_requested = force_rerank or rerank_for_intent
         enable_rerank = bool(self._cfg.reranker_enabled and rerank_requested)
         expand_neighbors = intent in {"procedure", "deployment"}
@@ -326,8 +340,10 @@ class QueryPlanner:
         base_queries: list[RetrievalQuery],
         intent: str,
     ) -> list[RetrievalQuery]:
+        conflict_words = self._conflict_evidence_words(question)
         stage_words = self._stage_words_for_intent(intent)
-        if not stage_words:
+        expansion_words = conflict_words + stage_words
+        if not expansion_words:
             return self._dedupe_queries(base_queries)
 
         entity = self._extract_core_entity(question, base_queries)
@@ -336,11 +352,20 @@ class QueryPlanner:
 
         expanded = list(base_queries)
         max_expanded = self._planner_cfg.max_expanded_queries
-        for word in stage_words:
-            expanded.append(RetrievalQuery(f"{entity} {word}", "planner_stage", 0.45))
+        for word in expansion_words:
+            kind = "planner_conflict" if word in conflict_words else "planner_stage"
+            weight = 0.6 if kind == "planner_conflict" else 0.45
+            expanded.append(RetrievalQuery(f"{entity} {word}", kind, weight))
             if len(expanded) >= max_expanded:
                 break
         return self._dedupe_queries(expanded)[:max_expanded]
+
+    def _conflict_evidence_words(self, question: str) -> list[str]:
+        if not self._matches(_CONFLICT_VALUE_PATTERNS, question):
+            return []
+        if re.search(r"(?i)(端口|port)", question):
+            return ["端口说明", "端口配置"]
+        return ["配置说明", "参数说明"]
 
     @staticmethod
     def _stage_words_for_intent(intent: str) -> list[str]:

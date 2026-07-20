@@ -651,7 +651,8 @@ class RagChain:
                   top_k_override: int | None = None,
                   candidate_k_override: int | None = None,
                   expand_neighbors: bool = False,
-                  intent_plan: RetrievalIntentPlan | None = None) -> tuple[list[dict], str]:
+                  intent_plan: RetrievalIntentPlan | None = None,
+                  diagnostics: dict[str, list[Document]] | None = None) -> tuple[list[dict], str]:
         """Execute retrieval and return (source_docs, formatted context)."""
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -695,14 +696,16 @@ class RagChain:
                 )
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
-        docs = self._postprocess_docs_sync(
-            question,
-            docs,
-            enable_rerank,
-            target_top_k=top_k_override,
-            expand_neighbors=expand_neighbors,
-            intent_plan=intent_plan,
-        )
+        if diagnostics is not None:
+            diagnostics["retrieved"] = list(docs)
+        postprocess_kwargs = {
+            "target_top_k": top_k_override,
+            "expand_neighbors": expand_neighbors,
+            "intent_plan": intent_plan,
+        }
+        if diagnostics is not None:
+            postprocess_kwargs["diagnostics"] = diagnostics
+        docs = self._postprocess_docs_sync(question, docs, enable_rerank, **postprocess_kwargs)
 
         source_docs = [self._normalize_source(d.page_content, d.metadata, i + 1)
                        for i, d in enumerate(docs)]
@@ -964,6 +967,7 @@ class RagChain:
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
+        diagnostics: dict[str, list[Document]] | None = None,
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -971,19 +975,21 @@ class RagChain:
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
         if len(query_texts) <= 1 and graph_docs is None:
             # ???????
-            return self._retrieve(
-                query_texts[0] if query_texts else "",
-                kb_name=kb_name,
-                doc_category=doc_category,
-                review_status=review_status,
-                method=method,
-                rerank=rerank,
-                web_search=web_search,
-                top_k_override=plan_top_k,
-                candidate_k_override=plan_candidate_k,
-                expand_neighbors=expand_neighbors,
-                intent_plan=intent_plan,
-            )
+            retrieve_kwargs = {
+                "kb_name": kb_name,
+                "doc_category": doc_category,
+                "review_status": review_status,
+                "method": method,
+                "rerank": rerank,
+                "web_search": web_search,
+                "top_k_override": plan_top_k,
+                "candidate_k_override": plan_candidate_k,
+                "expand_neighbors": expand_neighbors,
+                "intent_plan": intent_plan,
+            }
+            if diagnostics is not None:
+                retrieve_kwargs["diagnostics"] = diagnostics
+            return self._retrieve(query_texts[0] if query_texts else "", **retrieve_kwargs)
 
         q = query_texts[0]  # ???????? and web search
         retrieval_top_k = plan_candidate_k if enable_rerank and plan_candidate_k else plan_top_k
@@ -1007,10 +1013,16 @@ class RagChain:
                 excluded_chunk_ids=graph_excluded_chunk_ids,
                 graph_guard=graph_guard,
             )
-        docs = self._postprocess_docs_sync(
-            q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors,
-            intent_plan=intent_plan,
-        )
+        if diagnostics is not None:
+            diagnostics["retrieved"] = list(docs)
+        postprocess_kwargs = {
+            "target_top_k": plan_top_k,
+            "expand_neighbors": expand_neighbors,
+            "intent_plan": intent_plan,
+        }
+        if diagnostics is not None:
+            postprocess_kwargs["diagnostics"] = diagnostics
+        docs = self._postprocess_docs_sync(q, docs, enable_rerank, **postprocess_kwargs)
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
             for index, d in enumerate(docs)
@@ -1021,6 +1033,39 @@ class RagChain:
             source_docs, context = self._search_web(q, source_docs, context)
 
         return source_docs, context
+
+    def retrieve_for_evaluation(
+        self,
+        question: str,
+        *,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+        diagnostics: dict[str, list[Document]] | None = None,
+    ) -> tuple[list[dict], str]:
+        """Run the production retrieval plan without invoking the answer model."""
+        q = (question or "").strip()
+        queries = self._build_retrieval_query_specs(q, None)
+        plan = self._plan_retrieval(q, queries, force_rerank=True)
+        plan, graph_context, graph_docs = self._prepare_graph_plan(
+            q, plan, kb_name=kb_name, doc_category=doc_category, review_status=review_status
+        )
+        graph_kwargs = self._build_graph_kwargs(
+            plan, graph_context, graph_docs, include_cache_fields=False,
+        )
+        return self._retrieve_multi(
+            plan.queries,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            rerank=plan.enable_rerank,
+            plan_top_k=plan.top_k,
+            plan_candidate_k=plan.candidate_k,
+            expand_neighbors=plan.expand_neighbors,
+            intent_plan=getattr(plan, "intent_plan", None),
+            diagnostics=diagnostics,
+            **graph_kwargs,
+        )
 
     async def _aretrieve_multi_uncached(
         self,
@@ -1118,6 +1163,7 @@ class RagChain:
         target_top_k: int | None = None,
         expand_neighbors: bool = False,
         intent_plan: RetrievalIntentPlan | None = None,
+        diagnostics: dict[str, list[Document]] | None = None,
     ) -> list[Document]:
         """同步版文档后处理（rerank + quality + compression）。"""
         if expand_neighbors and docs:
@@ -1137,10 +1183,16 @@ class RagChain:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
 
+        if diagnostics is not None:
+            diagnostics["post_rerank"] = list(docs)
         docs = self._quality.apply(question, docs, intent_plan=intent_plan)
+        if diagnostics is not None:
+            diagnostics["post_quality"] = list(docs)
         docs = self._compress_retrieved_docs(question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
+        if diagnostics is not None:
+            diagnostics["final"] = list(docs)
         return docs
 
     def _expand_neighbor_chunks(
@@ -1476,6 +1528,7 @@ class RagChain:
             if not answer.strip():
                 return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
+            answer = govern_answer(answer, q, source_docs)
             return {
                 "answer": answer,
                 "source_documents": self._filter_cited_sources(answer, source_docs),
@@ -1739,6 +1792,11 @@ class RagChain:
                 "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
                 len(source_docs), deep_mode, plan.enable_rerank, thinking
             )
+
+            governed_answer = govern_answer(answer_text, q, source_docs)
+            if governed_answer != answer_text:
+                yield {"type": "final_answer", "data": governed_answer}
+            answer_text = governed_answer
 
             yield {
                 "type": "sources",

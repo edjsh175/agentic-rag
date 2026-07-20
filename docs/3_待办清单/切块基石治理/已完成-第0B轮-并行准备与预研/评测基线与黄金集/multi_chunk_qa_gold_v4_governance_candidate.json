@@ -1,0 +1,497 @@
+[
+  {
+    "id": "mq-004",
+    "question": "Turnserver 的 TLS 监听端口在文档中是多少？如果出现多个值应如何处理？",
+    "answerability": "conflict",
+    "ground_truth": "端口表可能写 5439，正文可能写 tls-listening-port=5349；需同时展示冲突来源，不得静默二选一。",
+    "required_facts": [
+      "5439",
+      "5349",
+      "冲突提示"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      },
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "仅存在唯一端口"
+    ],
+    "notes": "冲突证据题",
+    "category": "conflict",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-121",
+    "category": "conflict",
+    "question": "Turnserver TLS 端口在端口表与正文是否一致？出现 5439 与 5349 时应如何回答？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "5439",
+      "5349",
+      "冲突提示"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      },
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "仅存在唯一端口"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-122",
+    "category": "conflict",
+    "question": "文档中 localhost 相关端口出现多个取值时如何处理？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "多个端口值",
+      "冲突提示"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "只能使用其中一个端口"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-123",
+    "category": "conflict",
+    "question": "baseurl 同时出现 AppStream 与 BaseOS 路径时是否算冲突？如何表述？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "AppStream",
+      "BaseOS",
+      "同时说明"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "只能选一个 baseurl 且不说明来源"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-124",
+    "category": "conflict",
+    "question": "若表格写 5439、配置示例写 5349，能否只答其中一个？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "5439",
+      "5349",
+      "不得静默二选一"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060",
+        "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+      },
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "确定端口就是"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-125",
+    "category": "conflict",
+    "question": "同一配置键在 PDF 与 DOCX 中取值不同时应如何回答？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "多来源",
+      "冲突或核对"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "2ca727efa70847b49f0f67528544d210.pdf",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "以某一文档为准且不提示冲突"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-126",
+    "category": "conflict",
+    "question": "listening-port 与 tls-listening-port 数值接近时如何避免混淆？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "listening-port",
+      "tls-listening-port",
+      "分别引用"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "这两个端口相同"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-127",
+    "category": "conflict",
+    "question": "防火墙开放列表与正文示例端口不一致时怎么答？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "防火墙",
+      "正文端口",
+      "冲突提示"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "防火墙"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "随便选一个端口"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-128",
+    "category": "conflict",
+    "question": "HttpsPort=443 与其他端口示例并存时如何说明适用范围？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "443",
+      "适用范围或来源"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": "HTTPS"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "所有环境都必须 443 且无依据"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-129",
+    "category": "conflict",
+    "question": "Turnserver user 凭证示例出现多组时如何处理？",
+    "answerability": "conflict",
+    "ground_truth": "必须同时展示冲突取值与来源，禁止静默二选一。",
+    "required_facts": [
+      "多组凭证示例",
+      "标明示例"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d",
+        "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "真实生产密码就是手册示例"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 conflict",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-027",
+    "question": "PDF 手册中某章节的 section_path 是什么？",
+    "answerability": "none",
+    "ground_truth": "当前 PDF 结构化不足，section_path 常为空；应承认结构缺失，不能伪造章节路径。",
+    "required_facts": [
+      "section_path 缺失或无法稳定恢复"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "给出伪造的详细 section_path"
+    ],
+    "notes": "无答案/结构不足",
+    "category": "none",
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-131",
+    "category": "none",
+    "question": "StampGIS 火星坐标系私有秘钥算法细节是什么？",
+    "answerability": "none",
+    "ground_truth": "知识库未覆盖该机密细节时应拒答。",
+    "required_facts": [
+      "未查询到或无法提供"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "给出具体密钥算法实现"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-132",
+    "category": "none",
+    "question": "当前 PDF 手册完整 section_path 树是什么？",
+    "answerability": "none",
+    "ground_truth": "PDF 结构不足时应承认无法稳定恢复。",
+    "required_facts": [
+      "section_path 缺失或无法稳定恢复"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "2ca727efa70847b49f0f67528544d210.pdf",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "伪造的详细 section_path"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-133",
+    "category": "none",
+    "question": "未收录产品 FooBarX 的安装端口是多少？",
+    "answerability": "none",
+    "ground_truth": "知识库无该产品时应拒答。",
+    "required_facts": [
+      "未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "编造端口"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-134",
+    "category": "none",
+    "question": "2027 年版本的 WebRTC 默认端口规划是什么？",
+    "answerability": "none",
+    "ground_truth": "超出语料时间范围应拒答。",
+    "required_facts": [
+      "未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "给出未来版本端口"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-135",
+    "category": "none",
+    "question": "手册未附图时，界面像素级点击坐标是什么？",
+    "answerability": "none",
+    "ground_truth": "无图证据应拒答细节。",
+    "required_facts": [
+      "证据不足"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx"
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "给出像素坐标"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-136",
+    "category": "none",
+    "question": "内部未公开的授权服务器私钥路径？",
+    "answerability": "none",
+    "ground_truth": "机密未入库应拒答。",
+    "required_facts": [
+      "未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "编造私钥路径"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-137",
+    "category": "none",
+    "question": "与本知识库无关的 Kubernetes Operator CRD 字段？",
+    "answerability": "none",
+    "ground_truth": "主体无关应拒答。",
+    "required_facts": [
+      "未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "编造 CRD 字段"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-138",
+    "category": "none",
+    "question": "仅有页眉页脚的 PDF 封面页的业务配置？",
+    "answerability": "none",
+    "ground_truth": "无业务内容应说明不足。",
+    "required_facts": [
+      "无有效业务内容或未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "编造配置"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  },
+  {
+    "id": "mq-139",
+    "category": "none",
+    "question": "文档未提到的第三方 CDN 密钥？",
+    "answerability": "none",
+    "ground_truth": "未收录应拒答。",
+    "required_facts": [
+      "未查询到"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_path_contains": ""
+      }
+    ],
+    "required_section_ids": [],
+    "forbidden_claims": [
+      "编造 CDN 密钥"
+    ],
+    "source_snapshot_hash": "19421c7f8fb3124f",
+    "notes": "v2 none/insufficient",
+    "evaluation_scope": "answer_governance"
+  }
+]

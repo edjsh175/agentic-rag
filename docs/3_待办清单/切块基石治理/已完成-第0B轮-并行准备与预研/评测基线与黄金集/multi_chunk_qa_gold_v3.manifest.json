@@ -1,0 +1,1193 @@
+{
+  "gold_version": "v3",
+  "parent_gold": "multi_chunk_qa_gold_v2.json",
+  "migration_ledger": "section_anchor_migration_v3.json",
+  "migration_count": 55,
+  "corpus_snapshot_hash": "708f0949d3dc3f5348588aec876019bd9e7ccf5a0279b7ed3de4924551fabaf1",
+  "gold_sha256": "2202b2d78a9affa7e9ce78ee44fecdcc5bf935266ebd98eb26413ff90e660348",
+  "review_requirement": "all entries manually approved",
+  "reviewed_migrations": [
+    {
+      "id": "mq-001",
+      "question": "当执行 xfs_repair 修复分区时，如果提示文件系统已挂载，需要先执行什么命令？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "xfs_repair"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_12376c731a4186a6",
+          "section_path_contains": "常见错误"
+        }
+      ],
+      "verification_chunk_id": "chk_3270c5305a94838e0ded1684",
+      "rationale": "正文包含 umount -f 与 xfs_repair。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-007",
+      "question": "/boot/efi 分区大小一般如何规划？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "boot"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "分区正文列出 /boot/efi 的容量与文件系统。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-021",
+      "question": "上传速度优化在安装流程中的位置和作用是什么？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "上传"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_61cdad3da6ee5bff",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+        }
+      ],
+      "verification_chunk_id": "chk_2a0b6d8b4d6c4e24f5d34243",
+      "rationale": "SSH 基础配置正文包含上传速度优化。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-031",
+      "question": "StampServer 分区表中 /boot 的建议大小是多少？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "分区表正文给出 /boot 容量。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-032",
+      "question": "Rocky9 安装时 root 密码设置要求是什么？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "root"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_ce60564696e29c8e",
+          "section_path_contains": "操作系统安装"
+        }
+      ],
+      "verification_chunk_id": "chk_659582f88392f12478d51f89",
+      "rationale": "安装正文包含 root 密码设置。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-034",
+      "question": "sysctl 中需放开的内核参数示例有哪些？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "sysctl"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_a54fe3120b9d5c34",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+        }
+      ],
+      "verification_chunk_id": "chk_c7ea05f84480fe71e64db18e",
+      "rationale": "sysctl 参数位于 tcp 设置正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-042",
+      "question": "PCIE/M.2 与 GPU 配置说明在手册哪一类要求中？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "硬件"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_f3a81ff9c2f84ed5",
+          "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+        }
+      ],
+      "verification_chunk_id": "chk_e4a87f564f78dbe94a629ae2",
+      "rationale": "正文并列说明 PCIE/M.2 与 GPU。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-050",
+      "question": "StampServer 数据目录通常挂载在哪个路径？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "分区正文明确包含 /data 挂载点。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-051",
+      "question": "/boot/efi 文件系统类型一般是什么？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "boot"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "分区正文明确列出 /boot/efi 的 FAT32。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-017",
+      "question": "如何用 vim 修改 sysctl 并生效？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "sysctl"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_a54fe3120b9d5c34",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+        }
+      ],
+      "verification_chunk_id": "chk_c7ea05f84480fe71e64db18e",
+      "rationale": "端口/网络参数正文归入 tcp 设置。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-056",
+      "question": "请按顺序说明 Rocky9 分区创建到挂载检查的步骤。",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "分区配置正文是该安装步骤的可验证证据。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-058",
+      "question": "说明 sysctl 修改并生效的完整命令序列。",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "sysctl"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_a54fe3120b9d5c34",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+        }
+      ],
+      "verification_chunk_id": "chk_c7ea05f84480fe71e64db18e",
+      "rationale": "网络内核参数位于 tcp 设置正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-066",
+      "question": "从 umount 到执行 xfs_repair 的安全步骤。",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "xfs_repair"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_12376c731a4186a6",
+          "section_path_contains": "常见错误"
+        }
+      ],
+      "verification_chunk_id": "chk_3270c5305a94838e0ded1684",
+      "rationale": "xfs_repair 的挂载异常处理位于常见错误正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-070",
+      "question": "上传速度优化的配置与验证步骤。",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "上传"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_61cdad3da6ee5bff",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+        }
+      ],
+      "verification_chunk_id": "chk_2a0b6d8b4d6c4e24f5d34243",
+      "rationale": "SSH 配置正文含上传传输相关说明。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-008",
+      "question": "Rocky9 安装时 /var 与 /data 分区文件系统如何选择？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "安装分区正文提供可核验的磁盘规划证据。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-092",
+      "question": "/var 与 /data 用途差异及对后续服务的影响？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "Rocky 分区步骤在此 canonical Section。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-102",
+      "question": "分区容量表中 /boot、/var、/data 的推荐值？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "分区"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "rationale": "Rocky 分区表在此 canonical Section。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-106",
+      "question": "硬件配置表中内存/GPU 最低要求？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "硬件"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_f3a81ff9c2f84ed5",
+          "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+        }
+      ],
+      "verification_chunk_id": "chk_e4a87f564f78dbe94a629ae2",
+      "rationale": "虚拟机硬件配置正文包含 PCIE/M.2 与 GPU。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-018",
+      "question": "外网部署后如何修改应用访问地址？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "应用外网"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        }
+      ],
+      "verification_chunk_id": "chk_fd843157c4777cad208dc764",
+      "rationale": "原 StampWebRTC 伪章节不存在；当前正文的应用外网地址位于 StampServer 部署章节。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-036",
+      "question": "Turnserver listening-port 默认值是多少？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+      "rationale": "原 StampWebRTC 伪章节不存在；listening-port 在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-037",
+      "question": "WebRTC 内网部署与外网部署的主要区分点是什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "部署"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        }
+      ],
+      "verification_chunk_id": "chk_13c6cae5006bf601702ed826",
+      "rationale": "内网/外网部署区分在当前应用系统部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-044",
+      "question": "WebRTC 渲染服务依赖的关键硬件是什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "渲染"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_id": "sec_ea83ec72079158a1",
+          "section_path_contains": "概述"
+        }
+      ],
+      "verification_chunk_id": "chk_542a22720c7ed3ef46843ec5",
+      "rationale": "运行资源与 GPU 依赖在 WebRTC 概述正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-048",
+      "question": "Turnserver realm 配置项的作用是什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "realm 配置在当前 UDP Turnserver 正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-002",
+      "question": "WebRTC 外网部署在文档中包含哪些具体方式？请分别说明关键配置步骤。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "外网"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_fd843157c4777cad208dc764; chk_73ab64c1091ec6d102db7ac4; chk_d49972c0dc09f168ed75cb92",
+      "rationale": "完整流程跨应用、UDP、TCP 三个当前 canonical Section，原单一 StampWebRTC 伪路径不可用。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-019",
+      "question": "渲染服务器启动前要检查什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "渲染"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_id": "sec_ea83ec72079158a1",
+          "section_path_contains": "概述"
+        }
+      ],
+      "verification_chunk_id": "chk_fff1a012a66ddbf458a319f7",
+      "rationale": "GPU 设置与渲染启动说明在 WebRTC 概述。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-025",
+      "question": "Turnserver 用户凭证如何配置？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "Turnserver 用户、realm、证书参数在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-030",
+      "question": "如果只检索到 UDP 性能描述和端口表，能否回答“WebRTC 外网完整部署步骤”？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "外网"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_2d75026e86b3efcd0554244c",
+      "rationale": "UDP 外网 Turnserver 配置起始步骤在此正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-059",
+      "question": "WebRTC UDP 外网：从 Turnserver 到信令修改的步骤。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "UDP"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_aa84799227adcc3099b03d14",
+      "rationale": "信令服务验证与日志说明在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-060",
+      "question": "WebRTC TCP 外网：列出关键配置修改顺序。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "TCP"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_ac75dac1ac268b619b1f2e93",
+      "rationale": "TCP 信令修改说明在当前 TCP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-061",
+      "question": "Turnserver 从编辑配置到重启服务的步骤。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_aa84799227adcc3099b03d14",
+      "rationale": "UDP 部署校验与日志步骤在此正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-067",
+      "question": "外网部署后渲染服务器启动前检查清单。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "渲染"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_id": "sec_ea83ec72079158a1",
+          "section_path_contains": "概述"
+        }
+      ],
+      "verification_chunk_id": "chk_fff1a012a66ddbf458a319f7",
+      "rationale": "渲染服务启动信息在 WebRTC 概述正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-068",
+      "question": "应用外网地址修改后需要验证什么。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "应用外网"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        }
+      ],
+      "verification_chunk_id": "chk_fd843157c4777cad208dc764",
+      "rationale": "应用外网访问地址在当前应用系统部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-005",
+      "question": "WebRTC UDP 外网部署需要修改哪些服务配置？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "UDP"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_2d75026e86b3efcd0554244c",
+      "rationale": "UDP 外网部署参数位于当前 canonical Section。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-006",
+      "question": "WebRTC TCP 外网部署与 UDP 方式的关键差异是什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "TCP"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_dfd04d28c347d1e890f95d96",
+      "rationale": "TCP 外网部署说明位于当前 canonical Section。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-029",
+      "question": "外网部署时信令服务证书路径如何配置？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "信令"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "Turnserver 证书和私钥参数在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-081",
+      "question": "对比 UDP 与 TCP 外网部署所需修改的服务集合差异。",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "外网"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_73ab64c1091ec6d102db7ac4; chk_c12c6271d37cb28d7e560304",
+      "rationale": "UDP/TCP 差异需保留两个 canonical Section，不能折成单一伪路径。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-095",
+      "question": "端口表与正文配置项应如何交叉核对？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "端口"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022",
+      "rationale": "端口表正文含 TLS 5439。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-101",
+      "question": "端口表中列出的 TLS/TCP 相关端口有哪些？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "端口"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022",
+      "rationale": "端口表正文是 HTTPS/业务端口的可验证来源。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-103",
+      "question": "Turnserver 配置表或列表中的关键键有哪些？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "Turnserver user/realm 配置在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-110",
+      "question": "表格中 tls-listening-port 与正文是否一致？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022; chk_73ab64c1091ec6d102db7ac4",
+      "rationale": "5439/5349 冲突跨端口表和 UDP 配置正文，必须双锚点。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-113",
+      "question": "Turnserver 配置界面截图展示了哪些字段？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "截图细节仍 pending_media；文本中可核验的配置字段锚定至 UDP 部署。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-117",
+      "question": "渲染服务启动成功截图应显示什么状态？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "渲染"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_id": "sec_ea83ec72079158a1",
+          "section_path_contains": "概述"
+        }
+      ],
+      "verification_chunk_id": "chk_fff1a012a66ddbf458a319f7",
+      "rationale": "截图状态仍 pending_media；渲染启动文本在 WebRTC 概述。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-004",
+      "question": "Turnserver 的 TLS 监听端口在文档中是多少？如果出现多个值应如何处理？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022; chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "5439/5349 冲突分别位于端口表和 UDP 配置正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-121",
+      "question": "Turnserver TLS 端口在端口表与正文是否一致？出现 5439 与 5349 时应如何回答？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022; chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "5439/5349 冲突分别位于端口表和 UDP 配置正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-124",
+      "question": "若表格写 5439、配置示例写 5349，能否只答其中一个？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "端口"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e6e4593247f060",
+          "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_9b317d8155d2bd66db752022; chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "表格 5439 与配置 5349 必须作为双来源冲突证据。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-126",
+      "question": "listening-port 与 tls-listening-port 数值接近时如何避免混淆？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+      "rationale": "listening-port 与 tls-listening-port 在 UDP 部署正文中可分别核验。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-129",
+      "question": "Turnserver user 凭证示例出现多组时如何处理？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": "Turnserver"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+      "rationale": "Turnserver user 凭证示例在当前 UDP 部署正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-013",
+      "question": "出现纹理错误时应检查哪些配置？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "纹理错误"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_id": "sec_4fc07bf1493fb2b5",
+          "section_path_contains": "ModelBuilder"
+        }
+      ],
+      "verification_chunk_id": "chk_ec50a71e798d586e007cd9df",
+      "rationale": "纹理错误的可检索文本在 ModelBuilder 正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-047",
+      "question": "StampTools WidgetBuilder 发布目标是什么？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_id": "sec_fcf1ab75819b5ae0",
+          "section_path_contains": "PipelineBuilder > 生成数据"
+        }
+      ],
+      "verification_chunk_id": "chk_9804784ed5527cf7a7ee381c",
+      "rationale": "当前可检索文本中最接近发布流程的是 PipelineBuilder 的生成数据章节。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-023",
+      "question": "WidgetBuilder 发布服务前需要确认哪些信息？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_id": "sec_fcf1ab75819b5ae0",
+          "section_path_contains": "PipelineBuilder > 生成数据"
+        }
+      ],
+      "verification_chunk_id": "chk_9804784ed5527cf7a7ee381c",
+      "rationale": "WidgetBuilder 专属伪路径不存在；以当前可检索的生成数据正文作为有限文本证据。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-072",
+      "question": "StampTools 纹理错误排查的有序检查步骤。",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "纹理"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_id": "sec_4fc07bf1493fb2b5",
+          "section_path_contains": "ModelBuilder"
+        }
+      ],
+      "verification_chunk_id": "chk_ec50a71e798d586e007cd9df",
+      "rationale": "纹理错误处理顺序的可检索文本在 ModelBuilder 正文。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-026",
+      "question": "手册里有没有“点击发布按钮”这类依赖截图的步骤？如果有，缺少图片时应该怎样回答？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx"
+        }
+      ],
+      "verification_chunk_id": null,
+      "rationale": "仅图片/OCR 可答，2537 当前库无可验证文本 Section；明确保留文档级证据边界，待 0E。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-111",
+      "question": "截图中“点击发布”按钮在界面何处？缺少图片时应如何回答？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx"
+        }
+      ],
+      "verification_chunk_id": null,
+      "rationale": "仅图片/OCR 可答，2537 当前库无可验证文本 Section；明确保留文档级证据边界，待 0E。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-119",
+      "question": "WidgetBuilder 发布成功提示文案是什么？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx"
+        }
+      ],
+      "verification_chunk_id": null,
+      "rationale": "仅图片/OCR 可答，2537 当前库无可验证文本 Section；明确保留文档级证据边界，待 0E。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-135",
+      "question": "手册未附图时，界面像素级点击坐标是什么？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": "发布"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampTools用户手册.docx"
+        }
+      ],
+      "verification_chunk_id": null,
+      "rationale": "无图像证据时应拒答像素坐标；以文档级锚点记录来源边界，不伪造 Section。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    }
+  ]
+}

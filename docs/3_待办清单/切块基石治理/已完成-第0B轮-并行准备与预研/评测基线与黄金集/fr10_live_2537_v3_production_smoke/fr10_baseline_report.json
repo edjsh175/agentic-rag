@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-07-20T05:47:03.114086+00:00",
+  "mode": "retrieval",
+  "gold_path": "docs\\3_待办清单\\切块基石治理\\已完成-第0B轮-并行准备与预研\\评测基线与黄金集\\multi_chunk_qa_gold_v3.json",
+  "gold_version": "multi_chunk_qa_gold_v3",
+  "evaluator_version": "fr10-evidence-v4",
+  "retrieval_path": "production",
+  "notes": "Baseline on current production chunks. Conflict/completeness may be low until Round 0C–0F and FR-08 prompt wiring. Retrieval mode scores concatenated retrieved content as a proxy answer (not LLM generation). Retrieval candidates use the production query planner and graph plan.",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "pass_rate": 1.0,
+    "mean_completeness": 1.0,
+    "mean_evidence_recall": 1.0,
+    "forbidden_rate": 0.0,
+    "by_category": {
+      "fact": {
+        "total": 1,
+        "passed": 1,
+        "pass_rate": 1.0,
+        "mean_completeness": 1.0,
+        "mean_evidence_recall": 1.0
+      }
+    },
+    "by_answerability": {
+      "full": {
+        "total": 1,
+        "passed": 1,
+        "pass_rate": 1.0,
+        "mean_completeness": 1.0,
+        "mean_evidence_recall": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "mq-001",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "umount -f /dev/mapper/rl-var",
+          "xfs_repair"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    }
+  ]
+}

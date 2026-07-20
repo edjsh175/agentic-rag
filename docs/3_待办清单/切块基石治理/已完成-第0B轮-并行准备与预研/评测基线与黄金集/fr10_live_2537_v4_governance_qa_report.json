@@ -1,0 +1,1698 @@
+{
+  "scope": "answer_governance",
+  "mode": "production_admin_qa_debug",
+  "total": 20,
+  "completed": 20,
+  "remaining": 0,
+  "behavior_passed": 15,
+  "behavior_pass_rate": 0.75,
+  "results": [
+    {
+      "id": "mq-004",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "冲突提示"
+      ],
+      "citation_count": 2,
+      "answer": "Turnserver 的 TLS 监听端口在文档中有两个值：\n\n- TLS/DTLS 加密端口配置为 `tls-listening-port=5349` [1]\n- 网络穿透服务的 TLS 端口为 `5439` [5]\n\n请核对原文。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech"
+          },
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_aa84799227adcc3099b03d14",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n##禁用不安全的TLS协议，在“#no-tlsv1_2”后添加以下两行：\n\nno-tlsv1\n\nno-tlsv1_1\n\n上述配置完成后输入命令检查语法：\n\nturnserver -c /etc/coturn/turnserver.conf -o\n\n注：返回turnserver: /usr/pgsql-16/lib/libpq.so.5: no version information available (required by turnserver)，属于正常。\n\n（2）信令服务修改\n\n修改\\SignallingWebS",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_c12c6271d37cb28d7e560304",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:yo",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_dfd04d28c347d1e890f95d96",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n推流默认使用UDP协议，在部分政务网中UDP带宽受限，因此需要通过Turn服务强制使用TCP服务进行推流。\n\n（1）Turnserver配置\n\n打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_2d75026e86b3efcd0554244c",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n推流默认使用UDP协议，其性能高于TCP。\n\n（1）Turnserver配置\n\n打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "tls_port",
+            "values": [
+              {
+                "index": 1,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_139487eac422406d",
+                "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+                "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+                "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+                "value": "5349"
+              },
+              {
+                "index": 5,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_21e6e4593247f060",
+                "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+                "chunk_id": "chk_9b317d8155d2bd66db752022",
+                "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|",
+                "value": "5439"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mq-122",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "多个端口值",
+        "冲突提示"
+      ],
+      "citation_count": 4,
+      "answer": "根据知识库文档，WebGL多端口配置的端口取值存在不一致描述：\n\n- [2] 提到端口 81 和 82\n- [3] 提到端口 84 和 85\n- [4] 提到端口 88 和 89\n- [5] 提到端口 81、81、83、84、85、86、88 和 89\n\n请核对原文，确认正确的端口配置。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f8dcf73da48fd2f9",
+            "section_path": "Stamp服务部署 > Nginx代理设置 > WebGL多端口设置",
+            "chunk_id": "chk_5ceae5af89cc81246a541eb5",
+            "snippet": "# Stamp服务部署 > Nginx代理设置 > WebGL多端口设置\n\n在/etc/nginx/conf.d/default.conf文件进行WebGL多端口（端口号：81-89，不包含87）代理设置。\n\nserver {\n\nlisten 81;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;\n\nadd_header 'Access-Control-Allow-Credentials' 'true';\n\nlocation / {\n\nproxy_pass http://127.0.0.1:8082;\n\nroot /usr/share/nginx/html;\n\nindex index.html index.htm;\n\n}\n\n}\n\nserver {\n\nlisten 82;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $htt"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f8dcf73da48fd2f9",
+            "section_path": "Stamp服务部署 > Nginx代理设置 > WebGL多端口设置",
+            "chunk_id": "chk_79eb330f9966cf165c44a7b9",
+            "snippet": "# Stamp服务部署 > Nginx代理设置 > WebGL多端口设置\n\nindex index.html index.htm;\n\n}\n\n}\n\nserver {\n\nlisten 84;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;\n\nadd_header 'Access-Control-Allow-Credentials' 'true';\n\nlocation / {\n\nproxy_pass http:// 127.0.0.1:8082;\n\nroot /usr/share/nginx/html;\n\nindex index.html index.htm;\n\n}\n\n}\n\nserver {\n\nlisten 85;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f8dcf73da48fd2f9",
+            "section_path": "Stamp服务部署 > Nginx代理设置 > WebGL多端口设置",
+            "chunk_id": "chk_a39ead6f1b39b4580017a314",
+            "snippet": "# Stamp服务部署 > Nginx代理设置 > WebGL多端口设置\n\nindex index.html index.htm;\n\n}\n\n}\n\nserver {\n\nlisten 88;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;\n\nadd_header 'Access-Control-Allow-Credentials' 'true';\n\nlocation / {\n\nproxy_pass http:// 127.0.0.1:8082;\n\nroot /usr/share/nginx/html;\n\nindex index.html index.htm;\n\n}\n\n}\n\nserver {\n\nlisten 89;\n\nlisten [::]:81;\n\nserver_name localhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;"
+          },
+          {
+            "index": 5,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_3ade4d2e3172759b",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 6.WebGL部署 > 6.1.Nginx代理配置",
+            "chunk_id": "chk_f4779b15a4f82268016522ab",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 6.WebGL部署 > 6.1.Nginx代理配置\n\n由于浏览器有并发请求数量限制（一般为6 个），因此需要在Nginx 中配置多个端口，\n打开/etc/nginx/conf.d/default.conf 文件，在80 端口基础上增加81、81、83、84、85、86、88\n和89 端口进行Aapche 的代理设置：\nserver {\nlisten\n81;\n\nserver_name\nlocalhost;\n\nadd_header 'Access-Control-Allow-Origin' $http_origin;\n\nadd_header 'Access-Control-Allow-Credentials' 'true';"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_555c9177b5b65d25",
+            "section_path": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+            "chunk_id": "chk_c463de877d23f14f64d3304b",
+            "snippet": "# Stamp服务部署 > Nginx代理设置 > 运维代理设置\n\n打开/etc/nginx/conf.d/default.conf文件在80端口中为StampManager配置代理：\n\n#StampManage代理设置\n\nlocation /StampManager2 {\n\nproxy_pass http://localhost:8080/StampManager2;\n\nproxy_redirect off;\n\nproxy_set_header X-Real-IP $remote_addr;\n\nproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\nproxy_pass_header Server;\n\nproxy_set_header Host $host:80;\n\nproxy_set_header X-Scheme $scheme;\n\n}\n\n#SQLite代理设置\n\nlocation /sqliteQuery {\n\nproxy_pass http://localhost:8080/sqliteQuery;\n\n}",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "section_id": "sec_3968ad53ac5ea103",
+            "section_path": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+            "chunk_id": "chk_250d8384dd1387ab59c9fcf4",
+            "snippet": "# GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求\n\n1.3：SIP 代理重新向SIP 服务器发送REGISTER 请求，在请求的Authorization 字段给出信任\n书，包含认证信息；\n\nd)\n1.4：SIP 服务器对请求进行验证，如果检查出SIP 代理身份合法，向SIP 代理发送成功响应\n200 OK，如果身份不合法则发送拒绝服务应答。\n\n消息示范见M.1。\n\n9.1.2.2 基于数字证书的双向认证注册模式\n9.1.2.2.1 安全注册说明\nSIP UA和SIP进行双向认证。\n\n对RFC3261中定义的方法REGISTER进行如下头域扩展。\n\n1 、Authorization 的值增加Capability 项用来描述编码器的安全能力。\n\n当Authorization 的值\n为Capability 时，只携带一个参数algorithm，参数algorithm 的值分为三部分，中间以逗号分割。\n\n第一部分为非对称算法描述，取值为RSA；\n\n第二部分为摘要算法描述，取值为MD5/SHA-1/SHA-2",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-121",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "冲突提示"
+      ],
+      "citation_count": 3,
+      "answer": "根据知识库内容，Turnserver TLS 端口在正文与端口表中存在不一致：\n\n- 在[2]的正文配置中，TLS/DTLS加密端口设置为5349（`tls-listening-port=5349`）\n- 在[5]和[6]的端口表中，TLS端口列为5439\n\n请核对原文确认正确的TLS端口配置。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech"
+          },
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_b03a56d1925971d3",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 内网网络拓扑",
+            "chunk_id": "chk_c2ca30ac202d16efd7be79a1",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 内网网络拓扑\n\n同一网段的内网网络拓扑结构如下图：\n\n外网/政务网以推流方式访问部署在内网（局域网）的三维渲染服务，需要将渲染服务器（多台）和数据服务器（多台）的用到的IP地址和端口映射到外网。\n\n注：WebGL只用到了数据服务器。\n\n数据服务器端口如下：\n\n80-86,88-89：TCP，nginx访问端口\n\n30080：TCP/UDP，MK服务端口\n\n19303：UDP，网路穿透服务\n\n5349：TLS/TCP，TLS服务\n\n渲染服务器端口如下：\n\n30081-30083：TCP，信令服务\n\n10881-10883：TCP，视频流服务\n\n下面以同时部署WebGL和WebRTC为例进行端口映射，具体如下图："
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_aa84799227adcc3099b03d14",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n##禁用不安全的TLS协议，在“#no-tlsv1_2”后添加以下两行：\n\nno-tlsv1\n\nno-tlsv1_1\n\n上述配置完成后输入命令检查语法：\n\nturnserver -c /etc/coturn/turnserver.conf -o\n\n注：返回turnserver: /usr/pgsql-16/lib/libpq.so.5: no version information available (required by turnserver)，属于正常。\n\n（2）信令服务修改\n\n修改\\SignallingWebS",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_348f70a56dd7256d75dda8d5",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\nuser=PixelStreamingUser:AnotherTURNintheroad\n\n#认证域，将“#realm=mycompany.org”修改为：\n\nrealm=PixelStreaming\n\n# TLS/DTLS 证书和私钥路径，将“#cert=/etc/pki/coturn/public/turn_server_cert.pem和#pkey=/etc/pki/coturn/private/turn_server_pkey.pem”修改为：\n\ncert=/etc/coturn/certs/fullchain.pem\n\npkey=/etc/coturn/certs/privkey.pem\n\n#禁止日志输出到 stdout（适合后台运行），将“#no-stdout-log”修改为：\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_c12c6271d37cb28d7e560304",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:yo",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "tls_port",
+            "values": [
+              {
+                "index": 2,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_139487eac422406d",
+                "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+                "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+                "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+                "value": "5349"
+              },
+              {
+                "index": 6,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_21e6e4593247f060",
+                "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+                "chunk_id": "chk_9b317d8155d2bd66db752022",
+                "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|",
+                "value": "5439"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mq-123",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "同时说明"
+      ],
+      "citation_count": 6,
+      "answer": "baseurl 同时出现 AppStream 与 BaseOS 路径时不算冲突，因为它们是 yum 源配置中两个独立的仓库（[BaseOS] 和 [AppStream]），分别对应不同的软件包路径。[2][3]\n\n检测到同一配置项存在不同证据值：\n- `baseurl`: file:///media/cdrom/AppStream [1]；file:///media/cdrom/AppStream [2]；file:///media/cdrom/BaseOS [2]；file:///media/cdrom/BaseOS [3]；file:///media/cdrom [4]；file:///media/cdrom [5]；file:///mnt [6]\n- `name`: BaseOS [2]；BaseOS [3]；AppStream [2]；AppStream [3]；mnt [4]；mnt [5]；local [6]\n请核对原文。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 1,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_628c60aa0696fb73",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+            "chunk_id": "chk_937763b79878a3adb4a0f0a1",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_184df6688fd09c83",
+            "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+            "chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+            "snippet": "# 基础软件安装 > 软件安装准备 > 本地yum源设置\n\nmount /dev/cdrom /media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso镜像文件路径并连接虚拟光驱。\n\n将yum.repos.d,目录下的所有文件移动到tmp目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d中创建yum.repo文件：\n\nvim /etc/yum.repos.d/yum.repo\n\n在yum.repo文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStream]\n\nname= AppStream\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1\n\n执行以下命令：\n\nyum clean all"
+          },
+          {
+            "index": 3,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_628c60aa0696fb73",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+            "chunk_id": "chk_17657629d019813664cd3050",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\n挂载iso：mkdir /media/cdrom\n\nmount\n/dev/cdrom\n/media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso 镜像文件路径并连接虚拟光驱。\n\n24\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n将yum.repos.d,目录下的所有文件移动到tmp 目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d 中创建yum.repo 文件：\n\ntouch /etc/yum.repos.d/yum.repo\n\n在yum.repo 文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStrea"
+          },
+          {
+            "index": 4,
+            "document": "麒麟SP3ARM版本安装手册.docx",
+            "source": "麒麟SP3ARM版本安装手册.docx",
+            "section_id": "sec_0e921026309c1613",
+            "section_path": "设置yum源",
+            "chunk_id": "chk_2e0854e758f52717fe5e7696",
+            "snippet": "# 设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update"
+          },
+          {
+            "index": 5,
+            "document": "麒麟SP3x86版本安装手册.docx",
+            "source": "麒麟SP3x86版本安装手册.docx",
+            "section_id": "sec_e359a6456aa1ffac",
+            "section_path": "1.设置yum源",
+            "chunk_id": "chk_684c2a309c9314ed88d3c6f7",
+            "snippet": "# 1.设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update"
+          },
+          {
+            "index": 6,
+            "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_76bdde39098b3374",
+            "section_path": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源",
+            "chunk_id": "chk_a50641bd0ff42dd3aefdc54b",
+            "snippet": "# 安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源\n\n新增以下信息，创建本地yum源配置。\n\n[local]\n\nname=local\n\nbaseurl=file:///mnt\n\ngpgcheck=0\n\nenabled=1\n\n按“Esc”键后执行以下命令，保存并退出。\n\n:wq!\n\n清除yum缓存。\n\nyum clean all"
+          }
+        ],
+        "retrieved_uncited": [],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "baseurl",
+            "values": [
+              {
+                "index": 1,
+                "document": "2ca727efa70847b49f0f67528544d210.pdf",
+                "source": "2ca727efa70847b49f0f67528544d210.pdf",
+                "section_id": "sec_628c60aa0696fb73",
+                "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+                "chunk_id": "chk_937763b79878a3adb4a0f0a1",
+                "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1",
+                "value": "file:///media/cdrom/AppStream"
+              },
+              {
+                "index": 2,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_184df6688fd09c83",
+                "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+                "chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+                "snippet": "# 基础软件安装 > 软件安装准备 > 本地yum源设置\n\nmount /dev/cdrom /media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso镜像文件路径并连接虚拟光驱。\n\n将yum.repos.d,目录下的所有文件移动到tmp目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d中创建yum.repo文件：\n\nvim /etc/yum.repos.d/yum.repo\n\n在yum.repo文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStream]\n\nname= AppStream\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1\n\n执行以下命令：\n\nyum clean all",
+                "value": "file:///media/cdrom/AppStream"
+              },
+              {
+                "index": 2,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_184df6688fd09c83",
+                "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+                "chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+                "snippet": "# 基础软件安装 > 软件安装准备 > 本地yum源设置\n\nmount /dev/cdrom /media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso镜像文件路径并连接虚拟光驱。\n\n将yum.repos.d,目录下的所有文件移动到tmp目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d中创建yum.repo文件：\n\nvim /etc/yum.repos.d/yum.repo\n\n在yum.repo文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStream]\n\nname= AppStream\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1\n\n执行以下命令：\n\nyum clean all",
+                "value": "file:///media/cdrom/BaseOS"
+              },
+              {
+                "index": 3,
+                "document": "2ca727efa70847b49f0f67528544d210.pdf",
+                "source": "2ca727efa70847b49f0f67528544d210.pdf",
+                "section_id": "sec_628c60aa0696fb73",
+                "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+                "chunk_id": "chk_17657629d019813664cd3050",
+                "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\n挂载iso：mkdir /media/cdrom\n\nmount\n/dev/cdrom\n/media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso 镜像文件路径并连接虚拟光驱。\n\n24\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n将yum.repos.d,目录下的所有文件移动到tmp 目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d 中创建yum.repo 文件：\n\ntouch /etc/yum.repos.d/yum.repo\n\n在yum.repo 文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStrea",
+                "value": "file:///media/cdrom/BaseOS"
+              },
+              {
+                "index": 4,
+                "document": "麒麟SP3ARM版本安装手册.docx",
+                "source": "麒麟SP3ARM版本安装手册.docx",
+                "section_id": "sec_0e921026309c1613",
+                "section_path": "设置yum源",
+                "chunk_id": "chk_2e0854e758f52717fe5e7696",
+                "snippet": "# 设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update",
+                "value": "file:///media/cdrom"
+              },
+              {
+                "index": 5,
+                "document": "麒麟SP3x86版本安装手册.docx",
+                "source": "麒麟SP3x86版本安装手册.docx",
+                "section_id": "sec_e359a6456aa1ffac",
+                "section_path": "1.设置yum源",
+                "chunk_id": "chk_684c2a309c9314ed88d3c6f7",
+                "snippet": "# 1.设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update",
+                "value": "file:///media/cdrom"
+              },
+              {
+                "index": 6,
+                "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+                "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+                "section_id": "sec_76bdde39098b3374",
+                "section_path": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源",
+                "chunk_id": "chk_a50641bd0ff42dd3aefdc54b",
+                "snippet": "# 安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源\n\n新增以下信息，创建本地yum源配置。\n\n[local]\n\nname=local\n\nbaseurl=file:///mnt\n\ngpgcheck=0\n\nenabled=1\n\n按“Esc”键后执行以下命令，保存并退出。\n\n:wq!\n\n清除yum缓存。\n\nyum clean all",
+                "value": "file:///mnt"
+              }
+            ]
+          },
+          {
+            "key": "name",
+            "values": [
+              {
+                "index": 2,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_184df6688fd09c83",
+                "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+                "chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+                "snippet": "# 基础软件安装 > 软件安装准备 > 本地yum源设置\n\nmount /dev/cdrom /media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso镜像文件路径并连接虚拟光驱。\n\n将yum.repos.d,目录下的所有文件移动到tmp目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d中创建yum.repo文件：\n\nvim /etc/yum.repos.d/yum.repo\n\n在yum.repo文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStream]\n\nname= AppStream\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1\n\n执行以下命令：\n\nyum clean all",
+                "value": "BaseOS"
+              },
+              {
+                "index": 3,
+                "document": "2ca727efa70847b49f0f67528544d210.pdf",
+                "source": "2ca727efa70847b49f0f67528544d210.pdf",
+                "section_id": "sec_628c60aa0696fb73",
+                "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+                "chunk_id": "chk_17657629d019813664cd3050",
+                "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\n挂载iso：mkdir /media/cdrom\n\nmount\n/dev/cdrom\n/media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso 镜像文件路径并连接虚拟光驱。\n\n24\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n将yum.repos.d,目录下的所有文件移动到tmp 目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d 中创建yum.repo 文件：\n\ntouch /etc/yum.repos.d/yum.repo\n\n在yum.repo 文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStrea",
+                "value": "BaseOS"
+              },
+              {
+                "index": 2,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_184df6688fd09c83",
+                "section_path": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+                "chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+                "snippet": "# 基础软件安装 > 软件安装准备 > 本地yum源设置\n\nmount /dev/cdrom /media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso镜像文件路径并连接虚拟光驱。\n\n将yum.repos.d,目录下的所有文件移动到tmp目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d中创建yum.repo文件：\n\nvim /etc/yum.repos.d/yum.repo\n\n在yum.repo文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStream]\n\nname= AppStream\n\nbaseurl=file:///media/cdrom/AppStream\n\ngpgcheck=0\n\nenabled=1\n\n执行以下命令：\n\nyum clean all",
+                "value": "AppStream"
+              },
+              {
+                "index": 3,
+                "document": "2ca727efa70847b49f0f67528544d210.pdf",
+                "source": "2ca727efa70847b49f0f67528544d210.pdf",
+                "section_id": "sec_628c60aa0696fb73",
+                "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置",
+                "chunk_id": "chk_17657629d019813664cd3050",
+                "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.1.本地yum源设置\n\n挂载iso：mkdir /media/cdrom\n\nmount\n/dev/cdrom\n/media/cdrom/\n\n注：如果是虚拟机，则需要提前设置iso 镜像文件路径并连接虚拟光驱。\n\n24\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n将yum.repos.d,目录下的所有文件移动到tmp 目录：\n\nmkdir /etc/yum.repos.d/tmp\n\nmv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/\n\n在/etc/yum.repos.d 中创建yum.repo 文件：\n\ntouch /etc/yum.repos.d/yum.repo\n\n在yum.repo 文件中增加以下内容：\n\n[BaseOS]\n\nname= BaseOS\n\nbaseurl=file:///media/cdrom/BaseOS\n\ngpgcheck=0\n\nenabled=1\n\n[AppStrea",
+                "value": "AppStream"
+              },
+              {
+                "index": 4,
+                "document": "麒麟SP3ARM版本安装手册.docx",
+                "source": "麒麟SP3ARM版本安装手册.docx",
+                "section_id": "sec_0e921026309c1613",
+                "section_path": "设置yum源",
+                "chunk_id": "chk_2e0854e758f52717fe5e7696",
+                "snippet": "# 设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update",
+                "value": "mnt"
+              },
+              {
+                "index": 5,
+                "document": "麒麟SP3x86版本安装手册.docx",
+                "source": "麒麟SP3x86版本安装手册.docx",
+                "section_id": "sec_e359a6456aa1ffac",
+                "section_path": "1.设置yum源",
+                "chunk_id": "chk_684c2a309c9314ed88d3c6f7",
+                "snippet": "# 1.设置yum源\n\nname=mnt\n\nbaseurl=file:///media/cdrom\n\nenabled=1\n\ngpgcheck=0\n\n清除本地内存\n\nyum clean all && yum makecache\n\nyum update",
+                "value": "mnt"
+              },
+              {
+                "index": 6,
+                "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+                "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+                "section_id": "sec_76bdde39098b3374",
+                "section_path": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源",
+                "chunk_id": "chk_a50641bd0ff42dd3aefdc54b",
+                "snippet": "# 安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源\n\n新增以下信息，创建本地yum源配置。\n\n[local]\n\nname=local\n\nbaseurl=file:///mnt\n\ngpgcheck=0\n\nenabled=1\n\n按“Esc”键后执行以下命令，保存并退出。\n\n:wq!\n\n清除yum缓存。\n\nyum clean all",
+                "value": "local"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mq-125",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": false,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "多来源",
+        "冲突或核对"
+      ],
+      "citation_count": 0,
+      "answer": "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "https配置流程.docx",
+            "source": "https配置流程.docx",
+            "section_id": "sec_3a03cbd322890d8d",
+            "section_path": "一、SSL模块检查与安装",
+            "chunk_id": "chk_2c67c60f33158fc8b2183d2b",
+            "snippet": "# 一、SSL模块检查与安装\n\n验证Nginx是否已安装SSL模块：\nnginx -V | grep -- --with-http_ssl_module\n若未显示结果，需重新编译安装：（重编有点麻烦，也可以直接替换编译好的nginx文件【替换nginx执行程序文件：/usr/sbin】）\n./configure --with-http_ssl_module\nmake && make install\n证书获取‌：\n商业证书（如DigiCert）或免费证书（如Let's Encrypt）【需要有域名】\n证书文件需包含：公钥（.crt或.pem）、私钥（.key）和证书链文件\n因我这边没有域名，故暂用自签名证书做的测试，自签名证书如何生成见单独的文档《自签名证书生成流程.docx》\n证书存放‌：\nmkdir /usr/local/nginx/cert\nchmod 700 /usr/local/nginx/cert\n/etc/nginx/conf.d/default.conf配置文件\n基础HTTPS配置‌：（原来的80端口配置不变，新增下面的443端口配置）\nserver {\nlisten 4",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampTools用户手册.docx",
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_a487aaf63774371b",
+            "section_path": "UEModelBuilder > UE导出插件 > 导出蓝图",
+            "chunk_id": "chk_08134a5501705f99ed0b0765",
+            "snippet": "# UEModelBuilder > UE导出插件 > 导出蓝图\n\n如果模型关联到蓝图，要先导出蓝图再导出模型，如果模型关联的蓝图有多个，则需要把相关蓝图导出到同一个目录下面。\n\n蓝图导出\n\n选择要导出的蓝图节点，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口勾选前4项，然后导出选中的蓝图节点。\n\n注：只能导出“lib_ax对蓝图的支持说明.docx”说明文档中支持的节点的蓝图，\n\n模型导出\n\n选择要导出的模型对象，然后选择“文件”->“导出选中项”，在弹出的保存对话框中保存类型选择“.x”，在下一个弹出窗口中点击“Blueprint Path：……”后面的“Open”按钮选择蓝图的导出目录，并勾选前面3项，然后导出选中的模型对象。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_84cfeeab09e57196738f2a01",
+            "snippet": "| 字段名称 | 是否必填 | 字段说明 | 备注 |\n| --- | --- | --- | --- |\n| DataConfig | 是 | DataConfig参数表示获取的是第几个data.data数据 |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "config.ini说明.xlsx",
+            "source": "config.ini说明.xlsx",
+            "section_id": "sec_86277f44c3f46df5",
+            "section_path": "Sheet1",
+            "chunk_id": "chk_ce8185b81e90e5a7e114d3ab",
+            "snippet": "# Sheet1\n\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 5,
+            "document": "VSCode+SVN配置.docx",
+            "source": "VSCode+SVN配置.docx",
+            "section_id": "sec_741b3de9a051e03c",
+            "section_path": "",
+            "chunk_id": "chk_dbfa7a1711e467e9fa19821d",
+            "snippet": "文件修改后，在左侧菜单源代码管理会列出改动的文件，可对文件进行提交等操作",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "config.ini说明.xlsx",
+            "source": "config.ini说明.xlsx",
+            "section_id": "sec_86277f44c3f46df5",
+            "section_path": "Sheet1",
+            "chunk_id": "chk_4b9bd5bca294f3fde4f40034",
+            "snippet": "# Sheet1\n\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n|  |  |  |  |  |  |  |  |  |  |  |  |  |",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [
+          {
+            "status": "insufficient_evidence",
+            "reason": "no_valid_citation"
+          }
+        ],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-124",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": false,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "不得静默二选一"
+      ],
+      "citation_count": 1,
+      "answer": "知识库中配置示例明确写为 `tls-listening-port=5349` [5]。\n\n关于 5439，当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_84cfeeab09e57196738f2a01",
+            "snippet": "| 字段名称 | 是否必填 | 字段说明 | 备注 |\n| --- | --- | --- | --- |\n| DataConfig | 是 | DataConfig参数表示获取的是第几个data.data数据 |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "GB28181配置说明.docx",
+            "source": "GB28181配置说明.docx",
+            "section_id": "sec_f11c95c4633a7c8c",
+            "section_path": "",
+            "chunk_id": "chk_0e278bca2e98ec5e0809dac4",
+            "snippet": "- 网络实时设备配置：",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "坡度分析-坡度连片度分析--相关接口.docx",
+            "source": "坡度分析-坡度连片度分析--相关接口.docx",
+            "section_id": "sec_58bf3c91d792bd2c",
+            "section_path": "",
+            "chunk_id": "chk_84ba1c4df3bda99c4d473232",
+            "snippet": "type=slope_connected&layer=400ded9c-5b11-ec11-f93c-0000f93d0080&aparam=c01d62ee-46eb-4d9c-9d20-2b53e64ef2e9,12&\nDem图层的配置信息\n<DEMLayer id=\"400ded9c-5b11-ec11-f93c-0000f93d0080\" name=\"dg_roam\" grouptype=\"\">\n矢量图层的配置信息\n<GISPolygonLayer id=\"c01d62ee-46eb-4d9c-9d20-2b53e64ef2e9\" name=\"tdly3d_dltb_4490\">\n<Table>tdly3d_dltb_4490</Table>\n<PbfColumn>gid</PbfColumn>\n<PbfLevelControlConfig/>\n</GISPolygonLayer>\n行政区配置信息\n<Table>\n<Canton3>dong_guan_canton</Canton3>\n</Table>",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_3bd519bfa6d1f01f",
+            "section_path": "",
+            "chunk_id": "chk_5e5e099e24f7fcfade7d0d0c",
+            "snippet": "表5 TPOPS独立部署节点硬件要求",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_a80845df326f75110c75e276",
+            "snippet": "- 服务配置",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-126",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": false,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "listening-port",
+        "tls-listening-port",
+        "分别引用"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_c12c6271d37cb28d7e560304",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:yo",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_c155b9d400bfac85",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.8.PostgreSQL安装",
+            "chunk_id": "chk_4f6cf01943e3fa3b5560d108",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.5.基础软件安装 > 1.5.8.PostgreSQL安装\n\n将#port = 5432 修改成：port = 5432\n\n将max_connections = 100 修改成：max_connections = 1000\n\n（7）重启数据库：\n\nsystemctl restart postgresql-16.service\n\n39\n\nStampServer 用户手册--北京睿城传奇科技有限公司",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_94e70c9cfdbc6b1d",
+            "section_path": "基础软件安装 > 基础软件安装 > PostgreSQL安装",
+            "chunk_id": "chk_51422a55b63ec62e5f863e4f",
+            "snippet": "# 基础软件安装 > 基础软件安装 > PostgreSQL安装\n\nvim /var/lib/pgsql/16/data/pg_hba.conf\n\n# IPv4 local connections\n\nhost all all 0.0.0.0/0 scram-sha-256\n\n设置监听地址和端口：\n\n打开/var/lib/pgsql/16/data/postgresql.conf文件：\n\nvim /var/lib/pgsql/16/data/postgresql.conf\n\n设置数据库实例监听地址和端口：\n\n将 #listen_addresses = 'localhost'修改成：listen_addresses = '*'\n\n将#port = 5432修改成：port = 5432\n\n将max_connections = 100修改成：max_connections = 1000\n\n重启数据库：",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 5,
+            "document": "麒麟SP3x86版本安装手册.docx",
+            "source": "麒麟SP3x86版本安装手册.docx",
+            "section_id": "sec_50239b9fe0a7b435",
+            "section_path": "7.安装tomcat",
+            "chunk_id": "chk_bfb044afec0b4a80f65c4bd5",
+            "snippet": "# 7.安装tomcat\n\n#}\n# deny access to .htaccess files, if Apache's document root\n# concurs with nginx's one\n#\n#location ~ /\\.ht {\n# deny all;\n\n#}\n}\n# another virtual host using mix of IP-, name-, and port-based configuration\n#\n#server {\n# listen 8000;\n\n# listen somename:8080;",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "tls_port",
+            "values": [
+              {
+                "index": 1,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_139487eac422406d",
+                "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+                "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+                "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+                "value": "5349"
+              },
+              {
+                "index": 6,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_21e6e4593247f060",
+                "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+                "chunk_id": "chk_9b317d8155d2bd66db752022",
+                "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|",
+                "value": "5439"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mq-127",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "防火墙",
+        "正文端口",
+        "冲突提示"
+      ],
+      "citation_count": 2,
+      "answer": "在知识库中，关于网络穿透服务的端口配置存在不一致：\n\n- [4]中提到的stun/turn端口为19303（\"stun:119.57.255.50:19303\",\"turn:119.57.255.50:19303\"）。\n- [5]中提到的网络穿透服务端口为3478（监听端口）、5439（TLS端口）、55000-55500（中继端口）。\n\n请核对原文确认正确的端口配置。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 4,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_25dbd147e391eed2",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署",
+            "chunk_id": "chk_5ffadb98674872aabed6d8c3",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署\n\nWebRTC（SFU）端口：\"SFUPortList\": [10871,10872,10873],\n\n渲染客户端路径：\"ExePath\":\"E:/StampUE53/\",\n\n123\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n外网映射网络穿透配置：\"peerConnectionOptions\": \"{ \\\"iceServers\\\": [{\\\"urls\\\":\n\n[\\\"stun:119.57.255.50:19303\\\",\\\"turn:119.57.255.50:19303\\\"],\n\\\"username\\\":\n\n\\\"PixelStreamingUser\\\", \\\"credential\\\": \\\"AnotherTURNintheroad\\\"}] }\""
+          },
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_bd9c17be5c3bc4db",
+            "section_path": "200 OK > 检查防火墙",
+            "chunk_id": "chk_e3342218103360f842bcb482",
+            "snippet": "# 200 OK > 检查防火墙\n\n1).执行以下命令，关闭防火墙并禁止开机启动。\n\nsystemctl stop firewalld.service\n\nsystemctl disable firewalld.service\n\n建议直接关闭防火墙。\n\n如果不能关闭防火墙，则需要参考网络端口要求，将通信矩阵上所有的端口都放开。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_76bdde39098b3374",
+            "section_path": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源",
+            "chunk_id": "chk_b0771121aeb19634b244a53d",
+            "snippet": "# 安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源\n\n缓存本地yum源。\n\nyum makecache\n\n安装云数据库GaussDB管理平台（TPOPS）需要保证各节点间的时钟源同步，可使用Chrony配置时间同步或使用NTP配置时间同步两种时钟源配置。\n\n用户依据实际情况进行配置，确保时间同步在30秒之内。\n\n本此部署以Chrony配置为例。\n\n•配置时钟源前，确保您拥有所有机器的root用户权限。\n\n•配置时钟源的服务端主机与客户端主机的网络需要互通，并且Chrony或者NTP服务端口不被防火墙拦截。\n\n◾作为时钟源的服务端主机与客户端主机开启iptables\n\nsystemct start iptables\n\nSystemctl enable iptables",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_bd9c17be5c3bc4db",
+            "section_path": "200 OK > 检查防火墙",
+            "chunk_id": "chk_271c3b92e741923c235d24a6",
+            "snippet": "# 200 OK > 检查防火墙\n\n3).修改“SELINUX”的值“disabled”，按“Esc”键后执行:wq!\n\n保存并退出修改。\n\nSELINUX=disabled",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_603c0992f8f3d849",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
+            "chunk_id": "chk_7141cfb3f45ff19b21b33600",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n16\n1.3.3.\n\n防火墙设置................................................................................................................................18\n1.3.4.\n\nSELinux 设置............................................................................................................................\n\n18\n1.3.5.\n\nfstab 设置...................................................................................................................................18\n1.",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-128",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": false,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "适用范围或来源"
+      ],
+      "citation_count": 3,
+      "answer": "HttpsPort=443 用于 HTTPS 服务。在 SignallingWebServer 配置中，HTTPS 端口被明确指定为 443 [1][2]。根据端口说明表格，该端口适用于数据服务器的推流服务（标注为 \"https服务 | 443\"）和渲染服务器的渲染服务（标注为 \"HttpsPort | 443\"）[3]。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_adf8b378b3ed1294",
+            "section_path": "Stamp服务部署 > SignallingWebServer部署 > 信令服务部署",
+            "chunk_id": "chk_42c80c40a6fb0b7133d86047",
+            "snippet": "# Stamp服务部署 > SignallingWebServer部署 > 信令服务部署\n\n将信令服务（SignallingWebServer）拷贝到渲染服务器上（比如E盘根目录下），打开..\\SignallingWebServer\\config.json修改IP地址和端口：\n\nmatchmaker服务IP地址：\"MatchmakerAddress\": \"192.168.10.76\",\n\nmatchmaker服务端口：\"MatchmakerPort\": 9999,\n\n信令服务的IP地址：\"PublicIp\": \"192.168.10.137\",\n\n信令服务使用端口：\"PublicPortList\": [30081,30082,30083],\n\nHTTPS端口：\"HttpsPort\": 443,\n\n推流服务端口：\"StreamerPortList\": [10881,10882,10883],\n\nWebRTC（SFU）端口：\"SFUPortList\": [10871,10872,10873],\n\n渲染客户端路径：\"ExePath\":\"E:/StampUE56/\","
+          },
+          {
+            "index": 2,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_25dbd147e391eed2",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署",
+            "chunk_id": "chk_73e4679518cf75d5e29cdd92",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署\n\n将信令服务（SignallingWebServer）和渲染引擎（StampUE53）拷贝到渲染服务器上（比\n\n如E 盘根目录下），渲染服务器要求具有Nvidia 中高端图形显卡（显存8G 及以上），比如\n\nNvida3080、3080Ti、3090、4080、4090、A5000、A5500 等，操作系统为Windows10 22H2 及\n\n以上版本。\n\n打开E:\\SignallingWebServer\\config.json 进行配置：\n\nmatchmaker 服务IP 地址：\"MatchmakerAddress\": \"192.168.10.74\",\n\nmatchmaker 服务端口：\"MatchmakerPort\": 9999,\n\n信令服务本机IP 地址：\"PublicIp\": \"192.168.10.142\",\n\n信令服务使用端口：\"PublicPortList\": [30081,30082,300"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 4,
+            "document": "HTTPS和域名配置.docx",
+            "source": "HTTPS和域名配置.docx",
+            "section_id": "sec_13537a48778952cd",
+            "section_path": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书",
+            "chunk_id": "chk_b577c53d42397370ba5d2d43",
+            "snippet": "# HTTPS配置 > 私有CA配置 > Nginx使用CA证书\n\n80：443",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 5,
+            "document": "EGIS三维数据服务接口规范0902.docx",
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a",
+            "section_path": "",
+            "chunk_id": "chk_5f543e7d89877bc6071a356a",
+            "snippet": "</ServiceMetadata>\n1、接口说明",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "EGIS三维数据服务接口规范0902.docx",
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a",
+            "section_path": "",
+            "chunk_id": "chk_560f1b726268f77ed11af093",
+            "snippet": "</Identification>\n</ServiceMetadata>\n1、接口说明",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-129",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": false,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "多组凭证示例",
+        "标明示例"
+      ],
+      "citation_count": 2,
+      "answer": "知识库中提到了Turnserver用户凭证的配置示例，例如：\n- TCP外网部署中使用：user=PixelStreamingUser:AnotherTURNintheroad [3]\n- UDP外网部署中也使用了类似的配置 [5]\n\n以上为知识库中已查到的部分内容。关于\"多组用户凭证\"的配置方式，当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_348f70a56dd7256d75dda8d5",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\nuser=PixelStreamingUser:AnotherTURNintheroad\n\n#认证域，将“#realm=mycompany.org”修改为：\n\nrealm=PixelStreaming\n\n# TLS/DTLS 证书和私钥路径，将“#cert=/etc/pki/coturn/public/turn_server_cert.pem和#pkey=/etc/pki/coturn/private/turn_server_pkey.pem”修改为：\n\ncert=/etc/coturn/certs/fullchain.pem\n\npkey=/etc/coturn/certs/privkey.pem\n\n#禁止日志输出到 stdout（适合后台运行），将“#no-stdout-log”修改为：\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将"
+          },
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_00c18b45914e12d1cdbbbafa",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:youhavetoberealistic”修改为：\n\nuser=PixelStreamingUser:AnotherTURNintheroad\n\n#认证域，将“#realm=mycompany.org”修改为：\n\nrealm=PixelStreaming\n\n# TLS/DTLS 证书和私钥路径，将“#cert=/etc/pki/coturn/public/turn_server_cert.pem和#pkey=/etc/pki/coturn/private/turn_server_pkey.pem”修改为：\n\ncert=/etc/coturn/certs/fullchain.pem\n\npkey=/etc/coturn/certs/privkey.pem\n\n#禁止日志输出到 stdout（适合后台运行），将“#no-stdout-log”修改为：\n\nno-stdout-"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fc805e8e8050ee95",
+            "section_path": "Stamp服务部署 > Trunserver部署",
+            "chunk_id": "chk_c34ad66325afcba11c01f91e",
+            "snippet": "# Stamp服务部署 > Trunserver部署\n\n（1）Trunserver安装\n\n外网穿透需要使用Turnserver进行网络穿透，Turnserver应该安装在独立服务器上，其支持的中级线程数等于CPU内核数，正式运行环境建议独立部署Turnserver服务器。\n\n采用yum方式进行安装（目前最新版本是4.6.3）。\n\n注：内网安装则需要先在外网用只下载不安装模式把相关包下载下来，然后拷贝到内网进行安装。\n\nyum install -y epel-release\n\nyum install -y turnserver\n\n（2）生成自签名证书\n\nmkdir -p /etc/coturn/certs\n\nopenssl req -x509 -newkey rsa:4096 -keyout /etc/coturn/certs/privkey.pem -out /etc/coturn/certs/fullchain.pem -days 365 -nodes -subj \"/CN=your-domain.com\"\n\n说明：-nodes：生成无密码的私钥（关键，避免启动时需输入密码）。\n\n生",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_aa84799227adcc3099b03d14",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n##禁用不安全的TLS协议，在“#no-tlsv1_2”后添加以下两行：\n\nno-tlsv1\n\nno-tlsv1_1\n\n上述配置完成后输入命令检查语法：\n\nturnserver -c /etc/coturn/turnserver.conf -o\n\n注：返回turnserver: /usr/pgsql-16/lib/libpq.so.5: no version information available (required by turnserver)，属于正常。\n\n（2）信令服务修改\n\n修改\\SignallingWebS",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_c12c6271d37cb28d7e560304",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:yo",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-027",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "section_path 缺失或无法稳定恢复"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_603c0992f8f3d849",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
+            "chunk_id": "chk_9eb780f0cbd8c015716f6fae",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n运维管理路径设置....................................................................................................................43\n2.2.\n\n服务配置............................................................................................................................................45\n2.2.1.",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_a71dc3d8af925690d01368c2",
+            "snippet": "| 字段名称 | 是否必填 | 字段说明 | 备注 |\n| --- | --- | --- | --- |\n| 数据路径 | 是 | /home/smbdata/xuzhou/model/xcj_dx/display/cm/00/58d3/5a4b/200585a00d34b.m_sde |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "三维数据发布服务接口 - v1.4.1.docx",
+            "source": "三维数据发布服务接口 - v1.4.1.docx",
+            "section_id": "sec_badb87d23f5a62fd",
+            "section_path": "",
+            "chunk_id": "chk_310a20c773abe365d6c5e9cc",
+            "snippet": "| 参数名 | 描述 | 必选\\|可选 | 默认值 |\n| --- | --- | --- | --- |\n| src_path | 原始数据所在的目录 | 必选 |  |\n| layer_name | 数据管理的图层名称 | 必选 |  |\n| spatial | 坐标文件路径 | 可选 |  |\n| split_size | 图片裁切大小 | 可选 | 1024 |\n| center_pos | 模型重置中心点下底还是中心 | 可选 | 0（下底） |\n| lightmap_size | 发光纹理大小 | 可选 | 64 |\n| max_pic_size | 纹理图片最大大小 | 可选 | 4096 |\n| clamp_level | 贴地级别 | 可选 |  |\n| clamp_path | 贴地的地形数据路径 | 可选 |  |\n| desc | 图层的描述信息 | 可选 |  |\n| coordfile_path | 模型的地理坐标点文件的目录，可能有多个文件，每个模型按name字段的值匹配。 | 可选 |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "三维数据发布服务接口 - v1.4.docx",
+            "source": "三维数据发布服务接口 - v1.4.docx",
+            "section_id": "sec_bf9df5658a962bd5",
+            "section_path": "",
+            "chunk_id": "chk_b767f4bb39804e97285d09e0",
+            "snippet": "| 参数名 | 描述 | 必选\\|可选 | 默认值 |\n| --- | --- | --- | --- |\n| src_path | 原始数据所在的目录 | 必选 |  |\n| layer_name | 数据管理的图层名称 | 必选 |  |\n| spatial | 坐标文件路径 | 可选 |  |\n| split_size | 图片裁切大小 | 可选 | 1024 |\n| center_pos | 模型重置中心点下底还是中心 | 可选 | 0（下底） |\n| lightmap_size | 发光纹理大小 | 可选 | 64 |\n| max_pic_size | 纹理图片最大大小 | 可选 | 4096 |\n| clamp_level | 贴地级别 | 可选 |  |\n| clamp_path | 贴地的地形数据路径 | 可选 |  |\n| desc | 图层的描述信息 | 可选 |  |\n| coordfile_path | 模型的地理坐标点文件的目录，可能有多个文件，每个模型按name字段的值匹配。 | 可选 |  |",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-131",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "未查询到或无法提供"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampGIS三维产品白皮书.docx",
+            "source": "StampGIS三维产品白皮书.docx",
+            "section_id": "sec_2a79e46997690acc",
+            "section_path": "产品概述 > 产品简介",
+            "chunk_id": "chk_bd8bfe6f403e446d1096a0a6",
+            "snippet": "# 产品概述 > 产品简介\n\nStampGIS是公司自主研发的大型三维地理信息系统软件产品，实现了二三维一体化、地上地下一体化、GIS引擎与游戏引擎一体化，在复杂大场景渲染性能与效果方面具有核心竞争力。\n\nStampGIS产品包括数据优化处理工具、三维数据与分析服务和三维基础平台，以及三维规划会商、三维管线综合管理等行业应用产品，\n\n图1 StampGIS产品体系",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "三维基本概念.pptx",
+            "source": "三维基本概念.pptx",
+            "section_id": "sec_50b02c2111a66bca",
+            "section_path": "LOD技术",
+            "chunk_id": "chk_5730c5fa9db15a1b56270cd4",
+            "snippet": "# LOD技术\n\nLOD（Levels of Detail）技术：，是指多细节层次技术，是在不影响画面视觉效果的前提下，通过逐次简化景物的表面细节来减少场景的几何复杂性，从而提高二维、三维场景绘制算法的效率。\n\n1、StampGIS：共分23级（0-22），其中DOM为0-22级，DEM为3-22级，Model按15级进行分块，树/小品按18级分块。\n\n2、Level采用十六进制编码：0-9，a-f\n\n备注：3",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_34f8ee813162354c15128f58",
+            "snippet": "表38三维地图关键字服务输出参数",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "修改postgresql数据库密码.docx",
+            "source": "修改postgresql数据库密码.docx",
+            "section_id": "sec_5a2d2db5e60d0c13",
+            "section_path": "",
+            "chunk_id": "chk_77c42e9e3e6cbe8bb33d6fd8",
+            "snippet": "3、修改StampManager中数据库密码配置的地方（数据库配置、数据配置工程的矢量数据库配置等）",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-132",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "section_path 缺失或无法稳定恢复"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "三维数据发布服务接口 - v1.4.1.docx",
+            "source": "三维数据发布服务接口 - v1.4.1.docx",
+            "section_id": "sec_badb87d23f5a62fd",
+            "section_path": "",
+            "chunk_id": "chk_a14effacb32bbdde2e99308f",
+            "snippet": "src_path={src_path}\n&max_level={max_level}",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "三维数据发布服务接口 - v1.4.1.docx",
+            "source": "三维数据发布服务接口 - v1.4.1.docx",
+            "section_id": "sec_badb87d23f5a62fd",
+            "section_path": "",
+            "chunk_id": "chk_363bc78b8670694e9e0d7b6e",
+            "snippet": "| spatial | 空间参考文件路径 | 必选 | |\n| src_path | 小品、树原始数据路径 | 必选 | |\n| layer_name | 数据管理的图层名称 | 必选 | |\n| data_type | 树还是小品 | 必选 | 0 |\n| desc | 图层的描述信息 | 可选 | |\n| clamp_path | 贴地的地形数据路径 | 可选 | |\n| clamp_level | 贴地级别 | 可选 | |\n- KVP请求示例：",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "三维数据发布服务接口 - v1.4.docx",
+            "source": "三维数据发布服务接口 - v1.4.docx",
+            "section_id": "sec_bf9df5658a962bd5",
+            "section_path": "",
+            "chunk_id": "chk_ed1ef608986d5995184ebe69",
+            "snippet": "| src_path | 小品、树原始数据路径 | 必选 | |\n| layer_name | 数据管理的图层名称 | 必选 | |\n| data_type | 树还是小品 | 必选 | 0 |\n| desc | 图层的描述信息 | 可选 | |\n| clamp_path | 贴地的地形数据路径 | 可选 | |\n| clamp_level | 贴地级别 | 可选 | |\n- KVP请求示例：",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "三维数据发布服务接口 - v1.4.1.docx",
+            "source": "三维数据发布服务接口 - v1.4.1.docx",
+            "section_id": "sec_badb87d23f5a62fd",
+            "section_path": "",
+            "chunk_id": "chk_fac6caae42c26527b0786d9e",
+            "snippet": "| 参数名 | 描述 | 必选\\|可选 | 默认值 |\n| --- | --- | --- | --- |\n| src_path | 原始数据所在的目录 | 必选 |  |\n| layer_name | 数据管理的图层名称 | 必选 |  |\n| spatial | 坐标文件路径 | 可选 |  |\n| split_size | 图片裁切大小 | 可选 | 1024 |\n| center_pos | 模型重置中心点下底还是中心 | 可选 | 0（下底） |\n| lightmap_size | 发光纹理大小 | 可选 | 64 |\n| max_pic_size | 纹理图片最大大小 | 可选 | 4096 |\n| clamp_level | 贴地级别 | 可选 |  |\n| clamp_path | 贴地的地形数据路径 | 可选 |  |\n| desc | 图层的描述信息 | 可选 |  |",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-133",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_7726b282b1bf1891a937f0da",
+            "snippet": "- 授权软件安装",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_ceeea1f81545583521c0b3e8",
+            "snippet": "- NodeJS安装",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_fb13cf33d6b4e4d719a42f08",
+            "snippet": "- Nginx安装",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampTools用户手册.docx",
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_f6096ea6be452fed",
+            "section_path": "工具概述",
+            "chunk_id": "chk_5ce92b8852eef63b2109e5e7",
+            "snippet": "# 工具概述\n\n## 工具概述 > 运行环境\n\n工具的运行环境为，\n\n操作系统：Windows10、11企业版\n\nCPU：I7及以上，推荐I9\n\n内存：32G及以上，推荐64G\n\n显卡：NVIDIA GTX960及以上，显存4G及以上，推荐显存8G。\n\n注：模型、倾斜工具必须要有显卡，CPU、内存和显卡配置越高、发布速度越快。\n\n## 工具概述 > 工具版本\n\n在工具界面右上角点击“？”会弹出工具版本说明，包括：\n\n产品版本：界面编译发布的版本。\n\n内核版本：工具底层库编译发布的版本。\n\n版本号命名规则是: 大版本、子版本、版本发布年月、版本发布日期、当天编译次数。\n\n## 工具概述 > 纹理格式\n\n数据处理成果的纹理格式支持以下几种：",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-134",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_8a87ada3a913648093e063c8",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\nWebGL（只用数据服务器）和WebRTC用到的端口如下：\n\n端口一览表",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "2ca727efa70847b49f0f67528544d210.pdf",
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_25dbd147e391eed2",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署",
+            "chunk_id": "chk_5ffadb98674872aabed6d8c3",
+            "snippet": "# 2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.2.渲染服务部署 > 7.2.2.SignallingWebServer部署\n\nWebRTC（SFU）端口：\"SFUPortList\": [10871,10872,10873],\n\n渲染客户端路径：\"ExePath\":\"E:/StampUE53/\",\n\n123\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n外网映射网络穿透配置：\"peerConnectionOptions\": \"{ \\\"iceServers\\\": [{\\\"urls\\\":\n\n[\\\"stun:119.57.255.50:19303\\\",\\\"turn:119.57.255.50:19303\\\"],\n\\\"username\\\":\n\n\\\"PixelStreamingUser\\\", \\\"credential\\\": \\\"AnotherTURNintheroad\\\"}] }\"",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampTools用户手册.docx",
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_f6096ea6be452fed",
+            "section_path": "工具概述",
+            "chunk_id": "chk_5ce92b8852eef63b2109e5e7",
+            "snippet": "# 工具概述\n\n## 工具概述 > 运行环境\n\n工具的运行环境为，\n\n操作系统：Windows10、11企业版\n\nCPU：I7及以上，推荐I9\n\n内存：32G及以上，推荐64G\n\n显卡：NVIDIA GTX960及以上，显存4G及以上，推荐显存8G。\n\n注：模型、倾斜工具必须要有显卡，CPU、内存和显卡配置越高、发布速度越快。\n\n## 工具概述 > 工具版本\n\n在工具界面右上角点击“？”会弹出工具版本说明，包括：\n\n产品版本：界面编译发布的版本。\n\n内核版本：工具底层库编译发布的版本。\n\n版本号命名规则是: 大版本、子版本、版本发布年月、版本发布日期、当天编译次数。\n\n## 工具概述 > 纹理格式\n\n数据处理成果的纹理格式支持以下几种：",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-135",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "证据不足"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampWebGL用户手册.docx",
+            "source": "StampWebGL用户手册.docx",
+            "section_id": "sec_5bd50e6de4c69209",
+            "section_path": "查询",
+            "chunk_id": "chk_de378d8325703cf116c18885",
+            "snippet": "# 查询\n\n## 查询 > 圆域查询\n\n在图层管理面板上选中需要查询的图层，然后点击“圆域查询”按钮后在左侧弹出圆域查询面板，在查询面板上点击“查询”按钮后鼠标在3D场景中目标区域中心点绘制圆形区域进行查询，将返回目标图层中与圆相交或包含的所有对象。\n\n在查询结果记录上双击可进行目标对象飞行定位和高亮闪烁，如勾选“详细信息”复选框则同时显示目标对象的其余属性信息。\n\n## 查询 > 坐标查询\n\n点击“坐标查询”按钮后，鼠标在3D场景目标点点击获取该点坐标。\n\n## 查询 > 坐标定位\n\n点击“坐标定位”按钮后在3D视窗左上角弹出坐标定位窗口，支持经纬度坐标和平面坐标两种方式进行定位。\n\n提示：平面坐标定位原理：以StampManager中工程配置的空间参考，将输入的平面坐标实时投影变换为经纬度坐标后进行定位。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampWebRTC用户手册.docx",
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_97515817db0ebf50",
+            "section_path": "查询",
+            "chunk_id": "chk_0730992f15b8a2659845f45e",
+            "snippet": "# 查询\n\n## 查询 > 关键字查询\n\n在图层管理面板上选中需要查询的图层，然后点击“关键字查询”按钮后在左侧弹出关键字查询面板，在查询面板上输入关键字进行模糊查询，获取到该图层上含有关键字的所有对象。\n\n在查询结果面板中双击某个记录则将飞行定位到目标对象并高亮闪烁，如果勾选查询面板下方的“显示详细信息”复选框，则会以气泡方式显示该对象的其他属性信息。\n\n提示：气泡窗口的属性信息挂接方式与属性查询相同。\n\n## 查询 > 坐标查询\n\n点击“坐标查询”按钮后，鼠标在3D场景目标点点击获取该点坐标。\n\n## 查询 > 坐标定位\n\n点击“坐标定位”按钮后在3D视窗左上角弹出坐标定位窗口，支持经纬度坐标和平面坐标两种方式进行定位。\n\n提示：平面坐标定位原理：以StampManager中工程配置的空间参考，将输入的平面坐标实时投影变换为经纬度坐标后进行定位。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampWebRTC用户手册.docx",
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ac3dd564d1c94b6a",
+            "section_path": "标绘 > 军事标绘",
+            "chunk_id": "chk_f1adf9314e4483d33f42f27b",
+            "snippet": "# 标绘 > 军事标绘\n\n简单箭头\n\n点击“简单箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景沿目标路径点击多个控制点，点击右键结束后完成绘制箭头。\n\n名称：简单箭头的名称，默认为“sArrow”\n\n线颜色：简单箭头外框线的显示颜色，16进制\n\n线透明度：设置简单箭头外框线的透明度，0是完全透明，255是不透明。\n\n线宽：简单箭头外框线的宽度，单位为像素\n\n填充色：简单箭头填充的颜色，16进制\n\n透明度：简单箭头的透明度，0是完全透明，255是不透明\n\n渲染模式：可选择所画的简单箭头是帖地显示、正常显示、还是帖在模型上\n\n渲染顺序：简单箭头的渲染显示顺序，数值越大渲染显示级别越优先，默认值0\n\n可选择性：设置箭头是否可选择，默认是\n\n可编辑：设置箭头是否可编辑，默认是\n\n描述：简单箭头的文字性描述\n\n直箭头\n\n点击“直箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中沿目标路径定义多个控制点，点击右键结束后完成绘制箭头。\n\n燕尾箭头\n\n点击“燕尾箭头”按钮，弹出参数设置界面，在界面设置相关参数后鼠标在3D场景中沿目标路径定义多个控制点，点击右键结束后完",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "Geoserver 叠加分析 -v0.2.docx",
+            "source": "Geoserver 叠加分析 -v0.2.docx",
+            "section_id": "sec_d31b9bfbda399034",
+            "section_path": "示例",
+            "chunk_id": "chk_0b0ef24c74963d60cfd7b415",
+            "snippet": "# 示例\n\nop=10&service=904ff6df-c19c-4ea2-b77b-900000000001&qt=17&pg=0,10&sc=(2,5,113.732358,22.797576,0.001,113.732350,22.797586,0.001,113.732350,22.797691,0.001,113.732356,22.797690,0.001,113.732358,22.797576,0.001)",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-136",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "gb28181端口映射.docx",
+            "source": "gb28181端口映射.docx",
+            "section_id": "sec_9cb6e662694c83c8",
+            "section_path": "",
+            "chunk_id": "chk_35405a4448152dfb888e060a",
+            "snippet": "如上图所示：\n\n第一行为gb28181服务器配置端口映射，用来跟外网接入平台或者摄像头做SIP信令交互使用\n\n其中：外部端口：指路由器端口\n\n内部端口：是gb28181服务器端口\n\n内部IP：指gb28181服务器ip\n\n第二行是给客户端电脑（指访问stampexplorer的电脑）配置的端口映射，因为客户端gb28181流程：lib_ax接口调用我们的gb28181服务与终端摄像头三次握手的同时把自己的ip和端口发送给摄像头，连接建立成功之后，lib_ax通过udp直接接收摄像头的视频\n\n其中：外部端口：指路由器端口\n\n内部端口：指lib_ax所在机器的用来做udp传输的端口\n\n内部ip：指lib_ax所在机器的ip\n\n第三行是给webgl配置的，webgl流程是chrome通过websocket与gb28181服务器建立连接的过程当中，gb28181服务器通过sip信令把服务器的udp端口和pi发送给摄像头，当连接建立成功之后，摄像头通过udp协议把数据传输给gb28181服务器，然后gb28181服务器通过websocket把视频流传输给chrome",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_009984d98bb160cc",
+            "section_path": "运维管理配置",
+            "chunk_id": "chk_320f5dc1a0f2c79b259dc901",
+            "snippet": "# 运维管理配置\n\n## 运维管理配置 > MinIO数据配置\n\n添加图层\n\n输入MinIO文件系统的登录信息，包括：\n\n名称：MinIO文件系统的名称\n\n服务地址：MinIO文件系统的IP地址和端口\n\nBucket：数据在MinIO文件系统中的存储桶名称\n\n登录信息：MinIO文件系统的登录用户名和密码\n\n## 运维管理配置 > 授权信息\n\n获取当前服务器的授权信息和硬件信息：\n\n授权检测：获取当前服务器的服务授权信息，包括授权服务启动状态、授权ID、开始时间和结束时间。\n\n获取硬件：获取当前服务器的硬件信息，用于进行服务器永久授权的生成。\n\n## 运维管理配置 > IP统改\n\n在IP地址和端口发生变更后统一修改服务配置文件中的IP地址和端口，注意同一IP地址下不同端口都需要逐一修改。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_2e8ef6053f4aa007",
+            "section_path": "运维管理配置 > 服务设置 > 基础配置",
+            "chunk_id": "chk_58cf3dca62725f137b871a2c",
+            "snippet": "# 运维管理配置 > 服务设置 > 基础配置\n\n在StampManager界面中服务管理/服务设置中进行基础配置。\n\n服务授权地址：设置授权服务器的IP地址和端口，默认值为本服务器IP地址\n\n椭球类型：默认为椭球，其中WebGL只支持椭球，ActiveX支持椭球和正球（兼容以前的旧数据）\n\nSearche缓存：默认为1GB，需要根据模型数据、管线数据的大小进行缓存设置，一般设置为系统内存的30%至50%。\n\n服务端口：默认是80，WebGL需要将nginx用到的所有端口进行配置，多端口用逗号分隔。\n\n运动物体文件：设置飞行、漫游时需要的运动物体文件（*.dyn）路径\n\nGB28181文件：设置GB28181参数配置文件（*.conf）的路径\n\n搜索字库文件：设置搜索字库文件路径（wt.dat）。\n\n临时目录：设置数据更新、发布过程中临时数据存储目录。\n\n数据配置文件1：设置显示、搜索、分析用的数据文件路径（*.data）。\n\n数据配置文件2：设置显示数据文件路径，一般用于多屏比对。\n\n据配置文件3：设置显示数据文件路径，一般用于多屏比对。\n\n数据配置文件4：设置显示数据文件路径，一般用",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_dc9483ae7e165139",
+            "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+            "chunk_id": "chk_24264692bc22620188ee1f00",
+            "snippet": "# HTTPS配置 > 私有CA配置 > 创建根CA\n\norganizationName = My Internal CA\n\norganizationalUnitName = IT Department\n\ncommonName = My Internal Root CA\n\n[ v3_req ]\n\nbasicConstraints = CA:FALSE\n\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\n\n[ v3_ca ]\n\nsubjectKeyIdentifier = hash\n\nauthorityKeyIdentifier = keyid:always,issuer\n\nbasicConstraints = critical, CA:TRUE\n\nkeyUsage = critical, digitalSignature, cRLSign, keyCertSign\n\n（4）生成CA根密钥\n\nopenssl genrsa -aes256 -out private/ca.key 4096",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "basicconstraints",
+            "values": [
+              {
+                "index": 4,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_dc9483ae7e165139",
+                "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+                "chunk_id": "chk_24264692bc22620188ee1f00",
+                "snippet": "# HTTPS配置 > 私有CA配置 > 创建根CA\n\norganizationName = My Internal CA\n\norganizationalUnitName = IT Department\n\ncommonName = My Internal Root CA\n\n[ v3_req ]\n\nbasicConstraints = CA:FALSE\n\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\n\n[ v3_ca ]\n\nsubjectKeyIdentifier = hash\n\nauthorityKeyIdentifier = keyid:always,issuer\n\nbasicConstraints = critical, CA:TRUE\n\nkeyUsage = critical, digitalSignature, cRLSign, keyCertSign\n\n（4）生成CA根密钥\n\nopenssl genrsa -aes256 -out private/ca.key 4096",
+                "value": "CA:FALSE"
+              },
+              {
+                "index": 4,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_dc9483ae7e165139",
+                "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+                "chunk_id": "chk_24264692bc22620188ee1f00",
+                "snippet": "# HTTPS配置 > 私有CA配置 > 创建根CA\n\norganizationName = My Internal CA\n\norganizationalUnitName = IT Department\n\ncommonName = My Internal Root CA\n\n[ v3_req ]\n\nbasicConstraints = CA:FALSE\n\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\n\n[ v3_ca ]\n\nsubjectKeyIdentifier = hash\n\nauthorityKeyIdentifier = keyid:always,issuer\n\nbasicConstraints = critical, CA:TRUE\n\nkeyUsage = critical, digitalSignature, cRLSign, keyCertSign\n\n（4）生成CA根密钥\n\nopenssl genrsa -aes256 -out private/ca.key 4096",
+                "value": "critical"
+              }
+            ]
+          },
+          {
+            "key": "keyusage",
+            "values": [
+              {
+                "index": 4,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_dc9483ae7e165139",
+                "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+                "chunk_id": "chk_24264692bc22620188ee1f00",
+                "snippet": "# HTTPS配置 > 私有CA配置 > 创建根CA\n\norganizationName = My Internal CA\n\norganizationalUnitName = IT Department\n\ncommonName = My Internal Root CA\n\n[ v3_req ]\n\nbasicConstraints = CA:FALSE\n\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\n\n[ v3_ca ]\n\nsubjectKeyIdentifier = hash\n\nauthorityKeyIdentifier = keyid:always,issuer\n\nbasicConstraints = critical, CA:TRUE\n\nkeyUsage = critical, digitalSignature, cRLSign, keyCertSign\n\n（4）生成CA根密钥\n\nopenssl genrsa -aes256 -out private/ca.key 4096",
+                "value": "nonRepudiation"
+              },
+              {
+                "index": 4,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_dc9483ae7e165139",
+                "section_path": "HTTPS配置 > 私有CA配置 > 创建根CA",
+                "chunk_id": "chk_24264692bc22620188ee1f00",
+                "snippet": "# HTTPS配置 > 私有CA配置 > 创建根CA\n\norganizationName = My Internal CA\n\norganizationalUnitName = IT Department\n\ncommonName = My Internal Root CA\n\n[ v3_req ]\n\nbasicConstraints = CA:FALSE\n\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\n\n[ v3_ca ]\n\nsubjectKeyIdentifier = hash\n\nauthorityKeyIdentifier = keyid:always,issuer\n\nbasicConstraints = critical, CA:TRUE\n\nkeyUsage = critical, digitalSignature, cRLSign, keyCertSign\n\n（4）生成CA根密钥\n\nopenssl genrsa -aes256 -out private/ca.key 4096",
+                "value": "critical"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mq-137",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_b23284176ca2f5b44c7f7439",
+            "snippet": "| 字段名称 | 是否必填 | 字段说明 | 备注 |\n| --- | --- | --- | --- |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "三维地图服务接口.docx",
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168",
+            "section_path": "",
+            "chunk_id": "chk_84cfeeab09e57196738f2a01",
+            "snippet": "| 字段名称 | 是否必填 | 字段说明 | 备注 |\n| --- | --- | --- | --- |\n| DataConfig | 是 | DataConfig参数表示获取的是第几个data.data数据 |  |",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "拯救者笔记本电脑安装Rocky95.docx",
+            "source": "拯救者笔记本电脑安装Rocky95.docx",
+            "section_id": "sec_61d47e6b795f89de",
+            "section_path": "",
+            "chunk_id": "chk_db340361b8617a9768fb1659",
+            "snippet": "重启操作系统查看内核是否更新\n\nReboot",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "EGIS三维数据服务接口规范0902.docx",
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a",
+            "section_path": "",
+            "chunk_id": "chk_1a1605aa5ecd78cdee981cfe",
+            "snippet": "1:Crosses\n2:Disjoint\n3:Equals\n4:Intersects\n5:Overlaps\n6:Touches\n7:Within\n8:Relate\n9:Contains |\n1、接口说明",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 5,
+            "document": "EGIS三维数据服务接口规范0902.docx",
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a",
+            "section_path": "",
+            "chunk_id": "chk_5f543e7d89877bc6071a356a",
+            "snippet": "</ServiceMetadata>\n1、接口说明",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "EGIS三维数据服务接口规范0902.docx",
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a",
+            "section_path": "",
+            "chunk_id": "chk_169474acc580296733eaf492",
+            "snippet": "</extent>\n<fields>\n<Field>\n<alias>objectid</alias>\n<dataType>0</dataType>\n<editable>true</editable>\n<length>-1</length>\n<name>objectid</name>\n<nullable>false</nullable>\n<pk>true</pk>\n<precision>-1</precision>\n<unique>false</unique>\n</Field>\n</fields>\n<createTime>2019-07-18</createTime>\n</WBMSCapability>\n1、接口说明",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-138",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "无有效业务内容或未查询到"
+      ],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_a80845df326f75110c75e276",
+            "snippet": "- 服务配置",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_218b88ed22e4bc37",
+            "section_path": "",
+            "chunk_id": "chk_9cb51cda2d2477e81286ec6b",
+            "snippet": "- MinIO图层配置",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "2026陕西耕地保护系统问题收集.docx",
+            "source": "2026陕西耕地保护系统问题收集.docx",
+            "section_id": "sec_a612d2fc7d17a0a3",
+            "section_path": "分析功能 重要基于这个推进实现业务 > 坡度分析",
+            "chunk_id": "chk_f39a02547721ccc61eeecf0a",
+            "snippet": "# 分析功能 重要基于这个推进实现业务 > 坡度分析\n\n坡度分析的精准性，使用的模型是否和文档提供一致，保证分析结果精准。\n\n一些数据并没有dlbm这个字段？\n\n是否兼容还是强制要求？\n\n大数据的字段值生成效率，准确性？\n\n比如全省地形和全省永久基本农田？",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "config.ini说明.xlsx",
+            "source": "config.ini说明.xlsx",
+            "section_id": "sec_86277f44c3f46df5",
+            "section_path": "Sheet1",
+            "chunk_id": "chk_29479e65a6d533b7d8b266bc",
+            "snippet": "# Sheet1\n\n|  |  |  |  |  |  |  |  |  |  |  |  |  |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n|  | ShowNavigator | Gui | 是否显示导航 | 1 |  |  |  |  |  |  |  |  |\n|  | ShowLogo | Gui | 是否显示LOGO | 1 |  |  |  |  |  |  |  |  |\n|  | ShowInformation | Gui | 是否显示下方提示 | 1 |  |  |  |  |  |  |  |  |\n|  | ShowProvider | Gui | 是否显示合作方信息 | 0 |  |  |  |  |  |  |  |  |\n|  | InformationLanguage | Gui | 提示信息语言 | 0 | 0中文，其他英文 |  |  |  |  |  |  |  |",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "mq-139",
+      "category": "none",
+      "answerability": "none",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [],
+      "citation_count": 0,
+      "answer": "当前知识库中未查询到相关内容。",
+      "evidence_chain": {
+        "cited": [],
+        "retrieved_uncited": [
+          {
+            "index": 1,
+            "document": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+            "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+            "section_id": "sec_ff4c9cae32efe676",
+            "section_path": "",
+            "chunk_id": "chk_d138524bb2a2548cba5ea5a4",
+            "snippet": "2.点击文档与社区并下滑，在工具与资源中找到镜像站",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 2,
+            "document": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "section_id": "sec_ae514a3ae14e3f47",
+            "section_path": "2.MySQL 表约束 > 2.5 PRIMARY KEY 主键",
+            "chunk_id": "chk_cd27cf379ff65c3173a2d386",
+            "snippet": "# 2.MySQL 表约束 > 2.5 PRIMARY KEY 主键\n\n唯一 + 非空\n\n一张表只能一个主键\n\nid int unsigned primary key auto_increment\n\n复合主键\n\ncreate table tt14(\nid int unsigned,\ncourse char(10) comment '课程代码',\nscore tinyint unsigned default 60 comment '成绩',\nprimary key(id, course) -- id和course为复合主键\n);\n\n如果有多个字段作为主键，可以使用复合主键，多个字段组合起来必须唯一\n\n当表创建好以后但是没有主键的时候，可以再次追加主键\n\nalter table 表名 add primary key(字段列表)\n\n删除主键\n\nalter table 表名 drop primary key;",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "section_id": "sec_3968ad53ac5ea103",
+            "section_path": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+            "chunk_id": "chk_448d633cf2eaa5d96de387ae",
+            "snippet": "# GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求\n\n扩展项\nCRL 分布\n字符型\n128\n字\n点\n节\n证书持有\n字符型\n20 字节\nRFC3280\n者密钥标\n识符\n签发单位\n字符型\n20 字节\nRFC3280\n的密钥标\n识符\n密钥用途\n字符型\n64 字节\nRFC3280\n72\nGB/T xxxx-2010\n待以后扩充\n预留\n字符型\n128\n字\n节\n9\n签名项\n字符型\n1024 位\nRFC3280\nCA 中心对该证书的签名\nI.3 设备证书格式\n设备证书格式见表I.2。",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "section_id": "sec_b1533b5dba8ff2ce",
+            "section_path": "",
+            "chunk_id": "chk_ba240c99190ed16e1ff9cb26",
+            "snippet": "title: 【MySQL数据库】数据类型与表约束 id: b8aa16233693 author: unknown source: https://blog.csdn.net/Zero_VPN/article/details/160282118?\n\nspm=1000.2115.3001.10524 platform: CSDN synced_at: 2026-06-22 14:46:02",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": []
+      }
+    }
+  ],
+  "interpretation": "behavior_pass evaluates only deterministic refusal/conflict behavior, explicit numeric values, and forbidden claims. literal_required_fact_missing is a review aid, not a semantic answer-quality gate."
+}

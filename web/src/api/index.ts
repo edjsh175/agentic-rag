@@ -163,6 +163,7 @@ export async function queryKnowledgeStream(
     onToken: (token: string) => void
     onStatus?: (status: string) => void
     onThinking?: (thought: string) => void
+    onFinalAnswer?: (answer: string) => void
     onSources: (sources: any[]) => void
     onDone: () => void
     onError: (err: Error) => void
@@ -215,6 +216,8 @@ export async function queryKnowledgeStream(
             callbacks.onStatus?.(event.data)
           } else if (event.type === 'thinking') {
             callbacks.onThinking?.(event.data)
+          } else if (event.type === 'final_answer') {
+            callbacks.onFinalAnswer?.(event.data)
           } else if (event.type === 'sources') {
             callbacks.onSources(event.data)
           } else if (event.type === 'done') {

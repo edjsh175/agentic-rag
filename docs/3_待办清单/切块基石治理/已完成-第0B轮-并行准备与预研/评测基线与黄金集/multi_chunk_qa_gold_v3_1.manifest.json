@@ -1,0 +1,215 @@
+{
+  "gold_version": "v3.1",
+  "parent_gold": "multi_chunk_qa_gold_v3.json",
+  "correction_ledger": "section_anchor_corrections_v3_1.json",
+  "correction_count": 8,
+  "corpus_snapshot_hash": "708f0949d3dc3f5348588aec876019bd9e7ccf5a0279b7ed3de4924551fabaf1",
+  "gold_sha256": "22bf6e450b78f75a5fa25e6c902655d5209f6d0691c0f7f79ebae1e7c5285926",
+  "review_requirement": "all entries manually approved",
+  "reviewed_corrections": [
+    {
+      "id": "mq-006",
+      "question": "WebRTC TCP 外网部署与 UDP 方式的关键差异是什么？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_21e3883b0c741195",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_dfd04d28c347d1e890f95d96; chk_2d75026e86b3efcd0554244c",
+      "rationale": "题目比较 TCP 与 UDP；原单一 TCP 锚点不能覆盖比较对象。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-015",
+      "question": "配置 Redis 与 Cesium/WebGL 时要注意什么？",
+      "old_anchors": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_path_contains": ""
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_6aee85c481697865",
+          "section_path_contains": "基础软件安装 > 基础软件安装 > （1）安装Redis"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_id": "sec_c3c2b54b285c7b6c",
+          "section_path_contains": "工具概述 > Cesium加载3DTiles > WebGL版本设置"
+        },
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_id": "sec_83178da6903972b1",
+          "section_path_contains": "5.5.EPSG编码"
+        }
+      ],
+      "verification_chunk_id": "chk_145fec2ee924df3e8733cf46; chk_7f468a171613e9d4dcb58257; chk_95356d70c6b1c56e6ba5600f",
+      "rationale": "Redis、Cesium/WebGL、EPSG 分别位于三个可核验 Section；原 StampTools 宽泛单锚点遗漏 Redis 与 EPSG。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-082",
+      "question": "安装流程中分区规划与 SSH  hardening 如何衔接？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "安装"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_75e24f963d502d6a",
+          "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_61cdad3da6ee5bff",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+        }
+      ],
+      "verification_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc; chk_2a0b6d8b4d6c4e24f5d34243",
+      "rationale": "题目需要分区与 SSH 两段证据；原“安装”宽泛路径没有表达跨 Section 关系。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-083",
+      "question": "Turnserver 配置与信令 TLS 配置如何配合？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": ""
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_aa84799227adcc3099b03d14",
+      "rationale": "Turnserver、TLS 与信令修改均在当前 StampServer UDP 部署正文；原 StampWebRTC 文档锚点错误。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-086",
+      "question": "外网地址修改与渲染启动的依赖关系？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": ""
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        },
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_id": "sec_ea83ec72079158a1",
+          "section_path_contains": "概述"
+        }
+      ],
+      "verification_chunk_id": "chk_fd843157c4777cad208dc764; chk_fff1a012a66ddbf458a319f7",
+      "rationale": "外网地址在 StampServer 部署正文，渲染启动在 StampWebRTC 概述；原单一宽泛锚点遗漏前者。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-091",
+      "question": "内网部署完成后切到外网部署时要额外改哪些？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": ""
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_58cb6d74b59bddd6",
+          "section_path_contains": "应用系统部署"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_139487eac422406d",
+          "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+        }
+      ],
+      "verification_chunk_id": "chk_13c6cae5006bf601702ed826; chk_b3b09be2f163f8572ff0127e",
+      "rationale": "内网与外网切换的 Turnserver 变更在当前 StampServer 部署章节；原 StampWebRTC 宽泛锚点错误。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-094",
+      "question": "自动登录与 SSH root 登录分别解决什么问题？",
+      "old_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_path_contains": "登录"
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_ce60564696e29c8e",
+          "section_path_contains": "操作系统安装"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_61cdad3da6ee5bff",
+          "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+        }
+      ],
+      "verification_chunk_id": "chk_659582f88392f12478d51f89; chk_2a0b6d8b4d6c4e24f5d34243",
+      "rationale": "自动登录与 SSH root 登录位于两个 canonical Section；原“登录”伪路径不可用。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    },
+    {
+      "id": "mq-108",
+      "question": "WebRTC 端口映射示例 89:8450 在表中表示什么？",
+      "old_anchors": [
+        {
+          "source": "StampWebRTC用户手册.docx",
+          "section_path_contains": ""
+        }
+      ],
+      "new_anchors": [
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_id": "sec_f479010826b1c073",
+          "section_path_contains": "HTTPS配置 > 私有CA配置 > Nginx使用CA证书"
+        }
+      ],
+      "verification_chunk_id": "chk_3f1bd78346e72059ec6c464c",
+      "rationale": "89:8450 实际位于当前 StampServer HTTPS 端口映射正文，原 StampWebRTC 文档锚点错误。",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20"
+    }
+  ]
+}

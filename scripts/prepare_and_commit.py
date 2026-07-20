@@ -38,8 +38,10 @@ def run_cmd(args, cwd=ROOT):
 
     if res.returncode != 0:
         print(f"Error executing command: {' '.join(args)}")
-        print(f"stdout: {stdout_str.strip()}")
-        print(f"stderr: {stderr_str.strip()}")
+        if stdout_str.strip():
+            print(f"stdout: {stdout_str.strip()}")
+        if stderr_str.strip():
+            print(f"stderr: {stderr_str.strip()}")
 
     class CommandResult:
         def __init__(self, returncode, stdout, stderr):
@@ -58,7 +60,7 @@ def main():
     # 1. 确保 git 不转义中文路径
     run_cmd(["git", "config", "core.quotepath", "false"])
 
-    # 2. 运行 git status 获取修改和新增文件
+    # 2. 运行 git status 获取所有变更
     git_status = run_cmd(["git", "status", "--porcelain"])
     if git_status.returncode != 0:
         print("Failed to run git status")
@@ -66,6 +68,7 @@ def main():
 
     files_to_commit = []
     untracked_files = []
+    deleted_files = []
 
     for line in git_status.stdout.splitlines():
         if not line.strip():
@@ -75,58 +78,76 @@ def main():
         if file_path.startswith('"') and file_path.endswith('"'):
             file_path = file_path[1:-1]
 
-        # 排除临时或测试脚本文件目录
         if file_path.startswith("scratch/"):
             continue
 
-        files_to_commit.append(file_path)
+        files_to_commit.append((status, file_path))
         if "??" in status:
             untracked_files.append(file_path)
+        elif "D" in status:
+            deleted_files.append(file_path)
 
     if not files_to_commit:
         print("No changes found to commit.")
         return 0
 
-    print(f"Found {len(files_to_commit)} files changed/added.")
+    print(f"Found {len(files_to_commit)} files changed/added/deleted.")
     print("Files to commit:")
-    for f in files_to_commit:
-        print(f"  - {f}")
+    for st, f in files_to_commit:
+        print(f"  [{st}] {f}")
 
-    # 3. 对未跟踪的文件执行 git add 和 svn add
+    # 3. 处理删除的文件与 SVN 缺失 (Status !)
+    print("\n--- Processing Deleted / Missing files in SVN & Git ---")
+    for f in deleted_files:
+        run_cmd(["git", "rm", "--ignore-unmatch", f])
+
+    svn_status_all = run_cmd([SVN_BIN, "status", "."])
+    for line in svn_status_all.stdout.splitlines():
+        if line.startswith("!"):
+            missing_path = line[8:].strip()
+            print(f"Cleaning up missing SVN file: {missing_path}")
+            run_cmd([SVN_BIN, "delete", os.path.abspath(ROOT / missing_path)])
+
+    # 4. 对未跟踪的文件执行 git add 和 svn add
     print("\n--- Adding untracked files to Git and SVN ---")
     for f in untracked_files:
         abs_path = os.path.abspath(ROOT / f)
-        run_cmd(["git", "add", f])
+        if os.path.exists(abs_path):
+            run_cmd(["git", "add", f])
+            svn_stat = run_cmd([SVN_BIN, "status", abs_path])
+            if svn_stat.stdout.startswith("?") or not svn_stat.stdout.strip():
+                run_cmd([SVN_BIN, "add", "--parents", abs_path])
 
-        svn_stat = run_cmd([SVN_BIN, "status", abs_path])
-        if svn_stat.stdout.startswith("?") or not svn_stat.stdout.strip():
-            run_cmd([SVN_BIN, "add", "--parents", abs_path])
-
-    # 4. 对已修改的文件执行 git add (确保全部暂存)
+    # 5. 对已修改的文件执行 git add
     print("\n--- Staging modified files in Git ---")
-    for f in files_to_commit:
-        if f not in untracked_files:
+    for st, f in files_to_commit:
+        if "??" not in st and "D" not in st:
             run_cmd(["git", "add", f])
 
-    # 5. 提示用户输入提交信息或使用默认提交信息
-    commit_msg = "feat: update graph edge styling, add product backbone preview service, add evidence pack, and sync documentation"
+    # 6. 提交信息
+    commit_msg = "feat: implement FR-10 gold v4 dataset, evidence pack governance, query planner improvements and architecture docs"
     print(f"\nUsing commit message: '{commit_msg}'")
 
-    # 6. 执行 Git commit
+    # 7. 执行 Git commit
     print("\n--- Committing to Git ---")
     git_commit = run_cmd(["git", "commit", "-m", commit_msg])
     if git_commit.returncode != 0:
-        print("Git commit failed. Possibly no changes or check error.")
-        return 1
+        print("Git commit failed or no changes to commit.")
 
-    # 7. 执行 SVN commit
+    # 8. 执行 Git push
+    print("\n--- Pushing to Git Remote ---")
+    git_push = run_cmd(["git", "push", "origin", "main"])
+    if git_push.returncode != 0:
+        print("Git push failed!")
+
+    # 9. 执行 SVN commit
     print("\n--- Committing to SVN ---")
     svn_commit = run_cmd([SVN_BIN, "commit", "-m", commit_msg, "."], cwd=ROOT)
     if svn_commit.returncode != 0:
         print("SVN commit failed.")
         return 1
 
-    # 8. 运行仓库卫生检查
+    # 10. 运行仓库卫生检查
     print("\n--- Running repo hygiene check ---")
     hygiene = run_cmd([sys.executable, "scripts/check_repo_hygiene.py"])
     if hygiene.returncode != 0:

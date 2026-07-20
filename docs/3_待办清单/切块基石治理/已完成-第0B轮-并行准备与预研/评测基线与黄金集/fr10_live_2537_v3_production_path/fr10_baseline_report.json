@@ -1,0 +1,6046 @@
+{
+  "generated_at": "2026-07-20T05:58:41.839584+00:00",
+  "mode": "retrieval",
+  "gold_path": "docs\\3_待办清单\\切块基石治理\\已完成-第0B轮-并行准备与预研\\评测基线与黄金集\\multi_chunk_qa_gold_v3.json",
+  "gold_version": "multi_chunk_qa_gold_v3",
+  "evaluator_version": "fr10-evidence-v4",
+  "retrieval_path": "production",
+  "notes": "Baseline on current production chunks. Conflict/completeness may be low until Round 0C–0F and FR-08 prompt wiring. Retrieval mode scores concatenated retrieved content as a proxy answer (not LLM generation). Retrieval candidates use the production query planner and graph plan.",
+  "summary": {
+    "total": 120,
+    "passed": 44,
+    "pass_rate": 0.36666666666666664,
+    "mean_completeness": 0.6350198412698411,
+    "mean_evidence_recall": 0.65,
+    "forbidden_rate": 0.0,
+    "by_category": {
+      "fact": {
+        "total": 30,
+        "passed": 18,
+        "pass_rate": 0.6,
+        "mean_completeness": 0.8833333333333333,
+        "mean_evidence_recall": 0.7
+      },
+      "procedure": {
+        "total": 30,
+        "passed": 12,
+        "pass_rate": 0.4,
+        "mean_completeness": 0.6817460317460317,
+        "mean_evidence_recall": 0.8333333333333334
+      },
+      "cross_section": {
+        "total": 20,
+        "passed": 7,
+        "pass_rate": 0.35,
+        "mean_completeness": 0.8541666666666666,
+        "mean_evidence_recall": 0.6
+      },
+      "table": {
+        "total": 10,
+        "passed": 7,
+        "pass_rate": 0.7,
+        "mean_completeness": 0.9,
+        "mean_evidence_recall": 0.75
+      },
+      "ocr": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0,
+        "mean_evidence_recall": 0.5
+      },
+      "conflict": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.31666666666666665,
+        "mean_evidence_recall": 0.55
+      },
+      "none": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0,
+        "mean_evidence_recall": 0.2
+      }
+    },
+    "by_answerability": {
+      "full": {
+        "total": 88,
+        "passed": 44,
+        "pass_rate": 0.5,
+        "mean_completeness": 0.8185876623376622,
+        "mean_evidence_recall": 0.7329545454545454
+      },
+      "partial": {
+        "total": 12,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.08333333333333333,
+        "mean_evidence_recall": 0.5
+      },
+      "conflict": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.31666666666666665,
+        "mean_evidence_recall": 0.55
+      },
+      "none": {
+        "total": 10,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "mean_completeness": 0.0,
+        "mean_evidence_recall": 0.2
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "mq-001",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "umount -f /dev/mapper/rl-var",
+          "xfs_repair"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-007",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "200M",
+          "/boot/efi"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-014",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "JPG",
+          "WebP",
+          "CRN 或 DDS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-016",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "443"
+        ],
+        "misses": [
+          "HttpsPort"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "HTTPS"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-018",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "外网地址"
+        ],
+        "misses": [
+          "应用配置"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-020",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "自动登录"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-021",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "上传速度优化"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_61cdad3da6ee5bff",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_61cdad3da6ee5bff",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-022",
+      "category": "fact",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "89",
+          "8450"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-024",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "df -h 或 mount",
+          "/var 或 /data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-031",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "/boot"
+        ],
+        "misses": [
+          "容量"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-032",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "root",
+          "密码"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ce60564696e29c8e",
+            "section_path_contains": "操作系统安装"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ce60564696e29c8e",
+            "section_path_contains": "操作系统安装"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-033",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "PermitRootLogin",
+          "sshd_config"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-034",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "sysctl",
+          "file-max 或 net.core"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-035",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "证书",
+          "路径"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-036",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "listening-port"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-037",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "内网",
+          "外网"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-038",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "JPG",
+          "WebP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "材质"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "材质"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-039",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "字段映射",
+          "导出"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-040",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁",
+          "驱动或授权"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-041",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "端口"
+        ],
+        "misses": [
+          "防火墙"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "防火墙"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-042",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "PCIE 或 M.2",
+          "GPU"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_f3a81ff9c2f84ed5",
+              "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f3a81ff9c2f84ed5",
+            "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-043",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "EPSG"
+        ],
+        "misses": [
+          "空间参考或坐标系"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-044",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "GPU 或显卡",
+          "渲染"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_id": "sec_ea83ec72079158a1",
+              "section_path_contains": "概述"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-045",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "df -h",
+          "挂载或磁盘"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-046",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "systemctl status"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-047",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "发布"
+        ],
+        "misses": [
+          "WidgetBuilder"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx",
+              "section_id": "sec_fcf1ab75819b5ae0",
+              "section_path_contains": "PipelineBuilder > 生成数据"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_fcf1ab75819b5ae0",
+            "section_path_contains": "PipelineBuilder > 生成数据"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-048",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "realm"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-049",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "baseurl",
+          "cdrom"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-050",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_75e24f963d502d6a",
+              "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-051",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "/boot/efi"
+        ],
+        "misses": [
+          "FAT32"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-002",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.2857142857142857,
+      "required_facts": {
+        "score": 0.2857142857142857,
+        "hits": [
+          "信令服务修改",
+          "TCP 外网部署"
+        ],
+        "misses": [
+          "UDP 外网配置",
+          "Turnserver 配置",
+          "TCP 信令服务修改",
+          "应用外网地址修改",
+          "渲染服务启动"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-003",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/boot /boot/efi /var /data 分区",
+          "ext4/xfs 选择依据",
+          "root 密码与 SSH",
+          "sshd_config 修改",
+          "自动登录",
+          "上传速度优化",
+          "基础软件安装与服务配置"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "安装"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-009",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "sshd_config",
+          "systemctl restart sshd"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-010",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "字段映射",
+          "导出"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-011",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "状态映射",
+          "值域"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-012",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁驱动",
+          "运行环境"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-013",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "材质",
+          "格式或路径"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_4fc07bf1493fb2b5",
+            "section_path_contains": "ModelBuilder"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_4fc07bf1493fb2b5",
+            "section_path_contains": "ModelBuilder"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-017",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "vim /etc/sysctl.conf",
+          "sysctl -p"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-019",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "渲染服务"
+        ],
+        "misses": [
+          "启动检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-023",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "发布服务",
+          "配置或端口"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx",
+              "section_id": "sec_fcf1ab75819b5ae0",
+              "section_path_contains": "PipelineBuilder > 生成数据"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_fcf1ab75819b5ae0",
+            "section_path_contains": "PipelineBuilder > 生成数据"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-025",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "user=",
+          "realm",
+          "重启"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-028",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "systemctl"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-030",
+      "category": "procedure",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足",
+          "缺失步骤列表"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-056",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "文件系统"
+        ],
+        "misses": [
+          "分区创建",
+          "挂载检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-057",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "sshd_config",
+          "restart sshd"
+        ],
+        "misses": [
+          "登录验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "SSH"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-058",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "vim /etc/sysctl.conf",
+          "sysctl -p"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a54fe3120b9d5c34",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > tcp设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-059",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "Turnserver",
+          "信令",
+          "UDP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-060",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "TCP 外网",
+          "信令"
+        ],
+        "misses": [
+          "应用地址"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-061",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "user=",
+          "重启"
+        ],
+        "misses": [
+          "编辑配置"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-062",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "安装驱动",
+          "运行环境"
+        ],
+        "misses": [
+          "授权检测"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-063",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "导出"
+        ],
+        "misses": [
+          "配置映射",
+          "预览"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-064",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "状态映射"
+        ],
+        "misses": [
+          "预览",
+          "发布前检查"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-065",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "安装",
+          "systemctl start 或 enable"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "服务"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "服务"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-066",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "umount",
+          "xfs_repair"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_12376c731a4186a6",
+            "section_path_contains": "常见错误"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-067",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "GPU或驱动",
+          "端口或日志",
+          "启动"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_id": "sec_ea83ec72079158a1",
+              "section_path_contains": "概述"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-068",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "外网地址",
+          "访问验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6",
+            "section_path_contains": "应用系统部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-069",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "自动登录"
+        ],
+        "misses": [
+          "重启验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "登录"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-070",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "上传速度优化"
+        ],
+        "misses": [
+          "验证"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_61cdad3da6ee5bff",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_61cdad3da6ee5bff",
+            "section_path_contains": "操作系统安装 > 系统基础配置 > SSH设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-071",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "证书",
+          "重载或重启"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "HTTPS"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-072",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "材质参数",
+          "压缩格式",
+          "资源路径"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_4fc07bf1493fb2b5",
+            "section_path_contains": "ModelBuilder"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_id": "sec_4fc07bf1493fb2b5",
+            "section_path_contains": "ModelBuilder"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-005",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "Turnserver",
+          "信令服务",
+          "UDP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-006",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "TCP 外网部署"
+        ],
+        "misses": [
+          "TCP 信令服务修改"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-008",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 0.75,
+      "required_facts": {
+        "score": 0.75,
+        "hits": [
+          "/var",
+          "/data",
+          "ext4 或 xfs"
+        ],
+        "misses": [
+          "选择依据"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-015",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "Redis",
+          "Cesium 或 WebGL"
+        ],
+        "misses": [
+          "EPSG"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-029",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "证书",
+          "密钥或 TLS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-081",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "UDP",
+          "TCP",
+          "Turnserver 或信令"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > TCP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-082",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "SSH"
+        ],
+        "misses": [
+          "分区"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-083",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "Turnserver",
+          "信令",
+          "TLS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-084",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "字段映射",
+          "值域映射"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-085",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "硬件",
+          "安装"
+        ],
+        "misses": [
+          "systemctl"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-086",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "外网地址",
+          "渲染"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-087",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "Redis",
+          "Cesium 或发布"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-088",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "sysctl",
+          "上传"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-089",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "防火墙",
+          "443 或 HTTPS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-090",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "加密锁",
+          "PipelineBuilder"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-091",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "内网",
+          "外网",
+          "Turnserver"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-092",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/var",
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_75e24f963d502d6a",
+              "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-093",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "格式"
+        ],
+        "misses": [
+          "纹理错误"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-094",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "自动登录",
+          "SSH"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "登录"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-095",
+      "category": "cross_section",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "配置项"
+        ],
+        "misses": [
+          "端口表"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_21e6e4593247f060",
+              "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-101",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "端口",
+          "TLS 或 TCP"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-102",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/boot",
+          "/var",
+          "/data"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a",
+            "section_path_contains": "操作系统安装 > Rocky安装 > 语言设置"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-103",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "listening-port 或 realm",
+          "user"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-104",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "CRN",
+          "DDS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-105",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "443",
+          "HTTPS"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-106",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "内存或 GPU",
+          "要求"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_f3a81ff9c2f84ed5",
+              "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f3a81ff9c2f84ed5",
+            "section_path_contains": "操作系统安装 > 创建虚拟机 > 安装模式"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-107",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "状态",
+          "映射"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "值域"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-108",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "89"
+        ],
+        "misses": [
+          "8450"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-109",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "8080 或 StampManager",
+          "端口"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-110",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "tls-listening-port"
+        ],
+        "misses": [
+          "表格"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.5,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_21e6e4593247f060",
+              "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-026",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-111",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-112",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "安装"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "安装"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-113",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_139487eac422406d",
+              "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-114",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "字段映射"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-115",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "登录"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "登录"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-116",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": "加密锁"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-117",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_ea83ec72079158a1",
+            "section_path_contains": "概述"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-118",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "防火墙"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-119",
+      "category": "ocr",
+      "answerability": "partial",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足或需截图/OCR"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampTools用户手册.docx"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "partial_or_refusal_ok": false
+      },
+      "pending_media": true,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-004",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "5349"
+        ],
+        "misses": [
+          "5439",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.5,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_21e6e4593247f060",
+              "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-121",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "5349"
+        ],
+        "misses": [
+          "5439",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.5,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_21e6e4593247f060",
+              "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-122",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多个端口值",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-123",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "AppStream",
+          "BaseOS"
+        ],
+        "misses": [
+          "同时说明"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "conflict_multi_value": true,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-124",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "5349"
+        ],
+        "misses": [
+          "5439",
+          "不得静默二选一"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.5,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_21e6e4593247f060",
+              "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+            },
+            "reason": "section_path_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_path_mismatch"
+        },
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-125",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多来源",
+          "冲突或核对"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "2ca727efa70847b49f0f67528544d210.pdf",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-126",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.6666666666666666,
+      "required_facts": {
+        "score": 0.6666666666666666,
+        "hits": [
+          "listening-port",
+          "tls-listening-port"
+        ],
+        "misses": [
+          "分别引用"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "conflict_multi_value": true,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-127",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.3333333333333333,
+      "required_facts": {
+        "score": 0.3333333333333333,
+        "hits": [
+          "防火墙"
+        ],
+        "misses": [
+          "正文端口",
+          "冲突提示"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "防火墙"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "防火墙"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-128",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "443"
+        ],
+        "misses": [
+          "适用范围或来源"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": "HTTPS"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": "HTTPS"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-129",
+      "category": "conflict",
+      "answerability": "conflict",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "多组凭证示例",
+          "标明示例"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "conflict_multi_value": false,
+        "conflict_hint": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-027",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "section_path 缺失或无法稳定恢复"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-131",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到或无法提供"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-132",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "section_path 缺失或无法稳定恢复"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "2ca727efa70847b49f0f67528544d210.pdf",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-133",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-134",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-135",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "证据不足"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampTools用户手册.docx"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampTools用户手册.docx"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-136",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "mq-137",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "mq-138",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "无有效业务内容或未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "41bab783fa8840fd8c24a34840a4484d.pdf",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "mq-139",
+      "category": "none",
+      "answerability": "none",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "未查询到"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_path_contains": ""
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "correct_refusal": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 4,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_path_contains": ""
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    }
+  ]
+}

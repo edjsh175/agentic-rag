@@ -1,0 +1,23 @@
+{
+  "gold_version": "v3.2",
+  "parent_gold_version": "v3.1",
+  "expected_correction_count": 1,
+  "status": "approved_after_manual_review",
+  "collection_name": "rag_knowledge",
+  "chunk_count": 2537,
+  "source_count": 60,
+  "corpus_snapshot_hash": "708f0949d3dc3f5348588aec876019bd9e7ccf5a0279b7ed3de4924551fabaf1",
+  "review_scope": "仅更正已验证与正文事实冲突的题干；不改 v3 或 v3.1。",
+  "items": [
+    {
+      "id": "mq-108",
+      "review_status": "approved",
+      "reviewer": "Codex assisted manual review",
+      "reviewed_at": "2026-07-20",
+      "old_question": "WebRTC 端口映射示例 89:8450 在表中表示什么？",
+      "new_question": "Nginx HTTPS 配置中的端口映射示例 89:8450 表示什么？",
+      "verification_chunk_id": "chk_3f1bd78346e72059ec6c464c",
+      "rationale": "2537 语料中 89:8450 位于 StampServer 的 HTTPS/Nginx 私有 CA 配置正文，不属于 WebRTC。"
+    }
+  ]
+}

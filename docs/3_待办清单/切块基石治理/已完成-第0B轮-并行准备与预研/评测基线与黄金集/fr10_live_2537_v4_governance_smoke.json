@@ -1,0 +1,115 @@
+{
+  "scope": "answer_governance",
+  "mode": "production_admin_qa_debug",
+  "total": 1,
+  "behavior_passed": 1,
+  "behavior_pass_rate": 1.0,
+  "results": [
+    {
+      "id": "mq-004",
+      "category": "conflict",
+      "answerability": "conflict",
+      "behavior_pass": true,
+      "forbidden_hits": [],
+      "explicit_value_missing": [],
+      "literal_required_fact_missing": [
+        "冲突提示"
+      ],
+      "citation_count": 2,
+      "answer": "Turnserver 的 TLS 监听端口在文档中有两个值：\n\n- TLS/DTLS 加密端口配置为 `tls-listening-port=5349` [1]\n- 系统网络拓扑中网络穿透服务的 TLS 端口为 `5439` [5]\n\n请核对原文。",
+      "evidence_chain": {
+        "cited": [
+          {
+            "index": 1,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech"
+          },
+          {
+            "index": 5,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+            "chunk_id": "chk_9b317d8155d2bd66db752022",
+            "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|"
+          }
+        ],
+        "retrieved_uncited": [
+          {
+            "index": 2,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_aa84799227adcc3099b03d14",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\nno-stdout-log\n\n#指定日志路径和只记录错误：\n\nlog-file=/var/log/coturn/turnserver.log\n\n#启用simple-log\n\nsimple-log\n\n#禁止组播对等体（减少潜在攻击面），将“#no-multicast-peers”修改为：\n\nno-multicast-peers\n\n#禁用 CLI（避免未授权访问），将“# no-cli”修改为\n\nno-cli\n\n##禁用不安全的TLS协议，在“#no-tlsv1_2”后添加以下两行：\n\nno-tlsv1\n\nno-tlsv1_1\n\n上述配置完成后输入命令检查语法：\n\nturnserver -c /etc/coturn/turnserver.conf -o\n\n注：返回turnserver: /usr/pgsql-16/lib/libpq.so.5: no version information available (required by turnserver)，属于正常。\n\n（2）信令服务修改\n\n修改\\SignallingWebS",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 3,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_c12c6271d37cb28d7e560304",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n#TURN 服务器的本地监听端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#禁用UDP，将“#no-udp”修改为：\n\nno-udp\n\n#禁用UDP，将“#no-dtls”修改为：\n\nno-dtls\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech\n\n#长期凭证认证的用户名和密码，将“#user=ninefingers:yo",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 4,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e3883b0c741195",
+            "section_path": "应用系统部署 > WebRTC部署 > TCP外网部署",
+            "chunk_id": "chk_dfd04d28c347d1e890f95d96",
+            "snippet": "# 应用系统部署 > WebRTC部署 > TCP外网部署\n\n推流默认使用UDP协议，在部分政务网中UDP带宽受限，因此需要通过Turn服务强制使用TCP服务进行推流。\n\n（1）Turnserver配置\n\n打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf",
+            "drop_reason": "not_cited"
+          },
+          {
+            "index": 6,
+            "document": "StampServer用户手册_Rocky9 .docx",
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+            "chunk_id": "chk_2d75026e86b3efcd0554244c",
+            "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n推流默认使用UDP协议，其性能高于TCP。\n\n（1）Turnserver配置\n\n打开/etc/coturn/turnserver.conf进行设置：\n\nvim /etc/coturn/turnserver.conf",
+            "drop_reason": "not_cited"
+          }
+        ],
+        "gaps": [],
+        "conflicts": [
+          {
+            "key": "tls_port",
+            "values": [
+              {
+                "index": 1,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_139487eac422406d",
+                "section_path": "应用系统部署 > WebRTC部署 > UDP外网部署",
+                "chunk_id": "chk_73ab64c1091ec6d102db7ac4",
+                "snippet": "# 应用系统部署 > WebRTC部署 > UDP外网部署\n\n#TURN 服务器的非加密端口，将“#listening-port=3478”修改为：\n\nlistening-port=3478\n\n#TURN 服务器的TLS/DTLS加密端口，将“# tls-listening-port=5349”修改为\n\ntls-listening-port=5349\n\n# TURN 服务器监听的本地 IP 地址，将“#listening-ip=0.0.0.0”修改为：\n\nlistening-ip=192.168.10.76\n\n#服务器的公网 IP，将“#external-ip=60.70.80.91”修改为（内网不用配置）：\n\nexternal-ip=119.57.255.50\n\n#中继端口范围（默认 49152-65535），将“#min-port=49152和#max-port=65535”修改为：\n\nmin-port=55000\n\nmax-port=55500\n\n#启用长期凭证认证，将“#lt-cred-mech”修改为：\n\nlt-cred-mech",
+                "value": "5349"
+              },
+              {
+                "index": 5,
+                "document": "StampServer用户手册_Rocky9 .docx",
+                "source": "StampServer用户手册_Rocky9 .docx",
+                "section_id": "sec_21e6e4593247f060",
+                "section_path": "应用系统部署 > 系统网络拓扑 > 端口说明",
+                "chunk_id": "chk_9b317d8155d2bd66db752022",
+                "snippet": "# 应用系统部署 > 系统网络拓扑 > 端口说明\n\n| 数据服务器\n（Linux） | 基础服务 | Apache基础服务 | 8082 |\n| --- | --- | --- | --- |\n| 数据服务器\n（Linux） | 基础服务 | nginx代理服务 | 80,81,82,83,84,85,86,88,89(WebRTC只用80端口，其余端口WebGL用) |\n| 数据服务器\n（Linux） | 基础服务 | StampManager服务 | 8080 |\n| 数据服务器\n（Linux） | 基础服务 | Node服务 | 3003 |\n| 数据服务器\n（Linux） | GB28181服务 | 监控端口 | 5060 |\n| 数据服务器\n（Linux） | GB28181服务 | 监听端口 | 8666 |\n| 数据服务器\n（Linux） | GB28181服务 | WebSoket端口 | 8898 |\n| 数据服务器\n（Linux） | 推流服务 | http服务 | 30080 |\n| 数据服务器\n（Linux） | 推流服务 | https服务 | 443 |\n|",
+                "value": "5439"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "interpretation": "behavior_pass evaluates only deterministic refusal/conflict behavior, explicit numeric values, and forbidden claims. literal_required_fact_missing is a review aid, not a semantic answer-quality gate."
+}

@@ -678,7 +678,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._allow_general_knowledge = True
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
         chain._query_planner = _planner_stub(enable_rerank=True)
-        chain._retrieve_multi = MagicMock(return_value=([{"content": "ctx", "metadata": {"source": "doc", "category": "text"}}], "ctx"))
+        chain._retrieve_multi = MagicMock(return_value=([{"content": "ctx", "metadata": {"source": "doc", "category": "text", "citation_id": 1}}], "ctx"))
         chain._history_compressor = type(
             "HistoryCompressorStub",
             (),

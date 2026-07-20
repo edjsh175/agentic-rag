@@ -109,6 +109,57 @@ def _sources_from_retrieve_docs(docs: list[dict[str, Any]]) -> list[dict[str, An
     return out
 
 
+def _sources_from_documents(docs: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "source": (getattr(doc, "metadata", None) or {}).get("source") or "",
+            "section_id": (getattr(doc, "metadata", None) or {}).get("section_id") or "",
+            "section_path": (getattr(doc, "metadata", None) or {}).get("section_path") or "",
+            "chunk_id": (getattr(doc, "metadata", None) or {}).get("chunk_id") or "",
+            "content": getattr(doc, "page_content", "") or "",
+        }
+        for doc in docs or []
+    ]
+
+
+def _anchor_stage_diagnostics(item: dict[str, Any], trace: dict[str, list[Any]]) -> list[dict[str, Any]]:
+    """Report the first and last stage containing each required anchor."""
+    from rag_knowledge.evaluation.multi_evidence_metrics import evidence_anchor_recall
+
+    stages = ("retrieved", "post_rerank", "post_quality", "final")
+    sources_by_stage = {stage: _sources_from_documents(trace.get(stage, [])) for stage in stages}
+    diagnostics: list[dict[str, Any]] = []
+    for anchor in item.get("evidence_anchors") or []:
+        hits = [
+            stage for stage in stages
+            if evidence_anchor_recall(sources_by_stage[stage], [anchor])["score"] == 1.0
+        ]
+        if hits and hits[-1] == "final":
+            diagnostics.append({"anchor": anchor, "status": "hit", "stage": "final"})
+            continue
+        if not hits:
+            missed = evidence_anchor_recall(sources_by_stage["final"], [anchor])["missed"]
+            diagnostics.append({
+                "anchor": anchor,
+                "status": "missing",
+                "drop_reason": "not_retrieved",
+                "match_reason": missed[0]["reason"] if missed else "no_source",
+            })
+            continue
+        drop_reason = {
+            "retrieved": "rerank_drop",
+            "post_rerank": "quality_filter",
+            "post_quality": "final_top_k_trim",
+        }[hits[-1]]
+        diagnostics.append({
+            "anchor": anchor,
+            "status": "missing",
+            "drop_reason": drop_reason,
+            "last_seen_stage": hits[-1],
+        })
+    return diagnostics
+
+
 def _proxy_answer_from_sources(sources: list[dict[str, Any]]) -> str:
     parts = []
     for src in sources:
@@ -126,7 +177,9 @@ def run_rules_only(items: list[dict[str, Any]], answers: dict[str, str]) -> list
     return rows
 
 
-def run_retrieval(items: list[dict[str, Any]], limit: int | None) -> list[dict[str, Any]]:
+def run_retrieval(
+    items: list[dict[str, Any]], limit: int | None, *, production_path: bool = False
+) -> list[dict[str, Any]]:
     from rag_knowledge.services.rag import RagChain
 
     rag = RagChain()
@@ -135,13 +188,20 @@ def run_retrieval(items: list[dict[str, Any]], limit: int | None) -> list[dict[s
     for i, item in enumerate(selected):
         question = str(item.get("question") or "")
         try:
-            docs, _context = rag._retrieve(question, review_status="approved")
+            trace: dict[str, list[Any]] = {}
+            if production_path:
+                docs, _context = rag.retrieve_for_evaluation(
+                    question, review_status="approved", diagnostics=trace
+                )
+            else:
+                docs, _context = rag._retrieve(question, review_status="approved", diagnostics=trace)
             sources = _sources_from_retrieve_docs(docs)
             proxy = _proxy_answer_from_sources(sources)
             # Retrieval proxy does not emit refusal / conflict governance phrases.
             scored = score_answer(item, proxy, sources=sources)
             scored["mode_detail"] = "retrieval_proxy_answer"
             scored["retrieved_count"] = len(sources)
+            scored["anchor_stage_diagnostics"] = _anchor_stage_diagnostics(item, trace)
         except Exception as exc:  # pragma: no cover - live env dependent
             logger.warning("retrieve failed for %s: %s", item.get("id"), exc)
             scored = score_answer(item, "", sources=[])
@@ -207,6 +267,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--answers-json", type=Path, default=None, help="id->answer map for --mode rules")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--empty-baseline", action="store_true", help="rules mode with empty answers (no Chroma)")
+    p.add_argument(
+        "--production-path",
+        action="store_true",
+        help="retrieval mode only: reuse the production query planner and graph plan without answer generation",
+    )
     return p
 
 
@@ -237,8 +302,10 @@ def main(argv: list[str] | None = None) -> int:
         rows = run_qa(items, args.limit)
         mode = "qa"
     else:
-        rows = run_retrieval(items, args.limit)
+        rows = run_retrieval(items, args.limit, production_path=args.production_path)
         mode = "retrieval"
+        if args.production_path:
+            notes += " Retrieval candidates use the production query planner and graph plan."
 
     summary = summarize_scores(rows)
     payload = {
@@ -246,7 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         "mode": mode,
         "gold_path": str(args.gold),
         "gold_version": args.gold.stem,
-        "evaluator_version": "fr10-evidence-v3",
+        "evaluator_version": "fr10-evidence-v4",
+        "retrieval_path": "production" if args.production_path else "direct",
         "notes": notes,
         "summary": summary,
         "results": rows,

@@ -131,6 +131,39 @@ class RagRerankerIntegrationTests(unittest.TestCase):
         create.assert_not_called()
         self.assertIsNone(chain._strategy.retrieve.call_args.kwargs["top_k"])
 
+    def test_retrieve_emits_stage_diagnostics_without_changing_results(self):
+        docs = _docs(3)
+        chain = self._chain(docs)
+        diagnostics = {}
+
+        sources, _ = chain._retrieve(
+            "q", kb_name="kb", method="hybrid", rerank=False, diagnostics=diagnostics
+        )
+
+        self.assertEqual([d["metadata"]["chunk_id"] for d in sources], ["0", "1", "2"])
+        self.assertEqual(
+            list(diagnostics), ["retrieved", "post_rerank", "post_quality", "final"]
+        )
+        self.assertEqual(
+            [d.metadata["chunk_id"] for d in diagnostics["final"]], ["0", "1", "2"]
+        )
+
+    def test_evaluation_retrieval_reuses_production_query_plan(self):
+        chain = self._chain(_docs(2))
+        plan = SimpleNamespace(
+            queries=["q"], enable_rerank=False, top_k=4, candidate_k=5,
+            expand_neighbors=False, intent_plan=None,
+        )
+        chain._build_retrieval_query_specs = MagicMock(return_value=plan.queries)
+        chain._plan_retrieval = MagicMock(return_value=plan)
+        chain._prepare_graph_plan = MagicMock(return_value=(plan, None, None))
+        chain._build_graph_kwargs = MagicMock(return_value={})
+
+        sources, _ = chain.retrieve_for_evaluation("q", diagnostics={})
+
+        self.assertEqual([item["metadata"]["chunk_id"] for item in sources], ["0", "1"])
+        chain._plan_retrieval.assert_called_once_with("q", plan.queries, force_rerank=True)
+
     @patch("rag_knowledge.services.reranker.create_reranker", side_effect=RuntimeError("offline"))
     def test_initialization_failure_falls_back_to_original_top_n(self, create):
         chain = self._chain(_docs(5))
