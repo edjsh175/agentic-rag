@@ -641,7 +641,7 @@ const drawEdge = (
   const controlX = (sourceBorderX + targetBorderX) / 2 + normalX * curveOffset
   const controlY = (sourceBorderY + targetBorderY) / 2 + normalY * curveOffset
 
-  const previewStyle = isProductBackbonePreview.value
+  const previewStyle = isProductBackbonePreviewAny.value
     ? resolvePreviewEdgeStyle({
         relationType: edge.label,
         highlighted: isHighlighted,
@@ -849,7 +849,7 @@ const handleMouseDown = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
   const clickedNode = findNodeAt(coords.x, coords.y)
 
-  if (isProductBackbonePreview.value && isLinkMode.value) {
+  if (isProductBackbonePreviewAny.value && isLinkMode.value) {
     if (clickedNode) {
       linkStartNodeId.value = clickedNode.id
       linkHoverNodeId.value = null
@@ -884,7 +884,7 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
 
-  if (isProductBackbonePreview.value && isLinkMode.value && linkStartNodeId.value) {
+  if (isProductBackbonePreviewAny.value && isLinkMode.value && linkStartNodeId.value) {
     linkCursorPos.value = { x: coords.x, y: coords.y }
     const hoverNode = findNodeAt(coords.x, coords.y)
     linkHoverNodeId.value = hoverNode && hoverNode.id !== linkStartNodeId.value
@@ -912,7 +912,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // 鼠标放开
 const handleMouseUp = (e?: MouseEvent) => {
-  if (isProductBackbonePreview.value && isLinkMode.value && linkStartNodeId.value) {
+  if (isProductBackbonePreviewAny.value && isLinkMode.value && linkStartNodeId.value) {
     const sourceId = linkStartNodeId.value
     const targetNode = e ? findNodeAt(getGraphCoords(e).x, getGraphCoords(e).y) : null
     clearLinkDraft()
@@ -1005,7 +1005,7 @@ const togglePhysicsMode = () => {
 
 // 拉取某个实体的证据 Chunks (懒加载)，增加请求归属检查防串
 const loadEvidenceChunks = async (entityId: string) => {
-  if (isProductBackbonePreview.value) {
+  if (isProductBackbonePreviewAny.value) {
     evidenceChunks.value = []
     loadingChunks.value = false
     return
@@ -1028,7 +1028,7 @@ const loadEvidenceChunks = async (entityId: string) => {
 }
 
 const loadAliases = async (entityId: string) => {
-  if (isProductBackbonePreview.value) {
+  if (isProductBackbonePreviewAny.value) {
     aliases.value = []
     aliasesLoading.value = false
     return
@@ -1060,10 +1060,10 @@ const openCreateEntityModal = () => {
     description: '',
     confidence: '1',
     review_status: 'approved',
-    layer: isProductBackbonePreview.value ? '' : '',
+    layer: isProductBackbonePreviewAny.value ? '' : '',
     subtype: '',
     source: '',
-    status: isProductBackbonePreview.value ? '待确认' : '',
+    status: isProductBackbonePreviewAny.value ? '待确认' : '',
     alias_candidates: '',
   }
   isEntityModalOpen.value = true
@@ -1093,7 +1093,7 @@ const openEditEntityModal = () => {
 const saveEntity = async () => {
   entitySaving.value = true
   try {
-    if (isProductBackbonePreview.value) {
+    if (isProductBackbonePreviewAny.value) {
       const payload = {
         name: entityForm.value.name,
         graph_type: entityForm.value.entity_type,
@@ -1160,7 +1160,7 @@ const openRelationModal = () => {
 const saveRelation = async () => {
   relationSaving.value = true
   try {
-    if (isProductBackbonePreview.value) {
+    if (isProductBackbonePreviewAny.value) {
       await createProductBackboneRelation({
         source_id: relationForm.value.source_id,
         target_id: relationForm.value.target_id,
@@ -1189,7 +1189,7 @@ const saveRelation = async () => {
 }
 
 const addAlias = async () => {
-  if (isProductBackbonePreview.value) return
+  if (isProductBackbonePreviewAny.value) return
   if (!selectedNodeId.value || !aliasInput.value.trim()) return
   aliasSaving.value = true
   try {
@@ -1207,7 +1207,7 @@ const addAlias = async () => {
 }
 
 const removeAlias = async (aliasId: string) => {
-  if (isProductBackbonePreview.value) return
+  if (isProductBackbonePreviewAny.value) return
   if (!confirm('确认删除这个 alias 吗？')) return
   try {
     await deleteEntityAlias(aliasId)
@@ -1220,7 +1220,7 @@ const removeAlias = async (aliasId: string) => {
 }
 
 const addChunkLink = async () => {
-  if (isProductBackbonePreview.value) return
+  if (isProductBackbonePreviewAny.value) return
   if (!selectedNodeId.value || !chunkLinkInput.value.trim()) return
   chunkLinkSaving.value = true
   try {
@@ -1253,7 +1253,7 @@ watch(selectedNodeId, (entityId) => {
 const handleDeleteRelation = async (relationId: string) => {
   if (!confirm('确认要删除这条关系连接吗？这将永久从知识图谱中移除该边。')) return
   try {
-    if (isProductBackbonePreview.value) {
+    if (isProductBackbonePreviewAny.value) {
       await deleteProductBackboneRelation(relationId)
     } else {
       await deleteRelation(relationId)
@@ -1269,7 +1269,7 @@ const handleDeleteRelation = async (relationId: string) => {
 
 // 解除 Chunks 与实体的证据链接关系
 const handleUnlinkChunk = async (chunkId: string) => {
-  if (isProductBackbonePreview.value) return
+  if (isProductBackbonePreviewAny.value) return
   if (!selectedNodeId.value) return
   if (!confirm('确定要解除该实体与当前原文片段的关联链吗？')) return
   try {
@@ -1295,7 +1295,7 @@ const confirmDeleteEntity = async () => {
   
   isDeleting.value = true
   try {
-    if (isProductBackbonePreview.value) {
+    if (isProductBackbonePreviewAny.value) {
       await deleteProductBackboneEntity(selectedNode.value.id)
     } else {
       await deleteEntity(selectedNode.value.id)
@@ -1355,7 +1355,7 @@ onMounted(() => {
     height: canvasHeight.value,
     onTick: drawGraph,
     // Product backbone is denser; give edges more room so clusters separate.
-    ...(isProductBackbonePreview.value
+    ...(isProductBackbonePreviewAny.value
       ? { linkDistance: 260, chargeStrength: -560, collideRadius: 48 }
       : { linkDistance: 220, chargeStrength: -420, collideRadius: 40 }),
   })
@@ -1392,7 +1392,7 @@ onUnmounted(() => {
         </div>
         
         <!-- 数据分类 -->
-        <div v-if="!isProductBackbonePreview" class="filter-group">
+        <div v-if="!isProductBackbonePreviewAny" class="filter-group">
           <label>所属分类 (doc_category)</label>
           <select v-model="selectedCategory" class="filter-select">
             <option value="all">全部分类</option>
@@ -1625,7 +1625,7 @@ onUnmounted(() => {
             <span class="meta-label">Aliases</span>
             <span class="meta-val" v-if="aliasesLoading">加载中...</span>
           </div>
-          <div v-if="!isProductBackbonePreview" class="alias-create-row">
+          <div v-if="!isProductBackbonePreviewAny" class="alias-create-row">
             <input
               v-model="aliasInput"
               class="filter-input compact-input"
@@ -1639,7 +1639,7 @@ onUnmounted(() => {
           <ul class="alias-list">
             <li v-for="alias in aliases" :key="alias.id" class="alias-item">
               <span>{{ alias.alias }}</span>
-              <button v-if="!isProductBackbonePreview" class="delete-text-btn" @click="removeAlias(alias.id)">删除</button>
+              <button v-if="!isProductBackbonePreviewAny" class="delete-text-btn" @click="removeAlias(alias.id)">删除</button>
             </li>
             <li v-if="!aliasesLoading && aliases.length === 0" class="empty-inline">暂无 alias</li>
           </ul>
@@ -1720,7 +1720,7 @@ onUnmounted(() => {
             </div>
             
             <div v-else class="chunks-container">
-              <div v-if="!isProductBackbonePreview" class="chunk-link-form">
+              <div v-if="!isProductBackbonePreviewAny" class="chunk-link-form">
                 <input
                   v-model="chunkLinkInput"
                   class="filter-input compact-input"
@@ -1765,7 +1765,7 @@ onUnmounted(() => {
                     {{ expandedChunkId === chunk.chunk_id ? '收起原文' : '查看完整原文' }}
                   </button>
                   <button
-                    v-if="!isProductBackbonePreview"
+                    v-if="!isProductBackbonePreviewAny"
                     @click="handleUnlinkChunk(chunk.chunk_id)" 
                     class="delete-text-btn"
                   >
@@ -1844,7 +1844,7 @@ onUnmounted(() => {
           <select v-model="entityForm.entity_type" class="filter-select" data-test="entity-type">
             <option v-for="type in availableTypes" :key="type" :value="type">{{ entityTypeLabel(type) }}</option>
           </select>
-          <template v-if="isProductBackbonePreview">
+          <template v-if="isProductBackbonePreviewAny">
             <label class="form-label">功能层</label>
             <input v-model="entityForm.layer" class="modal-input" data-test="entity-layer" />
             <label class="form-label">实体子类型</label>
