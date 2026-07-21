@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: seal complex detail backbone preview backup and restore 144-entity 164-relation product backbone preview"
+    commit_msg = "feat: optimize graph layout utilities and test suites"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
