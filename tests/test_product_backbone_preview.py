@@ -154,3 +154,15 @@ def test_product_backbone_preview_rejects_invalid_edit_inputs(tmp_path):
             "target_id": service.list_graph_data().nodes[0].id,
             "relation_type": "",
         })
+
+
+def test_product_backbone_complex_preview_returns_complex_detail():
+    from rag_knowledge.services.product_backbone_preview import ProductBackboneComplexPreviewService
+    service = ProductBackboneComplexPreviewService()
+    graph = service.list_graph_data()
+
+    assert len(graph.nodes) == 527
+    assert len(graph.edges) == 654
+    labels = {node.label for node in graph.nodes}
+    assert "StampGIS Client" in labels
+    assert "ActiveX 渲染体系" in labels or "ActiveX" in labels

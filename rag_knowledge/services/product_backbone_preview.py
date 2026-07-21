@@ -250,3 +250,11 @@ class ProductBackbonePreviewService:
         payload = f"{source}\0{relation_type}\0{target}"
         digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
         return f"product-backbone:rel:{digest}"
+
+
+class ProductBackboneComplexPreviewService(ProductBackbonePreviewService):
+    def __init__(self):
+        root = Path(__file__).resolve().parents[2]
+        path = root / "data" / "archive" / "backups" / "product_relation_backbone_preview.2026-07-21.complex-detail.json"
+        super().__init__(path=path)
+

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import {
   getGraphData,
   getProductBackbonePreview,
+  getProductBackboneComplexPreview,
   createProductBackboneEntity,
   updateProductBackboneEntity,
   deleteProductBackboneEntity,
@@ -41,6 +42,8 @@ import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
 
 const route = useRoute()
 const isProductBackbonePreview = computed(() => route.query.source === 'product_backbone_preview')
+const isProductBackboneComplexPreview = computed(() => route.query.source === 'product_backbone_preview_complex')
+const isProductBackbonePreviewAny = computed(() => isProductBackbonePreview.value || isProductBackboneComplexPreview.value)
 
 // 颜色映射系统
 const colors: Record<string, string> = {
@@ -371,7 +374,9 @@ const fetchGraph = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const data = isProductBackbonePreview.value
+    const data = isProductBackboneComplexPreview.value
+      ? await getProductBackboneComplexPreview()
+      : isProductBackbonePreview.value
       ? await getProductBackbonePreview()
       : await getGraphData(selectedCategory.value)
     graphData.value = data
@@ -431,11 +436,11 @@ watch([selectedTypes, searchQuery], () => {
 }, { deep: true })
 
 watch(selectedCategory, () => {
-  if (isProductBackbonePreview.value) return
+  if (isProductBackbonePreviewAny.value) return
   fetchGraph()
 })
 
-watch(isProductBackbonePreview, () => {
+watch(isProductBackbonePreviewAny, () => {
   selectedCategory.value = 'all'
   isLinkMode.value = false
   clearLinkDraft()
@@ -1460,10 +1465,13 @@ onUnmounted(() => {
           <span v-if="selectedCategory !== 'all'" class="category-badge">
             当前分类: {{ selectedCategory }}
           </span>
-          <span v-if="isProductBackbonePreview" class="category-badge">
-            产品主干预览
+          <span v-if="isProductBackboneComplexPreview" class="category-badge">
+            产品架构主干预览（复杂明细版）
           </span>
-          <span v-if="isProductBackbonePreview" class="edge-legend" data-test="edge-legend">
+          <span v-else-if="isProductBackbonePreview" class="category-badge">
+            产品架构主干预览（精简主干版）
+          </span>
+          <span v-if="isProductBackbonePreviewAny" class="edge-legend" data-test="edge-legend">
             <span class="edge-legend-item"><i style="background:rgba(120,132,180,0.7)"></i>属于</span>
             <span class="edge-legend-item"><i style="background:rgba(185,150,105,0.7)"></i>依赖</span>
             <span class="edge-legend-item edge-legend-note">颜色区分关系类型</span>

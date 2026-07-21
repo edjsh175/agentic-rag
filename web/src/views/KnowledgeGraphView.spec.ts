@@ -15,6 +15,7 @@ vi.mock('vue-router', () => ({
 vi.mock('../api', () => ({
   getGraphData: vi.fn(),
   getProductBackbonePreview: vi.fn(),
+  getProductBackboneComplexPreview: vi.fn(),
   createProductBackboneEntity: vi.fn(),
   updateProductBackboneEntity: vi.fn(),
   deleteProductBackboneEntity: vi.fn(),
@@ -105,7 +106,7 @@ describe('KnowledgeGraphView', () => {
   beforeEach(() => {
     routeState.query = {}
     vi.mocked(api.getGraphData).mockResolvedValue(graphData)
-    vi.mocked(api.getProductBackbonePreview).mockResolvedValue({
+    const mockGraphData = {
       nodes: [
         {
           id: 'preview-root',
@@ -152,7 +153,9 @@ describe('KnowledgeGraphView', () => {
       edges: [
         { id: 'preview-edge', source: 'preview-ue', target: 'preview-activex', label: 'belongs_to' },
       ],
-    })
+    }
+    vi.mocked(api.getProductBackbonePreview).mockResolvedValue(mockGraphData)
+    vi.mocked(api.getProductBackboneComplexPreview).mockResolvedValue(mockGraphData)
     vi.mocked(api.createProductBackboneEntity).mockResolvedValue({ id: 'preview-created' })
     vi.mocked(api.updateProductBackboneEntity).mockResolvedValue({ id: 'preview-updated' })
     vi.mocked(api.deleteProductBackboneEntity).mockResolvedValue({ success: true })
@@ -200,11 +203,22 @@ describe('KnowledgeGraphView', () => {
 
     expect(api.getProductBackbonePreview).toHaveBeenCalled()
     expect(api.getGraphData).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('产品主干预览')
+    expect(wrapper.text()).toContain('产品架构主干预览')
     expect(wrapper.text()).toContain('ActiveX')
     expect(wrapper.find('[data-test="open-create-entity"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="open-create-relation"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="toggle-link-mode"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="edge-legend"]').exists()).toBe(true)
+  })
+
+  it('loads product backbone complex preview from query source', async () => {
+    routeState.query = { source: 'product_backbone_preview_complex' }
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    expect(api.getProductBackboneComplexPreview).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('复杂明细版')
     expect(wrapper.find('[data-test="edge-legend"]').exists()).toBe(true)
   })
 

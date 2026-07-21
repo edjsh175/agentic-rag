@@ -484,6 +484,10 @@ export async function getProductBackbonePreview() {
   return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview')
 }
 
+export async function getProductBackboneComplexPreview() {
+  return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview_complex')
+}
+
 export async function createProductBackboneEntity(payload: ProductBackboneEntityPayload) {
   return postJSON<any>('/admin/knowledge_graph/product_backbone_preview/entities', payload)
 }

@@ -61,7 +61,10 @@ from rag_knowledge.services.rebuild_coordinator import RebuildAlreadyRunningErro
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.knowledge_graph import KnowledgeGraphService
-from rag_knowledge.services.product_backbone_preview import ProductBackbonePreviewService
+from rag_knowledge.services.product_backbone_preview import (
+    ProductBackbonePreviewService,
+    ProductBackboneComplexPreviewService,
+)
 from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateApplier, GraphQualityService
 from rag_knowledge.services.graph_governance import (
     approve_all_allowed,
@@ -1047,6 +1050,20 @@ def get_product_backbone_preview():
         raise HTTPException(400, detail=str(e))
     except Exception as e:
         logger.error("Failed to list product backbone preview: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/knowledge_graph/product_backbone_preview_complex", response_model=GraphDataResponse)
+def get_product_backbone_preview_complex():
+    """Return the unconfirmed complex detail product backbone preview graph without touching KG tables."""
+    try:
+        return ProductBackboneComplexPreviewService().list_graph_data()
+    except FileNotFoundError as e:
+        raise HTTPException(404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to list product backbone complex preview: %s", e)
         raise HTTPException(500, detail=str(e))
 
 

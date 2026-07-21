@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: optimize graph layout utilities and test suites"
+    commit_msg = "feat: add dedicated route and frontend query option for complex product backbone preview"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
