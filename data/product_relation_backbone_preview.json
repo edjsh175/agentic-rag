@@ -135,7 +135,7 @@
       "status": "手册确认",
       "description": "地形、影像数据编译发布",
       "alias_candidates": [
-        "TerrarainBuilder"
+        "地形发布工具"
       ]
     },
     {
@@ -145,7 +145,10 @@
       "subtype": "MainTool",
       "source": "StampTools用户手册",
       "status": "手册确认",
-      "description": "精细模型、地面模型、简单纹理模型、BIM模型编译"
+      "description": "精细模型、地面模型、简单纹理模型、BIM模型编译",
+      "alias_candidates": [
+        "模型工具"
+      ]
     },
     {
       "name": "UEModelBuilder",
@@ -168,7 +171,7 @@
       "status": "手册确认",
       "description": "倾斜模型发布、切割、压平和更新",
       "alias_candidates": [
-        "ObliqueBuilder"
+        "ObliqueBuilder 倾斜模型构建器"
       ]
     },
     {
@@ -995,18 +998,18 @@
     },
     {
       "name": "WebGL",
-      "graph_type": "Module",
+      "graph_type": "Product",
       "layer": "客户端与渲染层",
-      "subtype": "RenderingSystem",
+      "subtype": "Product",
       "source": "白皮书、StampServer用户手册",
       "status": "已确认",
       "description": "浏览器免插件前端渲染"
     },
     {
       "name": "WebRTC",
-      "graph_type": "Module",
+      "graph_type": "Product",
       "layer": "客户端与渲染层",
-      "subtype": "TransportTechnology",
+      "subtype": "Product",
       "source": "白皮书、架构截图",
       "status": "归属待确认",
       "description": "云端渲染传输技术叶子；不作为一级渲染体系"
@@ -1136,6 +1139,15 @@
       "source": "白皮书",
       "status": "白皮书规范名",
       "description": "应急一张图、应急指挥、应急处置"
+    },
+    {
+      "name": "PipelineWebGL",
+      "graph_type": "Product",
+      "layer": "业务应用层",
+      "subtype": "Product",
+      "source": "PipelineWebGL用户手册",
+      "status": "手册确认",
+      "description": "管线WebGL业务应用"
     },
     {
       "name": "SDK",
@@ -1338,26 +1350,6 @@
   ],
   "relations": [
     {
-      "source": "StampGIS Client",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
-      "source": "StampGIS Server",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
-      "source": "StampGIS Tools",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
-      "source": "StampManager",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
       "source": "工具与数据处理层",
       "relation_type": "belongs_to",
       "target": "StampGIS三维产品"
@@ -1384,11 +1376,6 @@
     },
     {
       "source": "运维管理层",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
-      "source": "运行与部署基础设施层",
       "relation_type": "belongs_to",
       "target": "StampGIS三维产品"
     },
@@ -1883,11 +1870,6 @@
       "target": "业务应用层"
     },
     {
-      "source": "地下基础设施管理",
-      "relation_type": "belongs_to",
-      "target": "业务应用层"
-    },
-    {
       "source": "自然资源管理",
       "relation_type": "belongs_to",
       "target": "业务应用层"
@@ -1906,6 +1888,21 @@
       "source": "应急管理",
       "relation_type": "belongs_to",
       "target": "业务应用层"
+    },
+    {
+      "source": "WebGL",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "WebRTC",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "PipelineWebGL",
+      "relation_type": "belongs_to",
+      "target": "WebGL"
     },
     {
       "source": "SDK",
@@ -1938,16 +1935,6 @@
       "target": "运维管理层"
     },
     {
-      "source": "三维图层管理",
-      "relation_type": "belongs_to",
-      "target": "运维管理层"
-    },
-    {
-      "source": "矢量服务管理",
-      "relation_type": "belongs_to",
-      "target": "运维管理层"
-    },
-    {
       "source": "模型服务管理",
       "relation_type": "belongs_to",
       "target": "运维管理层"
@@ -1974,11 +1961,6 @@
     },
     {
       "source": "Apache HTTP Server",
-      "relation_type": "belongs_to",
-      "target": "运行与部署基础设施层"
-    },
-    {
-      "source": "Nginx",
       "relation_type": "belongs_to",
       "target": "运行与部署基础设施层"
     },
@@ -2103,11 +2085,6 @@
       "target": "二次开发与集成层"
     },
     {
-      "source": "二次开发与集成层",
-      "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
-    },
-    {
       "source": "标准规范体系",
       "relation_type": "belongs_to",
       "target": "StampGIS三维产品"
@@ -2156,6 +2133,56 @@
       "source": "I3S标准",
       "relation_type": "belongs_to",
       "target": "标准规范体系"
+    },
+    {
+      "source": "运维管理层",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "地下基础设施管理",
+      "relation_type": "belongs_to",
+      "target": "PipelineWebGL"
+    },
+    {
+      "source": "运行与部署基础设施层",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "StampManager",
+      "relation_type": "belongs_to",
+      "target": "运维管理层"
+    },
+    {
+      "source": "StampGIS Server",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "StampGIS Tools",
+      "relation_type": "belongs_to",
+      "target": "工具与数据处理层"
+    },
+    {
+      "source": "StampGIS Client",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "Nginx",
+      "relation_type": "belongs_to",
+      "target": "Linux"
+    },
+    {
+      "source": "矢量服务管理",
+      "relation_type": "belongs_to",
+      "target": "StampManager"
+    },
+    {
+      "source": "三维图层管理",
+      "relation_type": "belongs_to",
+      "target": "StampManager"
     }
   ],
   "pending_confirmation": true

@@ -1,0 +1,420 @@
+{
+  "generated_at": "2026-07-21T07:24:50.543140+00:00",
+  "status": "draft_pending_human",
+  "policy_note": {
+    "backbone_seed": "seed:product_backbone may use document/seed-level evidence without source_chunk_id; default backbone_seed_policy (management boundary only, not answer-fusion candidate until allowlist confirms).",
+    "non_backbone": "Approved relations without source_chunk_id must be backfilled or excluded from retrieval candidates."
+  },
+  "summary": {
+    "approved_with_chunk_evidence": 2687,
+    "approved_missing_chunk_evidence": 50,
+    "note": "Only relations missing source_chunk_id are listed; relations with chunk evidence default to pending_review."
+  },
+  "counts_by_suggested_policy": {
+    "exclude": 10,
+    "backbone_seed_policy": 40,
+    "pending_review": 2687
+  },
+  "items": [
+    {
+      "relation_id": "0cd10c0a-d544-4b6d-bdce-3ed93d32a481",
+      "relation_type": "belongs_to",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_point_table:section_families"
+    },
+    {
+      "relation_id": "3346f036-b927-4949-b9a5-d026e66c5298",
+      "relation_type": "belongs_to",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_line_table:section_families"
+    },
+    {
+      "relation_id": "e23d7833-0355-49cd-bf38-17a4d79db5fa",
+      "relation_type": "belongs_to",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_face_table:section_families"
+    },
+    {
+      "relation_id": "51d8472c-a597-43f0-92fc-447526119130",
+      "relation_type": "different_from",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_point_table:sibling_penalty_groups"
+    },
+    {
+      "relation_id": "556221ee-15f5-47ef-b27d-5e4a4325e315",
+      "relation_type": "different_from",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_point_table:sibling_penalty_groups"
+    },
+    {
+      "relation_id": "63818693-9b48-4437-933a-dc94cea3215b",
+      "relation_type": "different_from",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_point_table:sibling_penalty_groups"
+    },
+    {
+      "relation_id": "3b1b53e0-8cf1-4f01-a2f3-7ae0b859d75c",
+      "relation_type": "has_field",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_face_table:recall_terms"
+    },
+    {
+      "relation_id": "648148a3-3ee6-4a9a-8cf3-9a17bff465cf",
+      "relation_type": "has_table",
+      "created_by": "rule:profile_sync",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "profile:pipeline_face_table:section_families"
+    },
+    {
+      "relation_id": "42379072-432d-45dd-a499-24a8ec64b0b4",
+      "relation_type": "different_from",
+      "created_by": "rule:special_relations",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "special_rule:PipelineBuilder:different_from:PipelinePublishConfig"
+    },
+    {
+      "relation_id": "f0db88aa-f801-4c6f-bdaa-1bdfd7b8f6a4",
+      "relation_type": "different_from",
+      "created_by": "rule:special_relations",
+      "has_source_chunk_id": false,
+      "suggested_policy": "exclude",
+      "evidence_text_preview": "special_rule:PipelineBuilder:different_from:管线发布服务"
+    },
+    {
+      "relation_id": "01020db3-3c02-4b7d-bb65-1795e923f498",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维渲染层；2024StampGIS三维产品白皮书.docx：WebGL 免插件前端渲染。"
+    },
+    {
+      "relation_id": "0569f415-ee15-4b79-89ba-6d91815f5557",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：三维规划审批。"
+    },
+    {
+      "relation_id": "126e4c79-1104-4293-be52-e5d9d0195923",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的工具集；对应 STAMP产品架构截图.png：数据处理。"
+    },
+    {
+      "relation_id": "1a28f905-6a0c-4b10-94a8-4bfd0ed6bc3b",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 002产品体系.pptx：授权服务为其它服务提供授权服务。"
+    },
+    {
+      "relation_id": "1af79e7e-5d4d-4d27-92eb-fb2c494e84ae",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：应急管理、公共安全。"
+    },
+    {
+      "relation_id": "1da1c966-1200-47f4-ada2-abf62691a806",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的系统数据；对应 STAMP产品架构截图.png：数据存储。"
+    },
+    {
+      "relation_id": "27fc4bdc-2a2d-4e1e-81d6-b9a9bd99a7ec",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础搜索服务。"
+    },
+    {
+      "relation_id": "2d621b29-1c45-4de9-8380-168015ef6c79",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：模型数据。"
+    },
+    {
+      "relation_id": "3456d10c-ea0e-408b-ab6e-af7ac36d2a59",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：矢量服务。"
+    },
+    {
+      "relation_id": "35b3cbdf-2a7f-474c-9dbc-a61f3f4a9a2e",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据处理层。"
+    },
+    {
+      "relation_id": "370e6924-7599-4d17-a7ee-25d7ce24a8a7",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础数据服务。"
+    },
+    {
+      "relation_id": "3725779c-5e34-42c1-8cc6-ea616017bf8c",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的客户端；对应 STAMP产品架构截图.png：三维渲染。"
+    },
+    {
+      "relation_id": "434cd72b-8f73-4d75-b838-663745b713de",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：Oracle 数据库服务。"
+    },
+    {
+      "relation_id": "4d160f70-8950-4125-9714-0978efb3fdc9",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：系统数据包含业务数据。"
+    },
+    {
+      "relation_id": "53b24c00-8de7-4eb6-b5ec-72e74a924b73",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：自然资源管理。"
+    },
+    {
+      "relation_id": "551aa5fd-8138-46db-ad4b-a062e38e053a",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；2024StampGIS三维产品白皮书.docx：工程钻孔数据实时生成地质体。"
+    },
+    {
+      "relation_id": "62b32591-991b-40ec-b098-49739f611ec5",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：BIM 轻量化、CIM 多源数据融合。"
+    },
+    {
+      "relation_id": "62d57636-384c-401b-9758-c2bae0de6abb",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：地下基础设施管理涉及管线。"
+    },
+    {
+      "relation_id": "6851ff09-7d4e-4941-9c42-136c9a7529a2",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层。"
+    },
+    {
+      "relation_id": "86310773-6e1f-4814-984f-c9aa69de3759",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层。"
+    },
+    {
+      "relation_id": "8a3ba0a2-3625-4936-a57c-85b0ab0798d1",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维渲染层；2024StampGIS三维产品白皮书.docx：后台云端渲染。"
+    },
+    {
+      "relation_id": "8b96db58-5c13-48f9-b09f-07b37c657f69",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的业务应用；对应 STAMP产品架构截图.png：业务应用。"
+    },
+    {
+      "relation_id": "9472c137-12b5-4f78-b524-fdf70766abc1",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据处理层；2024StampGIS三维产品白皮书.docx：倾斜摄影测量数据与倾斜模型能力。"
+    },
+    {
+      "relation_id": "9cbe263f-5732-401b-8567-108211e805d8",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：管线服务。"
+    },
+    {
+      "relation_id": "a2263e56-537d-4f74-aa23-555c7722e28f",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Pipeline Builder/管线发布工具。"
+    },
+    {
+      "relation_id": "a359155e-c90f-4019-bd54-4cd3ff135281",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Model Builder/模型发布工具。"
+    },
+    {
+      "relation_id": "af6d49cb-2a42-4dab-8eac-868f6ea541e6",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：数据安全服务。"
+    },
+    {
+      "relation_id": "b4174e10-efb5-4558-81d9-2697a4d5805c",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：CIM应用。"
+    },
+    {
+      "relation_id": "b6d527a9-1e61-40e4-96f2-51cedbf2054c",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 2024StampGIS三维产品白皮书.docx：系统五层结构中的系统服务；对应 STAMP产品架构截图.png：三维服务。"
+    },
+    {
+      "relation_id": "ba1ca908-9876-450d-8498-da26b9f2f759",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：规划服务。"
+    },
+    {
+      "relation_id": "bf91928d-60e8-4177-bc7b-ad93b8f135d1",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：倾斜模型数据。"
+    },
+    {
+      "relation_id": "c278f10b-7172-4c96-b316-9bf2dedc2ef5",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据处理层；002产品体系.pptx：Terrain Builder/地形发布工具。"
+    },
+    {
+      "relation_id": "df61bcbe-fd37-4870-9c68-a56ea0f00880",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；002产品体系.pptx：基础分析服务。"
+    },
+    {
+      "relation_id": "e29928c6-cbfe-4a4e-a2cc-d793536d5786",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：数据存储层；2024StampGIS三维产品白皮书.docx：系统数据包含 2D GIS 数据。"
+    },
+    {
+      "relation_id": "e6d2e410-2f29-4b25-bfa1-8afd27caa500",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：三维服务层；2024StampGIS三维产品白皮书.docx：视频及传感器集成。"
+    },
+    {
+      "relation_id": "f9c35cfe-fdf1-445a-9659-39b26c339bcd",
+      "relation_type": "belongs_to",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：业务应用层；2024StampGIS三维产品白皮书.docx：地下基础设施管理。"
+    },
+    {
+      "relation_id": "a5faec17-c571-45a2-af92-b551034e186c",
+      "relation_type": "requires",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：产品链由三维渲染进入业务应用。"
+    },
+    {
+      "relation_id": "ad004da9-69fc-447c-ab44-e5e93791b1ad",
+      "relation_type": "requires",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：产品链由三维服务进入三维渲染。"
+    },
+    {
+      "relation_id": "d533fdf7-ece7-4c60-9ee6-84af8a76bc6c",
+      "relation_type": "requires",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：产品链由数据存储进入三维服务。"
+    },
+    {
+      "relation_id": "f8e769a4-bb9a-4850-b219-c045b57f5559",
+      "relation_type": "requires",
+      "created_by": "seed:product_backbone",
+      "has_source_chunk_id": false,
+      "suggested_policy": "backbone_seed_policy",
+      "evidence_text_preview": "来自 STAMP产品架构截图.png：产品链由数据处理进入数据存储。"
+    }
+  ]
+}

@@ -1,0 +1,465 @@
+{
+  "signoff_version": "fr10-v4-human-signoff-v1",
+  "status": "human_signoff_pending",
+  "gold": "multi_chunk_qa_gold_v4.json",
+  "technical_freeze": "multi_chunk_qa_gold_v4.manifest.json",
+  "generated_at": "2026-07-21",
+  "counts": {
+    "pending": 45,
+    "confirmed": 0,
+    "revise": 0,
+    "withdraw": 0
+  },
+  "items": [
+    {
+      "id": "mq-001",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-007",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-014",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-016",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-018",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-021",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-024",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-031",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-033",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-034",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-035",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-036",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-039",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-040",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-041",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-042",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-043",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-044",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-048",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-049",
+      "category": "fact",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-050",
+      "category": "fact",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-002",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-009",
+      "category": "procedure",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-010",
+      "category": "procedure",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-011",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-012",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-013",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-017",
+      "category": "procedure",
+      "codex_decision": "approved",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-019",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-025",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-028",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-059",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-060",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-065",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-067",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": false,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-068",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-070",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-072",
+      "category": "procedure",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-101",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-102",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-103",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-105",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-106",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-108",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    },
+    {
+      "id": "mq-109",
+      "category": "table",
+      "codex_decision": "revised",
+      "fr10_baseline_passed": true,
+      "decision": "pending",
+      "signer": "",
+      "signed_at": "",
+      "notes": ""
+    }
+  ]
+}

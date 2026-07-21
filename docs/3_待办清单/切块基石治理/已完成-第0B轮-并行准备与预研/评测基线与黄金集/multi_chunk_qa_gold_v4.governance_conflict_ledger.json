@@ -1,0 +1,111 @@
+{
+  "ledger_version": "governance-conflict-v1",
+  "status": "draft_pending_human",
+  "candidate_gold": "multi_chunk_qa_gold_v4_governance_candidate.json",
+  "governance_report": "fr10_live_2537_v4_governance_qa_report.json",
+  "reviewer_note": "Draft decisions for five failed conflict items. Do not apply to candidate gold or rerun eval until human confirms.",
+  "counts": {
+    "revised": 2,
+    "rejected": 3,
+    "approved": 0
+  },
+  "items": [
+    {
+      "id": "mq-124",
+      "decision": "revised",
+      "status": "draft_pending_human",
+      "rationale": "Turnserver TLS 端口在端口说明表（5439）与 UDP 外网部署配置示例（5349）并存，属真实冲突。原题可保留，但题干需点名实体与配置键，required_facts 须对齐 CONFLICT_SIGNAL_RE 可检信号词，并保留双锚点。",
+      "failure_summary": "只引用 5349 一侧；未出现冲突信号词；literal 缺「不得静默二选一」。",
+      "updates": {
+        "question": "StampServer Turnserver 的 tls-listening-port 在端口说明表写 5439、UDP 外网部署示例写 5349 时，能否只答其中一个？",
+        "ground_truth": "必须同时展示 5439 与 5349 两个取值及各自来源，并提示冲突或需核对原文，禁止静默二选一。",
+        "required_facts": [
+          "5439",
+          "5349",
+          "冲突"
+        ],
+        "evidence_anchors": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060",
+            "section_path_contains": "应用系统部署 > 系统网络拓扑 > 端口说明"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "forbidden_claims": [
+          "确定端口就是"
+        ],
+        "answerability": "conflict"
+      },
+      "reviewer": "agent-draft",
+      "reviewed_at": "2026-07-21"
+    },
+    {
+      "id": "mq-125",
+      "decision": "rejected",
+      "status": "draft_pending_human",
+      "rationale": "题干为抽象「PDF 与 DOCX 同一配置键取值不同」，但 evidence_anchors 仅指向单一 PDF 且 section_path_contains 为空，无法在 2537 live 库中定位可核验的跨格式冲突对。当前只能拒答或检索噪声，不宜保留为 conflict 治理题。",
+      "failure_summary": "citation_count=0；检索未命中可核验冲突对；literal 缺「多来源」「冲突或核对」。",
+      "updates": {},
+      "reviewer": "agent-draft",
+      "reviewed_at": "2026-07-21"
+    },
+    {
+      "id": "mq-126",
+      "decision": "revised",
+      "status": "draft_pending_human",
+      "rationale": "证据段同时含 listening-port=3478 与 tls-listening-port=5349，但原题按 conflict 设计且系统拒答。应改为可引用事实题：分别说明两配置键含义与示例取值，不再要求冲突信号。",
+      "failure_summary": "证据已检索到却未引用；citation_count=0；按 conflict 规则 behavior_pass=false。",
+      "updates": {
+        "question": "StampServer UDP 外网部署中 Turnserver 的 listening-port 与 tls-listening-port 分别应配置为什么？",
+        "ground_truth": "listening-port 示例为 3478，tls-listening-port 示例为 5349；须分别引用两配置键及对应取值。",
+        "answerability": "full",
+        "category": "fact",
+        "required_facts": [
+          "listening-port",
+          "3478",
+          "tls-listening-port",
+          "5349"
+        ],
+        "evidence_anchors": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d",
+            "section_path_contains": "应用系统部署 > WebRTC部署 > UDP外网部署"
+          }
+        ],
+        "forbidden_claims": [
+          "这两个端口相同"
+        ],
+        "evaluation_scope": "answer_governance",
+        "notes": "Revised from conflict to cite-both-keys fact item; remove from conflict subset after apply."
+      },
+      "reviewer": "agent-draft",
+      "reviewed_at": "2026-07-21"
+    },
+    {
+      "id": "mq-128",
+      "decision": "rejected",
+      "status": "draft_pending_human",
+      "rationale": "当前语料中 HttpsPort=443 在信令配置与端口表内表述一致，系统未检出冲突。原题按 conflict 设计但更像一致事实题，不宜硬刷冲突信号。",
+      "failure_summary": "有引用但无 CONFLICT_SIGNAL_RE；literal 缺「适用范围或来源」；conflicts=[]。",
+      "updates": {},
+      "reviewer": "agent-draft",
+      "reviewed_at": "2026-07-21"
+    },
+    {
+      "id": "mq-129",
+      "decision": "rejected",
+      "status": "draft_pending_human",
+      "rationale": "TCP 与 UDP 外网部署引用的是同一组 user=PixelStreamingUser:AnotherTURNintheroad 示例凭证，并非多组冲突取值。不宜作为 conflict 题；若需警示可另开「示例凭证≠生产密码」拒答/警示题。",
+      "failure_summary": "未出现冲突信号；literal 缺「多组凭证示例」「标明示例」；两侧为相同示例。",
+      "updates": {},
+      "reviewer": "agent-draft",
+      "reviewed_at": "2026-07-21"
+    }
+  ]
+}

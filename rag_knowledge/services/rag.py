@@ -314,8 +314,34 @@ class RagChain:
                 resolver.resolve(question),
                 canonical_names=tuple(item.canonical_name for item in context.linked_entities),
             )
+            merged_queries = list(plan.queries)
+            rewrite_count = 0
+            graph_cfg = getattr(self, "_graph_cfg", None)
+            if (
+                graph_cfg is not None
+                and getattr(graph_cfg, "query_rewrite_enabled", False)
+                and context.linked_entities
+            ):
+                try:
+                    from rag_knowledge.services.graph_query_rewrite import (
+                        GraphQueryRewriter,
+                        merge_graph_rewrite_queries,
+                    )
+
+                    rewriter = getattr(self, "_graph_query_rewriter", None)
+                    if rewriter is None:
+                        rewriter = GraphQueryRewriter(Config())
+                        self._graph_query_rewriter = rewriter
+                    rewrite_specs = rewriter.rewrite(question, context)
+                    if rewrite_specs:
+                        merged_queries = merge_graph_rewrite_queries(merged_queries, rewrite_specs)
+                        rewrite_count = len(rewrite_specs)
+                except Exception as rewrite_exc:
+                    logger.warning("graph query rewrite skipped: %s", rewrite_exc)
+
             enriched = replace(
                 plan,
+                queries=merged_queries,
                 linked_entities=context.linked_entities,
                 graph_queries=context.retrieval_queries,
                 graph_chunk_ids=context.chunk_ids,
@@ -328,10 +354,11 @@ class RagChain:
             logger.warning("graph retrieval failed, fallback to standard retrieval: %s", exc)
             return plan, None, []
         logger.info(
-            "graph_retrieval | linked=%s chunks=%d relations=%d fallback=%s elapsed=%.3fs",
+            "graph_retrieval | linked=%s chunks=%d relations=%d rewrite=%d fallback=%s elapsed=%.3fs",
             [item.canonical_name for item in context.linked_entities],
             len(context.chunk_ids),
             len(context.relation_ids),
+            rewrite_count,
             context.fallback_reason or "none",
             time.perf_counter() - started,
         )

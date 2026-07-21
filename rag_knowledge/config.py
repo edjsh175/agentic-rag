@@ -102,6 +102,7 @@ class QueryPlannerConfig:
 class GraphRetrievalConfig:
     """Evidence-backed knowledge graph retrieval settings (Phase C)."""
     enabled: bool = False
+    query_rewrite_enabled: bool = False
     min_link_confidence: float = 0.75
     min_entity_confidence: float = 0.7
     min_relation_confidence: float = 0.7
@@ -231,6 +232,10 @@ class Config:
 
         self.graph_retrieval = GraphRetrievalConfig(
             enabled=_get("graph_retrieval", "enabled", "false").lower() == "true",
+            query_rewrite_enabled=_get(
+                "graph_retrieval", "query_rewrite_enabled", "false"
+            ).lower()
+            == "true",
             min_link_confidence=float(_get("graph_retrieval", "min_link_confidence", "0.75")),
             min_entity_confidence=float(_get("graph_retrieval", "min_entity_confidence", "0.7")),
             min_relation_confidence=float(_get("graph_retrieval", "min_relation_confidence", "0.7")),
