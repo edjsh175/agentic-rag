@@ -39,6 +39,12 @@ export interface GraphLayoutOptions {
   height: number
   autoStart?: boolean
   onTick?: () => void
+  /** Ideal edge length for forceLink (default 220). */
+  linkDistance?: number
+  /** Many-body repulsion strength, negative = push apart (default -420). */
+  chargeStrength?: number
+  /** Collision radius around nodes (default 40). */
+  collideRadius?: number
 }
 
 export interface GraphLayoutController {
@@ -66,6 +72,9 @@ const isFinitePosition = (node: LayoutNode) => Number.isFinite(node.x) && Number
 export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutController => {
   const idleAlpha = 0.004
   const autoStart = options.autoStart !== false
+  const linkDistance = options.linkDistance ?? 220
+  const chargeStrength = options.chargeStrength ?? -420
+  const collideRadius = options.collideRadius ?? 40
   const seenNodeIds = new Set<string>()
   const activeNodeIds = new Set<string>()
   const anchorX = new Map<string, number>()
@@ -78,20 +87,20 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
 
   const linkForce = forceLink<LayoutNode, InternalLink>()
     .id(node => node.id)
-    .distance(135)
-    .strength(0.12)
+    .distance(linkDistance)
+    .strength(0.08)
 
   const simulation: Simulation<LayoutNode, InternalLink> = forceSimulation<LayoutNode>()
     .alphaMin(0.0001)
     .alphaDecay(0.022)
     .alphaTarget(idleAlpha)
-    .velocityDecay(0.5)
-    .force('charge', forceManyBody<LayoutNode>().strength(-260).distanceMax(420))
+    .velocityDecay(0.55)
+    .force('charge', forceManyBody<LayoutNode>().strength(chargeStrength).distanceMax(Math.max(560, linkDistance * 2.5)))
     .force('link', linkForce)
-    .force('collision', forceCollide<LayoutNode>(30).strength(0.9).iterations(2))
-    .force('center', forceCenter(options.width / 2, options.height / 2).strength(0.025))
-    .force('anchor-x', forceX<LayoutNode>(node => anchorX.get(node.id) ?? node.x).strength(node => anchorX.has(node.id) ? 0.025 : 0))
-    .force('anchor-y', forceY<LayoutNode>(node => anchorY.get(node.id) ?? node.y).strength(node => anchorY.has(node.id) ? 0.025 : 0))
+    .force('collision', forceCollide<LayoutNode>(collideRadius).strength(0.95).iterations(3))
+    .force('center', forceCenter(options.width / 2, options.height / 2).strength(0.015))
+    .force('anchor-x', forceX<LayoutNode>(node => anchorX.get(node.id) ?? node.x).strength(node => anchorX.has(node.id) ? 0.02 : 0))
+    .force('anchor-y', forceY<LayoutNode>(node => anchorY.get(node.id) ?? node.y).strength(node => anchorY.has(node.id) ? 0.02 : 0))
     .on('tick', () => options.onTick?.())
 
   simulation.stop()
@@ -115,12 +124,13 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       .map(id => nodes.find(candidate => candidate.id === id))
       .find(candidate => candidate && isFinitePosition(candidate))
     const angle = hashAngle(node.id)
+    const seedGap = Math.max(140, linkDistance * 0.7)
 
     if (related) {
-      node.x = related.x + Math.cos(angle) * 90
-      node.y = related.y + Math.sin(angle) * 90
+      node.x = related.x + Math.cos(angle) * seedGap
+      node.y = related.y + Math.sin(angle) * seedGap
     } else {
-      const radius = Math.max(180, Math.min(options.width, options.height) * 0.42)
+      const radius = Math.max(linkDistance * 1.4, Math.min(options.width, options.height) * 0.42)
       const fallbackAngle = angle + (index / Math.max(nodes.length, 1)) * Math.PI * 2
       node.x = options.width / 2 + Math.cos(fallbackAngle) * radius
       node.y = options.height / 2 + Math.sin(fallbackAngle) * radius

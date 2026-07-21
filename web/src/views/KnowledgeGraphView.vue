@@ -144,12 +144,27 @@ const parseNodeProperties = (node: GraphNode) => {
   }
 }
 
+/** Extra node radius from connection count (sqrt so hubs grow without exploding). */
+const degreeRadiusBoost = (degree: number) => {
+  if (degree <= 0) return 0
+  return Math.min(18, Math.sqrt(degree) * 3.5)
+}
+
+const nodeDegreeMap = computed(() => {
+  const degrees = new Map<string, number>()
+  visualEdges.value.forEach(edge => {
+    degrees.set(edge.source, (degrees.get(edge.source) || 0) + 1)
+    degrees.set(edge.target, (degrees.get(edge.target) || 0) + 1)
+  })
+  return degrees
+})
+
 const getNodeStyle = (node: GraphNode): NodeStyle => {
   const properties = parseNodeProperties(node)
   const subtype = typeof properties.subtype === 'string' ? properties.subtype : ''
   const layer = typeof properties.layer === 'string' ? properties.layer : ''
   const baseFill = colors[node.type] || colors.Default
-  const style: NodeStyle = {
+  let style: NodeStyle = {
     radius: 22,
     fill: baseFill,
     stroke: '#ffffff',
@@ -158,40 +173,33 @@ const getNodeStyle = (node: GraphNode): NodeStyle => {
   }
 
   if (node.type === 'Format') {
-    style.radius = 20
+    style = { ...style, radius: 20 }
   }
 
   if (subtype === 'ServiceLibrary') {
-    return { ...style, radius: 20, fill: '#475569', labelFont: '9px sans-serif', badgeText: '库' }
-  }
-  if (subtype === 'ProductFamily') {
-    return { ...style, radius: 34, fill: '#7c3aed', labelFont: 'bold 12px sans-serif', badgeText: '产品' }
-  }
-  if (subtype === 'CoreLayer') {
-    return { ...style, radius: 30, fill: '#0891b2', labelFont: 'bold 11px sans-serif', badgeText: '层' }
-  }
-  if (subtype === 'SupportLayer') {
-    return { ...style, radius: 30, fill: '#0f766e', labelFont: 'bold 11px sans-serif', badgeText: '层' }
-  }
-  if (subtype === 'CrossCuttingDimension') {
-    return { ...style, radius: 30, fill: '#0e7490', labelFont: 'bold 11px sans-serif', badgeText: '横切' }
-  }
-  if (subtype === 'Product' || subtype === 'ManagementProduct') {
-    return { ...style, radius: 27, fill: '#9333ea', labelFont: 'bold 11px sans-serif', badgeText: '产品' }
-  }
-  if (subtype === 'MainTool') {
-    return { ...style, radius: 25, fill: '#2563eb', labelFont: 'bold 10px sans-serif', badgeText: '工具' }
-  }
-  if (subtype === 'RenderingSystem') {
-    return { ...style, radius: 25, fill: '#4f46e5', labelFont: 'bold 10px sans-serif', badgeText: '渲染' }
-  }
-  if (subtype === 'StampServerService') {
-    return { ...style, radius: 25, fill: '#059669', labelFont: 'bold 10px sans-serif', badgeText: '服务' }
-  }
-  if (layer === '客户端与渲染层') {
-    return { ...style, fill: '#6366f1' }
+    style = { ...style, radius: 20, fill: '#475569', labelFont: '9px sans-serif', badgeText: '库' }
+  } else if (subtype === 'ProductFamily') {
+    style = { ...style, radius: 34, fill: '#7c3aed', labelFont: 'bold 12px sans-serif', badgeText: '产品' }
+  } else if (subtype === 'CoreLayer') {
+    style = { ...style, radius: 30, fill: '#0891b2', labelFont: 'bold 11px sans-serif', badgeText: '层' }
+  } else if (subtype === 'SupportLayer') {
+    style = { ...style, radius: 30, fill: '#0f766e', labelFont: 'bold 11px sans-serif', badgeText: '层' }
+  } else if (subtype === 'CrossCuttingDimension') {
+    style = { ...style, radius: 30, fill: '#0e7490', labelFont: 'bold 11px sans-serif', badgeText: '横切' }
+  } else if (subtype === 'Product' || subtype === 'ManagementProduct') {
+    style = { ...style, radius: 27, fill: '#9333ea', labelFont: 'bold 11px sans-serif', badgeText: '产品' }
+  } else if (subtype === 'MainTool') {
+    style = { ...style, radius: 25, fill: '#2563eb', labelFont: 'bold 10px sans-serif', badgeText: '工具' }
+  } else if (subtype === 'RenderingSystem') {
+    style = { ...style, radius: 25, fill: '#4f46e5', labelFont: 'bold 10px sans-serif', badgeText: '渲染' }
+  } else if (subtype === 'StampServerService') {
+    style = { ...style, radius: 25, fill: '#059669', labelFont: 'bold 10px sans-serif', badgeText: '服务' }
+  } else if (layer === '客户端与渲染层') {
+    style = { ...style, fill: '#6366f1' }
   }
 
+  const degree = nodeDegreeMap.value.get(node.id) || 0
+  style.radius += degreeRadiusBoost(degree)
   return style
 }
 
@@ -628,15 +636,9 @@ const drawEdge = (
   const controlX = (sourceBorderX + targetBorderX) / 2 + normalX * curveOffset
   const controlY = (sourceBorderY + targetBorderY) / 2 + normalY * curveOffset
 
-  const sourceProps = parseNodeProperties(n1)
-  const targetProps = parseNodeProperties(n2)
   const previewStyle = isProductBackbonePreview.value
     ? resolvePreviewEdgeStyle({
         relationType: edge.label,
-        sourceSubtype: typeof sourceProps.subtype === 'string' ? sourceProps.subtype : null,
-        targetSubtype: typeof targetProps.subtype === 'string' ? targetProps.subtype : null,
-        sourceType: n1.type,
-        targetType: n2.type,
         highlighted: isHighlighted,
         faded: isFaded,
       })
@@ -1347,6 +1349,10 @@ onMounted(() => {
     width: canvasWidth.value,
     height: canvasHeight.value,
     onTick: drawGraph,
+    // Product backbone is denser; give edges more room so clusters separate.
+    ...(isProductBackbonePreview.value
+      ? { linkDistance: 260, chargeStrength: -560, collideRadius: 48 }
+      : { linkDistance: 220, chargeStrength: -420, collideRadius: 40 }),
   })
   graphLayout.setPhysicsEnabled(isPhysicsEnabled.value)
   window.addEventListener('resize', handleResize)
@@ -1460,7 +1466,7 @@ onUnmounted(() => {
           <span v-if="isProductBackbonePreview" class="edge-legend" data-test="edge-legend">
             <span class="edge-legend-item"><i style="background:rgba(120,132,180,0.7)"></i>属于</span>
             <span class="edge-legend-item"><i style="background:rgba(185,150,105,0.7)"></i>依赖</span>
-            <span class="edge-legend-item edge-legend-note">高层更粗更实，底层更细更淡</span>
+            <span class="edge-legend-item edge-legend-note">颜色区分关系类型</span>
           </span>
         </div>
         

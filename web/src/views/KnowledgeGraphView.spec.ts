@@ -218,12 +218,44 @@ describe('KnowledgeGraphView', () => {
 
     const radii = canvasOps
       .filter(op => op.op === 'arc')
-      .map(op => op.args[2])
+      .map(op => op.args[2] as number)
 
     expect(radii).toContain(34)
     expect(radii).toContain(30)
-    expect(radii).toContain(25)
     expect(radii).toContain(20)
+    // Connected MainTool/RenderingSystem (base 25) grow by degree boost
+    expect(radii.some(radius => radius > 25 && radius < 34)).toBe(true)
+  })
+
+  it('makes highly connected entities larger than isolated ones of the same type', async () => {
+    vi.mocked(api.getGraphData).mockResolvedValue({
+      nodes: [
+        { id: 'hub', label: 'Hub Tool', type: 'Tool', review_status: 'approved' },
+        { id: 'leaf-a', label: 'Leaf A', type: 'Tool', review_status: 'approved' },
+        { id: 'leaf-b', label: 'Leaf B', type: 'Tool', review_status: 'approved' },
+        { id: 'leaf-c', label: 'Leaf C', type: 'Tool', review_status: 'approved' },
+        { id: 'solo', label: 'Solo Tool', type: 'Tool', review_status: 'approved' },
+      ],
+      edges: [
+        { id: 'e1', source: 'hub', target: 'leaf-a', label: 'requires', review_status: 'approved' },
+        { id: 'e2', source: 'hub', target: 'leaf-b', label: 'requires', review_status: 'approved' },
+        { id: 'e3', source: 'hub', target: 'leaf-c', label: 'requires', review_status: 'approved' },
+      ],
+    })
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+    await wrapper.get('.entity-li').trigger('click')
+
+    const radii = canvasOps
+      .filter(op => op.op === 'arc')
+      .map(op => op.args[2] as number)
+
+    const maxRadius = Math.max(...radii)
+    const minRadius = Math.min(...radii)
+    expect(maxRadius).toBeGreaterThan(minRadius)
+    // hub degree=3 → boost ≈ 6; solo degree=0 keeps base Tool radius 22
+    expect(maxRadius).toBeGreaterThanOrEqual(22 + 6)
   })
 
   it('saves product backbone preview entities through preview API', async () => {

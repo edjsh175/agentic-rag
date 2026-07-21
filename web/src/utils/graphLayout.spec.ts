@@ -199,4 +199,41 @@ describe('graphLayout', () => {
     expect(layout.getAlpha()).toBe(0)
     layout.destroy()
   })
+
+  it('settles linked nodes farther apart when linkDistance is larger', () => {
+    const distanceOf = (left: LayoutNode, right: LayoutNode) => (
+      Math.hypot(left.x - right.x, left.y - right.y)
+    )
+
+    const tightA = node('a', 400, 300)
+    const tightB = node('b', 420, 300)
+    const tight = createGraphLayout({
+      width: 800,
+      height: 600,
+      autoStart: false,
+      linkDistance: 80,
+      chargeStrength: -80,
+    })
+    tight.setGraph([tightA, tightB], [edge('a', 'b')], 'initial')
+    tight.tick(400)
+    const tightDist = distanceOf(tightA, tightB)
+    tight.destroy()
+
+    const looseA = node('a', 400, 300)
+    const looseB = node('b', 420, 300)
+    const loose = createGraphLayout({
+      width: 800,
+      height: 600,
+      autoStart: false,
+      linkDistance: 260,
+      chargeStrength: -420,
+    })
+    loose.setGraph([looseA, looseB], [edge('a', 'b')], 'initial')
+    loose.tick(400)
+    const looseDist = distanceOf(looseA, looseB)
+    loose.destroy()
+
+    expect(looseDist).toBeGreaterThan(tightDist)
+    expect(looseDist).toBeGreaterThan(150)
+  })
 })

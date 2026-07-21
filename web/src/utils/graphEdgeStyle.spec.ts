@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  edgeAppearanceForTier,
-  edgeWidthForTiers,
-  entityHierarchyTier,
+  FORMAL_EDGE_WIDTH,
   relationTypeColor,
   relationTypeHue,
   resolvePreviewEdgeStyle,
@@ -17,41 +15,17 @@ describe('graphEdgeStyle', () => {
     expect(relationTypeColor('belongs_to')).not.toBe(relationTypeColor('requires'))
   })
 
-  it('ranks subtypes with ProductFamily highest and leaf types lowest', () => {
-    expect(entityHierarchyTier({ subtype: 'ProductFamily' })).toBe(5)
-    expect(entityHierarchyTier({ subtype: 'CoreLayer' })).toBe(4)
-    expect(entityHierarchyTier({ subtype: 'MainTool' })).toBe(3)
-    expect(entityHierarchyTier({ subtype: 'ServiceLibrary' })).toBe(1)
-    expect(entityHierarchyTier({ entityType: 'Tool' })).toBe(3)
-  })
-
-  it('couples higher tiers to thicker and stronger edges', () => {
-    const top = edgeAppearanceForTier(5, 232)
-    const leaf = edgeAppearanceForTier(1, 232)
-    expect(top.width).toBeGreaterThan(leaf.width)
-
-    const topAlpha = Number(top.color.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)/)?.[1] || 0)
-    const leafAlpha = Number(leaf.color.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)/)?.[1] || 0)
-    expect(topAlpha).toBeGreaterThan(leafAlpha)
-
-    expect(edgeWidthForTiers(5, 4)).toBeGreaterThan(edgeWidthForTiers(1, 1))
-  })
-
-  it('resolves preview edge style from relation + endpoint tiers', () => {
-    const high = resolvePreviewEdgeStyle({
+  it('uses formal-page edge widths without tier grading', () => {
+    const normal = resolvePreviewEdgeStyle({ relationType: 'belongs_to' })
+    const highlighted = resolvePreviewEdgeStyle({
       relationType: 'belongs_to',
-      sourceSubtype: 'ProductFamily',
-      targetSubtype: 'CoreLayer',
+      highlighted: true,
     })
-    const low = resolvePreviewEdgeStyle({
-      relationType: 'requires',
-      sourceSubtype: 'MainTool',
-      targetSubtype: 'ServiceLibrary',
-    })
+    const other = resolvePreviewEdgeStyle({ relationType: 'requires' })
 
-    expect(high.width).toBeGreaterThan(low.width)
-    expect(high.color).toMatch(/^rgba\(/)
-    expect(low.color).toMatch(/^rgba\(/)
-    expect(high.color).not.toBe(low.color)
+    expect(normal.width).toBe(FORMAL_EDGE_WIDTH.normal)
+    expect(highlighted.width).toBe(FORMAL_EDGE_WIDTH.highlighted)
+    expect(other.width).toBe(FORMAL_EDGE_WIDTH.normal)
+    expect(normal.color).not.toBe(other.color)
   })
 })

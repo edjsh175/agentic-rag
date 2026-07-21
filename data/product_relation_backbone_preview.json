@@ -2101,6 +2101,62 @@
       "source": "C++ API",
       "relation_type": "belongs_to",
       "target": "二次开发与集成层"
+    },
+    {
+      "source": "二次开发与集成层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "标准规范体系",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "安全保障体系",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "服务授权",
+      "relation_type": "belongs_to",
+      "target": "安全保障体系"
+    },
+    {
+      "source": "图层访问控制",
+      "relation_type": "belongs_to",
+      "target": "安全保障体系"
+    },
+    {
+      "source": "ActiveX",
+      "relation_type": "belongs_to",
+      "target": "StampGIS Client"
+    },
+    {
+      "source": "StampUE",
+      "relation_type": "belongs_to",
+      "target": "StampGIS Client"
+    },
+    {
+      "source": "WebGL",
+      "relation_type": "belongs_to",
+      "target": "StampGIS Client"
+    },
+    {
+      "source": "GB28181",
+      "relation_type": "belongs_to",
+      "target": "标准规范体系"
+    },
+    {
+      "source": "GB28181视频服务",
+      "relation_type": "belongs_to",
+      "target": "StampGIS Server"
+    },
+    {
+      "source": "I3S标准",
+      "relation_type": "belongs_to",
+      "target": "标准规范体系"
     }
-  ]
+  ],
+  "pending_confirmation": true
 }
