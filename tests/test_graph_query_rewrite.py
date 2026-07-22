@@ -9,7 +9,12 @@ from langchain_core.documents import Document
 
 from rag_knowledge.config import Config, GraphRetrievalConfig
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.backbone_guard import (
+    format_anchor_relation_summary,
+    soft_match_backbone_entities,
+)
 from rag_knowledge.services.graph_query_rewrite import (
+    BackboneAnchorResult,
     GraphQueryRewriter,
     GraphRewriteSummary,
     build_medium_graph_summary,
@@ -44,6 +49,49 @@ def rewrite_db(isolated_storage):
     return db, pipeline, product, sibling, section, procedure, defined
 
 
+def test_soft_match_backbone_stamp_manager():
+    constraints = {
+        "canonical_by_alias": {
+            "StampManager": "StampManager",
+            "StampGIS Tools": "StampGIS Tools",
+            "StampTools": "StampGIS Tools",
+        },
+        "entity_type_by_name": {
+            "StampManager": "Product",
+            "StampGIS Tools": "Product",
+        },
+        "different_from": set(),
+        "relations": [],
+    }
+    assert soft_match_backbone_entities("介绍一下 stamp manager", constraints) == ["StampManager"]
+    assert soft_match_backbone_entities("StampTools 是什么", constraints) == ["StampGIS Tools"]
+
+
+def test_format_anchor_relation_summary_includes_belongs_to():
+    constraints = {
+        "canonical_by_alias": {
+            "StampManager": "StampManager",
+            "StampGIS三维产品": "StampGIS三维产品",
+        },
+        "entity_type_by_name": {
+            "StampManager": "Product",
+            "StampGIS三维产品": "Product",
+        },
+        "different_from": set(),
+        "relations": [
+            {
+                "source": "StampManager",
+                "relation_type": "belongs_to",
+                "target": "StampGIS三维产品",
+            }
+        ],
+    }
+    text = format_anchor_relation_summary(["StampManager"], constraints)
+    assert "StampManager" in text
+    assert "belongs_to" in text
+    assert "StampGIS三维产品" in text
+
+
 def test_build_medium_graph_summary_includes_alias_edges_and_sections(rewrite_db):
     db, pipeline, product, sibling, section, procedure, _defined = rewrite_db
     linked = LinkedEntity(
@@ -70,7 +118,6 @@ def test_build_medium_graph_summary_includes_alias_edges_and_sections(rewrite_db
 def test_build_medium_graph_summary_respects_caps(rewrite_db):
     db, pipeline, *_rest = rewrite_db
     linked = LinkedEntity(pipeline, "PipelineBuilder", "Tool", 0.9, "exact", ())
-    # Fabricate a context with many fake section paths via edges listing
     context = GraphContext(
         linked_entities=(linked,),
         relation_ids=(),
@@ -103,6 +150,192 @@ def test_graph_query_rewriter_parses_llm_json(rewrite_db):
     assert all(spec.kind == "graph_rewrite" for spec in specs)
     assert all(spec.weight == 0.7 for spec in specs)
     assert any("PipelineBuilder" in spec.text for spec in specs)
+
+
+def _json_payload_stamp_manager() -> str:
+    return (
+        '{"deconstruct":{"primary_intent":"product_intro","surface_terms":["stamp manager"]},'
+        '"canonical_entities":["StampManager"],"avoid":["StampGIS Tools"],'
+        '"anchored_queries":["StampManager 产品介绍","StampManager"],'
+        '"relation_focus":["StampManager"]}'
+    )
+
+
+def test_backbone_anchor_from_llm_json(isolated_storage):
+    isolated_storage()
+    constraints = {
+        "belongs_to": {},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [
+            {
+                "source": "StampManager",
+                "relation_type": "belongs_to",
+                "target": "StampGIS三维产品",
+            }
+        ],
+        "canonical_by_alias": {
+            "StampManager": "StampManager",
+            "StampGIS三维产品": "StampGIS三维产品",
+            "StampGIS Tools": "StampGIS Tools",
+        },
+        "entity_type_by_name": {
+            "StampManager": "Product",
+            "StampGIS三维产品": "Product",
+            "StampGIS Tools": "Product",
+        },
+        "doc_categories": set(),
+    }
+    rewriter = GraphQueryRewriter(Config())
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "message": {
+            "content": _json_payload_stamp_manager(),
+        }
+    }
+    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+        result = rewriter.anchor_from_backbone("stamp manager 是什么", constraints=constraints)
+
+    assert result.canonical_entities == ("StampManager",)
+    assert any("StampManager" in q for q in result.anchored_queries)
+    assert "StampManager" in result.relation_summary
+    assert result.retrieval_queries
+    assert all(q.kind == "graph_rewrite" for q in result.retrieval_queries)
+
+
+def test_backbone_anchor_heuristic_without_llm(isolated_storage):
+    isolated_storage()
+    constraints = {
+        "belongs_to": {},
+        "different_from": {frozenset({"StampManager", "StampGIS Tools"})},
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {
+            "StampManager": "StampManager",
+            "StampGIS Tools": "StampGIS Tools",
+        },
+        "entity_type_by_name": {
+            "StampManager": "Product",
+            "StampGIS Tools": "Product",
+        },
+        "doc_categories": set(),
+    }
+    rewriter = GraphQueryRewriter(Config())
+    with patch(
+        "rag_knowledge.services.graph_query_rewrite.httpx.post",
+        side_effect=RuntimeError("ollama down"),
+    ):
+        result = rewriter.anchor_from_backbone("介绍 StampManager", constraints=constraints)
+    assert result.canonical_entities == ("StampManager",)
+    assert "StampGIS Tools" in result.avoid
+    assert any("StampManager" in q for q in result.anchored_queries)
+
+
+def test_soft_hits_override_wrong_llm_canonical(isolated_storage):
+    isolated_storage()
+    constraints = {
+        "belongs_to": {},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {
+            "PipelineBuilder": "PipelineBuilder",
+            "PipelineWebGL": "PipelineWebGL",
+            "PiplineBuilder": "PipelineBuilder",
+        },
+        "entity_type_by_name": {
+            "PipelineBuilder": "Tool",
+            "PipelineWebGL": "Tool",
+        },
+        "doc_categories": set(),
+    }
+    rewriter = GraphQueryRewriter(Config())
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "message": {
+            "content": (
+                '{"deconstruct":{"primary_intent":"product_relation","surface_terms":["PipelineBuilder"]},'
+                '"canonical_entities":["PipelineWebGL"],"avoid":[],'
+                '"anchored_queries":["PipelineWebGL 产品介绍"],'
+                '"relation_focus":["PipelineWebGL"]}'
+            )
+        }
+    }
+    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+        result = rewriter.anchor_from_backbone(
+            "PipelineBuilder 属于哪个产品",
+            constraints=constraints,
+        )
+    assert result.canonical_entities == ("PipelineBuilder",)
+    assert "PipelineWebGL" not in result.canonical_entities
+    assert any("PipelineBuilder" in q for q in result.anchored_queries)
+    assert all("PipelineWebGL" not in q for q in result.anchored_queries)
+
+
+def test_anchor_fills_query_when_llm_repeats_question(isolated_storage):
+    isolated_storage()
+    constraints = {
+        "belongs_to": {},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {"StampManager": "StampManager"},
+        "entity_type_by_name": {"StampManager": "Product"},
+        "doc_categories": set(),
+    }
+    rewriter = GraphQueryRewriter(Config())
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "message": {
+            "content": (
+                '{"deconstruct":{"primary_intent":"product_intro","surface_terms":["StampManager"]},'
+                '"canonical_entities":["StampManager"],"avoid":[],'
+                '"anchored_queries":["介绍一下 StampManager"],'
+                '"relation_focus":[]}'
+            )
+        }
+    }
+    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+        result = rewriter.anchor_from_backbone("介绍一下 StampManager", constraints=constraints)
+    assert result.canonical_entities == ("StampManager",)
+    assert result.anchored_queries
+    assert all(q != "介绍一下 StampManager" for q in result.anchored_queries)
+
+
+def test_comparison_alias_queries_not_collapsed(isolated_storage):
+    isolated_storage()
+    constraints = {
+        "belongs_to": {},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {
+            "StampTools": "StampGIS Tools",
+            "StampGIS Tools": "StampGIS Tools",
+            "StampServer": "StampGIS Server",
+            "StampGIS Server": "StampGIS Server",
+        },
+        "entity_type_by_name": {
+            "StampGIS Tools": "Product",
+            "StampGIS Server": "Product",
+        },
+        "doc_categories": set(),
+    }
+    rewriter = GraphQueryRewriter(Config())
+    with patch(
+        "rag_knowledge.services.graph_query_rewrite.httpx.post",
+        side_effect=RuntimeError("down"),
+    ):
+        result = rewriter.anchor_from_backbone(
+            "StampTools 和 StampServer 有什么区别",
+            constraints=constraints,
+        )
+    assert set(result.canonical_entities) == {"StampGIS Tools", "StampGIS Server"}
+    assert result.anchored_queries, "expected non-empty anchored queries for comparison"
+    assert all(q != "StampTools 和 StampServer 有什么区别" for q in result.anchored_queries)
 
 
 def test_graph_query_rewriter_falls_back_on_llm_failure(rewrite_db):
@@ -176,7 +409,7 @@ def test_prepare_graph_plan_skips_rewrite_when_flag_off(rewrite_db):
     assert returned is context
 
 
-def test_prepare_graph_plan_merges_rewrite_when_both_enabled(rewrite_db):
+def test_prepare_graph_plan_merges_backbone_anchor_when_enabled(rewrite_db):
     db, pipeline, _product, sibling, *_rest = rewrite_db
     linked = LinkedEntity(pipeline, "PipelineBuilder", "Tool", 0.95, "exact", (sibling,))
     context = GraphContext(
@@ -195,32 +428,89 @@ def test_prepare_graph_plan_merges_rewrite_when_both_enabled(rewrite_db):
     chain._intent_resolver.resolve.return_value = MagicMock()
     chain._intent_resolver.refine_from_graph.return_value = MagicMock()
     chain._graph_query_rewriter = MagicMock()
-    chain._graph_query_rewriter.rewrite.return_value = [
-        RetrievalQuery("PipelineBuilder 使用流程", "graph_rewrite", 0.7)
-    ]
+    chain._graph_query_rewriter.anchor_from_backbone.return_value = BackboneAnchorResult(
+        primary_intent="product_intro",
+        canonical_entities=("StampManager",),
+        avoid=("StampGIS Tools",),
+        anchored_queries=("StampManager 产品介绍",),
+        relation_summary="锚点：StampManager",
+        retrieval_queries=(
+            RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 0.85),
+        ),
+    )
 
     plan = RetrievalPlan(
-        "procedure",
-        [RetrievalQuery("管线发布工具怎么用", "original", 1.0)],
+        "definition",
+        [RetrievalQuery("stamp manager 是什么", "original", 1.0)],
         8,
         24,
         True,
         True,
         0.9,
     )
-    enriched, _returned, docs = chain._prepare_graph_plan("管线发布工具怎么用", plan)
+    enriched, _returned, docs = chain._prepare_graph_plan("stamp manager 是什么", plan)
 
-    assert any(q.kind == "graph_rewrite" for q in enriched.queries)
+    assert any(q.kind == "graph_rewrite" and "StampManager" in q.text for q in enriched.queries)
     assert enriched.queries[0].kind == "original"
+    assert enriched.backbone_canonical == ("StampManager",)
+    assert "StampManager" in (enriched.backbone_relation_summary or "")
     assert docs == [graph_doc]
-    chain._graph_query_rewriter.rewrite.assert_called_once()
+    chain._graph_query_rewriter.rewrite.assert_not_called()
+    call_kwargs = chain._graph_retriever.retrieve.call_args
+    assert call_kwargs is not None
+    passed_queries = call_kwargs.kwargs.get("queries") or (
+        call_kwargs.args[2] if len(call_kwargs.args) > 2 else None
+    )
+    assert passed_queries is not None
+    assert any("StampManager" in getattr(q, "text", str(q)) for q in passed_queries)
+
+
+def test_build_messages_injects_backbone_relation_summary():
+    msgs = RagChain._build_messages(
+        "StampManager 属于谁？",
+        "[1] StampManager 是管理端产品。",
+        backbone_canonical=("StampManager",),
+        backbone_avoid=("StampGIS Tools",),
+        backbone_relation_summary="锚点：StampManager\n- StampManager -[belongs_to]-> StampGIS三维产品",
+    )
+    system = msgs[0]["content"]
+    assert "产品主干锚定" in system
+    assert "StampManager" in system
+    assert "belongs_to" in system
 
 
 def test_prepare_graph_plan_disabled_without_retriever():
     chain = object.__new__(RagChain)
     chain._graph_retriever = None
+    chain._graph_cfg = GraphRetrievalConfig(enabled=False, query_rewrite_enabled=False)
     plan = RetrievalPlan("definition", [RetrievalQuery("q", "original", 1.0)], 4, 12, False, False, 0.5)
     enriched, context, docs = chain._prepare_graph_plan("q", plan)
     assert enriched is plan
     assert context is None
     assert docs == []
+
+
+def test_prepare_graph_plan_backbone_rewrite_without_graph_retriever():
+    chain = object.__new__(RagChain)
+    chain._graph_retriever = None
+    chain._graph_cfg = GraphRetrievalConfig(enabled=False, query_rewrite_enabled=True)
+    chain._graph_query_rewriter = MagicMock()
+    chain._graph_query_rewriter.anchor_from_backbone.return_value = BackboneAnchorResult(
+        canonical_entities=("StampManager",),
+        retrieval_queries=(RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 0.85),),
+        relation_summary="锚点：StampManager",
+    )
+    plan = RetrievalPlan(
+        "definition",
+        [RetrievalQuery("stamp manager", "original", 1.0)],
+        4,
+        12,
+        False,
+        False,
+        0.5,
+    )
+    enriched, context, docs = chain._prepare_graph_plan("stamp manager", plan)
+    assert context is None
+    assert docs == []
+    assert enriched.backbone_canonical == ("StampManager",)
+    assert any("StampManager" in q.text for q in enriched.queries)

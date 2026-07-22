@@ -1,18 +1,26 @@
-"""Graph-assisted retrieval query rewriting (medium summary → helper LLM)."""
+"""Graph-assisted retrieval query rewriting (backbone anchor → helper LLM)."""
 
 from __future__ import annotations
 
 import json
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.relational_db import RelationalDB
-from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity
+from rag_knowledge.services.backbone_guard import (
+    avoid_names_for_anchors,
+    format_anchor_relation_summary,
+    format_backbone_lexicon_for_rewrite,
+    load_backbone_constraints,
+    resolve_canonical,
+    soft_match_backbone_entities,
+)
+from rag_knowledge.services.graph_retrieval import GraphContext
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 
 logger = logging.getLogger(__name__)
@@ -25,6 +33,7 @@ _MAX_SECTION_PATHS = 6
 _SECTION_PATH_CHARS = 80
 _MAX_REWRITE_QUERIES = 3
 _REWRITE_WEIGHT = 0.7
+_ANCHORED_QUERY_WEIGHT = 0.85
 
 _REWRITE_PROMPT = """你是 RAG 检索查询改写助手。你不会回答用户问题，只根据图谱摘要生成更适合检索的查询。
 
@@ -42,6 +51,37 @@ _REWRITE_PROMPT = """你是 RAG 检索查询改写助手。你不会回答用户
 {summary_json}
 
 输出 JSON：{{"queries":["检索查询1","检索查询2"]}}"""
+
+_BACKBONE_ANCHOR_PROMPT = """你是产品主干实体锚定与检索改写助手。你不会回答用户问题。
+
+任务：把用户口语映射到「产品主干词表」中的 canonical 名，并生成能命中正确产品介绍/关系证据的检索 query。
+
+硬性规则：
+1. canonical_entities / avoid / anchored_queries / relation_focus 中出现的实体名，必须来自词表 entities[].name 或其 aliases，禁止编造。
+2. 问某个产品/模块是什么时：canonical 只锚该实体；anchored_queries 必须含其 canonical，并偏「介绍/定位/概述」，不要改成无关产品的步骤词。
+3. 问产品关系（属于谁、依赖谁、和谁区分）时：primary_intent=product_relation，relation_focus 列出相关边端点或关系类型词。
+4. avoid 填易混实体（词表不同名产品/工具），不得作为检索主体。
+5. 若无法映射到词表，canonical_entities 与 anchored_queries 可为空数组。
+6. 输出严格 JSON，不要解释，不要 markdown。
+
+用户问题：{question}
+
+软命中（可参考，可为空）：{soft_hits_json}
+
+产品主干词表 JSON：
+{lexicon_json}
+
+输出 JSON：
+{{
+  "deconstruct": {{
+    "primary_intent": "product_intro|product_relation|operation|comparison|other",
+    "surface_terms": ["用户原词"]
+  }},
+  "canonical_entities": ["CanonicalName"],
+  "avoid": ["易混实体"],
+  "anchored_queries": ["含 Canonical 的检索句"],
+  "relation_focus": ["端点或关系提示"]
+}}"""
 
 
 @dataclass(frozen=True)
@@ -63,6 +103,23 @@ class GraphRewriteSummary:
 
     def is_empty(self) -> bool:
         return not self.linked and not self.edges and not self.section_paths
+
+
+@dataclass(frozen=True)
+class BackboneAnchorResult:
+    """Structured backbone anchoring output for retrieval + answer injection."""
+
+    primary_intent: str = "other"
+    surface_terms: tuple[str, ...] = ()
+    canonical_entities: tuple[str, ...] = ()
+    avoid: tuple[str, ...] = ()
+    anchored_queries: tuple[str, ...] = ()
+    relation_focus: tuple[str, ...] = ()
+    relation_summary: str = ""
+    retrieval_queries: tuple[RetrievalQuery, ...] = field(default_factory=tuple)
+
+    def is_empty(self) -> bool:
+        return not self.canonical_entities and not self.anchored_queries
 
 
 def build_medium_graph_summary(
@@ -112,7 +169,6 @@ def build_medium_graph_summary(
     section_paths: list[str] = []
     seen_edge_keys: set[tuple[str, str, str]] = set()
 
-    # Prefer relations already walked by expander; fall back to listing from linked entities.
     relation_rows: list[dict] = []
     if relation_id_set:
         with db._get_conn() as conn:
@@ -174,7 +230,7 @@ def build_medium_graph_summary(
 
 
 class GraphQueryRewriter:
-    """Rewrite retrieval queries using a medium graph summary and helper LLM."""
+    """Rewrite retrieval queries using backbone lexicon and/or expanded graph summary."""
 
     def __init__(self, config: Config | None = None, db: RelationalDB | None = None):
         self._cfg = config or Config()
@@ -182,6 +238,41 @@ class GraphQueryRewriter:
         self._llm_model = self._cfg.helper_llm_model
         self._ollama_base = self._cfg.ollama_base_url
         self._timeout = 15
+        self._anchor_timeout = 60
+
+    def anchor_from_backbone(
+        self,
+        question: str,
+        *,
+        constraints: dict | None = None,
+    ) -> BackboneAnchorResult:
+        """Deconstruct + map oral terms onto product backbone; emit anchored retrieval queries."""
+        q = (question or "").strip()
+        if not q:
+            return BackboneAnchorResult()
+
+        constraints = constraints if constraints is not None else load_backbone_constraints()
+        types = constraints.get("entity_type_by_name") or {}
+        if not types:
+            return BackboneAnchorResult()
+
+        soft_hits = soft_match_backbone_entities(q, constraints)
+        lexicon = format_backbone_lexicon_for_rewrite(constraints)
+        allowed_names = set(types.keys())
+        for entity in lexicon.get("entities") or []:
+            for alias in entity.get("aliases") or []:
+                allowed_names.add(str(alias))
+
+        try:
+            payload = self._anchor_via_llm(q, soft_hits, lexicon)
+        except Exception as exc:
+            logger.warning("backbone anchor LLM failed, using heuristic: %s", exc)
+            payload = None
+
+        if not payload:
+            return self._anchor_heuristic(q, soft_hits, constraints)
+
+        return self._finalize_anchor_payload(q, payload, soft_hits, constraints, allowed_names)
 
     def rewrite(
         self,
@@ -190,6 +281,7 @@ class GraphQueryRewriter:
         *,
         summary: GraphRewriteSummary | None = None,
     ) -> list[RetrievalQuery]:
+        """Legacy graph-context rewrite (requires linked entities). Prefer anchor_from_backbone."""
         q = (question or "").strip()
         if not q or not context.linked_entities:
             return []
@@ -215,20 +307,198 @@ class GraphQueryRewriter:
             texts = self._rewrite_heuristic(q, summary)
             texts = self._filter_avoid(texts, summary.avoid, linked_names)
 
-        from rag_knowledge.services.query_entity_guard import protect_query_list
+        return self._to_retrieval_queries(q, texts, weight=_REWRITE_WEIGHT)
 
-        protected = protect_query_list(q, texts)
-        specs: list[RetrievalQuery] = []
+    def _anchor_via_llm(
+        self,
+        question: str,
+        soft_hits: list[str],
+        lexicon: dict,
+    ) -> dict[str, Any]:
+        prompt = _BACKBONE_ANCHOR_PROMPT.format(
+            question=question,
+            soft_hits_json=json.dumps(soft_hits, ensure_ascii=False),
+            lexicon_json=json.dumps(lexicon, ensure_ascii=False),
+        )
+        resp = httpx.post(
+            f"{self._ollama_base}/api/chat",
+            json={
+                "model": self._llm_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "options": {
+                    "temperature": 0.0,
+                    "num_predict": 384,
+                    "top_k": 10,
+                    "thinking": False,
+                },
+            },
+            timeout=self._anchor_timeout,
+        )
+        resp.raise_for_status()
+        raw = resp.json().get("message", {}).get("content", "").strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+        payload = json.loads(cleaned)
+        if not isinstance(payload, dict):
+            raise ValueError("anchor payload is not an object")
+        return payload
+
+    def _finalize_anchor_payload(
+        self,
+        question: str,
+        payload: dict[str, Any],
+        soft_hits: list[str],
+        constraints: dict,
+        allowed_names: set[str],
+    ) -> BackboneAnchorResult:
+        deconstruct = payload.get("deconstruct") if isinstance(payload.get("deconstruct"), dict) else {}
+        primary_intent = str(deconstruct.get("primary_intent") or "other").strip() or "other"
+        surface_terms = self._str_list(deconstruct.get("surface_terms"))
+
+        canonicals = [
+            resolve_canonical(name, constraints)
+            for name in self._str_list(payload.get("canonical_entities"))
+        ]
+        canonicals = [name for name in canonicals if name in (constraints.get("entity_type_by_name") or {})]
+        # Soft hits win: never let the LLM replace an explicitly matched backbone entity.
+        if soft_hits:
+            canonicals = list(dict.fromkeys(soft_hits))
+        elif not canonicals:
+            canonicals = []
+
+        avoid = [
+            resolve_canonical(name, constraints)
+            for name in self._str_list(payload.get("avoid"))
+        ]
+        avoid.extend(avoid_names_for_anchors(canonicals, constraints))
+        # Drop avoids that collide with anchors; keep backbone-only names.
+        types = constraints.get("entity_type_by_name") or {}
+        avoid = [
+            name
+            for name in dict.fromkeys(avoid)
+            if name in types and name not in canonicals
+        ][:_MAX_AVOID]
+
+        queries = self._str_list(payload.get("anchored_queries"))
+        queries = self._filter_queries_to_allowed(queries, allowed_names, canonicals)
+        queries = self._filter_avoid(queries, tuple(avoid), tuple(canonicals))
+        if not queries and canonicals:
+            queries = self._heuristic_anchored_queries(question, canonicals, primary_intent)
+
+        relation_focus = self._str_list(payload.get("relation_focus"))
+        relation_summary = format_anchor_relation_summary(canonicals, constraints)
+        retrieval = self._to_retrieval_queries(
+            question,
+            queries,
+            weight=_ANCHORED_QUERY_WEIGHT,
+            canonical_by_alias=constraints.get("canonical_by_alias") or {},
+        )
+        if not retrieval and canonicals:
+            # protect/dedupe may collapse LLM queries back to the original question.
+            retrieval = self._to_retrieval_queries(
+                question,
+                self._heuristic_anchored_queries(question, canonicals, primary_intent),
+                weight=_ANCHORED_QUERY_WEIGHT,
+                canonical_by_alias=constraints.get("canonical_by_alias") or {},
+            )
+
+        return BackboneAnchorResult(
+            primary_intent=primary_intent,
+            surface_terms=tuple(surface_terms),
+            canonical_entities=tuple(dict.fromkeys(canonicals)),
+            avoid=tuple(avoid),
+            anchored_queries=tuple(q.text for q in retrieval),
+            relation_focus=tuple(relation_focus),
+            relation_summary=relation_summary,
+            retrieval_queries=tuple(retrieval),
+        )
+
+    def _anchor_heuristic(
+        self,
+        question: str,
+        soft_hits: list[str],
+        constraints: dict,
+    ) -> BackboneAnchorResult:
+        canonicals = list(soft_hits)
+        if not canonicals:
+            return BackboneAnchorResult()
+        avoid = avoid_names_for_anchors(canonicals, constraints)[:_MAX_AVOID]
+        intent = "product_relation" if any(
+            tip in question for tip in ("属于", "关系", "区别", "对比", "依赖", "和谁")
+        ) else "product_intro"
+        queries = self._heuristic_anchored_queries(question, canonicals, intent)
+        retrieval = self._to_retrieval_queries(
+            question,
+            queries,
+            weight=_ANCHORED_QUERY_WEIGHT,
+            canonical_by_alias=constraints.get("canonical_by_alias") or {},
+        )
+        return BackboneAnchorResult(
+            primary_intent=intent,
+            surface_terms=(),
+            canonical_entities=tuple(canonicals),
+            avoid=tuple(avoid),
+            anchored_queries=tuple(q.text for q in retrieval),
+            relation_focus=tuple(canonicals),
+            relation_summary=format_anchor_relation_summary(canonicals, constraints),
+            retrieval_queries=tuple(retrieval),
+        )
+
+    @staticmethod
+    def _heuristic_anchored_queries(
+        question: str,
+        canonicals: list[str],
+        intent: str,
+    ) -> list[str]:
+        texts: list[str] = []
+        q_cf = question.casefold()
+        for name in canonicals[:2]:
+            if "product_relation" in (intent or "") or intent == "comparison":
+                texts.append(f"{name} 产品关系 belongs_to")
+                texts.append(f"{name} 与相关产品 区别")
+            else:
+                texts.append(f"{name} 产品介绍")
+                # Avoid a query that is only the bare name when the question
+                # already contains it — those get dropped as near-duplicates.
+                if name.casefold() not in q_cf:
+                    texts.append(f"{name} {question}")
+                else:
+                    texts.append(f"{name} 概述 定位")
+        # Dedup while preserving order
         seen: set[str] = set()
-        for text in protected:
+        ordered: list[str] = []
+        for text in texts:
             key = re.sub(r"\s+", " ", text).casefold()
-            if not key or key in seen or key == q.casefold():
+            if key in seen or key == q_cf:
                 continue
             seen.add(key)
-            specs.append(RetrievalQuery(text, "graph_rewrite", _REWRITE_WEIGHT))
-            if len(specs) >= _MAX_REWRITE_QUERIES:
-                break
-        return specs
+            ordered.append(text)
+        return ordered[:_MAX_REWRITE_QUERIES]
+
+    @staticmethod
+    def _filter_queries_to_allowed(
+        texts: list[str],
+        allowed_names: set[str],
+        canonicals: list[str],
+    ) -> list[str]:
+        if not texts:
+            return []
+        # When anchors exist, every kept query must mention at least one anchor
+        # (prevents soft-hit PipelineBuilder + LLM query about PipelineWebGL).
+        if canonicals:
+            kept = [
+                text
+                for text in texts
+                if any(name.casefold() in text.casefold() for name in canonicals if name)
+            ]
+            return kept
+        kept = []
+        for text in texts:
+            lower = text.casefold()
+            if any(name.casefold() in lower for name in allowed_names if len(name) >= 2):
+                kept.append(text)
+        return kept
 
     def _rewrite_via_llm(self, question: str, summary: GraphRewriteSummary) -> list[str]:
         prompt = _REWRITE_PROMPT.format(
@@ -282,6 +552,50 @@ class GraphQueryRewriter:
         return texts[:_MAX_REWRITE_QUERIES]
 
     @staticmethod
+    def _to_retrieval_queries(
+        question: str,
+        texts: list[str],
+        *,
+        weight: float,
+        canonical_by_alias: dict[str, str] | None = None,
+    ) -> list[RetrievalQuery]:
+        from rag_knowledge.services.query_entity_guard import protect_query_list
+
+        protected = protect_query_list(
+            question,
+            texts,
+            canonical_by_alias=canonical_by_alias,
+        )
+        specs: list[RetrievalQuery] = []
+        seen: set[str] = set()
+        for text in protected:
+            key = re.sub(r"\s+", " ", text).casefold()
+            if not key or key in seen or key == question.casefold():
+                continue
+            seen.add(key)
+            specs.append(RetrievalQuery(text, "graph_rewrite", weight))
+            if len(specs) >= _MAX_REWRITE_QUERIES:
+                break
+        # If protect collapsed everything back to the original question, keep
+        # canonical-bearing heuristic texts without protect (still backbone-safe).
+        if not specs and texts and canonical_by_alias is not None:
+            for text in texts:
+                key = re.sub(r"\s+", " ", text).casefold()
+                if not key or key in seen or key == question.casefold():
+                    continue
+                seen.add(key)
+                specs.append(RetrievalQuery(text, "graph_rewrite", weight))
+                if len(specs) >= _MAX_REWRITE_QUERIES:
+                    break
+        return specs
+
+    @staticmethod
+    def _str_list(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if item and str(item).strip()]
+
+    @staticmethod
     def _filter_avoid(
         texts: list[str],
         avoid: tuple[str, ...],
@@ -299,7 +613,6 @@ class GraphQueryRewriter:
                 result.append(text)
                 continue
             hits_linked = any(name in lower for name in linked_cf)
-            # Drop if it only pushes an avoid sibling without anchoring a linked entity.
             if not hits_linked:
                 continue
             result.append(text)

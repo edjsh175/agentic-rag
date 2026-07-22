@@ -125,16 +125,43 @@ def _filter_substrings(entities: list[str]) -> list[str]:
     # 按照原始列表中的相对顺序返回
     return [e for e in entities if e in kept]
 
+def _text_covers_entity(
+    text: str,
+    entity: str,
+    canonical_by_alias: dict[str, str] | None = None,
+) -> bool:
+    """True if text contains entity or any alias/canonical of the same backbone name."""
+    if not text or not entity:
+        return False
+    text_cf = text.casefold()
+    entity_cf = entity.casefold()
+    if entity_cf in text_cf:
+        return True
+    if not canonical_by_alias:
+        return False
+    canonical = canonical_by_alias.get(entity) or canonical_by_alias.get(entity.strip()) or entity
+    forms = {entity, canonical}
+    for alias, target in canonical_by_alias.items():
+        if target == canonical or alias == canonical:
+            forms.add(alias)
+            forms.add(target)
+    return any(form.casefold() in text_cf for form in forms if form and len(form) >= 2)
+
+
 def protect_rewritten_query(
     original_question: str,
     rewritten_query: str,
     last_user_question: str = "",
+    *,
+    canonical_by_alias: dict[str, str] | None = None,
 ) -> str:
     """对 LLM 改写结果或启发式改写结果做实体一致性保护。
     
     如果当前问题包含显式实体，但改写后的问题丢失了该实体（例如被历史实体的缩写替换了），
     则将改写后问题中的对应部分替换回当前显式实体。
     对于多实体问题，若改写后任意显式实体缺失，则安全回退到原问题以防止信息丢失。
+
+    canonical_by_alias：可选，主干 alias→canonical。有则允许「StampTools」被「StampGIS Tools」覆盖视为未丢失。
     """
     orig_entities = extract_explicit_entities(original_question)
     if not orig_entities:
@@ -144,22 +171,19 @@ def protect_rewritten_query(
     
     # 针对多显式实体的问题，如果缺失了任何一个，回退到 original_question
     if len(orig_entities) > 1:
-        all_present = True
-        for oe in orig_entities:
-            if oe.casefold() not in rewritten_cf:
-                all_present = False
-                break
+        all_present = all(
+            _text_covers_entity(rewritten_query, oe, canonical_by_alias)
+            for oe in orig_entities
+        )
         if all_present:
             return rewritten_query
-        else:
-            return original_question
+        return original_question
             
     # 针对单显式实体的问题
     orig_ent = orig_entities[0]
-    orig_ent_cf = orig_ent.casefold()
     
-    # 如果改写后已经包含该实体（大小写不敏感），则无需替换
-    if orig_ent_cf in rewritten_cf:
+    # 如果改写后已经包含该实体（或等价 canonical/alias），则无需替换
+    if _text_covers_entity(rewritten_query, orig_ent, canonical_by_alias):
         return rewritten_query
         
     rewritten_entities = extract_explicit_entities(rewritten_query)
@@ -171,9 +195,18 @@ def protect_rewritten_query(
     # 遍历改写后的实体，检查是否属于子串匹配或上一轮被继承的历史实体
     for rew_ent in rewritten_entities:
         rew_ent_cf = rew_ent.casefold()
-        is_sub = (rew_ent_cf in orig_ent_cf) or (orig_ent_cf in rew_ent_cf)
+        is_sub = (rew_ent_cf in orig_ent.casefold()) or (orig_ent.casefold() in rew_ent_cf)
         is_last = any(rew_ent_cf == le.casefold() for le in last_entities)
+        # 同一主干 canonical 下的别名替换（StampTools → StampGIS Tools）视为合法，不再回写表面词
+        same_backbone = False
+        if canonical_by_alias:
+            left = canonical_by_alias.get(orig_ent) or canonical_by_alias.get(orig_ent.strip())
+            right = canonical_by_alias.get(rew_ent) or canonical_by_alias.get(rew_ent.strip())
+            if left and right and left == right:
+                same_backbone = True
         
+        if same_backbone:
+            return rewritten_query
         if is_sub or is_last:
             # 执行大小写不敏感替换
             pattern = re.compile(re.escape(rew_ent), re.IGNORECASE)
@@ -194,9 +227,19 @@ def protect_query_list(
     original_question: str,
     queries: list[str],
     last_user_question: str = "",
+    *,
+    canonical_by_alias: dict[str, str] | None = None,
 ) -> list[str]:
     """对多路检索/扩展检索查询列表进行实体一致性保护。"""
-    return [protect_rewritten_query(original_question, q, last_user_question) for q in queries]
+    return [
+        protect_rewritten_query(
+            original_question,
+            q,
+            last_user_question,
+            canonical_by_alias=canonical_by_alias,
+        )
+        for q in queries
+    ]
 
 def filter_entity_candidates(
     original_question: str,

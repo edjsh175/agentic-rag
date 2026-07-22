@@ -156,6 +156,7 @@ class Config:
 
         # ---- Ollama ----
         self.ollama_base_url = _get("ollama", "base_url", "http://localhost:11434")
+        self._ensure_ollama_bypasses_system_proxy(self.ollama_base_url)
 
         # ---- 模型 ----
         self.embedding_model = _get("model", "embedding", "qwen3-embedding:4b")
@@ -355,6 +356,25 @@ class Config:
         for d in [self.chroma_dir, self.data_dir, self.log_dir, self.blog_posts_dir, self.blog_crawl_dir, self.blog_publish_dir, self.crawl_image_dir]:
             d.mkdir(parents=True, exist_ok=True)
         self.watch_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _ensure_ollama_bypasses_system_proxy(base_url: str) -> None:
+        """Keep LAN Ollama off the Windows/system HTTP proxy (avoids empty 502)."""
+        from urllib.parse import urlparse
+
+        host = (urlparse(base_url).hostname or "").strip()
+        if not host:
+            return
+        extras = [host, "127.0.0.1", "localhost", "::1"]
+        for key in ("NO_PROXY", "no_proxy"):
+            current = os.environ.get(key, "")
+            parts = [p.strip() for p in current.split(",") if p.strip()]
+            lower = {p.casefold() for p in parts}
+            for item in extras:
+                if item.casefold() not in lower:
+                    parts.append(item)
+                    lower.add(item.casefold())
+            os.environ[key] = ",".join(parts)
 
     def _assert_test_paths_are_isolated(self, root: Path) -> None:
         if not os.getenv("PYTEST_CURRENT_TEST"):

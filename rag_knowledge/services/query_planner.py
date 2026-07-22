@@ -187,6 +187,10 @@ class RetrievalPlan:
     graph_revision: str = ""
     graph_fallback_reason: str | None = None
     intent_plan: object | None = None
+    backbone_canonical: tuple[str, ...] = ()
+    backbone_avoid: tuple[str, ...] = ()
+    backbone_relation_summary: str = ""
+    backbone_primary_intent: str = ""
 
 
 class QueryPlanner:

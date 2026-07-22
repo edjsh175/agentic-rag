@@ -91,3 +91,18 @@ def test_filter_entity_candidates():
     orig = "ModelBuilder 和 UEModelBuilder 有什么区别？"
     candidates = ["ModelBuilder", "UEModelBuilder"]
     assert sorted(filter_entity_candidates(orig, candidates)) == sorted(["ModelBuilder", "UEModelBuilder"])
+
+
+def test_protect_accepts_backbone_alias_equivalents():
+    aliases = {
+        "StampTools": "StampGIS Tools",
+        "StampGIS Tools": "StampGIS Tools",
+        "StampServer": "StampGIS Server",
+        "StampGIS Server": "StampGIS Server",
+    }
+    orig = "StampTools 和 StampServer 有什么区别"
+    rewritten = "StampGIS Tools 与 StampGIS Server 产品区别"
+    assert (
+        protect_rewritten_query(orig, rewritten, canonical_by_alias=aliases)
+        == rewritten
+    )

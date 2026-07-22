@@ -657,13 +657,17 @@
     {
       "name": "ActiveX",
       "entity_type": "Module",
-      "aliases": [],
+      "aliases": [
+        "ActiveX插件"
+      ],
       "doc_category": ""
     },
     {
       "name": "StampUE",
       "entity_type": "Module",
-      "aliases": [],
+      "aliases": [
+        "StampUE前端"
+      ],
       "doc_category": ""
     },
     {
@@ -831,7 +835,9 @@
     {
       "name": "PostgreSQL",
       "entity_type": "Module",
-      "aliases": [],
+      "aliases": [
+        "PostgreSQL数据库"
+      ],
       "doc_category": ""
     },
     {
