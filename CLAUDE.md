@@ -54,9 +54,9 @@
 
 基于 RAG（检索增强生成）的本地知识库问答系统。后端使用 FastAPI + LangChain + ChromaDB + Ollama，前端使用 Vue 3 + TypeScript + Vite。
 
-### 当前阶段：检索能力优化 + 交付前查漏补缺
+### 当前阶段：质量治理收尾 + 本地已开图试用（生产模板仍关）
 
-正在基于 [rag知识库任务.md](docs/1_需求文档/rag知识库任务.md) 进行「四、检索能力优化」。当前同步口径截至 **2026-07-20**：检索优化主线已完成；知识库一致性/受控重建/测试隔离/图谱重建底座已收口；**Task 8.1/8.2 正式库 Profile 事实已 apply 并通过专项 Gate**。图谱 **第 3 轮（rebuild-safe execute）现场未完成**（无 execute 报告/post-audit；仅有 dry-run 与 RebuildCoordinator 归档，见 `docs/3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md` §1.1）。生成物归档约定见 `docs/5_操作指南与规范/data目录约定.md`。剩余重点含：收口第 3 轮证据链、Git/SVN 交付清理、legacy Profile 瘦身与全图 `missing_evidence` 治理。
+当前同步口径截至 **2026-07-22**：文本 RAG 检索与证据治理已形成可复现基线（FR-10 v4 / 2537 live：39/45 = 86.67%）。正处于「第 4 阶段质量治理收尾 → 第 5 阶段图谱准入准备」。**本地 `config.ini` 已打开** `[graph_retrieval] enabled` 与 `query_rewrite_enabled`（扩召回融合 + 图辅助改写 + 实体提示）；**`config-prod.ini` 仍默认关闭**。图谱 **第 3 轮（rebuild-safe execute）现场未完成**（见 `docs/3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md` §1.1）。准入门槛见 `docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/图谱接入前门槛-2026-07-20.md`。生成物归档约定见 `docs/5_操作指南与规范/data目录约定.md`。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
@@ -76,7 +76,8 @@
 - ✅ Task 8.1 切断 legacy 评分双读 — 运行时 `RetrievalIntentResolver.default()` 只读 `retrieval_intent_policies.json`；意图评分由 `GraphIntentFactProvider` + `score_signals()` 驱动；正式库 profile_sync batch 已 apply，专项 Gate **PASS**（2026-07-10）
 - ✅ Task 8.2 Profile Migration 与 Graph Schema 兼容 — scoped Field（`管线点表.管点编号`）、alias / `different_from` / `has_field` 等经分拆审批写入正式 Graph；`scripts/validate_task81_graph_gate.py` 输出 PASS / NEEDS_APPLY / BLOCKED
 - ✅ Docker 生产部署骨架 — 双容器（`rag-service` FastAPI + `rag-web` Nginx/dist）；生产 CPU 默认 `INSTALL_RERANKER=false`、不将模型打入镜像；`reranker.enabled=false` 三层门控（QueryPlanner / `_get_reranker` / postprocess 降级）；详见 [`deploy/README.md`](deploy/README.md)
-- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办
+- ✅ 图辅助改写 + 扩召回融合（代码已实现，**默认关闭**）— `graph_query_rewrite.py` 中量图摘要 → helper LLM 改写检索 query；与 `graph_retrieval` 扩召回 chunk 融合共用 `_prepare_graph_plan`；须同时 `enabled=true` 且 `query_rewrite_enabled=true` 才生效
+- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办；图谱 Round 3 execute / Round 4 GraphRAG 正式 A/B 未完成
 
 ### 核心功能
 - **章节切片**：`.md`/`.docx`/`.txt` 使用 `unstructured` 按标题结构切片，保留 `section_title`；`.pdf`/`.doc` 回退到固定字数切片
@@ -97,7 +98,9 @@
 - **定时扫描**：监视目录下的新/变更文件自动检测、向量化、入库
 - **视频处理**：提取关键帧 → 视觉模型描述 → 向量化
 - **检索意图策略（policy-only）**：运行时只读 `data/retrieval_intent_policies.json`（`query_hints`、`preferred_doc_categories` 等）；legacy 事实在 `data/migrations/retrieval_intent_profiles_v1.json`，仅供 `sync_profiles_to_graph.py` 迁移
-- **Graph 驱动意图评分**：`graph_intent_scoring.py` 从正式 Graph 加载 approved alias、`different_from` sibling、scoped Field、`defined_in` section path，供 `retrieval_quality.py` 做 section boost / sibling penalty
+- **Graph 驱动意图评分**：`graph_intent_scoring.py` 从正式 Graph 加载 approved alias、`different_from` sibling、scoped Field、`defined_in` section path，供 `retrieval_quality.py` 做 section boost / sibling penalty（**不依赖** `graph_retrieval.enabled`）
+- **图扩召回 + 融合**：实体链接 → 沿关系扩展 → `entity_chunk_links` 取图侧 chunk → 与 Hybrid 结果加权融合（`graph_retrieval.py`）；本地 `config.ini` 已开，`config-prod.ini` 仍默认关
+- **图辅助改写 query**：中量图摘要（实体/别名/`different_from`/一跳边类型/`defined_in` 路径）喂给 helper LLM，产出 `kind=graph_rewrite` 的检索 query 再并入 Hybrid；失败启发式降级；本地已开，生产模板仍默认关
 - **Profile → Graph 同步**：`sync_profiles_to_graph.py` + `ProfileGraphSyncService` 生成 `profile_sync` 候选；正式库须分拆审批，禁止 `--approve-all`；生产 apply 需 `--confirm-db-path` / `--confirm-batch` / `--confirm-backup`
 
 ## 技术栈
@@ -196,7 +199,8 @@ rag_python/
 │       │   ├── llm_extractor.py    # LLM 语义抽取器（提供置信度、证据和 Schema 校验）
 │       │   ├── prompts/            # LLM 抽取提示词模板
 │       │   └── __init__.py
-│       └── graph_retrieval.py      # 图谱检索（实体扩展 + 文档融合 + 守卫过滤）
+│       ├── graph_retrieval.py      # 图谱检索（实体扩展 + 文档融合 + 守卫过滤）
+│       └── graph_query_rewrite.py  # 图辅助检索改写（中量摘要 → helper LLM；默认关）
 │
 ├── web/                            # 前端（Vue 3 + TypeScript + Vite）
 │   ├── Dockerfile                  # 多阶段构建（npm build → nginx:alpine）
@@ -317,25 +321,106 @@ watch_directory/ 文件变化
   → 闲聊检测（问候/感谢/自我介绍等）→ 直接 LLM 回答，跳过检索
   → 敏感内容检测 → 拒绝回答
   → 知识问答 →
-    → Query 上下文化（结合历史消息/上一轮来源，将追问改写成独立问题；LLM 不可用时启发式降级）
-    → 多查询构建（原问题、上下文化问题、历史关键词补强、上一轮来源锚点 query）
-    → RetrievalStrategy 调度检索（按 config.ini [retrieval_strategy] method 选择）
-      → mmr: ChromaDB MMR 检索（top_k=4, fetch_k=12, lambda_mult=0.7）
-      → similarity: ChromaDB 余弦相似度检索
-      → bm25: BM25Okapi 关键词检索（jieba 中文分词）
-      → hybrid: Similarity + BM25，RRF 融合（rrf_k=60，每路 candidate_k=12）
+    → Query 上下文化（历史对话改写；不读图谱关系；LLM 失败时启发式降级）
+    → 多查询构建（原问题、上下文化、来源锚点等）
+    → QueryPlanner（意图分类 + 参数：top_k / rerank / 邻居扩展）
+    → [_prepare_graph_plan] 仅当 [graph_retrieval] enabled=true：
+        → 实体链接 + 关系扩展 + 加载图侧 chunk（entity_chunk_links）
+        → 若 query_rewrite_enabled=true：中量图摘要 → helper LLM 图辅助改写
+          → 产出 kind=graph_rewrite 的 query 并入 plan.queries（失败启发式降级）
+        → 否则跳过图路径（当前本地/生产默认）
+    → RetrievalStrategy 多 query Hybrid（Similarity + BM25 / RRF）等
       → 检索默认过滤 review_status='approved'，可选 doc_category 过滤
-      → `_retrieve()` 支持 `review_status=None` 跳过审核过滤（评估用）
-      → `_retrieve()` 支持 `method` 参数覆盖配置（评估用）
-    → [可选] Reranker 精排（须 `[reranker] enabled=true`；QueryPlanner 再按 intent/force_rerank 决定；`_get_reranker()` 与 postprocess 对 None/失败降级）
-    → 检索质量控制（分数归一化、Jaccard 去重、动态 TopK；结合 Graph 意图评分做 section boost / sibling penalty）
-    → [可选] 上下文压缩（从 chunk 中提取与问题相关的连续原文片段）
-    → [可选] 联网搜索增强（DuckDuckGo）
-    → 组装 prompt（system + context + history + question）
-    → 调用 Ollama LLM 生成回答（同步/SSE 流式）
-    → 记录本次返回来源的 chunk 命中次数（供 `/stats/chunks` 线上命中统计使用）
-    → 返回回答 + 来源文档
+    → 若图侧有 chunk：与文本召回加权融合（fuse）；否则仅文本路
+    → [可选] Reranker 精排（须 [reranker] enabled=true）
+    → 检索后处理：结构化加权 + Graph Intent 评分（alias / different_from 加减分；
+      不依赖 graph_retrieval.enabled）+ 可选 Quality 过滤
+    → [可选] 上下文压缩 / 联网搜索
+    → 组装 prompt（context=chunk 原文；若图开且链到实体可附加「实体消歧提示」，
+      明确不作为事实来源）
+    → 回答治理（无引用降级等）→ Ollama 生成（同步/SSE）
+    → 记录 chunk 命中 → 返回回答 + 被引用的来源
 ```
+
+#### 当前运行时架构（RAG × 图谱）
+
+见下一节「知识图谱架构（代码支持）」——下列模式均已在代码中实现，由配置开关组合启用。
+
+### 知识图谱架构（代码支持）
+
+代码把图谱拆成 **存储 / 建设 / 运行时读路径 / 管理面** 四块。正式库：`data/rag_relational.db`（`RelationalDB`）。
+
+#### A. 存储模型（代码读写的表）
+
+| 表 | 用途 |
+|---|---|
+| `entities` | 实体节点 |
+| `relations` | 关系边（可带 `source_chunk_id`） |
+| `aliases` | 别名 |
+| `entity_chunk_links` | 实体↔chunk 链接（图扩召回取证据块） |
+| `extraction_candidates` | 抽取/同步候选 staging |
+
+另：产品主干预览走 JSON（`product_relation_backbone*.json`），不经过向量库；入库后 `created_by=seed:product_backbone`。
+
+#### B. 建设链路（写图）——代码已支持
+
+```
+规则抽取 (graph_extraction/) ± LLM 抽取
+  或 Profile sync / 产品主干 sync
+  → extraction_candidates
+  → CLI/API review（分拆审批）→ apply
+  → 正式表 + audit/cleanup/quality/Gate
+```
+
+主要入口：`run_graph_build.py`、`sync_profiles_to_graph.py`、产品主干 sync、`graph_governance.py`、`/admin/graph-candidates/*`、前端 `GraphCandidatesView.vue`。
+
+#### C. 运行时读路径——代码已支持的四种介入方式
+
+问答里图谱可按下列 **模式** 介入（可叠加；由开关决定）：
+
+```
+Query
+  →（历史上下文化，与图无关）
+  → QueryPlanner
+  → [_prepare_graph_plan] 若 graph_retrieval.enabled
+        EntityLinker → GraphExpander
+          ├─ 模式3：GraphQueryRewriter（若 query_rewrite_enabled）→ 额外 Hybrid queries
+          └─ 模式2：按 entity_chunk_links 加载图侧 Document → 稍后 fuse
+  → Hybrid 文本检索
+  → 模式2：GraphFusionScorer.fuse（文本路 ∩ 图侧）
+  → 模式1：GraphIntentFactProvider 对已召回 chunk 加减分
+  → 模式4：_build_messages 附加实体消歧提示（有 linked_entities 时）
+  → 回答 LLM（context 仍是 chunk 原文；关系不直接当事实写入答案）
+```
+
+| 模式 | 代码位置 | 做什么 | 配置 |
+|---|---|---|---|
+| **1. Intent 评分** | `graph_intent_scoring.py` ← `retrieval_quality.py` | 用 alias / `different_from` / field / section 给 chunk **排序加减分** | 不依赖 `graph_retrieval.enabled`；随检索后处理调用 |
+| **2. 图扩召回 + 融合** | `graph_retrieval.py`（`EntityLinker` / `GraphExpander` / `fuse`） | 问题链实体 → 扩关系 → **`entity_chunk_links` 取 chunk** → 与 Hybrid 结果加权融合 | `[graph_retrieval] enabled`（本地 `config.ini`=true；`config-prod.ini`=false） |
+| **3. 图辅助改写 query** | `graph_query_rewrite.py` ← `_prepare_graph_plan` | 中量图摘要（名/别名/兄弟/一跳边类型/`defined_in` 路径，无 evidence 正文）→ helper LLM 产出 `kind=graph_rewrite` 的检索 query 并入 Hybrid | `enabled=true` **且** `query_rewrite_enabled=true`（本地已开；生产模板仍关） |
+| **4. 回答侧实体提示** | `rag.py` `_build_messages` | system prompt 加消歧提示（别名、`different_from`）；**声明非事实来源** | 需模式 2 开着且链接到实体 |
+
+环境变量：`GRAPH_RETRIEVAL_ENABLED`、`GRAPH_RETRIEVAL_QUERY_REWRITE_ENABLED`。
+
+**代码明确支持、但未做成「关系当答案」的路径**：没有把 relation 文本/`evidence_text` 作为独立事实通道写入回答契约；回答依据仍是 chunk context + 引用治理。
+
+#### D. 管理面（代码已支持）
+
+| 能力 | 入口 |
+|---|---|
+| 正式图 CRUD / 别名 / 实体-chunk 链接 | `/admin/knowledge_graph/*` |
+| 主干预览编辑（不写正式库） | `/admin/knowledge_graph/product_backbone_preview*` |
+| 候选批次 review/apply/quality | `/admin/graph-candidates/*` |
+| 图谱可视化 | `KnowledgeGraphView.vue` |
+| 候选审批 UI | `GraphCandidatesView.vue` |
+
+#### E. 证据字段在代码里的分工
+
+| 字段 | 谁用 |
+|---|---|
+| `entity_chunk_links.chunk_id` | 模式 2 加载图侧 Document |
+| `relations.source_chunk_id` | 审计/治理/血缘；**当前 GraphExpander 取 chunk 不靠它** |
+| `aliases` | 模式 1 评分、模式 2 链接、模式 3 摘要、模式 4 提示 |
 
 ### API 路由总览
 
@@ -525,6 +610,9 @@ docker compose up -d
 - **受控重建**：`RebuildCoordinator` 使用 `os.O_CREAT | os.O_EXCL` 文件锁防止并发重建，Windows 下通过 `OpenProcess` 检测 stale PID 自动清理遗留锁。流程：备份 → 写入 running 状态 → clear/reset/scan → 一致性断言 → BM25 重建 → 清理状态文件
 - **图谱确定性提取**：Phase B 使用规则管线（`SectionPathExtractor` → `TableFieldExtractor` → `ConfigBlockExtractor`），候选按 `[kind, identity_payload]` SHA-256 指纹去重，通过 review/apply 两阶段审批写入关系数据库。`GraphBuilder.build_full()` 启动前调用 `KnowledgeBaseConsistencyService.assert_consistent()`
 - **Graph 运行时事实源（Task 8.1）**：alias、`different_from`、`has_field`、`defined_in` 等领域事实以正式 Graph approved 记录为准；`RetrievalIntentResolver.default()` 不读 legacy migration；评分经 `GraphIntentFactProvider.load_one()` / `score_signals()`
+- **图检索双开关**：`[graph_retrieval] enabled` 控制扩召回融合；`query_rewrite_enabled` 仅在 enabled=true 时生效，控制图辅助改写。环境变量 `GRAPH_RETRIEVAL_ENABLED` / `GRAPH_RETRIEVAL_QUERY_REWRITE_ENABLED`。本地 `config.ini` 当前均为 true；`config-prod.ini` 仍为 false
+- **图辅助改写输入（中量）**：只喂 canonical、别名、`different_from`、一跳关系类型、`defined_in` 路径词；不喂 `evidence_text` / chunk 正文；改写失败不阻断主问答
+- **图扩召回证据**：图侧 chunk 来自 `entity_chunk_links`（实体→chunk），不是「向量命中块的父章节兄弟块」；关系级 `source_chunk_id` 用于血缘/准入，与实体链接是两层
 - **Field 限定名（Task 8.2）**：canonical Field 为 `{DataTable}.{leaf}`（如 `管线面表.管面编号`）；禁止裸 Field/Section；profile sync 不得创建裸 `PipelineBuilder > …` Section
 - **Profile sync 生产写门禁**：`graph_governance.assert_write_confirmation()` 要求显式确认 DB 路径、batch id、备份文件；`profile_sync` / `domain_catalog_seed` 等 mode 禁止 `--approve-all`
 - **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 104 条 `missing_evidence` 不改变专项判定

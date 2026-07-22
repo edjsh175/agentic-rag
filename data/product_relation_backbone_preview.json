@@ -1195,51 +1195,6 @@
       "description": "视频接入标准"
     },
     {
-      "name": "服务设置",
-      "graph_type": "Module",
-      "layer": "运维管理层",
-      "subtype": "ManagementModule",
-      "source": "StampServer用户手册",
-      "status": "手册确认",
-      "description": "Stamp服务基础设置"
-    },
-    {
-      "name": "三维图层管理",
-      "graph_type": "Module",
-      "layer": "运维管理层",
-      "subtype": "ManagementModule",
-      "source": "StampServer用户手册",
-      "status": "手册确认",
-      "description": "DEM、DOM、模型、BIM、管线、倾斜等图层管理"
-    },
-    {
-      "name": "矢量服务管理",
-      "graph_type": "Module",
-      "layer": "运维管理层",
-      "subtype": "ManagementModule",
-      "source": "StampServer用户手册",
-      "status": "手册确认",
-      "description": "VectorTile、TileBlock、WMS、WMTS、MVT、ArcGIS MapServer"
-    },
-    {
-      "name": "模型服务管理",
-      "graph_type": "Module",
-      "layer": "运维管理层",
-      "subtype": "ManagementModule",
-      "source": "StampServer用户手册",
-      "status": "手册确认",
-      "description": "3DTiles、Terrain"
-    },
-    {
-      "name": "CEGUI配置",
-      "graph_type": "Module",
-      "layer": "运维管理层",
-      "subtype": "ManagementModule",
-      "source": "StampServer用户手册",
-      "status": "手册确认",
-      "description": "客户端GUI配置"
-    },
-    {
       "name": "Linux",
       "graph_type": "Module",
       "layer": "运行与部署基础设施层",
@@ -1346,6 +1301,69 @@
       "source": "StampServer用户手册、PPT",
       "status": "手册确认",
       "description": "按用户角色控制可访问图层"
+    },
+    {
+      "name": "服务部署",
+      "graph_type": "Module",
+      "layer": "系统服务层",
+      "subtype": "ServiceDeployment",
+      "source": "StampServer用户手册",
+      "status": "手册确认",
+      "description": "部署和加载 StampServer 服务模块"
+    },
+    {
+      "name": "StampWebGL",
+      "graph_type": "Product",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
+    },
+    {
+      "name": "StampWebRTC",
+      "graph_type": "Product",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
+    },
+    {
+      "name": "PipelineWebRTC",
+      "graph_type": "Product",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
+    },
+    {
+      "name": "CityplanWebRTCView",
+      "graph_type": "Product",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
+    },
+    {
+      "name": "CityplanWebRTCEditor",
+      "graph_type": "Product",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
+    },
+    {
+      "name": "CentOS 7.8/7.9",
+      "graph_type": "Module",
+      "layer": "",
+      "subtype": "",
+      "source": "",
+      "status": "待确认",
+      "description": ""
     }
   ],
   "relations": [
@@ -1558,151 +1576,6 @@
       "source": "MVT",
       "relation_type": "belongs_to",
       "target": "系统数据与存储层"
-    },
-    {
-      "source": "授权服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "Port服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "Apache数据服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "Nginx数据服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "三维搜索服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "三维分析服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "管线查询服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "管线分析服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "网络分析服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "工程地质服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "管线更新服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "矢量瓦片服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "矢量编辑服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "三维数据库服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "三维数据库发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "三维规划服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "GB28181视频服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "3DTiles服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "I3S服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "文件上传服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "影像发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "GRID发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "ROAM发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "地形切割服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "模型LOD发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "倾斜发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "管线发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "部件发布服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
-    },
-    {
-      "source": "Mesh转换服务",
-      "relation_type": "belongs_to",
-      "target": "系统服务层"
     },
     {
       "source": "se_license.so",
@@ -1930,21 +1803,6 @@
       "target": "二次开发与集成层"
     },
     {
-      "source": "服务设置",
-      "relation_type": "belongs_to",
-      "target": "运维管理层"
-    },
-    {
-      "source": "模型服务管理",
-      "relation_type": "belongs_to",
-      "target": "运维管理层"
-    },
-    {
-      "source": "CEGUI配置",
-      "relation_type": "belongs_to",
-      "target": "运维管理层"
-    },
-    {
       "source": "Linux",
       "relation_type": "belongs_to",
       "target": "运行与部署基础设施层"
@@ -2135,11 +1993,6 @@
       "target": "标准规范体系"
     },
     {
-      "source": "运维管理层",
-      "relation_type": "belongs_to",
-      "target": "业务应用层"
-    },
-    {
       "source": "地下基础设施管理",
       "relation_type": "belongs_to",
       "target": "PipelineWebGL"
@@ -2175,14 +2028,219 @@
       "target": "Linux"
     },
     {
-      "source": "矢量服务管理",
+      "source": "地形切割服务",
       "relation_type": "belongs_to",
-      "target": "StampManager"
+      "target": "服务部署"
     },
     {
-      "source": "三维图层管理",
+      "source": "矢量瓦片服务",
       "relation_type": "belongs_to",
-      "target": "StampManager"
+      "target": "服务部署"
+    },
+    {
+      "source": "I3S服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "部件发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "模型LOD发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "三维规划服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "ROAM发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "Mesh转换服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "文件上传服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "影像发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "管线查询服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "服务部署",
+      "relation_type": "belongs_to",
+      "target": "系统服务层"
+    },
+    {
+      "source": "网络分析服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "三维分析服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "工程地质服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "管线分析服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "管线更新服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "授权服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "Port服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "3DTiles服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "三维搜索服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "Nginx数据服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "矢量编辑服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "Apache数据服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "GB28181视频服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "倾斜发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "三维数据库发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "三维数据库服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "管线发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "GRID发布服务",
+      "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "地下基础设施管理",
+      "relation_type": "belongs_to",
+      "target": "业务应用层"
+    },
+    {
+      "source": "三维管线管理",
+      "relation_type": "belongs_to",
+      "target": "PipelineWebGL"
+    },
+    {
+      "source": "StampGIS Tools",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampManager",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampGIS Server",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "StampGIS Client",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品"
+    },
+    {
+      "source": "WebRTC",
+      "relation_type": "belongs_to",
+      "target": "二次开发与集成层"
+    },
+    {
+      "source": "StampWebGL",
+      "relation_type": "belongs_to",
+      "target": "WebGL"
+    },
+    {
+      "source": "StampWebRTC",
+      "relation_type": "belongs_to",
+      "target": "WebRTC"
+    },
+    {
+      "source": "PipelineWebRTC",
+      "relation_type": "belongs_to",
+      "target": "WebRTC"
+    },
+    {
+      "source": "CityplanWebRTCView",
+      "relation_type": "belongs_to",
+      "target": "WebRTC"
+    },
+    {
+      "source": "CityplanWebRTCEditor",
+      "relation_type": "belongs_to",
+      "target": "WebRTC"
+    },
+    {
+      "source": "CentOS 7.8/7.9",
+      "relation_type": "belongs_to",
+      "target": "运行与部署基础设施层"
     }
   ],
   "pending_confirmation": true

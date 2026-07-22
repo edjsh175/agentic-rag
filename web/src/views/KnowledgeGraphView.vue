@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   getGraphData,
@@ -35,7 +35,10 @@ import {
   entitySubtypeLabel,
   entityTypeBadge,
   entityTypeLabel,
+  filterTypeLabel,
   linkTypeLabel,
+  orderEntityTypes,
+  FORMAL_ENTITY_TYPES,
   relationTypeLabel,
 } from '../utils/graphLabels'
 import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
@@ -61,8 +64,22 @@ const colors: Record<string, string> = {
   Step: '#fb923c',         // 浅橙色
   Error: '#ef4444',        // 红色
   Solution: '#22c55e',     // 翠绿色
+  ManagementModule: '#0f766e',
+  RenderingSystem: '#4f46e5',
+  MainTool: '#2563eb',
+  StampServerService: '#059669',
+  ServiceLibrary: '#475569',
+  EnvironmentComponent: '#64748b',
+  Command: '#f97316',
   Default: '#94a3b8'
 }
+
+/** 正式版默认勾选；Field/Section 默认关闭避免刷屏 */
+const DEFAULT_TYPE_SELECTION: Record<string, boolean> = Object.fromEntries(
+  FORMAL_ENTITY_TYPES.map(type => [type, type !== 'Field' && type !== 'Section']),
+)
+
+const FORM_ENTITY_TYPES = [...FORMAL_ENTITY_TYPES]
 
 // 物理节点接口扩展
 interface VisualNode extends GraphNode {
@@ -98,25 +115,67 @@ const graphData = ref<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], e
 // 过滤状态
 const searchQuery = ref('')
 const selectedCategory = ref<string>('all')
-const selectedTypes = ref<Record<string, boolean>>({
-  Product: true,
-  Tool: true,
-  Service: true,
-  Module: true,
-  DataTable: true,
-  Field: false, // 字段通常很多，默认关闭，避免布局混乱
-  ConfigItem: true,
-  Format: true,
-  Document: true,
-  Section: false, // 章节很多，默认关闭
-  Procedure: true,
-  Step: true,
-  Error: true,
-  Solution: true
+const selectedTypes = ref<Record<string, boolean>>({ ...DEFAULT_TYPE_SELECTION })
+
+// 可选的实体类型：正式版固定枚举；主干预览=正式类型顺序 ∩ 数据中出现的类型 + 扩展类型
+const availableTypes = computed(() => {
+  if (!isProductBackbonePreviewAny.value) {
+    return FORM_ENTITY_TYPES
+  }
+  return Object.keys(selectedTypes.value)
 })
 
-// 可选的实体类型列表
-const availableTypes = Object.keys(selectedTypes.value)
+const nodeFilterType = (node: GraphNode): string => {
+  if (isProductBackbonePreviewAny.value) {
+    const props = parseNodeProperties(node) as Record<string, any>
+    return (props.layer || node.doc_category || '其他') as string
+  }
+  return node.type
+}
+
+const syncPreviewFilterTypes = (nodes: GraphNode[]) => {
+  if (!isProductBackbonePreviewAny.value) {
+    selectedTypes.value = { ...DEFAULT_TYPE_SELECTION }
+    return
+  }
+  const previous = selectedTypes.value
+  const present = nodes.map(node => {
+    const props = parseNodeProperties(node) as Record<string, any>
+    return (props.layer || node.doc_category || '其他') as string
+  }).filter(Boolean)
+  const uniqueLayers = Array.from(new Set(present)).sort((a, b) => a.localeCompare(b))
+  const next: Record<string, boolean> = {}
+  for (const key of uniqueLayers) {
+    next[key] = key in previous ? previous[key] !== false : true
+  }
+  selectedTypes.value = next
+}
+
+const filterTypeLabelLocal = (type: string) => {
+  if (isProductBackbonePreviewAny.value) return type
+  return filterTypeLabel(type)
+}
+
+const filterTypeDotColor = (type: string) => {
+  if (isProductBackbonePreviewAny.value) {
+    const layerColors: Record<string, string> = {
+      '产品体系层': '#a855f7',
+      '总体分层框架': '#10b981',
+      '客户端与渲染层': '#3b82f6',
+      '系统服务层': '#14b8a6',
+      '工具与数据处理层': '#f59e0b',
+      '标准与安全横向维度': '#ef4444',
+      '其他': '#94a3b8'
+    }
+    return layerColors[type] || '#94a3b8'
+  }
+  return colors[type] || colors.Default
+}
+
+const nodeListBadge = (node: GraphNode) => ({
+  text: entityTypeBadge(node.type),
+  color: colors[node.type] || colors.Default,
+})
 const relationTypes = [
   'belongs_to', 'has_table', 'has_field', 'defined_in', 'different_from',
   'uses_config', 'supports_format', 'produces', 'consumes', 'requires',
@@ -137,6 +196,8 @@ const visualNodes = ref<VisualNode[]>([])
 const visualEdges = ref<VisualEdge[]>([])
 let graphLayout: GraphLayoutController | null = null
 const parallelEdgeGap = 26
+/** 全量加载期间禁止过滤 watch 触发 incremental，否则会钉死节点导致无法散开 */
+let suppressFilterLayoutWatch = false
 
 const parseNodeProperties = (node: GraphNode) => {
   if (!node.properties_json) return {}
@@ -364,7 +425,7 @@ const filteredNodesList = computed(() => {
   return visualNodes.value.filter(node => {
     const matchSearch = !query || searchNeighborIds.has(node.id)
     const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
-    const matchType = query ? matchSearch : selectedTypes.value[node.type] !== false
+    const matchType = query ? matchSearch : selectedTypes.value[nodeFilterType(node)] !== false
     return matchSearch && matchCategory && matchType
   })
 })
@@ -373,6 +434,7 @@ const filteredNodesList = computed(() => {
 const fetchGraph = async () => {
   loading.value = true
   errorMsg.value = ''
+  suppressFilterLayoutWatch = true
   try {
     const data = isProductBackboneComplexPreview.value
       ? await getProductBackboneComplexPreview()
@@ -380,8 +442,9 @@ const fetchGraph = async () => {
       ? await getProductBackbonePreview()
       : await getGraphData(selectedCategory.value)
     graphData.value = data
-    
-    // 初始化物理仿真节点
+    syncPreviewFilterTypes(data.nodes)
+
+    // 初始化物理仿真节点（已有节点保留坐标，仅新节点播种）
     const existingNodeMap = new Map(visualNodes.value.map(n => [n.id, n]))
     const cx = canvasWidth.value / 2
     const cy = canvasHeight.value / 2
@@ -394,7 +457,7 @@ const fetchGraph = async () => {
           x: existing.x,
           y: existing.y,
           vx: existing.vx,
-          vy: existing.vy
+          vy: existing.vy,
         }
       }
       // 圆形发散初始位置
@@ -405,7 +468,7 @@ const fetchGraph = async () => {
         x: cx + Math.cos(angle) * radius,
         y: cy + Math.sin(angle) * radius,
         vx: 0,
-        vy: 0
+        vy: 0,
       }
     })
 
@@ -416,6 +479,8 @@ const fetchGraph = async () => {
     errorMsg.value = err.message || '加载图谱数据失败'
   } finally {
     loading.value = false
+    await nextTick()
+    suppressFilterLayoutWatch = false
   }
 }
 
@@ -431,6 +496,7 @@ const updateVisualSubGraph = () => {
 
 // 类型与搜索过滤只增量调整当前子图，避免扰动原有布局
 watch([selectedTypes, searchQuery], () => {
+  if (suppressFilterLayoutWatch) return
   updateVisualSubGraph()
   graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
 }, { deep: true })
@@ -1404,7 +1470,7 @@ onUnmounted(() => {
         
         <!-- 实体类型多选 -->
         <div class="filter-group">
-          <label>展示实体类型</label>
+          <label>{{ isProductBackbonePreviewAny ? '展示功能分层' : '展示实体类型' }}</label>
           <div class="checkbox-list">
             <div 
               v-for="type in availableTypes" 
@@ -1419,9 +1485,9 @@ onUnmounted(() => {
               <label :for="`type-${type}`" class="checkbox-label">
                 <span 
                   class="type-dot" 
-                  :style="{ backgroundColor: colors[type] || colors.Default }"
+                  :style="{ backgroundColor: filterTypeDotColor(type) }"
                 ></span>
-                {{ entityTypeLabel(type) }}
+                {{ filterTypeLabelLocal(type) }}
               </label>
             </div>
           </div>
@@ -1440,9 +1506,9 @@ onUnmounted(() => {
             >
               <span 
                 class="type-tag" 
-                :style="{ backgroundColor: colors[node.type] || colors.Default }"
+                :style="{ backgroundColor: nodeListBadge(node).color }"
               >
-                {{ entityTypeBadge(node.type) }}
+                {{ nodeListBadge(node).text }}
               </span>
               <span class="entity-name">{{ node.label }}</span>
             </li>
@@ -1842,7 +1908,7 @@ onUnmounted(() => {
           <input v-model="entityForm.name" class="modal-input" data-test="entity-name" />
           <label class="form-label">类型</label>
           <select v-model="entityForm.entity_type" class="filter-select" data-test="entity-type">
-            <option v-for="type in availableTypes" :key="type" :value="type">{{ entityTypeLabel(type) }}</option>
+            <option v-for="type in FORM_ENTITY_TYPES" :key="type" :value="type">{{ entityTypeLabel(type) }}</option>
           </select>
           <template v-if="isProductBackbonePreviewAny">
             <label class="form-label">功能层</label>

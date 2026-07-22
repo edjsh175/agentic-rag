@@ -113,14 +113,14 @@ describe('KnowledgeGraphView', () => {
           label: 'StampGIS三维产品',
           type: 'Product',
           review_status: 'pending',
-          properties_json: JSON.stringify({ subtype: 'ProductFamily' }),
+          properties_json: JSON.stringify({ subtype: 'ProductFamily', layer: '产品体系层' }),
         },
         {
           id: 'preview-layer',
           label: '客户端与渲染层',
           type: 'Module',
           review_status: 'pending',
-          properties_json: JSON.stringify({ subtype: 'CoreLayer' }),
+          properties_json: JSON.stringify({ subtype: 'CoreLayer', layer: '总体分层框架' }),
         },
         {
           id: 'preview-activex',
@@ -134,14 +134,14 @@ describe('KnowledgeGraphView', () => {
           label: 'UEModelBuilder',
           type: 'Tool',
           review_status: 'pending',
-          properties_json: JSON.stringify({ subtype: 'MainTool' }),
+          properties_json: JSON.stringify({ subtype: 'MainTool', layer: '工具与数据处理层' }),
         },
         {
           id: 'preview-service-library',
           label: 'se_port.so',
           type: 'Service',
           review_status: 'pending',
-          properties_json: JSON.stringify({ subtype: 'ServiceLibrary' }),
+          properties_json: JSON.stringify({ subtype: 'ServiceLibrary', layer: '系统服务层' }),
         },
         {
           id: 'preview-format',
@@ -205,10 +205,50 @@ describe('KnowledgeGraphView', () => {
     expect(api.getGraphData).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('产品架构主干预览')
     expect(wrapper.text()).toContain('ActiveX')
+    expect(wrapper.text()).toContain('客户端与渲染层')
     expect(wrapper.find('[data-test="open-create-entity"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="open-create-relation"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="toggle-link-mode"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="edge-legend"]').exists()).toBe(true)
+  })
+
+  it('syncs preview filter checkboxes to graph layers', async () => {
+    routeState.query = { source: 'product_backbone_preview' }
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    const renderLayerCheckbox = wrapper.find('#type-客户端与渲染层')
+    const toolLayerCheckbox = wrapper.find('#type-工具与数据处理层')
+    const serviceLayerCheckbox = wrapper.find('#type-系统服务层')
+    expect(renderLayerCheckbox.exists()).toBe(true)
+    expect(toolLayerCheckbox.exists()).toBe(true)
+    expect(serviceLayerCheckbox.exists()).toBe(true)
+    expect((renderLayerCheckbox.element as HTMLInputElement).checked).toBe(true)
+    expect(wrapper.text()).toContain('产品体系层')
+    expect(wrapper.text()).toContain('总体分层框架')
+    expect(wrapper.text()).not.toContain('ServiceResourceType')
+    expect(wrapper.text()).not.toContain('TerrainData')
+    expect(wrapper.text()).not.toContain('接口方法')
+  })
+
+  it('keeps initial layout mode after preview filter sync (does not pin via incremental)', async () => {
+    routeState.query = { source: 'product_backbone_preview' }
+    const { createGraphLayout } = await import('../utils/graphLayout')
+
+    mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    const results = vi.mocked(createGraphLayout).mock.results
+    const layout = results[results.length - 1]?.value as {
+      setGraph: ReturnType<typeof vi.fn>
+    }
+    expect(layout.setGraph).toHaveBeenCalled()
+    const modes = layout.setGraph.mock.calls.map(call => call[2])
+    expect(modes).toContain('initial')
+    // 加载完成后不应被过滤同步再打一枪 incremental（会钉死节点）
+    const lastInitial = modes.lastIndexOf('initial')
+    expect(modes.slice(lastInitial + 1).includes('incremental')).toBe(false)
   })
 
   it('loads product backbone complex preview from query source', async () => {

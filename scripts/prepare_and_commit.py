@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement query rewrite module, gold v4 human signoff pack, and graph retrieval AB evaluation"
+    commit_msg = "产品主干第一版确认版"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
