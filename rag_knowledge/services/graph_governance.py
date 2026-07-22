@@ -148,7 +148,10 @@ def is_safe_review_candidate(
     if item["candidate_kind"] == "alias":
         if not explicit_id and approve_kind != "alias":
             return False
-        return _safe_profile_sync_alias_candidate(item, batch or {})
+        batch = batch or {}
+        if batch.get("mode") == "product_backbone_seed":
+            return _safe_product_backbone_alias_candidate(item, batch)
+        return _safe_profile_sync_alias_candidate(item, batch)
     payload = item["payload"]
     evidence_text = str(payload.get("evidence_text") or item.get("evidence_text") or "")
     if not evidence_text and not payload.get("evidences"):
@@ -169,6 +172,16 @@ def _safe_profile_sync_alias_candidate(item: dict, batch: dict) -> bool:
         return False
     evidence = str(payload.get("evidence_text") or "")
     return evidence.startswith("profile:")
+
+
+def _safe_product_backbone_alias_candidate(item: dict, batch: dict) -> bool:
+    if batch.get("mode") != "product_backbone_seed":
+        return False
+    payload = item["payload"]
+    if payload.get("created_by") != "seed:product_backbone":
+        return False
+    evidence = str(payload.get("evidence_text") or item.get("evidence_text") or "")
+    return evidence.startswith("product_backbone:")
 
 
 def filter_approvable_candidate_ids(

@@ -355,6 +355,66 @@ describe('KnowledgeGraphView', () => {
     expect(api.createGraphRelation).not.toHaveBeenCalled()
   })
 
+  it('enables link mode on formal graph and saves via createGraphRelation', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get: () => 800,
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: () => 600,
+    })
+    vi.mocked(api.createGraphRelation).mockResolvedValue({ id: 'formal-relation-created' })
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    await wrapper.get('[data-test="toggle-link-mode"]').trigger('click')
+    expect(wrapper.find('.canvas-container').classes()).toContain('link-mode')
+    expect(wrapper.get('[data-test="link-mode-hint"]').text()).toContain('从源实体拉到目标实体')
+
+    const canvas = wrapper.get('canvas')
+    vi.spyOn(canvas.element, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 600,
+      right: 800,
+      width: 800,
+      height: 600,
+      toJSON: () => ({}),
+    })
+
+    // 正式图 3 个节点（random=0）：idx0 → (580,300)，idx1 angle=2π/3 → (310,456)
+    canvas.element.dispatchEvent(new MouseEvent('mousedown', {
+      clientX: 580,
+      clientY: 300,
+      bubbles: true,
+    }))
+    canvas.element.dispatchEvent(new MouseEvent('mouseup', {
+      clientX: 310,
+      clientY: 456,
+      bubbles: true,
+    }))
+    await flushPromises()
+
+    expect(wrapper.find('.modal-backdrop').exists()).toBe(true)
+    expect((wrapper.get('[data-test="relation-source"]').element as HTMLSelectElement).value).toBe('doc-1')
+    expect((wrapper.get('[data-test="relation-target"]').element as HTMLSelectElement).value).toBe('tool-1')
+
+    await wrapper.get('[data-test="save-relation"]').trigger('click')
+    await flushPromises()
+
+    expect(api.createGraphRelation).toHaveBeenCalledWith(expect.objectContaining({
+      source_id: 'doc-1',
+      target_id: 'tool-1',
+      relation_type: 'belongs_to',
+    }))
+    expect(api.createProductBackboneRelation).not.toHaveBeenCalled()
+  })
+
   it('shows link-mode hint and updates it while dragging from source to target', async () => {
     routeState.query = { source: 'product_backbone_preview' }
     vi.spyOn(Math, 'random').mockReturnValue(0)

@@ -915,7 +915,7 @@ const handleMouseDown = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
   const clickedNode = findNodeAt(coords.x, coords.y)
 
-  if (isProductBackbonePreviewAny.value && isLinkMode.value) {
+  if (isLinkMode.value) {
     if (clickedNode) {
       linkStartNodeId.value = clickedNode.id
       linkHoverNodeId.value = null
@@ -950,7 +950,7 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
 
-  if (isProductBackbonePreviewAny.value && isLinkMode.value && linkStartNodeId.value) {
+  if (isLinkMode.value && linkStartNodeId.value) {
     linkCursorPos.value = { x: coords.x, y: coords.y }
     const hoverNode = findNodeAt(coords.x, coords.y)
     linkHoverNodeId.value = hoverNode && hoverNode.id !== linkStartNodeId.value
@@ -978,7 +978,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // 鼠标放开
 const handleMouseUp = (e?: MouseEvent) => {
-  if (isProductBackbonePreviewAny.value && isLinkMode.value && linkStartNodeId.value) {
+  if (isLinkMode.value && linkStartNodeId.value) {
     const sourceId = linkStartNodeId.value
     const targetNode = e ? findNodeAt(getGraphCoords(e).x, getGraphCoords(e).y) : null
     clearLinkDraft()
@@ -1552,7 +1552,6 @@ onUnmounted(() => {
             新建关系
           </button>
           <button
-            v-if="isProductBackbonePreview"
             @click="isLinkMode = !isLinkMode"
             class="icon-btn"
             :class="{ active: isLinkMode }"

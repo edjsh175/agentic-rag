@@ -15,7 +15,7 @@ from rag_knowledge.services.graph_extraction import (
 )
 
 
-def test_graph_extraction_llm_pipeline(isolated_storage):
+def test_graph_extraction_llm_pipeline(isolated_storage, monkeypatch):
     cfg, db_path, chroma_dir, data_dir = isolated_storage()
     db = RelationalDB()
 
@@ -31,6 +31,23 @@ def test_graph_extraction_llm_pipeline(isolated_storage):
             }
         }
     ]
+
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda path=None: {
+            "belongs_to": {},
+            "different_from": set(),
+            "requires": set(),
+            "relations": [],
+            "canonical_by_alias": {},
+            "entity_type_by_name": {},
+            "doc_categories": set(),
+        },
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
+        lambda **kwargs: "http://test",
+    )
 
     # 2. Mock LLMGraphExtractor to return mock entities & relations & aliases
     mock_llm_result = ExtractionResult()

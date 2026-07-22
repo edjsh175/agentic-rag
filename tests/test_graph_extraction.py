@@ -69,6 +69,23 @@ def test_graph_builder_normalizes_llm_aliases_in_one_batch(isolated_storage, mon
         ExtractionResult(entities=[EntityCandidate("Postgres", "EnvironmentComponent", source_chunk_id="c1", evidence_text="Postgres")]),
         ExtractionResult(entities=[EntityCandidate("PostgreSQL", "EnvironmentComponent", source_chunk_id="c2", evidence_text="PostgreSQL")]),
     ])
+    # Empty backbone → neighborhood always on; avoid live Ollama probe in unit tests.
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda path=None: {
+            "belongs_to": {},
+            "different_from": set(),
+            "requires": set(),
+            "relations": [],
+            "canonical_by_alias": {},
+            "entity_type_by_name": {},
+            "doc_categories": set(),
+        },
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
+        lambda **kwargs: "http://test",
+    )
     with patch("rag_knowledge.services.graph_extraction.llm_extractor.LLMGraphExtractor.extract", side_effect=lambda _: next(llm_results)):
         result = GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(include_llm=True)
 

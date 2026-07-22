@@ -19,6 +19,14 @@ from rag_knowledge.services.graph_governance import (
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.entity_resolution import EntityResolutionService
+from rag_knowledge.services.backbone_guard import (
+    CONFLICT_REASON,
+    chunk_in_backbone_neighborhood,
+    describe_conflict,
+    load_backbone_constraints,
+    rule_result_hits_backbone,
+)
+from rag_knowledge.services.ollama_health import assert_ollama_reachable
 
 from . import (
     CandidateNormalizer,
@@ -123,14 +131,29 @@ class GraphBuilder:
         from rag_knowledge.config import Config
         cfg = Config()
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
-        llm_extractor = LLMGraphExtractor() if actual_include_llm else None
+        backbone_constraints = load_backbone_constraints()
+        if actual_include_llm:
+            assert_ollama_reachable()
+        llm_extractor = (
+            LLMGraphExtractor(backbone_constraints=backbone_constraints) if actual_include_llm else None
+        )
         catalog = DomainCatalogLoader()
         section_extractor = SectionPathExtractor(catalog=catalog)
         candidate_normalizer = CandidateNormalizer(catalog=catalog)
         entity_resolver = EntityResolutionService(self.db)
 
         batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
-        counts = {"chunks": len(chunks), "entity": 0, "relation": 0, "alias": 0, "field": 0, "link": 0, "diagnostic": 0}
+        counts = {
+            "chunks": len(chunks),
+            "entity": 0,
+            "relation": 0,
+            "alias": 0,
+            "field": 0,
+            "link": 0,
+            "diagnostic": 0,
+            "llm_chunks_considered": 0,
+            "llm_chunks_skipped": 0,
+        }
         counts.update(extra_stats or {})
         candidate_ids: dict[str, set[str]] = {kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic", "alias")}
         rule_candidate_ids = set()
@@ -184,11 +207,21 @@ class GraphBuilder:
                     )
                     if kind == "diagnostic":
                         self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
+                    elif kind in {"entity", "relation"}:
+                        self._reject_backbone_conflict(
+                            batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                        )
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
-            # 2. LLM semantic extractor
+            # 2. LLM semantic extractor (backbone neighborhood only)
             if actual_include_llm and llm_extractor:
+                in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
+                rule_hit = rule_result_hits_backbone(combined, backbone_constraints)
+                if not (in_neighborhood or rule_hit):
+                    counts["llm_chunks_skipped"] = int(counts.get("llm_chunks_skipped") or 0) + 1
+                    continue
+                counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
                 llm_result = llm_extractor.extract(chunk)
                 for kind, items in (
                     ("entity", llm_result.entities),
@@ -260,6 +293,10 @@ class GraphBuilder:
                         )
                         if kind == "diagnostic":
                             self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
+                        elif kind in {"entity", "relation"}:
+                            self._reject_backbone_conflict(
+                                batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                            )
                         candidate_ids[kind].add(candidate_id)
                         llm_candidate_ids.add(candidate_id)
 
@@ -277,6 +314,9 @@ class GraphBuilder:
                     ).hexdigest()
                     candidate_id = self.db.add_extraction_candidate(
                         batch_id, "alias", fingerprint, payload, source_chunk_id, evidence
+                    )
+                    self._reject_backbone_conflict(
+                        batch_id, "alias", candidate_id, payload, backbone_constraints, candidate_ids
                     )
                     candidate_ids["alias"].add(candidate_id)
                     llm_candidate_ids.add(candidate_id)
@@ -304,6 +344,34 @@ class GraphBuilder:
                 (json.dumps(counts, ensure_ascii=False, sort_keys=True), batch_id),
             )
         return BuildBatchResult(batch_id, counts)
+
+    def _reject_backbone_conflict(
+        self,
+        batch_id: str,
+        kind: str,
+        candidate_id: str,
+        payload: dict,
+        constraints: dict,
+        candidate_ids: dict[str, set[str]],
+    ) -> None:
+        reason = describe_conflict(kind, payload, constraints)
+        if not reason:
+            return
+        self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", CONFLICT_REASON)
+        chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+        diagnostic_payload = {
+            "code": CONFLICT_REASON,
+            "message": reason,
+            "chunk_id": chunk_id,
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
+        diagnostic_id = self.db.add_extraction_candidate(
+            batch_id, "diagnostic", fingerprint, diagnostic_payload, chunk_id, reason
+        )
+        self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", reason)
+        candidate_ids["diagnostic"].add(diagnostic_id)
 
     @staticmethod
     def _identity_payload(kind: str, payload: dict) -> dict:

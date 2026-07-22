@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.backbone_guard import format_backbone_context, load_backbone_constraints
 from . import (
     EntityCandidate,
     RelationCandidate,
@@ -43,13 +44,27 @@ def normalize_name(name: str) -> str:
 class LLMGraphExtractor:
     """Schema-constrained LLM semantic graph extractor (MVP-4)."""
 
-    def __init__(self):
+    def __init__(self, *, backbone_constraints: dict | None = None):
         self.cfg = Config()
         prompt_dir = Path(__file__).parent / "prompts"
         prompt_file = prompt_dir / f"llm_graph_extractor_{self.cfg.graph_extraction_llm.prompt_version}.md"
         if not prompt_file.exists():
             prompt_file = prompt_dir / "llm_graph_extractor_v1.md"
         self.prompt_template = prompt_file.read_text(encoding="utf-8")
+        self._backbone_constraints = backbone_constraints
+        self._backbone_context = format_backbone_context(
+            backbone_constraints if backbone_constraints is not None else load_backbone_constraints()
+        )
+
+    def build_prompt(self, *, doc_category: str, section_path: str, content: str) -> str:
+        """Assemble extraction prompt (exposed for unit tests)."""
+        return (
+            self.prompt_template
+            .replace("{backbone_context}", self._backbone_context)
+            .replace("{doc_category}", doc_category)
+            .replace("{section_path}", section_path)
+            .replace("{content}", content)
+        )
 
     def extract(self, chunk: dict) -> ExtractionResult:
         """Extract entities and relations from a chunk using LLM."""
@@ -61,11 +76,10 @@ class LLMGraphExtractor:
 
         result = ExtractionResult()
 
-        prompt = (
-            self.prompt_template
-            .replace("{doc_category}", doc_category)
-            .replace("{section_path}", section_path)
-            .replace("{content}", content)
+        prompt = self.build_prompt(
+            doc_category=doc_category,
+            section_path=section_path,
+            content=content,
         )
 
         try:

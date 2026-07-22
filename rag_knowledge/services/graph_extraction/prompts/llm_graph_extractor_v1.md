@@ -9,6 +9,10 @@ You are a highly accurate technical knowledge graph extractor. Your task is to e
 5. Provide a "confidence" score between 0.0 and 1.0 for each extraction. Lower the score if you are uncertain.
 6. If the text contains errors or is impossible to parse, output details in the "diagnostics" array.
 7. Return ONLY a valid JSON object. Do not include any explanations or extra text outside the JSON structure.
+8. Respect the official product backbone below: do NOT rewrite official belongs_to ownership; do NOT emit alias_of between entities listed as different_from.
+
+# Official Product Backbone
+{backbone_context}
 
 # Allowed Entity Types
 - Product: A software product (e.g., StampServer, StampTools, StampWebRTC).

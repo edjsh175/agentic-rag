@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "产品主干第一版确认版"
+    commit_msg = "feat: implement promote backbone preview to formal tool, remap relations, backbone guard, and ollama health metrics"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

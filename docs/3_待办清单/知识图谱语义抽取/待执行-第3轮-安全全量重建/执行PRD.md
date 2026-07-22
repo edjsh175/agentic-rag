@@ -1,20 +1,20 @@
 # 知识图谱执行 PRD — 第 3 轮：安全全量重建
 
 - **记录日期**：2026-07-13
-- **状态复核**：2026-07-20
-- **状态**：**未完成（仅 dry-run 留痕；execute 报告/日志/post-audit 现场均缺失）** — 不得把历史「execute 已启动」写成已完成
+- **状态复核**：2026-07-22
+- **状态**：**规则路径已完成**（execute 报告/post-audit/Gate 已落盘）；**实 LLM 补抽待 Ollama 恢复后重跑** — 详见 [第3轮执行验收记录.md](./第3轮执行验收记录.md)
 - **轮次编号**：Round-3 / MVP-3C
 - **母文档**：`../2026-07-09-知识图谱语义抽取升级整体计划与PRD.md`
 - **前置条件**（全部满足方可开工）：
   1. 第 2 轮 Go/No-Go 为 **Go**
-  2. **第 2.5 轮产品关系主干已 apply**（batch `def72329-d322-467a-b111-bc455a8529a7`，`seed:product_backbone`）
-  3. `data/product_relation_backbone.json` 非空且与已 apply 事实一致（抽检 40/40，2026-07-14）
+  2. **第 2.5 轮产品关系主干已 apply**（含 2026-07-22 预览正式替换，batch `a1c75bec-09ef-4420-be9a-e229add62c7b`，`seed:product_backbone`）
+  3. `data/product_relation_backbone.json` 与已 apply 事实一致（抽检 **175/175**，2026-07-22）
 - **周期建议**：5–8 个工作日
-- **是否启用 LLM**：**是（全库，与规则合并，且必须服从主干边界）**
+- **是否启用 LLM**：**是（全库，与规则合并，且必须服从主干边界）**；2026-07-22 现场因 Ollama 不可达，`llm_candidates=0`
 
 > **2026-07-14 口径**：本轮不是「全靠 LLM 冲业务实体」，而是在**官方产品关系主干**已入库的前提下，用规则 + 受限 LLM 做可回滚全量补全。
 >
-> **2026-07-20 现场**：dry-run 已归档到 `data/archive/rebuild_reports/rebuild_safe_dry_run_pre_round3.*`；`rebuild_safe_execute_round3.*`、`graph_round3_execute*.log`、`graph_audit_post_round3.json` 及文档中的 `data/backups/rag_relational_pre_round3*.db` **均不存在**。7 月 17 日 `data/archive/rebuild/20260717-*` 是 RebuildCoordinator 快照，不是本轮 execute 验收物。详见 [第3轮执行验收记录.md](./第3轮执行验收记录.md) 与 [剩余轮次总览 §1.1](../2026-07-13-知识图谱PRD剩余轮次总览.md)。
+> **2026-07-22 现场**：`rebuild_safe_execute_round3.*`、`graph_audit_post_round3.*`、`rag_relational_pre_round3_20260722_131948.db` 已生成；Task81 PASS；主干 175/175。§10 数量项仍依赖实 LLM，见验收记录。
 
 ---
 

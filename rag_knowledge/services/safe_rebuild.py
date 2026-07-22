@@ -16,6 +16,24 @@ from rag_knowledge.services.graph_governance import (
 )
 from rag_knowledge.services.graph_manual_export import GraphManualFactExporter
 from rag_knowledge.services.graph_extraction import GraphBuilder, GraphCandidateApplier
+from rag_knowledge.services.backbone_guard import (
+    CONFLICT_REASON,
+    load_backbone_constraints,
+    relation_conflicts_with_backbone,
+)
+from rag_knowledge.services.ollama_health import assert_ollama_reachable
+
+# Re-export for callers/tests that import from safe_rebuild.
+__all__ = [
+    "CONFLICT_REASON",
+    "SafeRebuildDryRunService",
+    "SafeRebuildService",
+    "classify_sources",
+    "is_preserved_creator",
+    "is_replaceable_creator",
+    "load_backbone_constraints",
+    "relation_conflicts_with_backbone",
+]
 
 PRESERVED_CREATORS = frozenset({
     "admin",
@@ -29,6 +47,21 @@ PRESERVED_CREATORS = frozenset({
 ENTITY_APPROVE_CONFIDENCE = 0.88
 ALIAS_APPROVE_CONFIDENCE = 0.90
 RELATION_APPROVE_CONFIDENCE = 0.80
+
+
+def _candidate_confidence(payload: dict) -> float:
+    """Rule extractors often omit confidence; treat missing/None as 1.0."""
+    raw = payload.get("confidence")
+    if raw is None:
+        props = payload.get("properties")
+        if isinstance(props, dict):
+            raw = props.get("confidence")
+    if raw is None:
+        return 1.0
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def is_preserved_creator(created_by: str) -> bool:
@@ -62,54 +95,6 @@ def classify_sources(entity_sources: dict[str, int], relation_sources: dict[str,
         elif is_replaceable_creator(key):
             superseded[key] = count
     return preserved, superseded
-
-
-def load_backbone_constraints(path: Path | None = None) -> dict:
-    root = Path(__file__).resolve().parents[2]
-    backbone_path = path or (root / "data" / "product_relation_backbone.json")
-    if not backbone_path.is_file():
-        return {"belongs_to": {}, "different_from": set(), "requires": set(), "relations": []}
-    data = json.loads(backbone_path.read_text(encoding="utf-8"))
-    belongs_to: dict[str, set[str]] = {}
-    different_from: set[frozenset[str]] = set()
-    requires: set[tuple[str, str]] = set()
-    relations = []
-    for item in data.get("relations") or []:
-        source = str(item.get("source") or "").strip()
-        target = str(item.get("target") or "").strip()
-        relation_type = str(item.get("relation_type") or "").strip()
-        if not source or not target or not relation_type:
-            continue
-        relations.append({"source": source, "relation_type": relation_type, "target": target})
-        if relation_type == "belongs_to":
-            belongs_to.setdefault(source, set()).add(target)
-        elif relation_type == "different_from":
-            different_from.add(frozenset({source, target}))
-        elif relation_type == "requires":
-            requires.add((source, target))
-    return {
-        "belongs_to": belongs_to,
-        "different_from": different_from,
-        "requires": requires,
-        "relations": relations,
-    }
-
-
-def relation_conflicts_with_backbone(payload: dict, constraints: dict) -> bool:
-    source = str(payload.get("source_name") or "").strip()
-    target = str(payload.get("target_name") or "").strip()
-    relation_type = str(payload.get("relation_type") or "").strip()
-    if not source or not target or not relation_type:
-        return False
-    belongs_to = constraints.get("belongs_to") or {}
-    if relation_type == "belongs_to" and source in belongs_to and target not in belongs_to[source]:
-        return True
-    if relation_type == "different_from":
-        # Never reject affirming an official different_from edge.
-        return False
-    # Reject candidates that would re-attach a backbone child under a non-backbone parent
-    # via other ownership-like edges is handled only for belongs_to above.
-    return False
 
 
 def check_backbone_integrity(db, constraints: dict) -> dict:
@@ -201,6 +186,10 @@ class SafeRebuildService:
             confirm_db_path=confirm_db_path,
             require_backup=False,
         )
+
+        # Fail before superseding automatic facts if LLM is required but Ollama is down.
+        if include_llm:
+            assert_ollama_reachable()
 
         # Phase A — backup
         backup_path = self._backup_db(backup_dir)
@@ -362,10 +351,15 @@ class SafeRebuildService:
         rejected_conflicts = 0
         if conflict_ids:
             rejected_conflicts = self.db.review_extraction_candidates(
-                batch_id, conflict_ids, "rejected", "conflicts_product_backbone"
+                batch_id, conflict_ids, "rejected", CONFLICT_REASON
             )
 
         approved_total = 0
+        known_entities = {
+            str(row["name"])
+            for row in self.db.list_entities()
+            if row.get("name")
+        }
         passes = [
             ("entity", ENTITY_APPROVE_CONFIDENCE, None),
             ("alias", ALIAS_APPROVE_CONFIDENCE, None),
@@ -379,13 +373,35 @@ class SafeRebuildService:
             for item in pending:
                 if item["candidate_kind"] != kind:
                     continue
-                confidence = float(item["payload"].get("confidence", 0))
+                confidence = _candidate_confidence(item["payload"])
                 if confidence < threshold:
                     continue
                 if not is_safe_review_candidate(item, batch=batch, approve_kind=kind):
                     continue
-                if kind == "relation" and relation_conflicts_with_backbone(item["payload"], constraints):
-                    continue
+                payload = item["payload"]
+                if kind == "relation":
+                    if relation_conflicts_with_backbone(payload, constraints):
+                        continue
+                    source = str(payload.get("source_name") or "").strip()
+                    target = str(payload.get("target_name") or "").strip()
+                    if source not in known_entities or target not in known_entities:
+                        continue
+                elif kind == "alias":
+                    if str(payload.get("entity_name") or "").strip() not in known_entities:
+                        continue
+                elif kind == "link":
+                    if str(payload.get("entity_name") or "").strip() not in known_entities:
+                        continue
+                elif kind == "field":
+                    # field payloads may use table/entity name fields depending on extractor
+                    owner = str(
+                        payload.get("entity_name")
+                        or payload.get("table_name")
+                        or payload.get("parent_name")
+                        or ""
+                    ).strip()
+                    if owner and owner not in known_entities:
+                        continue
                 selected.append(item)
             if not selected:
                 continue
@@ -397,6 +413,14 @@ class SafeRebuildService:
                 batch_id, summary["ids_to_update"], "approved", f"safe_rebuild:{kind}>={threshold}"
             )
             approved_total += updated
+            if kind == "entity":
+                approved_ids = set(summary["ids_to_update"])
+                for item in selected:
+                    if item["id"] not in approved_ids:
+                        continue
+                    name = str(item["payload"].get("name") or "").strip()
+                    if name:
+                        known_entities.add(name)
 
         remaining_pending = len(self.db.list_extraction_candidates(batch_id, "pending"))
         return {

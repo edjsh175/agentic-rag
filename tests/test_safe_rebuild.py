@@ -4,12 +4,20 @@ from pathlib import Path
 import run_graph_build
 from rag_knowledge.services.safe_rebuild import (
     SafeRebuildService,
+    _candidate_confidence,
     classify_sources,
     is_preserved_creator,
     is_replaceable_creator,
     relation_conflicts_with_backbone,
 )
 from tests.test_graph_extraction import chunk, make_db
+
+
+def test_candidate_confidence_defaults_missing_to_one():
+    assert _candidate_confidence({}) == 1.0
+    assert _candidate_confidence({"confidence": None}) == 1.0
+    assert _candidate_confidence({"properties": {"confidence": 0.91}}) == 0.91
+    assert _candidate_confidence({"confidence": 0.5}) == 0.5
 
 
 def test_creator_classification():
@@ -135,4 +143,5 @@ def test_rebuild_safe_execute_preserves_seed_and_replaces_auto(isolated_storage,
     assert db.get_entity(auto_id) is None
     assert db.get_relation_by_details(tool_id, product_id, "belongs_to") is not None
     assert report["backbone_after"]["complete"] is True
+    assert (report.get("review") or {}).get("approved", 0) >= 1
     assert out_json.exists() and out_md.exists()
