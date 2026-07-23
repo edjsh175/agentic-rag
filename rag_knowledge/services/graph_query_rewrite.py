@@ -8,9 +8,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import post as ollama_post
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.backbone_guard import (
     avoid_names_for_anchors,
@@ -33,7 +32,7 @@ _MAX_SECTION_PATHS = 6
 _SECTION_PATH_CHARS = 80
 _MAX_REWRITE_QUERIES = 3
 _REWRITE_WEIGHT = 0.7
-_ANCHORED_QUERY_WEIGHT = 0.85
+_ANCHORED_QUERY_WEIGHT = 1.1
 
 _REWRITE_PROMPT = """你是 RAG 检索查询改写助手。你不会回答用户问题，只根据图谱摘要生成更适合检索的查询。
 
@@ -320,7 +319,7 @@ class GraphQueryRewriter:
             soft_hits_json=json.dumps(soft_hits, ensure_ascii=False),
             lexicon_json=json.dumps(lexicon, ensure_ascii=False),
         )
-        resp = httpx.post(
+        resp = ollama_post(
             f"{self._ollama_base}/api/chat",
             json={
                 "model": self._llm_model,
@@ -505,7 +504,7 @@ class GraphQueryRewriter:
             question=question,
             summary_json=json.dumps(summary.to_dict(), ensure_ascii=False),
         )
-        resp = httpx.post(
+        resp = ollama_post(
             f"{self._ollama_base}/api/chat",
             json={
                 "model": self._llm_model,

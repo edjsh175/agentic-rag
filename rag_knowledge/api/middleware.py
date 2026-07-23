@@ -8,6 +8,8 @@ import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from rag_knowledge.services.qa_trace import set_request_context
+
 logger = logging.getLogger("api")
 
 
@@ -18,14 +20,14 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
         request_id = uuid.uuid4().hex[:8]
         method = request.method
         path = request.url.path
-        query = str(request.url.query) if request.url.query else ""
+        request.state.request_id = request_id
+        set_request_context(request_id=request_id)
 
         # 不记录静态资源和健康检查
         if path in ("/health", "/favicon.ico"):
             return await call_next(request)
 
         start = time.time()
-        body_preview = ""
         content_length = request.headers.get("content-length", "?")
 
         # 记录请求开始
@@ -41,6 +43,7 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
 
         elapsed = time.time() - start
         status = response.status_code
+        response.headers["X-Request-Id"] = request_id
 
         if status >= 500:
             logger.error("[%s] <<< %s %s | %d | %.3fs", request_id, method, path, status, elapsed)

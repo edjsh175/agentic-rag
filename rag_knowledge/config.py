@@ -125,6 +125,16 @@ class GraphLLMExtractorConfig:
     extractor_version: str = "v1"
 
 
+@dataclass
+class QaTraceConfig:
+    """Persist per-turn RAG traces for the admin QA monitor."""
+    enabled: bool = True
+    max_content_preview: int = 240
+    max_candidates: int = 20
+    retain_days: int = 14
+    max_traces: int = 2000
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -208,13 +218,13 @@ class Config:
         }
 
         # ---- 检索策略 ----
-        self.retrieval_top_k = int(_get("retrieval", "top_k", "5"))
+        self.retrieval_top_k = int(_get("retrieval", "top_k", "6"))
         self.retrieval_fetch_k = int(_get("retrieval", "fetch_k", "20"))
         self.retrieval_lambda_mult = float(_get("retrieval", "lambda_mult", "0.7"))
         self.retrieval_strategy = _get("retrieval_strategy", "method", "mmr")
         self.retrieval_fusion_method = _get("retrieval_strategy", "fusion_method", "rrf")
         self.retrieval_rrf_k = int(_get("retrieval_strategy", "rrf_k", "60"))
-        self.retrieval_candidate_k = int(_get("retrieval_strategy", "candidate_k", "12"))
+        self.retrieval_candidate_k = int(_get("retrieval_strategy", "candidate_k", "20"))
 
         # ---- 意图驱动检索计划 ----
         self.query_planner = QueryPlannerConfig(
@@ -258,7 +268,7 @@ class Config:
         self.reranker_enabled = _get("reranker", "enabled", "false").lower() == "true"
         self.reranker_type = _get("reranker", "type", "bge")
         self.reranker_model = _get("reranker", "model", "BAAI/bge-reranker-v2-m3")
-        self.reranker_top_n = int(_get("reranker", "top_n", "4"))
+        self.reranker_top_n = int(_get("reranker", "top_n", "6"))
         self.reranker_candidate_k = int(_get("reranker", "candidate_k", "20"))
 
         # ---- 检索质量控制 (Phase 5) ----
@@ -350,6 +360,15 @@ class Config:
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
         )
 
+        # ---- QA 全流程 trace（问答证据调试 / 监控）----
+        self.qa_trace = QaTraceConfig(
+            enabled=_get("qa_trace", "enabled", "true").lower() == "true",
+            max_content_preview=int(_get("qa_trace", "max_content_preview", "240")),
+            max_candidates=int(_get("qa_trace", "max_candidates", "20")),
+            retain_days=int(_get("qa_trace", "retain_days", "14")),
+            max_traces=int(_get("qa_trace", "max_traces", "2000")),
+        )
+
         self._assert_test_paths_are_isolated(root)
 
         # ---- 创建必要目录 ----
@@ -359,7 +378,11 @@ class Config:
 
     @staticmethod
     def _ensure_ollama_bypasses_system_proxy(base_url: str) -> None:
-        """Keep LAN Ollama off the Windows/system HTTP proxy (avoids empty 502)."""
+        """Keep LAN Ollama off the Windows/system HTTP proxy (avoids empty 502).
+
+        Complements rag_knowledge.ollama_http (trust_env=False) for clients that
+        still honor HTTP(S)_PROXY / NO_PROXY environment variables.
+        """
         from urllib.parse import urlparse
 
         host = (urlparse(base_url).hostname or "").strip()

@@ -42,6 +42,14 @@ class QueryResponse(BaseModel):
 
 class AdminQaDebugResponse(QueryResponse):
     evidence_chain: dict
+    trace_id: Optional[str] = None
+
+
+class QaTraceListResponse(BaseModel):
+    total: int
+    items: list[dict]
+    limit: int
+    offset: int
 
 
 class UploadResponse(BaseModel):

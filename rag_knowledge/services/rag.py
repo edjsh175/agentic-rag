@@ -14,12 +14,12 @@ import logging
 from typing import Any
 from dataclasses import replace
 
-import httpx
 from langchain_ollama import ChatOllama
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS, async_client, post as ollama_post
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.chunk_hit_telemetry import ChunkHitTelemetry
 from rag_knowledge.services.query_cache import QueryCache, get_query_cache
@@ -31,6 +31,13 @@ from rag_knowledge.services.query_contextualizer import (
 from rag_knowledge.services.web_search import WebSearch
 from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
 from rag_knowledge.services.evidence_pack import build_evidence_pack, govern_answer
+from rag_knowledge.services.qa_trace import (
+    QaTraceBuilder,
+    runtime_fingerprint,
+    serialize_candidates,
+    serialize_plan,
+    serialize_queries,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +302,53 @@ class RagChain:
         except Exception as exc:
             logger.warning("chunk hit telemetry write failed: %s", exc)
 
+    def _new_qa_trace(
+        self,
+        question: str,
+        *,
+        history: list | None = None,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        llm_model: str | None = None,
+        thinking: bool | None = None,
+        path: str | None = None,
+    ) -> QaTraceBuilder:
+        return QaTraceBuilder(
+            question=question,
+            path=path,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            llm_model=llm_model or self._llm_model,
+            thinking=thinking,
+            history_rounds=len(history or []) // 2,
+        )
+
+    def _commit_qa_trace(
+        self,
+        trace: QaTraceBuilder | None,
+        *,
+        answer: str = "",
+        retrieved_docs: list[dict] | None = None,
+        context_docs: list[dict] | None = None,
+        cited_docs: list[dict] | None = None,
+        error: str | None = None,
+    ) -> str | None:
+        if trace is None or not trace.enabled:
+            return None
+        retrieved = list(retrieved_docs or [])
+        context = list(context_docs if context_docs is not None else retrieved)
+        evidence: dict = {}
+        try:
+            evidence = build_evidence_pack(answer or "", retrieved, context)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("qa_trace evidence pack failed: %s", exc)
+        return trace.finish(
+            answer=answer or "",
+            source_documents=list(cited_docs or []),
+            evidence=evidence,
+            error=error,
+        )
+
     def _apply_backbone_anchor_rewrite(self, question: str, plan):
         """Map oral terms onto product backbone before graph/hybrid retrieval."""
         graph_cfg = getattr(self, "_graph_cfg", None)
@@ -475,6 +529,7 @@ class RagChain:
             top_p=0.9,
             top_k=40,
             num_predict=2048,
+            client_kwargs=OLLAMA_CLIENT_KWARGS,
         )
 
     async def _aretrieve_with_cache(
@@ -899,7 +954,7 @@ class RagChain:
                 content=content,
                 max_chars=cfg.max_compressed_chunk_chars,
             )
-            resp = httpx.post(
+            resp = ollama_post(
                 f"{self._ollama_base}/api/chat",
                 json={
                     "model": cfg.compression_model,
@@ -967,7 +1022,7 @@ class RagChain:
     def _simple_rewrite(self, question: str) -> str:
         """简单查询改写（无历史时的兜底方案）。"""
         try:
-            resp = httpx.post(
+            resp = ollama_post(
                 f"{self._ollama_base}/api/chat",
                 json={
                     "model": self._helper_llm_model,
@@ -1389,7 +1444,7 @@ class RagChain:
 
         try:
             route_options = dict(_HELPER_OPTIONS, num_predict=16)
-            resp = httpx.post(
+            resp = ollama_post(
                 f"{self._ollama_base}/api/chat",
                 json={
                     "model": self._helper_llm_model,
@@ -1649,6 +1704,10 @@ class RagChain:
                      include_evidence: bool = False) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
+        trace = self._new_qa_trace(
+            q, history=history, kb_name=kb_name, doc_category=doc_category,
+            llm_model=llm_model, thinking=thinking,
+        )
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -1659,13 +1718,18 @@ class RagChain:
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
+        retrieved_source_docs: list[dict] = []
+        source_docs: list[dict] = []
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
             plan = self._plan_retrieval(q, queries, force_rerank=True)
+            trace.mark("plan")
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
             )
+            trace.set_plan(plan)
+            trace.mark("graph_rewrite")
             graph_kwargs = self._build_graph_kwargs(
                 plan, graph_context, graph_docs, include_cache_fields=True,
             )
@@ -1682,13 +1746,26 @@ class RagChain:
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
+            retrieved_source_docs = list(source_docs)
+            trace.set_retrieval(retrieved_source_docs)
+            trace.mark("retrieve")
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+                tid = self._commit_qa_trace(
+                    trace, answer=NO_KNOWLEDGE_ANSWER,
+                    retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
+                )
+                out = {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+                if tid:
+                    out["trace_id"] = tid
+                if include_evidence:
+                    out["evidence_chain"] = build_evidence_pack(
+                        NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                    )
+                return out
 
-            retrieved_source_docs = list(source_docs)
             history, history_summary = self._history_compressor.compress(history)
             source_docs, context, history = self._budget.trim(
                 source_docs, context, history, q, agent_prompt=agent_prompt
@@ -1717,6 +1794,7 @@ class RagChain:
 
             answer = await asyncio.to_thread(llm.invoke, lc_msgs)
             answer_content = answer.content if hasattr(answer, "content") else str(answer)
+            trace.mark("generate")
 
             elapsed = time.time() - t0
             src_info = "; ".join(
@@ -1729,20 +1807,41 @@ class RagChain:
             )
 
             if not answer_content.strip():
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+                answer_content = NO_KNOWLEDGE_ANSWER
             answer_content = govern_answer(answer_content, q, source_docs)
+            cited = self._filter_cited_sources(answer_content, source_docs)
+            evidence = build_evidence_pack(answer_content, retrieved_source_docs, source_docs)
+            tid = self._commit_qa_trace(
+                trace,
+                answer=answer_content,
+                retrieved_docs=retrieved_source_docs,
+                context_docs=source_docs,
+                cited_docs=cited,
+            )
             result = {
                 "answer": answer_content,
-                "source_documents": self._filter_cited_sources(answer_content, source_docs),
+                "source_documents": cited,
             }
             if include_evidence:
-                result["evidence_chain"] = build_evidence_pack(
-                    answer_content, retrieved_source_docs, source_docs
-                )
+                result["evidence_chain"] = evidence
+            if tid:
+                result["trace_id"] = tid
             return result
         except Exception as e:
             logger.error("异步查询失败: %s", e)
-            return {"answer": f"查询出错: {str(e)}", "source_documents": []}
+            err_answer = f"查询出错: {str(e)}"
+            tid = self._commit_qa_trace(
+                trace,
+                answer=err_answer,
+                retrieved_docs=retrieved_source_docs,
+                context_docs=source_docs,
+                cited_docs=[],
+                error=str(e),
+            )
+            out = {"answer": err_answer, "source_documents": []}
+            if tid:
+                out["trace_id"] = tid
+            return out
 
     async def stream_query(self, question: str, history: list | None = None,
                             llm_model: str | None = None, vision_model: str | None = None,
@@ -1750,9 +1849,16 @@ class RagChain:
                             thinking: bool | None = None,
                             web_search: bool | None = None,
                             allow_general_knowledge: bool | None = None,
-                            agent_prompt: str | None = None):
+                            agent_prompt: str | None = None,
+                            *,
+                            pipeline_events: bool = False,
+                            path: str | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
+        trace = self._new_qa_trace(
+            q, history=history, kb_name=kb_name, doc_category=doc_category,
+            llm_model=llm_model, thinking=thinking, path=path or "query/stream",
+        )
 
         if not q:
             yield {"type": "token", "data": "请输入有效的问题"}
@@ -1764,6 +1870,21 @@ class RagChain:
             return
 
         yield {"type": "status", "data": "正在理解问题..."}
+        if pipeline_events:
+            yield {
+                "type": "pipeline",
+                "data": {
+                    "stage": "start",
+                    "runtime": runtime_fingerprint(),
+                    "request": {
+                        "question": q,
+                        "kb_name": kb_name,
+                        "doc_category": doc_category,
+                        "llm_model": llm_model or self._llm_model,
+                        "thinking": thinking,
+                    },
+                },
+            }
 
         if _is_greeting(q):
             yield {"type": "token", "data": _GREETING_FIXED_REPLY}
@@ -1771,13 +1892,61 @@ class RagChain:
             yield {"type": "done"}
             return
 
+        retrieved_source_docs: list[dict] = []
+        source_docs: list[dict] = []
         try:
-            yield {"type": "status", "data": "正在检索知识库..."}
-            queries = self._build_retrieval_query_specs(q, history)
-            plan = self._plan_retrieval(q, queries, force_rerank=True)
-            plan, graph_context, graph_docs = self._prepare_graph_plan(
-                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+            # 各阶段用 to_thread，避免同步 Ollama 调用卡住事件循环，便于 SSE 先刷出中间态
+            yield {"type": "status", "data": "正在改写 / 构建检索查询..."}
+            queries = await asyncio.to_thread(self._build_retrieval_query_specs, q, history)
+            trace.mark("contextualize")
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "queries",
+                        "plan": {"queries": serialize_queries(queries)},
+                        "stages": trace.stages_ms,
+                    },
+                }
+
+            yield {"type": "status", "data": "正在规划检索参数..."}
+            plan = await asyncio.to_thread(
+                self._plan_retrieval, q, queries, force_rerank=True,
             )
+            trace.mark("plan")
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "plan",
+                        "plan": serialize_plan(plan),
+                        "stages": trace.stages_ms,
+                    },
+                }
+
+            yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
+            plan, graph_context, graph_docs = await asyncio.to_thread(
+                self._prepare_graph_plan,
+                q,
+                plan,
+                kb_name,
+                doc_category,
+                "approved",
+            )
+            trace.set_plan(plan)
+            trace.mark("graph_rewrite")
+            if pipeline_events:
+                yield {"type": "status", "data": "计划与改写已完成"}
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "graph_rewrite",
+                        "plan": serialize_plan(plan),
+                        "stages": trace.stages_ms,
+                    },
+                }
+
+            yield {"type": "status", "data": "正在检索知识库..."}
             graph_kwargs = self._build_graph_kwargs(
                 plan, graph_context, graph_docs, include_cache_fields=True,
             )
@@ -1798,30 +1967,77 @@ class RagChain:
                 sync_graph_kwargs = self._build_graph_kwargs(
                     plan, graph_context, graph_docs, include_cache_fields=False,
                 )
-                source_docs, context = self._retrieve_multi(
-                    plan.queries, kb_name=kb_name, doc_category=doc_category,
-                    rerank=plan.enable_rerank,
-                    web_search=bool(web_search),
-                    plan_top_k=plan.top_k,
-                    plan_candidate_k=plan.candidate_k,
-                    expand_neighbors=plan.expand_neighbors,
-                    intent_plan=getattr(plan, "intent_plan", None),
-                    **sync_graph_kwargs,
-                )
+
+                def _sync_retrieve():
+                    return self._retrieve_multi(
+                        plan.queries,
+                        kb_name=kb_name,
+                        doc_category=doc_category,
+                        rerank=plan.enable_rerank,
+                        web_search=bool(web_search),
+                        plan_top_k=plan.top_k,
+                        plan_candidate_k=plan.candidate_k,
+                        expand_neighbors=plan.expand_neighbors,
+                        intent_plan=getattr(plan, "intent_plan", None),
+                        **sync_graph_kwargs,
+                    )
+
+                source_docs, context = await asyncio.to_thread(_sync_retrieve)
             self._record_chunk_hit_query(source_docs)
+            retrieved_source_docs = list(source_docs)
+            trace.set_retrieval(retrieved_source_docs)
+            trace.mark("retrieve")
+            if pipeline_events:
+                qt = Config().qa_trace
+                yield {
+                    "type": "status",
+                    "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
+                }
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "retrieve",
+                        "retrieval": {
+                            "query_hits": [],
+                            "candidates": serialize_candidates(
+                                retrieved_source_docs,
+                                max_candidates=qt.max_candidates,
+                                preview_chars=qt.max_content_preview,
+                            ),
+                            "candidate_count": len(retrieved_source_docs),
+                        },
+                        "stages": trace.stages_ms,
+                    },
+                }
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
+                evidence = build_evidence_pack(
+                    NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                )
+                tid = self._commit_qa_trace(
+                    trace, answer=NO_KNOWLEDGE_ANSWER,
+                    retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
+                )
                 yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
                 yield {"type": "sources", "data": []}
+                if pipeline_events:
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "done",
+                            "answer": NO_KNOWLEDGE_ANSWER,
+                            "evidence": evidence,
+                            "stages": trace.stages_ms,
+                        },
+                    }
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
                 yield {"type": "done"}
                 return
 
-            # ---- 历史消息压缩与摘要 ----
             history, history_summary = self._history_compressor.compress(history)
-
-            # ---- Context 自动裁剪 ----
             source_docs, context, history = self._budget.trim(
                 source_docs, context, history, q, agent_prompt=agent_prompt
             )
@@ -1841,7 +2057,7 @@ class RagChain:
             model = llm_model or self._llm_model
             enable_model_thinking = deep_mode and self._need_ollama_thinking(model)
             options = {
-                "temperature": 0.2,
+                "temperature": 0.1,
                 "top_p": 0.9,
                 "top_k": 40,
                 "num_predict": 2048,
@@ -1857,12 +2073,20 @@ class RagChain:
             }
 
             answer_parts: list[str] = []
-            async with httpx.AsyncClient(base_url=self._ollama_base, timeout=120) as client:
+            async with async_client(base_url=self._ollama_base, timeout=600) as client:
                 async with client.stream("POST", "/api/chat", json=ollama_payload) as resp:
                     if resp.status_code != 200:
                         body = await resp.aread()
                         logger.error("Ollama /api/chat 返回 %d: %s", resp.status_code, body[:500])
-                        yield {"type": "token", "data": f"模型调用失败 (HTTP {resp.status_code})，请检查模型是否可用"}
+                        fail_msg = f"模型调用失败 (HTTP {resp.status_code})，请检查模型是否可用"
+                        tid = self._commit_qa_trace(
+                            trace, answer=fail_msg,
+                            retrieved_docs=retrieved_source_docs, context_docs=source_docs,
+                            cited_docs=[], error=fail_msg,
+                        )
+                        yield {"type": "token", "data": fail_msg}
+                        if tid:
+                            yield {"type": "trace", "data": {"trace_id": tid}}
                         yield {"type": "done"}
                         return
                     async for line in resp.aiter_lines():
@@ -1882,6 +2106,7 @@ class RagChain:
                         except json.JSONDecodeError:
                             continue
 
+            trace.mark("generate")
             answer_text = "".join(answer_parts)
             if not answer_text.strip():
                 fallback_answer = (
@@ -1904,17 +2129,45 @@ class RagChain:
             if governed_answer != answer_text:
                 yield {"type": "final_answer", "data": governed_answer}
             answer_text = governed_answer
+            cited = self._filter_cited_sources(answer_text, source_docs)
+            evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
+            tid = self._commit_qa_trace(
+                trace,
+                answer=answer_text,
+                retrieved_docs=retrieved_source_docs,
+                context_docs=source_docs,
+                cited_docs=cited,
+            )
 
-            yield {
-                "type": "sources",
-                "data": self._filter_cited_sources(
-                    answer_text, source_docs
-                ),
-            }
+            yield {"type": "sources", "data": cited}
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "done",
+                        "answer": answer_text,
+                        "evidence": evidence,
+                        "source_documents": cited,
+                        "stages": trace.stages_ms,
+                    },
+                }
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
 
         except Exception as e:
             logger.error("流式查询失败: %s", e)
-            yield {"type": "token", "data": f"查询出错: {str(e)}"}
+            err_answer = f"查询出错: {str(e)}"
+            tid = self._commit_qa_trace(
+                trace,
+                answer=err_answer,
+                retrieved_docs=retrieved_source_docs,
+                context_docs=source_docs,
+                cited_docs=[],
+                error=str(e),
+            )
+            yield {"type": "token", "data": err_answer}
             yield {"type": "sources", "data": []}
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}

@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement backbone query rewrite integration, query planner entities guard, and backbone anchoring"
+    commit_msg = "feat: implement full-process QA trace, refactor Ollama client with ollama_http module, and add trace routes"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

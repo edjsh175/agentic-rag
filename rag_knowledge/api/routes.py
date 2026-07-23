@@ -26,13 +26,17 @@ from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException, Re
 from fastapi.responses import StreamingResponse
 
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import async_client as ollama_async_client
+from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.agent_service import load_agents
+from rag_knowledge.services.qa_trace import QaTraceStore, set_request_context
 from rag_knowledge.models.api import AdminQaDebugResponse, QueryRequest, QueryResponse, UploadResponse
 from rag_knowledge.models.api import (
     AdminChunkListResponse,
     AdminChunkUpdateRequest,
     BatchReviewRequest,
     ChunkStatsResponse,
+    QaTraceListResponse,
     ReviewRequest,
     ReviewResponse,
     RebuildRequest,
@@ -170,7 +174,7 @@ def list_models():
     """获取 Ollama 可用模型列表 + 当前配置，按类型分类"""
     available = []
     try:
-        with httpx.Client(base_url=_cfg.ollama_base_url, timeout=10) as client:
+        with ollama_client(base_url=_cfg.ollama_base_url, timeout=10) as client:
             resp = client.get("/api/tags")
             available = [
                 {"name": m["name"], "type": _classify_model(m["name"])}
@@ -232,6 +236,7 @@ async def query(req: QueryRequest):
         raise HTTPException(400, detail="问题不能为空")
 
     try:
+        set_request_context(path="query")
         history = [h.dict() for h in req.history] if req.history else None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
@@ -263,6 +268,7 @@ async def query_stream(req: QueryRequest):
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
 
+    set_request_context(path="query/stream")
     history = [h.dict() for h in req.history] if req.history else None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
@@ -299,7 +305,7 @@ async def query_with_image(
 
     async def event_stream():
         try:
-            async with httpx.AsyncClient(base_url=_cfg.ollama_base_url, timeout=120) as client:
+            async with ollama_async_client(base_url=_cfg.ollama_base_url, timeout=120) as client:
                 async with client.stream("POST", "/api/chat", json={
                     "model": model,
                     "messages": [{
@@ -1021,6 +1027,7 @@ async def admin_qa_debug(req: QueryRequest):
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
     try:
+        set_request_context(path="qa-debug")
         history = [h.dict() for h in req.history] if req.history else None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
@@ -1033,10 +1040,89 @@ async def admin_qa_debug(req: QueryRequest):
         return AdminQaDebugResponse(
             answer=result["answer"], source_documents=result["source_documents"],
             evidence_chain=result.get("evidence_chain") or {},
+            trace_id=result.get("trace_id"),
         )
     except Exception as e:
         logger.error("问答调试失败: %s", e)
         raise HTTPException(500, detail=str(e))
+
+
+@router.post("/admin/qa-debug/stream")
+async def admin_qa_debug_stream(req: QueryRequest):
+    """SSE debug run: emit pipeline stage payloads (plan/rewrite/retrieval) as they finish."""
+    if not req.question.strip():
+        raise HTTPException(400, detail="问题不能为空")
+
+    set_request_context(path="qa-debug")
+    history = [h.dict() for h in req.history] if req.history else None
+    kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
+    doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+
+    async def event_stream():
+        async for event in _rag.stream_query(
+            req.question,
+            history,
+            llm_model=req.llm_model,
+            vision_model=req.vision_model,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            thinking=req.thinking,
+            web_search=req.web_search,
+            allow_general_knowledge=req.allow_general_knowledge,
+            agent_prompt=req.agent_prompt,
+            pipeline_events=True,
+            path="qa-debug",
+        ):
+            if event.get("type") == "status":
+                yield "event: status\n"
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/admin/qa-traces", response_model=QaTraceListResponse)
+def list_qa_traces(
+    limit: int = 50,
+    offset: int = 0,
+    q: Optional[str] = None,
+    errors_only: bool = False,
+):
+    """List persisted QA pipeline traces for the admin monitor."""
+    limit = max(1, min(int(limit or 50), 200))
+    offset = max(0, int(offset or 0))
+    try:
+        return QaTraceListResponse(**QaTraceStore().list(
+            limit=limit, offset=offset, q=q, errors_only=errors_only,
+        ))
+    except Exception as e:
+        logger.error("列出 qa traces 失败: %s", e)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/admin/qa-traces/{trace_id}")
+def get_qa_trace(trace_id: str):
+    """Return one full QA pipeline trace."""
+    payload = QaTraceStore().get(trace_id)
+    if not payload:
+        raise HTTPException(404, detail="trace 不存在")
+    return payload
+
+
+@router.delete("/admin/qa-traces/{trace_id}")
+def delete_qa_trace(trace_id: str):
+    """Delete one persisted QA pipeline trace."""
+    ok = QaTraceStore().delete(trace_id)
+    if not ok:
+        raise HTTPException(404, detail="trace 不存在")
+    return {"ok": True, "trace_id": trace_id}
 
 
 @router.get("/admin/knowledge_graph/product_backbone_preview", response_model=GraphDataResponse)

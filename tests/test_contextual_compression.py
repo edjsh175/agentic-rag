@@ -50,7 +50,7 @@ class ContextualCompressionTests(unittest.TestCase):
         ]
 
         with patch(
-            "rag_knowledge.services.rag.httpx.post",
+            "rag_knowledge.services.rag.ollama_post",
             return_value=_ResponseStub("chunk with a lot of useful details"),
         ):
             result = chain._compress_retrieved_docs("question", docs)
@@ -73,7 +73,7 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.httpx.post",
+            "rag_knowledge.services.rag.ollama_post",
             side_effect=RuntimeError("compression failed"),
         ):
             result = chain._compress_retrieved_docs("question", docs)
@@ -87,7 +87,7 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.httpx.post",
+            "rag_knowledge.services.rag.ollama_post",
             return_value=_ResponseStub("   "),
         ):
             result = chain._compress_retrieved_docs("question", docs)
@@ -100,7 +100,7 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="the original factual passage", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.httpx.post",
+            "rag_knowledge.services.rag.ollama_post",
             return_value=_ResponseStub("a model-written summary"),
         ):
             result = chain._compress_retrieved_docs("question", docs)
@@ -113,7 +113,7 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.httpx.post",
+            "rag_knowledge.services.rag.ollama_post",
             return_value=_ResponseStub("o"),
         ):
             result = chain._compress_retrieved_docs("question", docs)

@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.backbone_guard import format_backbone_context, load_backbone_constraints
 from . import (
     EntityCandidate,
@@ -146,7 +147,7 @@ class LLMGraphExtractor:
                     }
                     
                     # qwen3:30b graph prompts often exceed 60s; 180s keeps Round-2 pilot reliable
-                    with httpx.Client(timeout=180.0) as client:
+                    with ollama_client(timeout=180.0) as client:
                         resp = client.post(f"{self.cfg.ollama_base_url}/api/chat", json=payload)
                         resp.raise_for_status()
                         message = resp.json().get("message") or {}

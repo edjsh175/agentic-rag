@@ -18,9 +18,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
-
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import post as ollama_post
 
 logger = logging.getLogger(__name__)
 
@@ -468,7 +467,7 @@ class QueryContextualizer:
             question=question,
         )
 
-        resp = httpx.post(
+        resp = ollama_post(
             f"{self._ollama_base}/api/chat",
             json={
                 "model": self._llm_model,

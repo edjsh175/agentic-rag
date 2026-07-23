@@ -119,3 +119,10 @@ enabled = true
 table_boost = 0.03
 table_header_boost = 0.01
 section_match_boost = 0.02
+
+[qa_trace]
+enabled = true
+max_content_preview = 240
+max_candidates = 20
+retain_days = 14
+max_traces = 2000

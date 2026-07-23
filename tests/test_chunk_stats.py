@@ -338,6 +338,7 @@ class ChunkStatsRouteTests(unittest.TestCase):
 class RagChunkHitTelemetryTests(unittest.TestCase):
     def test_query_records_chunk_hits_after_retrieval(self):
         chain = object.__new__(RagChain)
+        chain._llm_model = "test-model"
         chain._allow_general_knowledge = False
         chain._record_chunk_hit_query = MagicMock()
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
@@ -350,6 +351,7 @@ class RagChunkHitTelemetryTests(unittest.TestCase):
 
     def test_query_does_not_record_hits_for_greeting_or_failure(self):
         chain = object.__new__(RagChain)
+        chain._llm_model = "test-model"
         chain._record_chunk_hit_query = MagicMock()
 
         result = chain.query("你好")
@@ -357,6 +359,7 @@ class RagChunkHitTelemetryTests(unittest.TestCase):
         chain._record_chunk_hit_query.assert_not_called()
 
         chain = object.__new__(RagChain)
+        chain._llm_model = "test-model"
         chain._allow_general_knowledge = False
         chain._record_chunk_hit_query = MagicMock()
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
@@ -369,6 +372,7 @@ class RagChunkHitTelemetryTests(unittest.TestCase):
 
     def test_stream_query_records_chunk_hits_after_retrieval(self):
         chain = object.__new__(RagChain)
+        chain._llm_model = "test-model"
         chain._allow_general_knowledge = False
         chain._query_cache = MagicMock()
         chain._aretrieve_uncached = AsyncMock(return_value=([], ""))

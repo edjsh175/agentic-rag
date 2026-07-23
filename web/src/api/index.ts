@@ -36,6 +36,8 @@ import type {
   ProductBackboneEntityUpdatePayload,
   ProductBackboneRelationPayload,
   QaDebugResult,
+  QaTraceDetail,
+  QaTraceListResult,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -149,7 +151,21 @@ export async function queryKnowledge(
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
 ) {
-  return postJSON<QueryResult>('/query', { question, history, llm_model: llmModel, kb_name: kbName, thinking, web_search: webSearch, agent_prompt: agentPrompt, allow_general_knowledge: allowGeneralKnowledge }, signal)
+  const { data } = await http.post<QueryResult>(
+    '/query',
+    {
+      question,
+      history,
+      llm_model: llmModel,
+      kb_name: kbName,
+      thinking,
+      web_search: webSearch,
+      agent_prompt: agentPrompt,
+      allow_general_knowledge: allowGeneralKnowledge,
+    },
+    { signal, timeout: 600_000 },
+  )
+  return data
 }
 
 /**
@@ -477,7 +493,98 @@ export async function getGraphData(docCategory?: string) {
 }
 
 export async function queryAdminDebug(question: string, signal?: AbortSignal) {
-  return postJSON<QaDebugResult>('/admin/qa-debug', { question }, signal)
+  // 非流式全链路（检索+生成）在 CPU/大模型下常超过 2 分钟
+  const { data } = await http.post<QaDebugResult>(
+    '/admin/qa-debug',
+    { question },
+    { signal, timeout: 600_000 },
+  )
+  return data
+}
+
+/** 问答调试流式：逐步推送 plan / 检索 / 证据等 pipeline 事件 */
+export async function queryAdminDebugStream(
+  question: string,
+  callbacks: {
+    onStatus?: (status: string) => void
+    onPipeline?: (data: any) => void
+    onToken?: (token: string) => void
+    onFinalAnswer?: (answer: string) => void
+    onSources?: (sources: any[]) => void
+    onTrace?: (traceId: string) => void
+    onDone?: () => void
+    onError?: (err: Error) => void
+  },
+  signal?: AbortSignal,
+) {
+  const res = await fetch('/api/admin/qa-debug/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+    signal,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `请求失败 (${res.status})`)
+  }
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('浏览器不支持 ReadableStream')
+  const decoder = new TextDecoder()
+  let buffer = ''
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (!raw || raw === '[DONE]') continue
+        try {
+          const event = JSON.parse(raw)
+          if (event.type === 'status') callbacks.onStatus?.(event.data)
+          else if (event.type === 'pipeline') callbacks.onPipeline?.(event.data)
+          else if (event.type === 'token') callbacks.onToken?.(event.data)
+          else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
+          else if (event.type === 'sources') callbacks.onSources?.(event.data)
+          else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)
+          else if (event.type === 'done') callbacks.onDone?.()
+        } catch {
+          /* skip */
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+export async function listQaTraces(params: {
+  limit?: number
+  offset?: number
+  q?: string
+  errors_only?: boolean
+} = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams()
+  if (params.limit != null) query.set('limit', String(params.limit))
+  if (params.offset != null) query.set('offset', String(params.offset))
+  if (params.q) query.set('q', params.q)
+  if (params.errors_only) query.set('errors_only', 'true')
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return getJSON<QaTraceListResult>(`/admin/qa-traces${suffix}`, signal)
+}
+
+export async function getQaTrace(traceId: string, signal?: AbortSignal) {
+  return getJSON<QaTraceDetail>(`/admin/qa-traces/${encodeURIComponent(traceId)}`, signal)
+}
+
+export async function deleteQaTrace(traceId: string) {
+  const { data } = await http.delete<{ ok: boolean; trace_id: string }>(
+    `/admin/qa-traces/${encodeURIComponent(traceId)}`,
+  )
+  return data
 }
 
 export async function getProductBackbonePreview() {

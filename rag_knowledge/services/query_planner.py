@@ -12,9 +12,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-import httpx
-
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import post as ollama_post
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 
 logger = logging.getLogger(__name__)
@@ -286,7 +285,7 @@ class QueryPlanner:
         return self._classify_heuristic(question)
 
     def _classify_via_llm(self, question: str) -> tuple[str, float]:
-        resp = httpx.post(
+        resp = ollama_post(
             f"{self._ollama_base}/api/chat",
             json={
                 "model": self._llm_model,

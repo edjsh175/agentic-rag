@@ -23,6 +23,7 @@ from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS, client as ollama_client
 from rag_knowledge.models.document import FileCategory
 from rag_knowledge.models.structured_document import (
     build_searchable_text,
@@ -98,6 +99,7 @@ class FileLoader:
                     embeddings=OllamaEmbeddings(
                         model=cfg.embedding_model,
                         base_url=cfg.ollama_base_url,
+                        client_kwargs=OLLAMA_CLIENT_KWARGS,
                     ),
                     fallback_splitter=self._splitter,
                     max_chunk_size=self._chunk_size,
@@ -828,7 +830,7 @@ class FileLoader:
     def _call_vision(self, image_path: str) -> str:
         """调用 Ollama 视觉模型描述图片，失败时返回空字符串"""
         if self._http is None:
-            self._http = httpx.Client(base_url=self._ollama_base, timeout=180)
+            self._http = ollama_client(base_url=self._ollama_base, timeout=180)
 
         try:
             with open(image_path, "rb") as f:

@@ -290,6 +290,54 @@ export interface QaDebugResult {
   answer: string
   source_documents: SourceDoc[]
   evidence_chain: EvidenceChain
+  trace_id?: string | null
+}
+
+export interface QaTraceSummary {
+  trace_id: string
+  request_id?: string | null
+  created_at?: string
+  path?: string
+  elapsed_ms?: number
+  error?: string | null
+  question?: string
+  answer_preview?: string
+  candidate_count?: number
+  cited_count?: number
+  runtime?: Record<string, unknown>
+  file?: string
+}
+
+export interface QaTraceListResult {
+  total: number
+  items: QaTraceSummary[]
+  limit: number
+  offset: number
+}
+
+export interface QaTraceDetail {
+  meta: {
+    trace_id: string
+    request_id?: string | null
+    created_at?: string
+    path?: string
+    elapsed_ms?: number
+    error?: string | null
+  }
+  request: Record<string, unknown>
+  runtime: Record<string, unknown>
+  stages: Record<string, number>
+  plan: Record<string, unknown>
+  retrieval: {
+    query_hits?: unknown[]
+    candidates?: Array<Record<string, unknown>>
+    candidate_count?: number
+  }
+  evidence: EvidenceChain
+  answer: {
+    text?: string
+    source_documents?: SourceDoc[]
+  }
 }
 
 export interface ProductBackboneEntityPayload {

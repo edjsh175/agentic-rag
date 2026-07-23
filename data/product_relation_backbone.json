@@ -35,7 +35,9 @@
     {
       "name": "StampManager",
       "entity_type": "Product",
-      "aliases": [],
+      "aliases": [
+        "Stamp管理中心"
+      ],
       "doc_category": ""
     },
     {

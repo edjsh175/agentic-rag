@@ -25,9 +25,8 @@ import hashlib
 from pathlib import Path
 from typing import List, Dict, Optional
 
-import httpx
-
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import post as ollama_post
 from rag_knowledge.repository.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -106,7 +105,7 @@ def _generate_questions(
     prompt = _QUESTION_GEN_PROMPT.format(n=n, chunk_text=chunk_text[:1200])
 
     try:
-        resp = httpx.post(
+        resp = ollama_post(
             f"{ollama_base}/api/chat",
             json={
                 "model": llm_model,

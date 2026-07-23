@@ -14,9 +14,8 @@ import time
 from collections import OrderedDict
 from typing import Any, Optional
 
-import httpx
-
 from rag_knowledge.config import Config, HistoryCompressionConfig
+from rag_knowledge.ollama_http import post as ollama_post
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,7 @@ class HistoryCompressor:
                 },
             }
             logger.debug("开始调用本地 LLM 压缩对话历史...")
-            response = httpx.post(url, json=payload, timeout=45)
+            response = ollama_post(url, json=payload, timeout=45)
             response.raise_for_status()
 
             result = response.json()

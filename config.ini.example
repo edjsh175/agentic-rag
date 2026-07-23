@@ -64,9 +64,9 @@ unstructured_strategy = fast
 
 [retrieval]
 ; 向量检索返回 top_k 个文档块给 LLM，越大候选越多但可能引入噪声
-top_k = 4
+top_k = 6
 ; MMR 检索初选数量，top_k 的候选池，越大多样性越好
-fetch_k = 12
+fetch_k = 20
 ; MMR 多样性权重（0=纯多样，1=纯相关），0.7 表示偏相关性
 lambda_mult = 0.7
 
@@ -78,7 +78,7 @@ fusion_method = rrf
 ; RRF 排名平滑常数
 rrf_k = 60
 ; Hybrid 每条检索分支召回的候选数量
-candidate_k = 12
+candidate_k = 20
 
 [reranker]
 ; 是否启用 Cross-Encoder 重排序（Phase 4），启用后粗召回 candidate_k 条再精排为 top_n 条
@@ -90,7 +90,7 @@ type = bge
 ; 本地目录必须包含 config.json 和模型权重，残缺下载会自动降级而不会中断检索
 model = ./models/bge-reranker-v2-m3
 ; 重排序后返回给 LLM 的最终文档数
-top_n = 4
+top_n = 6
 ; 粗检索阶段召回的候选文档数（供重排序器打分筛选）
 candidate_k = 20
 
@@ -217,3 +217,10 @@ enabled = true
 table_boost = 0.03
 table_header_boost = 0.01
 section_match_boost = 0.02
+
+[qa_trace]
+enabled = true
+max_content_preview = 240
+max_candidates = 20
+retain_days = 14
+max_traces = 2000

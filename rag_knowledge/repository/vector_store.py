@@ -22,6 +22,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
+from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS
 from rag_knowledge.services.embedding_cache import get_embedding_cache
 
 
@@ -115,6 +116,7 @@ class VectorStore:
             cache=self._embedding_cache,
             model=cfg.embedding_model,
             base_url=cfg.ollama_base_url,
+            client_kwargs=OLLAMA_CLIENT_KWARGS,
         )
         self._store: Chroma | None = None
         self._persist_dir = self._safe_persist_path(cfg.chroma_dir)
@@ -335,6 +337,7 @@ class VectorStore:
             cache=self._embedding_cache,
             model=model,
             base_url=cfg.ollama_base_url,
+            client_kwargs=OLLAMA_CLIENT_KWARGS,
         )
         self._store = None
         self._collection_name = cfg.collection_name

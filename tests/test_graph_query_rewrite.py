@@ -143,7 +143,7 @@ def test_graph_query_rewriter_parses_llm_json(rewrite_db):
             "content": '{"queries":["PipelineBuilder 使用流程","PipelineBuilder 工程设置"]}'
         }
     }
-    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
         specs = rewriter.rewrite("管线发布工具怎么用？", context)
 
     assert specs
@@ -194,7 +194,7 @@ def test_backbone_anchor_from_llm_json(isolated_storage):
             "content": _json_payload_stamp_manager(),
         }
     }
-    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
         result = rewriter.anchor_from_backbone("stamp manager 是什么", constraints=constraints)
 
     assert result.canonical_entities == ("StampManager",)
@@ -202,6 +202,7 @@ def test_backbone_anchor_from_llm_json(isolated_storage):
     assert "StampManager" in result.relation_summary
     assert result.retrieval_queries
     assert all(q.kind == "graph_rewrite" for q in result.retrieval_queries)
+    assert all(q.weight == 1.1 for q in result.retrieval_queries)
 
 
 def test_backbone_anchor_heuristic_without_llm(isolated_storage):
@@ -223,7 +224,7 @@ def test_backbone_anchor_heuristic_without_llm(isolated_storage):
     }
     rewriter = GraphQueryRewriter(Config())
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.httpx.post",
+        "rag_knowledge.services.graph_query_rewrite.ollama_post",
         side_effect=RuntimeError("ollama down"),
     ):
         result = rewriter.anchor_from_backbone("介绍 StampManager", constraints=constraints)
@@ -263,7 +264,7 @@ def test_soft_hits_override_wrong_llm_canonical(isolated_storage):
             )
         }
     }
-    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
         result = rewriter.anchor_from_backbone(
             "PipelineBuilder 属于哪个产品",
             constraints=constraints,
@@ -298,7 +299,7 @@ def test_anchor_fills_query_when_llm_repeats_question(isolated_storage):
             )
         }
     }
-    with patch("rag_knowledge.services.graph_query_rewrite.httpx.post", return_value=mock_resp):
+    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
         result = rewriter.anchor_from_backbone("介绍一下 StampManager", constraints=constraints)
     assert result.canonical_entities == ("StampManager",)
     assert result.anchored_queries
@@ -326,7 +327,7 @@ def test_comparison_alias_queries_not_collapsed(isolated_storage):
     }
     rewriter = GraphQueryRewriter(Config())
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.httpx.post",
+        "rag_knowledge.services.graph_query_rewrite.ollama_post",
         side_effect=RuntimeError("down"),
     ):
         result = rewriter.anchor_from_backbone(
@@ -350,7 +351,7 @@ def test_graph_query_rewriter_falls_back_on_llm_failure(rewrite_db):
     )
     rewriter = GraphQueryRewriter(Config(), db)
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.httpx.post",
+        "rag_knowledge.services.graph_query_rewrite.ollama_post",
         side_effect=RuntimeError("ollama down"),
     ):
         specs = rewriter.rewrite("怎么用？", context, summary=summary)
@@ -435,7 +436,7 @@ def test_prepare_graph_plan_merges_backbone_anchor_when_enabled(rewrite_db):
         anchored_queries=("StampManager 产品介绍",),
         relation_summary="锚点：StampManager",
         retrieval_queries=(
-            RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 0.85),
+            RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 1.1),
         ),
     )
 
@@ -497,7 +498,7 @@ def test_prepare_graph_plan_backbone_rewrite_without_graph_retriever():
     chain._graph_query_rewriter = MagicMock()
     chain._graph_query_rewriter.anchor_from_backbone.return_value = BackboneAnchorResult(
         canonical_entities=("StampManager",),
-        retrieval_queries=(RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 0.85),),
+        retrieval_queries=(RetrievalQuery("StampManager 产品介绍", "graph_rewrite", 1.1),),
         relation_summary="锚点：StampManager",
     )
     plan = RetrievalPlan(

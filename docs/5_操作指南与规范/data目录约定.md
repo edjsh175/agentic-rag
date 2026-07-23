@@ -8,7 +8,7 @@
 | 类别 | 路径（示例） | 说明 |
 |------|-------------|------|
 | 跟踪真源 | `domain_catalog.json`、`product_relation_backbone.json`、`product_relation_backbone_preview.json`、`retrieval_intent_policies.json`、`migrations/`、`structured_retrieval_regression.json` | Git/SVN 白名单跟踪 |
-| 运行时 | `file_index.json`、`ingestion_decisions.json`、`document_profile_map.json`、`agents.json`、`chats/`、`rag_relational.db`、`graph_apply_audit.jsonl`、`chunk_hit_stats.json` | 服务读写；勿随意搬迁 |
+| 运行时 | `file_index.json`、`ingestion_decisions.json`、`document_profile_map.json`、`agents.json`、`chats/`、`qa_traces/`、`rag_relational.db`、`graph_apply_audit.jsonl`、`chunk_hit_stats.json` | 服务读写；勿随意搬迁 |
 | 工作目录 | `rebuild/`（RebuildCoordinator 进行中） | 完成后可将整次操作目录迁入 archive |
 | 当前默认 CLI 产出 | `graph_audit_report.*`、`manual_graph_facts.json`、`eval_dataset*.json`、`retrieval_ab_results.json` | 新跑仍可先写根目录，轮次验收后再归档 |
 
