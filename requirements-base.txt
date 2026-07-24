@@ -19,7 +19,7 @@ xlrd>=2.0.1
 
 # Image and video processing
 Pillow>=11.0.0
-opencv-python-headless>=4.10.0
+opencv-python-headless>=4.10.0,<5
 
 # Web framework
 pydantic==2.10.6
@@ -38,8 +38,9 @@ ddgs>=8.1.0
 # Scheduling
 apscheduler>=3.11.0
 
-# Structured document parsing
-unstructured[pdf,docx,md]>=0.16.0
+# Structured document parsing (md/txt partitioners only; PDF/DOCX use other loaders).
+# Do not use [pdf]: it pulls unstructured-inference/torch and breaks pip on slim images.
+unstructured==0.18.32
 
 # BM25 retrieval
 rank-bm25>=0.2.2

@@ -1,0 +1,21 @@
+{
+  "meta": {},
+  "A_summary": {
+    "t123_pass": 1,
+    "t123_positive_rate": 0.6666666666666666,
+    "t123_interference_cited_rate": 0.3333333333333333,
+    "t123_empty_rate": 0.0
+  },
+  "B_summary": {
+    "t123_pass": 2,
+    "t123_positive_rate": 0.6666666666666666,
+    "t123_interference_cited_rate": 0.0,
+    "t123_empty_rate": 0.0
+  },
+  "C_summary": {
+    "t123_pass": 3,
+    "t123_positive_rate": 1.0,
+    "t123_interference_cited_rate": 0.0,
+    "t123_empty_rate": 0.0
+  }
+}

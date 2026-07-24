@@ -1,0 +1,375 @@
+{
+  "meta": {
+    "generated_at": "2026-07-24T07:31:08.916405+00:00",
+    "graph_retrieval_enabled": false,
+    "query_rewrite_enabled": true,
+    "mode": "retrieve_only"
+  },
+  "condition": "C",
+  "anchor_chunk_filter_enabled": true,
+  "anchor_graph_chunk_enabled": true,
+  "cases": [
+    {
+      "id": "T1",
+      "question": "怎么用管线工具",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "latency_ms": 9006,
+      "cited": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n三相线：是电力中生成的三根线表示A相、B相、C相。\n\n使用状态映射\n\n对管线线字段“使用状态”的值域进行标准化映射，管线的使用状态分为：使用、停用、废弃、空管、其他。映射结果与“废弃”查询和废弃统计功能有关。\n\n监测点类型映射\n\n对字段“监测点类型”的值域进行标准化映"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n材质映射\n\n按照管线线字段“材质”、管点字段“井室材质”和“井盖材质”的值域进行标准化映射。\n\n用户双击使用年限栏可以修改该材质对应的使用年限，材质“使用年限”和建设年代是管线生命周期管理的计算基础。\n\n注：管线材质为“钢”时按焊接方式生成管线连接模型\n\n断面形状映射"
+        }
+      ],
+      "context_docs": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n三相线：是电力中生成的三根线表示A相、B相、C相。\n\n使用状态映射\n\n对管线线字段“使用状态”的值域进行标准化映射，管线的使用状态分为：使用、停用、废弃、空管、其他。映射结果与“废弃”查询和废弃统计功能有关。\n\n监测点类型映射\n\n对字段“监测点类型”的值域进行标准化映"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n材质映射\n\n按照管线线字段“材质”、管点字段“井室材质”和“井盖材质”的值域进行标准化映射。\n\n用户双击使用年限栏可以修改该材质对应的使用年限，材质“使用年限”和建设年代是管线生命周期管理的计算基础。\n\n注：管线材质为“钢”时按焊接方式生成管线连接模型\n\n断面形状映射"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n圆形\n\n特征映射\n\n对管点字段“特征”的值域进行标准化映射，并据此生成连接模型。\n\n埋设方式映射\n\n对管线线字段“埋设方式”字段配置字段的值域进行埋设方式标准化映射，该映射不修改原始数据值。埋设方式包括：\n\n直埋\n\n管沟：影响管线模型的生成\n\n管块\n\n管埋\n\n架空\n\n"
+        }
+      ],
+      "answer_preview": "",
+      "anchor_ok": true,
+      "positive_cited": true,
+      "positive_context": true,
+      "interference_cited": [],
+      "interference_context": [],
+      "empty_or_ungrounded": false,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "id": "T2",
+      "question": "PipelineBuilder 怎么用",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "latency_ms": 7923,
+      "cited": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "生成数据",
+          "section_path": "PipelineBuilder > 生成数据",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 生成数据\n\n获取任务\n\n按类型生成管线的管线、特征和井等，点击“获取任务”可以获取管线的具体生成过程和步骤。\n\n编译发布\n\n管线数据编译发布按照获取的任务依次进行，具体生成进度会显示在每项任务之后。"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        }
+      ],
+      "context_docs": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "生成数据",
+          "section_path": "PipelineBuilder > 生成数据",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 生成数据\n\n获取任务\n\n按类型生成管线的管线、特征和井等，点击“获取任务”可以获取管线的具体生成过程和步骤。\n\n编译发布\n\n管线数据编译发布按照获取的任务依次进行，具体生成进度会显示在每项任务之后。"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "字段映射",
+          "section_path": "PipelineBuilder > 字段映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 字段映射\n\n字段映射\n\n设置管线编译所需要的必要字段和需要入库的属性字段，其中“*”号字段为必须字段（不能为空）。\n\n高级设置\n\n设置管线生成参数，具体如下：\n\n旋转角度单位：支持弧度和度，默认为弧度。\n\n旋转角度0度范围：支持正东方向、正北方向，默认为正东方向\n\n井/井盖尺寸单"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n三相线：是电力中生成的三根线表示A相、B相、C相。\n\n使用状态映射\n\n对管线线字段“使用状态”的值域进行标准化映射，管线的使用状态分为：使用、停用、废弃、空管、其他。映射结果与“废弃”查询和废弃统计功能有关。\n\n监测点类型映射\n\n对字段“监测点类型”的值域进行标准化映"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n材质映射\n\n按照管线线字段“材质”、管点字段“井室材质”和“井盖材质”的值域进行标准化映射。\n\n用户双击使用年限栏可以修改该材质对应的使用年限，材质“使用年限”和建设年代是管线生命周期管理的计算基础。\n\n注：管线材质为“钢”时按焊接方式生成管线连接模型\n\n断面形状映射"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n圆形\n\n特征映射\n\n对管点字段“特征”的值域进行标准化映射，并据此生成连接模型。\n\n埋设方式映射\n\n对管线线字段“埋设方式”字段配置字段的值域进行埋设方式标准化映射，该映射不修改原始数据值。埋设方式包括：\n\n直埋\n\n管沟：影响管线模型的生成\n\n管块\n\n管埋\n\n架空\n\n"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "材质设置",
+          "section_path": "PipelineBuilder > 材质设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 材质设置\n\n管线纹理\n\n按照映射后的标准值设置管线纹理，支持的纹理格式有：\n\n*.jpg，纹理尺寸必须是2的n次方\n\n*.png，纹理尺寸必须是2的n次方\n\n管线纹理设置方式包括：\n\n按管线类型：按照数据设置中设置的管线类型（小类）进行管线纹理设置，以按管线类型设置结果优先。\n\n"
+        }
+      ],
+      "answer_preview": "",
+      "anchor_ok": true,
+      "positive_cited": true,
+      "positive_context": true,
+      "interference_cited": [],
+      "interference_context": [],
+      "empty_or_ungrounded": false,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "id": "T3",
+      "question": "管线工具发布要配什么",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "latency_ms": 5757,
+      "cited": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "生成数据",
+          "section_path": "PipelineBuilder > 生成数据",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 生成数据\n\n获取任务\n\n按类型生成管线的管线、特征和井等，点击“获取任务”可以获取管线的具体生成过程和步骤。\n\n编译发布\n\n管线数据编译发布按照获取的任务依次进行，具体生成进度会显示在每项任务之后。"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        }
+      ],
+      "context_docs": [
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "生成数据",
+          "section_path": "PipelineBuilder > 生成数据",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 生成数据\n\n获取任务\n\n按类型生成管线的管线、特征和井等，点击“获取任务”可以获取管线的具体生成过程和步骤。\n\n编译发布\n\n管线数据编译发布按照获取的任务依次进行，具体生成进度会显示在每项任务之后。"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "数据设置",
+          "section_path": "PipelineBuilder > 数据设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "字段映射",
+          "section_path": "PipelineBuilder > 字段映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 字段映射\n\n字段映射\n\n设置管线编译所需要的必要字段和需要入库的属性字段，其中“*”号字段为必须字段（不能为空）。\n\n高级设置\n\n设置管线生成参数，具体如下：\n\n旋转角度单位：支持弧度和度，默认为弧度。\n\n旋转角度0度范围：支持正东方向、正北方向，默认为正东方向\n\n井/井盖尺寸单"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "材质设置",
+          "section_path": "PipelineBuilder > 材质设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 材质设置\n\n管线纹理\n\n按照映射后的标准值设置管线纹理，支持的纹理格式有：\n\n*.jpg，纹理尺寸必须是2的n次方\n\n*.png，纹理尺寸必须是2的n次方\n\n管线纹理设置方式包括：\n\n按管线类型：按照数据设置中设置的管线类型（小类）进行管线纹理设置，以按管线类型设置结果优先。\n\n"
+        }
+      ],
+      "answer_preview": "",
+      "anchor_ok": true,
+      "positive_cited": true,
+      "positive_context": true,
+      "interference_cited": [],
+      "interference_context": [],
+      "empty_or_ungrounded": false,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "id": "T4",
+      "question": "管线更新服务是做什么的",
+      "soft_hits": [
+        "管线更新服务"
+      ],
+      "canonical": [
+        "管线更新服务"
+      ],
+      "latency_ms": 5395,
+      "cited": [
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "3.1.9.管线更新服务",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "doc_category": "其他",
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n（1）功能说明\n\n本服务主要提供基于空间数据库（支持Oracle 和PostgreSQL）的增量式三维管线更新，\n\n需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在Sta"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_title": "管线更新服务",
+          "section_path": "Stamp服务部署 > 管线更新服务",
+          "file_name": "StampServer用户手册_Rocky9 .docx",
+          "doc_category": "StampServer",
+          "content_preview": "# Stamp服务部署 > 管线更新服务\n\n功能说明\n\n本服务主要提供基于空间数据库（支持Oracle和PostgreSQL）的增量式三维管线更新，需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设置接地地形路径（需与用管线"
+        },
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "3.1.9.管线更新服务",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "doc_category": "其他",
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n61\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n（2）Apache 服务配置\n\n打开/etc/httpd/conf/httpd.conf 文件，进行管线服务配置：\n"
+        }
+      ],
+      "context_docs": [
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "3.1.9.管线更新服务",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "doc_category": "其他",
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n（1）功能说明\n\n本服务主要提供基于空间数据库（支持Oracle 和PostgreSQL）的增量式三维管线更新，\n\n需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在Sta"
+        },
+        {
+          "source": "StampServer用户手册_Rocky9 .docx",
+          "section_title": "管线更新服务",
+          "section_path": "Stamp服务部署 > 管线更新服务",
+          "file_name": "StampServer用户手册_Rocky9 .docx",
+          "doc_category": "StampServer",
+          "content_preview": "# Stamp服务部署 > 管线更新服务\n\n功能说明\n\n本服务主要提供基于空间数据库（支持Oracle和PostgreSQL）的增量式三维管线更新，需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设置接地地形路径（需与用管线"
+        },
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "3.1.9.管线更新服务",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "doc_category": "其他",
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n61\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n（2）Apache 服务配置\n\n打开/etc/httpd/conf/httpd.conf 文件，进行管线服务配置：\n"
+        }
+      ],
+      "answer_preview": "",
+      "anchor_ok": true,
+      "positive_cited": false,
+      "positive_context": false,
+      "interference_cited": [
+        "pipeline_update_service"
+      ],
+      "interference_context": [
+        "pipeline_update_service"
+      ],
+      "empty_or_ungrounded": false,
+      "pass": true,
+      "fail_reasons": []
+    }
+  ],
+  "summary": {
+    "t123_pass": 3,
+    "t123_positive_rate": 1.0,
+    "t123_interference_cited_rate": 0.0,
+    "t123_empty_rate": 0.0
+  }
+}

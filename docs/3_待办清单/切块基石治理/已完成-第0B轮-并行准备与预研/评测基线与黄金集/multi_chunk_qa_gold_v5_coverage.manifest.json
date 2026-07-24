@@ -1,0 +1,22 @@
+{
+  "gold_version": "v5-coverage",
+  "status": "frozen_for_coverage_tuning",
+  "generated_at": "2026-07-24T06:20:30.966469+00:00",
+  "parent_candidate": "multi_chunk_qa_gold_v5_coverage_candidate.json",
+  "candidate_manifest": "multi_chunk_qa_gold_v5_coverage.candidate.manifest.json",
+  "corpus_snapshot_hash": "b8024cc5c67011b8a5d252420547f9b286f7cdb9e0be6f69c60f4cfc706ee8cc",
+  "gold_sha256": "33c3bc339ee82a154bcfb9c45cee8a57dbbbb18650c849755f2b1b7a110bf371",
+  "review_ledger": "multi_chunk_qa_gold_v5_coverage.review_ledger.json",
+  "review_counts": {
+    "approved": 90,
+    "rejected": 15
+  },
+  "retrieval_question_count": 90,
+  "category_counts": {
+    "table": 8,
+    "fact": 34,
+    "procedure": 48
+  },
+  "scope": "rewrite_and_filter_tuning",
+  "relation_to_v4": "independent; v4 FR-10 baseline unchanged"
+}

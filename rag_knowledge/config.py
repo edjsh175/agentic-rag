@@ -103,6 +103,9 @@ class GraphRetrievalConfig:
     """Evidence-backed knowledge graph retrieval settings (Phase C)."""
     enabled: bool = False
     query_rewrite_enabled: bool = False
+    anchor_chunk_filter_enabled: bool = False
+    anchor_graph_chunk_enabled: bool = False
+    graph_chunk_entity_allowlist: str = "PipelineBuilder"
     min_link_confidence: float = 0.75
     min_entity_confidence: float = 0.7
     min_relation_confidence: float = 0.7
@@ -247,6 +250,17 @@ class Config:
                 "graph_retrieval", "query_rewrite_enabled", "false"
             ).lower()
             == "true",
+            anchor_chunk_filter_enabled=_get(
+                "graph_retrieval", "anchor_chunk_filter_enabled", "false"
+            ).lower()
+            == "true",
+            anchor_graph_chunk_enabled=_get(
+                "graph_retrieval", "anchor_graph_chunk_enabled", "false"
+            ).lower()
+            == "true",
+            graph_chunk_entity_allowlist=_get(
+                "graph_retrieval", "graph_chunk_entity_allowlist", "PipelineBuilder"
+            ),
             min_link_confidence=float(_get("graph_retrieval", "min_link_confidence", "0.75")),
             min_entity_confidence=float(_get("graph_retrieval", "min_entity_confidence", "0.7")),
             min_relation_confidence=float(_get("graph_retrieval", "min_relation_confidence", "0.7")),

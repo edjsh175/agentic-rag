@@ -201,6 +201,7 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
             "relations": [],
             "canonical_by_alias": {},
             "entity_type_by_name": {},
+            "doc_category_by_name": {},
             "doc_categories": set(),
         }
 
@@ -211,6 +212,7 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
     relations: list[dict] = []
     canonical_by_alias: dict[str, str] = {}
     entity_type_by_name: dict[str, str] = {}
+    doc_category_by_name: dict[str, str] = {}
     doc_categories: set[str] = set()
 
     for item in data.get("entities") or []:
@@ -226,6 +228,7 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
         doc_category = str(item.get("doc_category") or "").strip()
         if doc_category:
             doc_categories.add(doc_category)
+            doc_category_by_name[name] = doc_category
         for alias in item.get("aliases") or []:
             alias_name = str(alias or "").strip()
             if alias_name:
@@ -254,6 +257,7 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
         "relations": relations,
         "canonical_by_alias": canonical_by_alias,
         "entity_type_by_name": entity_type_by_name,
+        "doc_category_by_name": doc_category_by_name,
         "doc_categories": doc_categories,
     }
 

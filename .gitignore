@@ -78,4 +78,7 @@ Thumbs.db
 # Office temporary lock files
 ~$*
 
+# Compressed archives
+*.tar.gz
+
 

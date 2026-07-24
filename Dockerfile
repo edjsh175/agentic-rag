@@ -27,6 +27,7 @@ COPY scripts/ ./scripts/
 COPY run.py .
 COPY run_graph_build.py .
 COPY sync_profiles_to_graph.py .
+COPY sync_product_backbone_to_graph.py .
 
 EXPOSE 10605
 

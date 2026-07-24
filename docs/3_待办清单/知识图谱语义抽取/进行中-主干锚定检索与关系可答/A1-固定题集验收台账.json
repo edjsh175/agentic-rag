@@ -1,0 +1,387 @@
+{
+  "meta": {
+    "generated_at": "2026-07-24T05:58:28.662767+00:00",
+    "enabled": false,
+    "query_rewrite_enabled": true,
+    "helper": "gemma3:4b",
+    "ollama": "http://192.168.10.158:11434",
+    "query_mode": "POST http://127.0.0.1:10605/admin/qa-debug"
+  },
+  "cases": [
+    {
+      "id": "sm-intro",
+      "question": "介绍一下 StampManager",
+      "kind": "product_intro",
+      "soft_hits": [
+        "StampManager"
+      ],
+      "canonical": [
+        "StampManager"
+      ],
+      "avoid": [],
+      "primary_intent": "product_intro",
+      "anchored_queries": [
+        "StampManager 产品介绍",
+        "StampManager 概述 定位"
+      ],
+      "retrieval_queries": [
+        "StampManager 产品介绍",
+        "StampManager 概述 定位"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：StampManager（别名：Stamp管理中心），类型 Product\n- 主干一跳关系：\n  - 运维管理层 -[belongs_to]-> StampManager\n  - StampManager -[requires]-> StampGIS三维产品",
+      "latency_ms": 19014,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "sm-intro",
+        "question": "介绍一下 StampManager",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "StampManager"
+        ],
+        "sources": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "StampManager部署",
+            "section_path": "Stamp服务部署 > StampManager部署",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# Stamp服务部署 > StampManager部署\n\n将StampManager2.war和sqliteQuery.war从/data/stampmanager目录上传到/data/apache-tomcat-9.0.97/webapps目录：\n\n重启tomcat服务：systemctl restart tomc"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "创建数据库目录",
+            "section_path": "Stamp服务部署 > 服务部署准备 > 创建数据库目录",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# Stamp服务部署 > 服务部署准备 > 创建数据库目录\n\n创建模型数据库存储目录和规划数据库存储目录：\n\nsu postgres\n\nmkdir /data/stamp_db/editor_db\n\nexit\n\n（1）StampManager\n\n将stampmanager基础环境上传到/data/stampmanag"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "运维代理设置",
+            "section_path": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# Stamp服务部署 > Nginx代理设置 > 运维代理设置\n\n打开/etc/nginx/conf.d/default.conf文件在80端口中为StampManager配置代理：\n\n#StampManage代理设置\n\nlocation /StampManager2 {\n\nproxy_pass http://loc"
+          }
+        ],
+        "answer_preview": "# StampManager 介绍  StampManager（别名：Stamp管理中心）是运维管理系统，属于产品类型。[1]  ## 部署与访问  - 将StampManager2.war和sqliteQuery.war从/data/stampmanager目录上传到/data/apache-tomcat-9.0.97/webapps目录，然后重启tomcat服务：`systemctl restart tomcat`。[1] - 访问地址：`http://192.168.10.90:8080/StampManager2`（IP地址和端口根据实际安装设置",
+        "trace_id": "5635fbab699c4e918d81153568607b88",
+        "latency_ms": 75694
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    },
+    {
+      "id": "sm-alias",
+      "question": "Stamp管理中心是做什么的",
+      "kind": "product_intro",
+      "soft_hits": [
+        "StampManager"
+      ],
+      "canonical": [
+        "StampManager"
+      ],
+      "avoid": [],
+      "primary_intent": "product_intro",
+      "anchored_queries": [
+        "StampManager 是做什么的"
+      ],
+      "retrieval_queries": [
+        "StampManager 是做什么的"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：StampManager（别名：Stamp管理中心），类型 Product\n- 主干一跳关系：\n  - 运维管理层 -[belongs_to]-> StampManager\n  - StampManager -[requires]-> StampGIS三维产品",
+      "latency_ms": 2370,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "sm-alias",
+        "question": "Stamp管理中心是做什么的",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "StampManager"
+        ],
+        "sources": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "StampManager部署",
+            "section_path": "Stamp服务部署 > StampManager部署",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# Stamp服务部署 > StampManager部署\n\n将StampManager2.war和sqliteQuery.war从/data/stampmanager目录上传到/data/apache-tomcat-9.0.97/webapps目录：\n\n重启tomcat服务：systemctl restart tomc"
+          }
+        ],
+        "answer_preview": "Stamp管理中心（StampManager）是一个运维管理系统，用于管理数据库配置和数据配置服务设置。根据上下文，它可以通过浏览器访问（如http://192.168.10.90:8080/StampManager2）进行管理。[6]",
+        "trace_id": "5dddeaedcbd64f2fb47dbca833d5dbc4",
+        "latency_ms": 129098
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    },
+    {
+      "id": "tools-vs-server",
+      "question": "StampTools 和 StampServer 有什么区别",
+      "kind": "compare",
+      "soft_hits": [
+        "StampGIS Server",
+        "StampGIS Tools"
+      ],
+      "canonical": [
+        "StampGIS Server",
+        "StampGIS Tools"
+      ],
+      "avoid": [],
+      "primary_intent": "product_relation",
+      "anchored_queries": [
+        "StampGIS Server 产品关系 belongs_to",
+        "StampGIS Server 与相关产品 区别",
+        "StampGIS Tools 产品关系 belongs_to"
+      ],
+      "retrieval_queries": [
+        "StampGIS Server 产品关系 belongs_to",
+        "StampGIS Server 与相关产品 区别",
+        "StampGIS Tools 产品关系 belongs_to"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：StampGIS Server（别名：StampServer），类型 Product\n- 锚点：StampGIS Tools（别名：StampTools），类型 Product\n- 主干一跳关系：\n  - GB28181视频服务 -[belongs_to]-> StampGIS Server\n  - 系统服务层 -[belongs_to]-> StampGIS Server\n  - 工具与数据",
+      "latency_ms": 2813,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "tools-vs-server",
+        "question": "StampTools 和 StampServer 有什么区别",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "StampGIS Tools",
+          "StampGIS Server"
+        ],
+        "sources": [
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "目\n录",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n文件上传服务...................................................................................................."
+          },
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "2ca727efa70847b49f0f67528544d210",
+            "section_path": "2ca727efa70847b49f0f67528544d210",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210\n\nStampServer 用户手册--北京睿城传奇科技有限公司"
+          },
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "目\n录",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n107\n4\nStampServer 用户手册--北京睿城传奇科技有限公司\n5.4.\n\n数据注意事项........................................................."
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "创建数据库目录",
+            "section_path": "Stamp服务部署 > 服务部署准备 > 创建数据库目录",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# Stamp服务部署 > 服务部署准备 > 创建数据库目录\n\n创建模型数据库存储目录和规划数据库存储目录：\n\nsu postgres\n\nmkdir /data/stamp_db/editor_db\n\nexit\n\n（1）StampManager\n\n将stampmanager基础环境上传到/data/stampmanag"
+          },
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "1.4.3.文件上传",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.4.系统部署准备 > 1.4.3.文件上传",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.4.系统部署准备 > 1.4.3.文件上传\n\n（1）基础软件安装包\n\n将所有安装软件通过SSH 上传到/data/setup 目录：\n\n（2）授权文件\n\n（3）StampManager\n\n将stampmanager 基础"
+          }
+        ],
+        "answer_preview": "知识库中查到了StampServer的部分相关内容（如[1]、[2]、[3]、[4]、[5]、[6]中提到的用户手册和部署说明），但未检索到关于StampTools的任何信息，因此无法回答两者之间的区别。",
+        "trace_id": "3473c5f6114d430fa41ce74696fba80d",
+        "latency_ms": 122387
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    },
+    {
+      "id": "pipeline-belongs",
+      "question": "PipelineBuilder 属于什么",
+      "kind": "tool_belongs",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "avoid": [],
+      "primary_intent": "product_intro",
+      "anchored_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 概述 定位"
+      ],
+      "retrieval_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 概述 定位"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：PipelineBuilder（别名：PiplineBuilder, 管线工具），类型 Tool\n- 主干一跳关系：\n  - PipelineBuilder -[belongs_to]-> 工具与数据处理层",
+      "latency_ms": 2311,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "pipeline-belongs",
+        "question": "PipelineBuilder 属于什么",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "PipelineBuilder"
+        ],
+        "sources": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_title": "管线线表",
+            "section_path": "PipelineBuilder > 数据规范 > 管线线表",
+            "file_name": "StampTools用户手册.docx",
+            "content_preview": "# PipelineBuilder > 数据规范 > 管线线表\n\n记录管线拓扑信息\n\n线表数据结构"
+          },
+          {
+            "source": "StampTools用户手册.docx",
+            "section_title": "管线面表：",
+            "section_path": "PipelineBuilder > 数据规范 > 管线面表：",
+            "file_name": "StampTools用户手册.docx",
+            "content_preview": "# PipelineBuilder > 数据规范 > 管线面表：\n\n记录管面得数据信息。\n\n面表数据结构"
+          },
+          {
+            "source": "StampTools用户手册.docx",
+            "section_title": "生成数据",
+            "section_path": "PipelineBuilder > 生成数据",
+            "file_name": "StampTools用户手册.docx",
+            "content_preview": "# PipelineBuilder > 生成数据\n\n获取任务\n\n按类型生成管线的管线、特征和井等，点击“获取任务”可以获取管线的具体生成过程和步骤。\n\n编译发布\n\n管线数据编译发布按照获取的任务依次进行，具体生成进度会显示在每项任务之后。"
+          }
+        ],
+        "answer_preview": "知识库中查到了PipelineBuilder的部分相关内容（如PipelineBuilder > 数据规范 > 管线线表、PipelineBuilder > 数据规范 > 管线面表：、PipelineBuilder > 生成数据），但未检索到关于「PipelineBuilder 属于什么」的完整说明。[1][2][3]",
+        "trace_id": "8fdd9ff0384042259e0c5a55ad495d73",
+        "latency_ms": 99640
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    },
+    {
+      "id": "oral-pipeline-what",
+      "question": "管线工具是什么",
+      "kind": "oral",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "avoid": [],
+      "primary_intent": "product_intro",
+      "anchored_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 管线工具是什么"
+      ],
+      "retrieval_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 管线工具是什么"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：PipelineBuilder（别名：PiplineBuilder, 管线工具），类型 Tool\n- 主干一跳关系：\n  - PipelineBuilder -[belongs_to]-> 工具与数据处理层",
+      "latency_ms": 2303,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "oral-pipeline-what",
+        "question": "管线工具是什么",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "PipelineBuilder"
+        ],
+        "sources": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_title": "管线点表",
+            "section_path": "PipelineBuilder > 数据规范 > 管线点表",
+            "file_name": "StampTools用户手册.docx",
+            "content_preview": "# PipelineBuilder > 数据规范 > 管线点表\n\n记录管线特征和附属设施信息。\n\n点数据结构"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "工程配置",
+            "section_path": "运维管理配置 > 数据配置 > 工程配置",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# 运维管理配置 > 数据配置 > 工程配置\n\n基础配置\n\n名称：工程名称，为必填项\n\n空间参考：工程的空间参考文件（*.spatial），为基础工具或管线编译工具生成，与服务和客户端的所有实时投影变换功能相关，为必填项\n\n参考高程：地下浏览时的辅助参考面，一般小于等于地下三维对象（管线或模型）的最低高程（绝对高程），"
+          },
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "4.2.工程配置",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 4.三维数据配置 > 4.2.工程配置",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 4.三维数据配置 > 4.2.工程配置\n\n基础配置：配置工程基本信息，包括：\n\n名称：工程名称，为必填项\n\n空间参考：工程的空间参考文件（*.spatial），为基础工具或管线编译工具生成，\n与服务和客户端的所有实时投影变换功能相关，为必填"
+          }
+        ],
+        "answer_preview": "管线工具（PipelineBuilder）是一个工具，属于工具与数据处理层。[1]  PipelineBuilder 用于生成管线相关的配置文件，包括： - 编码配置文件（PipeConfig.config），与管线系统查询、统计功能相关 - 值域映射文件（ValueMap.config），与管线系统查询、统计功能相关 - 字段映射文件（FiledMap.config），与管线系统查询、统计功能相关  这些文件由管线工具配置产生，在管线生成后需要随同数据一起拷贝到数据服务器上。[2][4]",
+        "trace_id": "d68e91b0d1e74d68a42f368050256542",
+        "latency_ms": 118906
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    },
+    {
+      "id": "oral-pipeline-how",
+      "question": "怎么用管线工具",
+      "kind": "oral",
+      "soft_hits": [
+        "PipelineBuilder"
+      ],
+      "canonical": [
+        "PipelineBuilder"
+      ],
+      "avoid": [],
+      "primary_intent": "product_intro",
+      "anchored_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 怎么用管线工具"
+      ],
+      "retrieval_queries": [
+        "PipelineBuilder 产品介绍",
+        "PipelineBuilder 怎么用管线工具"
+      ],
+      "relation_summary_preview": "产品主干锚定（用于消歧与关系骨架；具体描述仍以 context 为准）：\n- 锚点：PipelineBuilder（别名：PiplineBuilder, 管线工具），类型 Tool\n- 主干一跳关系：\n  - PipelineBuilder -[belongs_to]-> 工具与数据处理层",
+      "latency_ms": 2355,
+      "anchor_status": "pass",
+      "fail_reason": null,
+      "query": {
+        "id": "oral-pipeline-how",
+        "question": "怎么用管线工具",
+        "query_status": "pass",
+        "fail_reason": null,
+        "canonical_from_evidence": [
+          "PipelineBuilder"
+        ],
+        "sources": [
+          {
+            "source": "StampTools用户手册.docx",
+            "section_title": "数据设置",
+            "section_path": "PipelineBuilder > 数据设置",
+            "file_name": "StampTools用户手册.docx",
+            "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+          },
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_title": "3.1.9.管线更新服务",
+            "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务",
+            "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+            "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n（1）功能说明\n\n本服务主要提供基于空间数据库（支持Oracle 和PostgreSQL）的增量式三维管线更新，\n\n需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在Sta"
+          },
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_title": "工程配置",
+            "section_path": "运维管理配置 > 数据配置 > 工程配置",
+            "file_name": "StampServer用户手册_Rocky9 .docx",
+            "content_preview": "# 运维管理配置 > 数据配置 > 工程配置\n\n基础配置\n\n名称：工程名称，为必填项\n\n空间参考：工程的空间参考文件（*.spatial），为基础工具或管线编译工具生成，与服务和客户端的所有实时投影变换功能相关，为必填项\n\n参考高程：地下浏览时的辅助参考面，一般小于等于地下三维对象（管线或模型）的最低高程（绝对高程），"
+          }
+        ],
+        "answer_preview": "知识库中查到了怎么用管线工具的部分相关内容（如PipelineBuilder > 数据设置、2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务、运维管理配置 > 数据配置 > 工程配置），但未检索到关于「怎么用管线工具」的完整说明。[1][2][3]",
+        "trace_id": "8ad52fdef16b4808a2582d6e1440bb2e",
+        "latency_ms": 125256
+      },
+      "overall_status": "pass",
+      "overall_reasons": []
+    }
+  ]
+}

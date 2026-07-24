@@ -124,7 +124,8 @@
       "name": "PipelineBuilder",
       "entity_type": "Tool",
       "aliases": [
-        "PiplineBuilder"
+        "PiplineBuilder",
+        "管线工具"
       ],
       "doc_category": ""
     },

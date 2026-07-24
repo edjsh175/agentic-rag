@@ -1,0 +1,3066 @@
+[
+  {
+    "id": "cv5-001",
+    "question": "「矢量数据入库 > EPSG编码」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「矢量数据入库 > EPSG编码」写明：CGCS2000。",
+    "required_facts": [
+      "CGCS2000",
+      "degree",
+      "Gauss-Kruger"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_523dff5061ad2108"
+      }
+    ],
+    "required_section_ids": [
+      "sec_523dff5061ad2108"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-001; chunk=chk_4ff0ebe92eaf2c95b5187707",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-001"
+  },
+  {
+    "id": "cv5-002",
+    "question": "「工具概述 > EPSG编码」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「工具概述 > EPSG编码」写明：CGCS2000。",
+    "required_facts": [
+      "CGCS2000",
+      "degree",
+      "Gauss-Kruger"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampTools用户手册.docx",
+        "section_id": "sec_3ecd783f6021333b"
+      }
+    ],
+    "required_section_ids": [
+      "sec_3ecd783f6021333b",
+      "sec_963e4dde2fec109c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-002; chunk=chk_98389046eb19231623ec0217",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-002"
+  },
+  {
+    "id": "cv5-003",
+    "question": "关于「分析」，文档中与 StampWebGL用户手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「分析」给出：开始管段。",
+    "required_facts": [
+      "开始管段",
+      "选择分析的开始管段",
+      "结束管段",
+      "选择分析的结束管段"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebGL用户手册.docx",
+        "section_id": "sec_ad2c2eb9cbda96a4"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ad2c2eb9cbda96a4"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-003; chunk=chk_0dddbcbabc28962f559e1797",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-003"
+  },
+  {
+    "id": "cv5-004",
+    "question": "关于「分析」，文档中与 StampWebRTC用户手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「分析」给出：分析日期。",
+    "required_facts": [
+      "分析日期",
+      "法定标准时间为大寒日或冬至，也可以选择自定义时间。",
+      "自定义",
+      "自定义日照分析日期"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC用户手册.docx",
+        "section_id": "sec_a01accf07a254df4"
+      }
+    ],
+    "required_section_ids": [
+      "sec_a01accf07a254df4"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-004; chunk=chk_de27690af06c217ccf8991c0",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-004"
+  },
+  {
+    "id": "cv5-005",
+    "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」写明：varchar。",
+    "required_facts": [
+      "varchar",
+      "projectid",
+      "imgpath",
+      "creater"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampWebRTC数据库表结构.docx",
+        "section_id": "sec_43fd1daae30d8e5e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_43fd1daae30d8e5e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-005; chunk=chk_1287905f47034988da49cf44",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-005"
+  },
+  {
+    "id": "cv5-006",
+    "question": "关于「分析」，文档中与 PipelineSystem用户手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「分析」给出：管段。",
+    "required_facts": [
+      "管段",
+      "选择管段",
+      "半径",
+      "分析的缓冲半径"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "PipelineSystem用户手册.docx",
+        "section_id": "sec_142d69dc9fe0414e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_142d69dc9fe0414e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-006; chunk=chk_c68829cb713bab30f2e16106",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-006"
+  },
+  {
+    "id": "cv5-007",
+    "question": "关于「GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求」，文档中与 GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求」给出：全局类型规定如下。",
+    "required_facts": [
+      "全局类型规定如下",
+      "a)",
+      "resultType",
+      "MPAlarmRecordType"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+        "section_id": "sec_3968ad53ac5ea103"
+      }
+    ],
+    "required_section_ids": [
+      "sec_3968ad53ac5ea103"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-007; chunk=chk_a9a007267e60f1b84c8f2b68",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-007"
+  },
+  {
+    "id": "cv5-008",
+    "question": "在「2ca727efa70847b49f0f67528544d210 > 2024 年6 月」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「2ca727efa70847b49f0f67528544d210 > 2024 年6 月」给出：运维基础配置。",
+    "required_facts": [
+      "运维基础配置",
+      "ca727efa70847b49f0f67528544d210",
+      "aksusbd",
+      "StampServer"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "2ca727efa70847b49f0f67528544d210.pdf",
+        "section_id": "sec_603c0992f8f3d849"
+      }
+    ],
+    "required_section_ids": [
+      "sec_603c0992f8f3d849",
+      "sec_79db1e2a8c1aaf1c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-008; chunk=chk_2d114a1b57e2de409b844142",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-008"
+  },
+  {
+    "id": "cv5-009",
+    "question": "在「200 OK > 修改安装配置文件」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「200 OK > 修改安装配置文件」给出：参照如下conf示例修改配置文件。。",
+    "required_facts": [
+      "参照如下conf示例修改配置文件。",
+      "p_kafka_password",
+      "p_kafka_security",
+      "scram.ScramLoginModule"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+        "section_id": "sec_500268edfe232341"
+      }
+    ],
+    "required_section_ids": [
+      "sec_500268edfe232341"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-009; chunk=chk_1adb62b49d9cc6d867e6b637",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-009"
+  },
+  {
+    "id": "cv5-010",
+    "question": "在「编译安装POSTGIS > 安装postgis扩展」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「编译安装POSTGIS > 安装postgis扩展」给出：/home/stampserver/se_query.so。",
+    "required_facts": [
+      "/home/stampserver/se_query.so",
+      "POSTGIS",
+      "llvm-toolset-7.0",
+      "openssl"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "uso -- 源码安装集合.docx",
+        "section_id": "sec_92f04e5508e6e7dd"
+      }
+    ],
+    "required_section_ids": [
+      "sec_92f04e5508e6e7dd",
+      "sec_f0f9ad043c0c49a0"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-010; chunk=chk_a60b23a17ab8cb491d5a012b",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-010"
+  },
+  {
+    "id": "cv5-011",
+    "question": "关于「分析」，文档中与 StampExplorer用户手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「分析」给出：水平箭头。",
+    "required_facts": [
+      "水平箭头",
+      "选中呈黄色，进行水平剖切",
+      "水平面",
+      "选中呈红色，沿水平箭头方向移动则向前或向后进行连续剖切。在剖切状态或非剖切状态时可以左右移动剖切操作符位置。"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampExplorer用户手册.docx",
+        "section_id": "sec_7ca694138364ef1a"
+      }
+    ],
+    "required_section_ids": [
+      "sec_7ca694138364ef1a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-011; chunk=chk_4bcfb1a72d137fe563e1bab6",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-011"
+  },
+  {
+    "id": "cv5-012",
+    "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」写明：http://192.168.10.224/egis/base/v1/wtts/publish?。",
+    "required_facts": [
+      "http://192.168.10.224/egis/base/v1/wtts/publish?",
+      "http://192.168.10.224/egis/base/v1/wtts/publish/add?",
+      "http://192.168.10.224/egis/base/v1/wtts/publish/getProgress?",
+      "http://192.168.10.224/egis/base/v1/wtts/publish/createLayer?"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "三维数据发布服务接口 - v1.4.docx",
+        "section_id": "sec_bf9df5658a962bd5"
+      }
+    ],
+    "required_section_ids": [
+      "sec_bf9df5658a962bd5"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-012; chunk=chk_87ef22d0a848c95c8d32bda9",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-012"
+  },
+  {
+    "id": "cv5-013",
+    "question": "关于「(no_section)」，文档中与 EGIS三维数据服务接口规范0902 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：Layers。",
+    "required_facts": [
+      "Layers",
+      "wops_beijing",
+      "/name",
+      "/srid"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "EGIS三维数据服务接口规范0902.docx",
+        "section_id": "sec_bee3c1ef33e0160a"
+      }
+    ],
+    "required_section_ids": [
+      "sec_bee3c1ef33e0160a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-013; chunk=chk_d21b063c40e7988a4b62d059",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-013"
+  },
+  {
+    "id": "cv5-014",
+    "question": "根据文档「9.安装httpd > 建立软链接」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「9.安装httpd > 建立软链接」给出：tar -xzvf boost_1_74_0.tar.gz。",
+    "required_facts": [
+      "tar -xzvf boost_1_74_0.tar.gz",
+      "yum install gcc-c++",
+      "tar -xzvf cmake-3.30.2.tar.gz",
+      "/data/setup/postgresql-15.8/contrib/fuzzystrmatch"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "麒麟SP3x86版本安装手册.docx",
+        "section_id": "sec_e1b52dde53e67735"
+      }
+    ],
+    "required_section_ids": [
+      "sec_e1b52dde53e67735"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-014; chunk=chk_cb05a2532a5392580314cf00",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-014"
+  },
+  {
+    "id": "cv5-015",
+    "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」写明：http://192.168.10.224/wtts/publish?。",
+    "required_facts": [
+      "http://192.168.10.224/wtts/publish?",
+      "http://192.168.10.224/wtts/publish/add?",
+      "http://192.168.10.224/wtts/publish/getProgress?",
+      "http://192.168.10.224/wtts/publish/createLayer?"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "三维数据发布服务接口 - v1.4.1.docx",
+        "section_id": "sec_badb87d23f5a62fd"
+      }
+    ],
+    "required_section_ids": [
+      "sec_badb87d23f5a62fd"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-015; chunk=chk_5c6814b6aa48e119ebbe5a4c",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-015"
+  },
+  {
+    "id": "cv5-016",
+    "question": "在「安装aksusbd-8.23.1」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「安装aksusbd-8.23.1」给出：/data/pgdata/。",
+    "required_facts": [
+      "/data/pgdata/",
+      "/usr/local/pgsql-15/bin/postgresql-15-check-db-dir",
+      "Environment",
+      "PGDATA=/data/pgdata/"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "麒麟SP3ARM版本安装手册.docx",
+        "section_id": "sec_ab153f321212a04d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ab153f321212a04d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-016; chunk=chk_230627b626ea9d6d4aac54a8",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-016"
+  },
+  {
+    "id": "cv5-017",
+    "question": "「Sheet1」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「Sheet1」写明：Sheet1。",
+    "required_facts": [
+      "Sheet1",
+      "FillPower2",
+      "WaitCount",
+      "WaitTime"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "config.ini说明.xlsx",
+        "section_id": "sec_86277f44c3f46df5"
+      }
+    ],
+    "required_section_ids": [
+      "sec_86277f44c3f46df5"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-017; chunk=chk_879448093884de31fa0741e7",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-017"
+  },
+  {
+    "id": "cv5-018",
+    "question": "关于「查询统计 > 管线查询」，文档中与 PipelineWebGL用户手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「查询统计 > 管线查询」给出：道路名称。",
+    "required_facts": [
+      "道路名称",
+      "输入需要查询的道路名称关键字进行模糊查询，查询结果显示在道路列表框中。如果不输入关键字则查询全部道路。",
+      "道路",
+      "选择需要查询的道路名称，与之相交的道路显示在交叉路列表框中"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "PipelineWebGL用户手册.docx",
+        "section_id": "sec_453097767d9d256e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_453097767d9d256e",
+      "sec_5da8c2206e203df7",
+      "sec_77045d3d38fa0955"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-018; chunk=chk_cc9e8fb61817028973011569",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-018"
+  },
+  {
+    "id": "cv5-018-oral",
+    "question": "管线工具这一节主要讲什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「查询统计 > 管线查询」给出：道路名称。",
+    "required_facts": [
+      "道路名称",
+      "输入需要查询的道路名称关键字进行模糊查询，查询结果显示在道路列表框中。如果不输入关键字则查询全部道路。",
+      "道路",
+      "选择需要查询的道路名称，与之相交的道路显示在交叉路列表框中"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "PipelineWebGL用户手册.docx",
+        "section_id": "sec_453097767d9d256e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_453097767d9d256e",
+      "sec_5da8c2206e203df7",
+      "sec_77045d3d38fa0955"
+    ],
+    "forbidden_claims": [],
+    "notes": "oral rewrite regression twin; same anchors",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-018"
+  },
+  {
+    "id": "cv5-019",
+    "question": "关于「空间数据」，文档中与 三维基本概念 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「空间数据」给出：地形数据。",
+    "required_facts": [
+      "地形数据",
+      "表示地表起伏",
+      "DEM",
+      "Digital Elevation Model，数字高程模型，是DTM的分支，用于对地貌形态的虚拟表示，可派生出等高线、"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "三维基本概念.pptx",
+        "section_id": "sec_5e9f5a18a66e7774"
+      }
+    ],
+    "required_section_ids": [
+      "sec_5e9f5a18a66e7774"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-019; chunk=chk_2862aa77b768cb8ad688274b",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-019"
+  },
+  {
+    "id": "cv5-020",
+    "question": "文档「四、使用命令行 > 4. 旧库导出」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「四、使用命令行 > 4. 旧库导出」给出：/home/stamp_tmp/db_bak/bin2/191_scdrelation_2.bin。",
+    "required_facts": [
+      "/home/stamp_tmp/db_bak/bin2/191_scdrelation_2.bin",
+      "/home/stamp_tmp/db_bak/bin2/191_sctexture_2.bin",
+      "/home/stamp_tmp/db_bak/bin2/191_smeshtexture_2.bin",
+      "/home/stamp_tmp/db_bak/bin2/191_spatial_2.bin"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "postgresql编辑图层迁移.docx",
+        "section_id": "sec_c441dfde93e47cd7"
+      }
+    ],
+    "required_section_ids": [
+      "sec_c441dfde93e47cd7",
+      "sec_ddd207cf7b86847a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-020; chunk=chk_c99f43a793660d601ca4ac23",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-020"
+  },
+  {
+    "id": "cv5-021",
+    "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」写明：输出参数。",
+    "required_facts": [
+      "输出参数",
+      "见表38。",
+      "search",
+      "matchmodel"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "三维地图服务接口.docx",
+        "section_id": "sec_f0257cfc7e5ad168"
+      }
+    ],
+    "required_section_ids": [
+      "sec_f0257cfc7e5ad168"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-021; chunk=chk_567ea8af5966fdd214af4f82",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-021"
+  },
+  {
+    "id": "cv5-022",
+    "question": "关于「(no_section)」，文档中与 VSCode+SVN配置 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：position。",
+    "required_facts": [
+      "position",
+      "svn.layout.trunkRegexName",
+      "Number",
+      "commit"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "VSCode+SVN配置.docx",
+        "section_id": "sec_741b3de9a051e03c"
+      }
+    ],
+    "required_section_ids": [
+      "sec_741b3de9a051e03c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-022; chunk=chk_40101da2f4cc5d7aeb5dd5bc",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-022"
+  },
+  {
+    "id": "cv5-023",
+    "question": "根据文档「VMwareESXI创建虚拟机 > linux系统安装显卡驱动」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「VMwareESXI创建虚拟机 > linux系统安装显卡驱动」给出：systemctl set-default graphical.target。",
+    "required_facts": [
+      "systemctl set-default graphical.target",
+      "VMwareESXI",
+      "NVIDIA",
+      "nvidia-smi"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "VMware ESXi虚拟机GPU直通和Kylin推流配置.docx",
+        "section_id": "sec_74709522e82f7239"
+      }
+    ],
+    "required_section_ids": [
+      "sec_74709522e82f7239"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-023; chunk=chk_1915dd8b819580768d22a5fa",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-023"
+  },
+  {
+    "id": "cv5-024",
+    "question": "根据文档「HTTPS配置 > 私有CA配置」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「HTTPS配置 > 私有CA配置」给出：mkdir -p /etc/nginx/ssl。",
+    "required_facts": [
+      "mkdir -p /etc/nginx/ssl",
+      "chmod 400 /etc/nginx/ssl/stamp.key",
+      "/etc/nginx/ssl",
+      "/etc/nginx/ssl/stamp.key"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "HTTPS和域名配置.docx",
+        "section_id": "sec_13537a48778952cd"
+      }
+    ],
+    "required_section_ids": [
+      "sec_13537a48778952cd",
+      "sec_7f416df7f45e18ae"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-024; chunk=chk_afa9ef47e3a34375f7e18ec9",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-024"
+  },
+  {
+    "id": "cv5-025",
+    "question": "关于「产品概述 > 产品技术特点」，文档中与 StampGIS三维产品白皮书 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「产品概述 > 产品技术特点」给出：StampGIS。",
+    "required_facts": [
+      "StampGIS"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampGIS三维产品白皮书.docx",
+        "section_id": "sec_12687b0f68549f32"
+      }
+    ],
+    "required_section_ids": [
+      "sec_12687b0f68549f32",
+      "sec_171f383ed207cd8e",
+      "sec_2f8bc6bea74d0a5a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-025; chunk=chk_1fe51f587638ea749639a9ff",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-025"
+  },
+  {
+    "id": "cv5-026",
+    "question": "在「FUNCTION public.stamp_shortest_road」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「FUNCTION public.stamp_shortest_road」给出：-离起点最近的线。",
+    "required_facts": [
+      "-离起点最近的线",
+      "-离终点最近的线",
+      "-距离起点最近线的终点",
+      "-距离终点最近线的起点"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "路径规划.sql",
+        "section_id": "sec_5f7b1007b9e90d94"
+      }
+    ],
+    "required_section_ids": [
+      "sec_5f7b1007b9e90d94"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-026; chunk=chk_10e5ab8b0fb0b05d4e1fadec",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-026"
+  },
+  {
+    "id": "cv5-027",
+    "question": "在「2、Apache配置https」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「2、Apache配置https」给出：将下载的压缩包放在/home/目录。",
+    "required_facts": [
+      "将下载的压缩包放在/home/目录",
+      "/usr/local/openssl",
+      "可以在线安装",
+      "yum install gcc"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "https配置部署文档.docx",
+        "section_id": "sec_9c6375a8670143ec"
+      }
+    ],
+    "required_section_ids": [
+      "sec_9c6375a8670143ec"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-027; chunk=chk_eb73451fb537838c1fb84d8d",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-027"
+  },
+  {
+    "id": "cv5-028",
+    "question": "文档「(no_section)」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：/usr/lib/systemd/system/minio.service。",
+    "required_facts": [
+      "/usr/lib/systemd/system/minio.service",
+      "/usr/local/bin/minio",
+      "/usr/local",
+      "地址"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "minio 单机多磁盘部署.docx",
+        "section_id": "sec_2712b32d218939f0"
+      }
+    ],
+    "required_section_ids": [
+      "sec_2712b32d218939f0"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-028; chunk=chk_763a570937c27580ba5c1a8c",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-028"
+  },
+  {
+    "id": "cv5-029",
+    "question": "在「11.陕西耕地保护」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「11.陕西耕地保护」给出：线程池 & 异步。",
+    "required_facts": [
+      "线程池 & 异步",
+      "降低资源消耗、提高响应速度、统一管理。",
+      "同步",
+      "你等结果回来再干别的（打电话等对方说完）。"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "实景三维新功能.txt",
+        "section_id": "sec_c60446dc30cddcb8"
+      }
+    ],
+    "required_section_ids": [
+      "sec_c60446dc30cddcb8"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-029; chunk=chk_30c9a4b79780a0f4f72a552b",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-029"
+  },
+  {
+    "id": "cv5-030",
+    "question": "在「1.MySQL 数据类型 > 1.1 数值类型」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「1.MySQL 数据类型 > 1.1 数值类型」给出：- 无符号 tinyint（0~255） create table tt2(num tinyint unsigned)。",
+    "required_facts": [
+      "- 无符号 tinyint（0~255） create table tt2(num tinyint unsigned)",
+      "TINYINT、INT、BIGINT、FLOAT、DECIMAL",
+      "TINYINT",
+      "1字节，-128~127"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+        "section_id": "sec_e6feaab443ae50e0"
+      }
+    ],
+    "required_section_ids": [
+      "sec_e6feaab443ae50e0"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-030; chunk=chk_0c31554dda4e871ed5a7b6af",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-030"
+  },
+  {
+    "id": "cv5-031",
+    "question": "文档「示例」中给出的访问地址是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「示例」给出：http://192.168.10.224/geoserver?。",
+    "required_facts": [
+      "http://192.168.10.224/geoserver?",
+      "http",
+      "//192.168.10.224/geoserver?",
+      "//192.168.10.224/geoserver"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "Geoserver 叠加分析 -v0.2.docx",
+        "section_id": "sec_d31b9bfbda399034"
+      }
+    ],
+    "required_section_ids": [
+      "sec_d31b9bfbda399034"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-031; chunk=chk_8a9da0676adaae53bcb010ac",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-031"
+  },
+  {
+    "id": "cv5-032",
+    "question": "关于「(no_section)」，文档中与 坡度分析-坡度连片度分析--相关接口 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：type。",
+    "required_facts": [
+      "type",
+      "slope_connected&layer=400ded9c-5b11-ec11-f93c-0000f93d0080&a",
+      "slope_connected",
+      "ded9c-5b11-ec11-f93c-0000f93d0080"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "坡度分析-坡度连片度分析--相关接口.docx",
+        "section_id": "sec_58bf3c91d792bd2c"
+      }
+    ],
+    "required_section_ids": [
+      "sec_58bf3c91d792bd2c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-032; chunk=chk_84ba1c4df3bda99c4d473232",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-032"
+  },
+  {
+    "id": "cv5-033",
+    "question": "根据文档「(no_section)」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：df -h。",
+    "required_facts": [
+      "df -h",
+      "umount /home",
+      "查看分区情况",
+      "Security"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "拯救者笔记本电脑安装Rocky95.docx",
+        "section_id": "sec_61d47e6b795f89de"
+      }
+    ],
+    "required_section_ids": [
+      "sec_61d47e6b795f89de"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-033; chunk=chk_255e64f0badbe8e5153214bc",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-033"
+  },
+  {
+    "id": "cv5-034",
+    "question": "关于「服务发布」，文档中与 ArcGIS配图及发布切片服务手册 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「服务发布」给出：设置切片缓存路径。",
+    "required_facts": [
+      "设置切片缓存路径",
+      "默认是使用root根路径，即安装arcgis server时设置的切片缓存路径，也可自定义缓存路径，设置完点击“Cont",
+      "松散瓦片模式设置",
+      "arcgis切片模式有松散型（Exploded）和紧凑型（Compact）,选择松散瓦片模式；点击“Cathing（缓存"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "ArcGIS配图及发布切片服务手册.docx",
+        "section_id": "sec_19c8b4654711169d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_19c8b4654711169d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-034; chunk=chk_0b2c8ec022168b510fbcac63",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-034"
+  },
+  {
+    "id": "cv5-035",
+    "question": "在「SQL 6」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「SQL 6」给出：-6.取到坐标点的包围圈。",
+    "required_facts": [
+      "-6.取到坐标点的包围圈",
+      "SELECT",
+      "st_concavehull",
+      "st_collect"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "可达圈分析.sql",
+        "section_id": "sec_3a548fe8c124cd2d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_3a548fe8c124cd2d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-035; chunk=chk_73403f23112cb64cff13517e",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-035"
+  },
+  {
+    "id": "cv5-036",
+    "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：如果用IE打开场景不能显示基础球，则需要生成基础shader，具体方法为：将DerivedDataCache下的所有文件删除，将data.data中除全球DEM。",
+    "required_facts": [
+      "如果用IE打开场景不能显示基础球，则需要生成基础shader，具体方法为：将DerivedDataCache下的所有文件删除，将data.data中除全球DEM",
+      "UE场景shader生成",
+      "将UE场景中的粒子图层设置为初始不可见",
+      "SVN目录下\\Engine\\DerivedDataCacheCustom下默认会有DynamicWeatherParticlesMat和Water两个目录"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "IE打开场景及shader生成方法.docx",
+        "section_id": "sec_6c3b3700982bee52"
+      }
+    ],
+    "required_section_ids": [
+      "sec_6c3b3700982bee52"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-036; chunk=chk_a92fb0f31f705af314e751b2",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-036"
+  },
+  {
+    "id": "cv5-037",
+    "question": "根据文档「一、SSL模块检查与安装」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「一、SSL模块检查与安装」给出：nginx -V | grep -- --with-http_ssl_module。",
+    "required_facts": [
+      "nginx -V | grep -- --with-http_ssl_module",
+      "mkdir /usr/local/nginx/cert",
+      "chmod 700 /usr/local/nginx/cert",
+      "/usr/sbin"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "https配置流程.docx",
+        "section_id": "sec_3a03cbd322890d8d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_3a03cbd322890d8d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-037; chunk=chk_2c67c60f33158fc8b2183d2b",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-037"
+  },
+  {
+    "id": "cv5-038",
+    "question": "关于「(no_section)」，文档中与 readme 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：startLon。",
+    "required_facts": [
+      "startLon",
+      "117.181283&startLat=34.275755&endLon=117.161432&endLat=34.24",
+      "起点经度【117.181283】",
+      "startLat"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "readme.txt",
+        "section_id": "sec_63896e52391f796f"
+      }
+    ],
+    "required_section_ids": [
+      "sec_63896e52391f796f"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-038; chunk=chk_479320f4701536efa695c9e4",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-038"
+  },
+  {
+    "id": "cv5-039",
+    "question": "文档「(no_section)」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：/data/stamp_data。",
+    "required_facts": [
+      "/data/stamp_data",
+      "设置图层名称",
+      "xigang",
+      "设置路径"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "ArcGIS Cache图层添加说明.docx",
+        "section_id": "sec_e87e885da2ccbb59"
+      }
+    ],
+    "required_section_ids": [
+      "sec_e87e885da2ccbb59"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-039; chunk=chk_5c3ee633a3f8008acb2303b9",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-039"
+  },
+  {
+    "id": "cv5-040",
+    "question": "关于「六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务」，文档中与 信令以及节点管理程序Windows自启动 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务」给出：取消勾选。",
+    "required_facts": [
+      "取消勾选",
+      "Local System account",
+      "选择",
+      "This account"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "信令以及节点管理程序Windows自启动.docx",
+        "section_id": "sec_0ec101d54125d2e0"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0ec101d54125d2e0",
+      "sec_2ac9f49c96de8572",
+      "sec_73ff067dd7bc12cf"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-040; chunk=chk_2ef165b955cd53f0401f4d0d",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-040"
+  },
+  {
+    "id": "cv5-041",
+    "question": "关于「VMwareESXI创建虚拟机 > 配置虚拟机规格」，文档中与 VMware ESXi虚拟机GPU直通教程 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「VMwareESXI创建虚拟机 > 配置虚拟机规格」给出：VMwareESXI。",
+    "required_facts": [
+      "VMwareESXI",
+      "windows10"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "VMware ESXi虚拟机GPU直通教程.docx",
+        "section_id": "sec_0a6c40c0cd26a9b1"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0a6c40c0cd26a9b1"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-041; chunk=chk_4dc2a645f70b3ec152d0899e",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-041"
+  },
+  {
+    "id": "cv5-042",
+    "question": "文档「(no_section)」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：/data/cache。",
+    "required_facts": [
+      "/data/cache",
+      "原始数据",
+      "shp矢量数据 或者 tiff影像文件",
+      "切片思路"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "Arcgis切片+部署geowebcache配成WMTS服务.docx",
+        "section_id": "sec_6c9048943f2a4462"
+      }
+    ],
+    "required_section_ids": [
+      "sec_6c9048943f2a4462"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-042; chunk=chk_5b7020b636bcf98169c5c838",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-042"
+  },
+  {
+    "id": "cv5-043",
+    "question": "关于「IIS配置代理转发到Apache或其他端口监听服务」，文档中与 IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「IIS配置代理转发到Apache或其他端口监听服务」给出：Apache。",
+    "required_facts": [
+      "Apache",
+      "Server",
+      "Settings",
+      "Enable"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+        "section_id": "sec_db1663658df9f2c3"
+      }
+    ],
+    "required_section_ids": [
+      "sec_db1663658df9f2c3"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-043; chunk=chk_1bc9c99a5b3f88f025369a1e",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-043"
+  },
+  {
+    "id": "cv5-044",
+    "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：-# 日志最多保存天数 -->。",
+    "required_facts": [
+      "-# 日志最多保存天数 -->",
+      "/data/stampserver/gb28181_server",
+      "Description",
+      "gb28181_server"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "GB28181服务部署.docx",
+        "section_id": "sec_eb0920e498a24531"
+      }
+    ],
+    "required_section_ids": [
+      "sec_eb0920e498a24531"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-044; chunk=chk_d17c72e1aefcac40ce279471",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-044"
+  },
+  {
+    "id": "cv5-045",
+    "question": "关于「(no_section)」，文档中与 web设置允许跨域 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：tomcat。",
+    "required_facts": [
+      "tomcat",
+      "geowebcache",
+      "cors-filter-1.7.jar",
+      "java-property-utils-1.9.jar"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "web设置允许跨域.txt",
+        "section_id": "sec_040c58998391aaf7"
+      }
+    ],
+    "required_section_ids": [
+      "sec_040c58998391aaf7"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-045; chunk=chk_54f83d4db0f0828ed2bb06aa",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-045"
+  },
+  {
+    "id": "cv5-046",
+    "question": "在「一、安装rockyLinux9镜像 > 7.选择“x86-64/”」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「一、安装rockyLinux9镜像 > 7.选择“x86-64/”」给出：1.打开“VMware Workstation Pro” -- 创建虚拟机--典型--下一步。",
+    "required_facts": [
+      "1.打开“VMware Workstation Pro” -- 创建虚拟机--典型--下一步",
+      "2.稍后安装操作系统（S）--下一步",
+      "3.Linux（L）--Rocky Linux 64 位--下一步",
+      "4.虚拟机名称--位置--下一步"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+        "section_id": "sec_a9bb158f6fdc12da"
+      }
+    ],
+    "required_section_ids": [
+      "sec_a9bb158f6fdc12da"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-046; chunk=chk_7efe4e7d900484ec156da3aa",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-046"
+  },
+  {
+    "id": "cv5-047",
+    "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：创建自定义配置文件。",
+    "required_facts": [
+      "创建自定义配置文件",
+      "default_bits",
+      "2048",
+      "prompt"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "自签名证书生成流程.docx",
+        "section_id": "sec_2f9ce2c53271c8cd"
+      }
+    ],
+    "required_section_ids": [
+      "sec_2f9ce2c53271c8cd"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-047; chunk=chk_0276585a3c20f968bd1f8e8d",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-047"
+  },
+  {
+    "id": "cv5-048",
+    "question": "关于「(no_section)」，文档中与 335b1bd4ff7e4141a97a1d8c2479ff6a 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：CPU。",
+    "required_facts": [
+      "CPU",
+      "主频越高、线程数越多越好，推荐I9 13900K及以上",
+      "显卡",
+      "Nvidia独立显卡，8G显存及以上，推荐Nvidia3060Ti及以上"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "335b1bd4ff7e4141a97a1d8c2479ff6a.docx",
+        "section_id": "sec_ed750a0c53e942b6"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ed750a0c53e942b6"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-048; chunk=chk_790fced86253a95e6105e041",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-048"
+  },
+  {
+    "id": "cv5-049",
+    "question": "关于「(no_section)」，文档中与 gb28181端口映射 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：如上图所示。",
+    "required_facts": [
+      "如上图所示",
+      "第一行为gb28181服务器配置端口映射，用来跟外网接入平台或者摄像头做SIP信令交互使用",
+      "其中",
+      "外部端口：指路由器端口"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "gb28181端口映射.docx",
+        "section_id": "sec_9cb6e662694c83c8"
+      }
+    ],
+    "required_section_ids": [
+      "sec_9cb6e662694c83c8"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-049; chunk=chk_35405a4448152dfb888e060a",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-049"
+  },
+  {
+    "id": "cv5-050",
+    "question": "文档「(no_section)」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：/dataConfigAction.do。",
+    "required_facts": [
+      "/dataConfigAction.do",
+      "http://192.168.100.133:8080/StampManager2/dataConfigAction.do?",
+      "示例",
+      "http://192.168.100.133:8080/StampManager2/dataConfigAction.d"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "图层目录拖拽移动服务.docx",
+        "section_id": "sec_50341112cbcca825"
+      }
+    ],
+    "required_section_ids": [
+      "sec_50341112cbcca825"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-050; chunk=chk_59445cfe4f7c7052375a3f68",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-050"
+  },
+  {
+    "id": "cv5-051",
+    "question": "根据文档「(no_section)」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：df -h。",
+    "required_facts": [
+      "df -h",
+      "注意",
+      "进行释放空间这个操作，虚拟机所在磁盘剩余空间必须要大于当前虚拟机（压缩前）所占空间，比如释放空间前的当前虚拟机有960G",
+      "VMWare"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "VMWare虚拟机删除数据释放空间.docx",
+        "section_id": "sec_0a8eb5bbb7328cf0"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0a8eb5bbb7328cf0"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-051; chunk=chk_ae69b7aa0116777a5ff60e22",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-051"
+  },
+  {
+    "id": "cv5-052",
+    "question": "关于「(no_section)」，文档中与 VMWare虚拟机自动识别USB加密锁方法 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：注意。",
+    "required_facts": [
+      "注意",
+      "需要将<vid>和<pid>替换为上面获取的VID和PID，替换后的完整代码为：",
+      "我们使用的USB加密锁的VID和PID是固定的。",
+      "Sentinel"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "VMWare虚拟机自动识别USB加密锁方法.docx",
+        "section_id": "sec_2a15f525a95dda02"
+      }
+    ],
+    "required_section_ids": [
+      "sec_2a15f525a95dda02"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-052; chunk=chk_4cea22c4d22e390bb68d4f36",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-052"
+  },
+  {
+    "id": "cv5-053",
+    "question": "文档「虚拟机服务器操作文档」中给出的访问地址是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「虚拟机服务器操作文档」给出：192.168.10.73。",
+    "required_facts": [
+      "192.168.10.73",
+      "设置网络适配器",
+      "单电脑使用仅主机 ——局域网使用桥接模式",
+      "之后点击开启此虚拟机"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "09f0700814684fb985d4b8573168fcf0.docx",
+        "section_id": "sec_d2cfc3b1a8e2d6f3"
+      }
+    ],
+    "required_section_ids": [
+      "sec_d2cfc3b1a8e2d6f3"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-053; chunk=chk_361cd64931fba5746e538aa7",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-053"
+  },
+  {
+    "id": "cv5-054",
+    "question": "关于「普通索引」，文档中与 大数据量矢量查询效率提升方法 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「普通索引」给出：pgadmin。",
+    "required_facts": [
+      "pgadmin",
+      "navicat",
+      "jtfw_fzz2",
+      "CREATE"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "大数据量矢量查询效率提升方法.docx",
+        "section_id": "sec_cfac1e775fbec76d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_cfac1e775fbec76d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-054; chunk=chk_b29a024ffdfa6a5c630cc280",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-054"
+  },
+  {
+    "id": "cv5-055",
+    "question": "在「虚拟测试设备配置：」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「虚拟测试设备配置：」给出：需要在启动虚拟机的服务器上运行ipc3文件夹中的exe程序：。",
+    "required_facts": [
+      "需要在启动虚拟机的服务器上运行ipc3文件夹中的exe程序：",
+      "1.测试视频文件（test.264）在exe程序中已固定写死，只能命名为test.264",
+      "测试视频文件（test.264）在exe程序中已固定写死，只能命名为test.264",
+      "如果想做多个测试文件，可以将文件夹拷贝多份，修改里面的端口和摄像头唯一标识"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "GB28181配置说明.docx",
+        "section_id": "sec_ec55e0291cf1ecc3"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ec55e0291cf1ecc3"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-055; chunk=chk_ec0f1c1571e80a807daa7f64",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-055"
+  },
+  {
+    "id": "cv5-056",
+    "question": "关于「权限管理」，文档中与 2026陕西耕地保护系统问题收集 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「权限管理」给出：ArcGIS。",
+    "required_facts": [
+      "ArcGIS",
+      "Geoserver"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "2026陕西耕地保护系统问题收集.docx",
+        "section_id": "sec_0b46ddf96398f937"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0b46ddf96398f937"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-056; chunk=chk_2fddee5d5d835b9d016b436e",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-056"
+  },
+  {
+    "id": "cv5-057",
+    "question": "文档「(no_section)」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：/data/html/matchmaker/。",
+    "required_facts": [
+      "/data/html/matchmaker/",
+      "matchmaker",
+      "matchmaker.js"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "PM2安装部署matchmaker服务.docx",
+        "section_id": "sec_6c53bbc1d100d304"
+      }
+    ],
+    "required_section_ids": [
+      "sec_6c53bbc1d100d304"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-057; chunk=chk_87a7c63396f15dba40afb110",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-057"
+  },
+  {
+    "id": "cv5-058",
+    "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「(no_section)」给出：启动VS2019下的命令行工具：x64 Native Tools Command Prompt for VS 2019。",
+    "required_facts": [
+      "启动VS2019下的命令行工具：x64 Native Tools Command Prompt for VS 2019",
+      "执行命令生成接口库",
+      "VS2019",
+      "Native"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "接口生成.docx",
+        "section_id": "sec_73697194f1e211e5"
+      }
+    ],
+    "required_section_ids": [
+      "sec_73697194f1e211e5"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-058; chunk=chk_cb980e3b6fed9b5c7661507c",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-058"
+  },
+  {
+    "id": "cv5-059",
+    "question": "关于「req」，文档中与 openssl-ip 相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「req」给出：default_bits。",
+    "required_facts": [
+      "default_bits",
+      "2048",
+      "prompt",
+      "no"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "openssl-ip.cnf",
+        "section_id": "sec_b749eb55a044a5bc"
+      }
+    ],
+    "required_section_ids": [
+      "sec_b749eb55a044a5bc"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-059; chunk=chk_5ea27f77987d32f138d01ab2",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-059"
+  },
+  {
+    "id": "cv5-060",
+    "question": "关于「运维管理配置 > 数据配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「运维管理配置 > 数据配置」给出：样式文件。",
+    "required_facts": [
+      "样式文件",
+      "为MVT服务图层配置已经存在的样式文件（*.prj2d）",
+      "渲染类型",
+      "贴地形或贴模型"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_8cefa5d9be39e249"
+      }
+    ],
+    "required_section_ids": [
+      "sec_8cefa5d9be39e249",
+      "sec_915dcc3b86e45ac1",
+      "sec_d71c4f1a1311977c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-060; chunk=chk_95d1b881e45c97b562c677de",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-060"
+  },
+  {
+    "id": "cv5-061",
+    "question": "根据文档「基础软件安装 > 基础软件安装」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「基础软件安装 > 基础软件安装」给出：yum install -y *.rpm。",
+    "required_facts": [
+      "yum install -y *.rpm",
+      "systemctl enable postgresql-16",
+      "systemctl start postgresql-16",
+      "/data/setup/postgresql-16/"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_02bac374e057f706"
+      }
+    ],
+    "required_section_ids": [
+      "sec_02bac374e057f706",
+      "sec_64b19accef499dfd",
+      "sec_6aee85c481697865"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-061; chunk=chk_047df5598f2df80e8bf63f84",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-061"
+  },
+  {
+    "id": "cv5-062",
+    "question": "在「应用系统部署 > WebRTC部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「应用系统部署 > WebRTC部署」给出：/etc/pki/coturn/public/turn_server_cert.pem。",
+    "required_facts": [
+      "/etc/pki/coturn/public/turn_server_cert.pem",
+      "/etc/pki/coturn/private/turn_server_pkey.pem",
+      "/etc/coturn/certs/fullchain.pem",
+      "/etc/coturn/certs/privkey.pem"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_139487eac422406d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_139487eac422406d",
+      "sec_21e3883b0c741195"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-062; chunk=chk_348f70a56dd7256d75dda8d5",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-062"
+  },
+  {
+    "id": "cv5-063",
+    "question": "文档「HTTPS配置 > 私有CA配置」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「HTTPS配置 > 私有CA配置」给出：/etc/nginx/conf.d/default.conf。",
+    "required_facts": [
+      "/etc/nginx/conf.d/default.conf",
+      "/etc/nginx/ssl/stamp.crt",
+      "/etc/nginx/ssl/stamp.key",
+      "listen"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_0941cbb622b8b765"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0941cbb622b8b765",
+      "sec_4b46a7af03e94a03",
+      "sec_dc9483ae7e165139"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-063; chunk=chk_3f8f0a54b56f704d9ba881c0",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-063"
+  },
+  {
+    "id": "cv5-064",
+    "question": "在「Stamp服务部署 > Nginx代理设置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > Nginx代理设置」给出：/etc/nginx/conf.d/default.conf。",
+    "required_facts": [
+      "/etc/nginx/conf.d/default.conf",
+      "/usr/share/nginx/html",
+      "http://127.0.0.1:8082",
+      "server"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_503e89d82f61a6f5"
+      }
+    ],
+    "required_section_ids": [
+      "sec_503e89d82f61a6f5",
+      "sec_555c9177b5b65d25",
+      "sec_587f718adb490f8b"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-064; chunk=chk_5ceae5af89cc81246a541eb5",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-064"
+  },
+  {
+    "id": "cv5-065",
+    "question": "文档「IPV6配置」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「IPV6配置」给出：/data/html/StampNodeServer/stamp/config.js。",
+    "required_facts": [
+      "/data/html/StampNodeServer/stamp/config.js",
+      "StampServer",
+      "\"http://[fd00:1234:5678::100]\"",
+      "http"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_4fbab69b021f2593"
+      }
+    ],
+    "required_section_ids": [
+      "sec_4fbab69b021f2593"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-065; chunk=chk_3992ac79284a52e24e0807e0",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-065"
+  },
+  {
+    "id": "cv5-066",
+    "question": "在「Stamp服务部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_dom.so",
+      "/data/stampmanager/server.xml",
+      "/data/stampserver/se_grid.so"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_30dd11d808eed961"
+      }
+    ],
+    "required_section_ids": [
+      "sec_30dd11d808eed961"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-066; chunk=chk_1528ea0c1092cefdf25c95a2",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-066"
+  },
+  {
+    "id": "cv5-067",
+    "question": "在「操作系统安装 > 系统基础配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「操作系统安装 > 系统基础配置」给出：/etc/sysctl.conf。",
+    "required_facts": [
+      "/etc/sysctl.conf",
+      "设置完成后执行",
+      "sysctl -p",
+      "注意公式"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_0bf744ea150e6296"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0bf744ea150e6296",
+      "sec_61cdad3da6ee5bff",
+      "sec_776f4721324188c1"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-067; chunk=chk_c7ea05f84480fe71e64db18e",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-067"
+  },
+  {
+    "id": "cv5-068",
+    "question": "「应用系统部署 > 系统网络拓扑」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「应用系统部署 > 系统网络拓扑」写明：Apache。",
+    "required_facts": [
+      "Apache",
+      "WebRTC",
+      "StampManager",
+      "GB28181"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_21e6e4593247f060"
+      }
+    ],
+    "required_section_ids": [
+      "sec_21e6e4593247f060",
+      "sec_b03a56d1925971d3"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-068; chunk=chk_9b317d8155d2bd66db752022",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-068"
+  },
+  {
+    "id": "cv5-069",
+    "question": "在「Stamp服务部署 > SignallingWebServer部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > SignallingWebServer部署」给出：渲染服务管理。",
+    "required_facts": [
+      "渲染服务管理",
+      "SignallingWebServer",
+      "platform_scripts",
+      "run_local_1.bat"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_adf8b378b3ed1294"
+      }
+    ],
+    "required_section_ids": [
+      "sec_adf8b378b3ed1294",
+      "sec_ba5fd7fea5c7dfb4"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-069; chunk=chk_9c898f9cd445a88019b5a1db",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-069"
+  },
+  {
+    "id": "cv5-070",
+    "question": "关于「运维管理配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「运维管理配置」给出：数据库路径。",
+    "required_facts": [
+      "数据库路径",
+      "选择第一步创建的目录作为数据库安装路径",
+      "日志是否开启",
+      "开启日志记录"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_009984d98bb160cc"
+      }
+    ],
+    "required_section_ids": [
+      "sec_009984d98bb160cc"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-070; chunk=chk_3a21a02ddee7107c1bb11ac5",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-070"
+  },
+  {
+    "id": "cv5-071",
+    "question": "关于「矢量数据入库」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「矢量数据入库」给出：连接数据库。",
+    "required_facts": [
+      "连接数据库",
+      "打开QGIS连接PostgreSQL数据库。",
+      "数据入库",
+      "在PostgreSQL节点下面选择上面建立的数据库连接进行GDB数据导入（选择到gdb目录）。入库时必须勾选红色选项，如"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_08f7b44c51639e3a"
+      }
+    ],
+    "required_section_ids": [
+      "sec_08f7b44c51639e3a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-071; chunk=chk_e60ae2dc1b4162b5673121c3",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-071"
+  },
+  {
+    "id": "cv5-072",
+    "question": "关于「运维管理配置 > GB28181配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「运维管理配置 > GB28181配置」给出：是否鉴权。",
+    "required_facts": [
+      "是否鉴权",
+      "默认为否",
+      "下图以大华摄像头直连模式为例说明",
+      "ID编码说明"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_42bc8d0279418d1e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_42bc8d0279418d1e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-072; chunk=chk_49e034ad625c68094abccac7",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-072"
+  },
+  {
+    "id": "cv5-073",
+    "question": "在「应用系统部署 > 多显卡大屏部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「应用系统部署 > 多显卡大屏部署」给出：ConfigFile。",
+    "required_facts": [
+      "ConfigFile",
+      "NDC_WallCurved4x2.ndisplay",
+      "Node",
+      "Node_0"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_8cde1ff1802ef1f1"
+      }
+    ],
+    "required_section_ids": [
+      "sec_8cde1ff1802ef1f1",
+      "sec_c949108414efff59"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-073; chunk=chk_c6b02cafa94e0797713adf58",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-073"
+  },
+  {
+    "id": "cv5-074",
+    "question": "关于「运维管理配置 > 服务设置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「运维管理配置 > 服务设置」给出：数据处理缓存。",
+    "required_facts": [
+      "数据处理缓存",
+      "设置数据处理的内存缓存大小，默认为4G，具体可根据数据量和内存大小设置。",
+      "数据处理线程数",
+      "设置数据处理的线程数量，默认为4个，可根据CPU的核数和线程数设置。"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_2e8ef6053f4aa007"
+      }
+    ],
+    "required_section_ids": [
+      "sec_2e8ef6053f4aa007",
+      "sec_8a70c1bbd51a826a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-074; chunk=chk_b1df7c0b755720f0c6b2c95e",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-074"
+  },
+  {
+    "id": "cv5-075",
+    "question": "根据文档「基础软件安装 > 软件安装准备」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「基础软件安装 > 软件安装准备」给出：mount /dev/cdrom /media/cdrom/。",
+    "required_facts": [
+      "mount /dev/cdrom /media/cdrom/",
+      "mkdir /etc/yum.repos.d/tmp",
+      "mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/",
+      "yum clean all"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_0485a33f7546440e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0485a33f7546440e",
+      "sec_184df6688fd09c83",
+      "sec_2aece9ec8c47fa5b"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-075; chunk=chk_08bc776b4783ecd8e8e9dd3d",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-075"
+  },
+  {
+    "id": "cv5-076",
+    "question": "在「Stamp服务部署 > 3DTiles服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 3DTiles服务配置」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_w3ts.so",
+      "/data/stampmanager/server.xml",
+      "/data/stamp_data/jl_3dt"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_50d566d622a5c0de"
+      }
+    ],
+    "required_section_ids": [
+      "sec_50d566d622a5c0de"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-076; chunk=chk_188269df6f4e195097e873e2",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-076"
+  },
+  {
+    "id": "cv5-077",
+    "question": "根据文档「Stamp服务部署 > Trunserver部署」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > Trunserver部署」给出：yum install -y epel-release。",
+    "required_facts": [
+      "yum install -y epel-release",
+      "yum install -y turnserver",
+      "mkdir -p /etc/coturn/certs",
+      "/etc/coturn/certs"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_fc805e8e8050ee95"
+      }
+    ],
+    "required_section_ids": [
+      "sec_fc805e8e8050ee95"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-077; chunk=chk_c34ad66325afcba11c01f91e",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-077"
+  },
+  {
+    "id": "cv5-078",
+    "question": "在「Stamp服务部署 > GB28181服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > GB28181服务配置」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_gb28181_module.so",
+      "/data/stampmanager/server.xml",
+      "/usr/lib/systemd/system"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_96987dd3a34aee9e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_96987dd3a34aee9e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-078; chunk=chk_4ed3c15f79c2ad5caad49a61",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-078"
+  },
+  {
+    "id": "cv5-079",
+    "question": "在「应用系统部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「应用系统部署」给出：运行渲染服务器。",
+    "required_facts": [
+      "运行渲染服务器",
+      "运行渲染服务脚本：run_local_1.bat、run_local_2.bat、 run_local_3.bat",
+      "第二步",
+      "访问StampWebRTC"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_58cb6d74b59bddd6"
+      }
+    ],
+    "required_section_ids": [
+      "sec_58cb6d74b59bddd6"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-079; chunk=chk_fd843157c4777cad208dc764",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-079"
+  },
+  {
+    "id": "cv5-080",
+    "question": "根据文档「MINIO部署」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「MINIO部署」给出：mount -a。",
+    "required_facts": [
+      "mount -a",
+      "/data/disk3",
+      "/data/setup",
+      "/data/setup/minio/"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_aca1609f9f61e097"
+      }
+    ],
+    "required_section_ids": [
+      "sec_aca1609f9f61e097"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-080; chunk=chk_fb0a5baee995f880da44bf60",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-080"
+  },
+  {
+    "id": "cv5-081",
+    "question": "在「Stamp服务部署 > I3S服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > I3S服务配置」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_i3s.so",
+      "/data/stampmanager/server.xml",
+      "/data/stamp_data/js_l"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_6e45e25a9076f9b8"
+      }
+    ],
+    "required_section_ids": [
+      "sec_6e45e25a9076f9b8"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-081; chunk=chk_cefcb0faf64596233176ec43",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-081"
+  },
+  {
+    "id": "cv5-082",
+    "question": "在「HTTPS配置 > 私有域名配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「HTTPS配置 > 私有域名配置」给出：登录管理界面。",
+    "required_facts": [
+      "登录管理界面",
+      "获取Mac地址",
+      "AX1800",
+      "//192.168.10.1"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_3d0ef5346c9c6d06"
+      }
+    ],
+    "required_section_ids": [
+      "sec_3d0ef5346c9c6d06",
+      "sec_b02a98f8cd4a2f27"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-082; chunk=chk_ed75318f72bcf6b139400fec",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-082"
+  },
+  {
+    "id": "cv5-083",
+    "question": "在「Stamp服务部署 > 三维数据库服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 三维数据库服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_db_query_pg.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_fa43320eb3fc7c02"
+      }
+    ],
+    "required_section_ids": [
+      "sec_fa43320eb3fc7c02"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-083; chunk=chk_f5b246394d2b12a0e4dcb6cb",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-083"
+  },
+  {
+    "id": "cv5-084",
+    "question": "文档「运维管理配置 > 运动物体配置」提到的关键路径是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「运维管理配置 > 运动物体配置」给出：/data/dynamic。",
+    "required_facts": [
+      "/data/dynamic",
+      "骨骼动画",
+      "添加一个带骨骼动画的动画人（*.dynamic）",
+      "路径"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_ae57fcd1f7b48c3d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ae57fcd1f7b48c3d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-084; chunk=chk_84d360c2dcb66ae27b7d1b4e",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-084"
+  },
+  {
+    "id": "cv5-085",
+    "question": "在「操作系统安装」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「操作系统安装」给出：VMNet1。",
+    "required_facts": [
+      "VMNet1",
+      "Install"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_ce60564696e29c8e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ce60564696e29c8e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-085; chunk=chk_0f1ce3a8585752046eafa97d",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-085"
+  },
+  {
+    "id": "cv5-086",
+    "question": "在「Stamp服务部署 > 管线更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线更新服务」给出：管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更。",
+    "required_facts": [
+      "管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更",
+      "/data/stampserver/se_pipeline_publish_tool.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_702d7d6af2f8f56c"
+      }
+    ],
+    "required_section_ids": [
+      "sec_702d7d6af2f8f56c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-086; chunk=chk_3e4c0791be4bc67e322cd44c",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-086"
+  },
+  {
+    "id": "cv5-086-oral",
+    "question": "在「Stamp服务部署 > 管线更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线更新服务」给出：管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更。",
+    "required_facts": [
+      "管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更",
+      "/data/stampserver/se_pipeline_publish_tool.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_702d7d6af2f8f56c"
+      }
+    ],
+    "required_section_ids": [
+      "sec_702d7d6af2f8f56c"
+    ],
+    "forbidden_claims": [],
+    "notes": "oral rewrite regression twin; same anchors",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-086"
+  },
+  {
+    "id": "cv5-087",
+    "question": "根据文档「Stamp服务部署 > StampNodeServer部署」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > StampNodeServer部署」给出：mv /data/setup/StampNodeServer/ /data/。",
+    "required_facts": [
+      "mv /data/setup/StampNodeServer/ /data/",
+      "chmod -R 777 /data/StampNodeServer",
+      "/data/setup/StampNodeServer/",
+      "/data/StampNodeServer"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_0c979f764111f7bd"
+      }
+    ],
+    "required_section_ids": [
+      "sec_0c979f764111f7bd"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-087; chunk=chk_6f80c5b187ae5acfb4221b19",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-087"
+  },
+  {
+    "id": "cv5-088",
+    "question": "在「Stamp服务部署 > Apache数据服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > Apache数据服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_sde.so",
+      "/data/stampmanager/server.xml",
+      "Apache"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_7bb470292d96a230"
+      }
+    ],
+    "required_section_ids": [
+      "sec_7bb470292d96a230"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-088; chunk=chk_1d72515ac64bfe339b600c63",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-088"
+  },
+  {
+    "id": "cv5-089",
+    "question": "根据文档「Stamp服务部署 > 倾斜发布服务」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 倾斜发布服务」给出：chmod -R 777 /data/stampmanager/pcs.csv。",
+    "required_facts": [
+      "chmod -R 777 /data/stampmanager/pcs.csv",
+      "/data/stampmanager/pcs.csv",
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_oblique_publish.so"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_1662f0025023a06c"
+      }
+    ],
+    "required_section_ids": [
+      "sec_1662f0025023a06c"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-089; chunk=chk_31e22159c54f3a8a46fa9ea1",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-089"
+  },
+  {
+    "id": "cv5-090",
+    "question": "根据文档「Stamp服务部署 > 服务部署准备」，相关操作应执行什么命令？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 服务部署准备」给出：chmod -R 777 /data。",
+    "required_facts": [
+      "chmod -R 777 /data",
+      "/data/stamp_data",
+      "/data/stamp_tmp",
+      "/data/stamp_pub"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_9bd09b98588bde9b"
+      }
+    ],
+    "required_section_ids": [
+      "sec_9bd09b98588bde9b"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-090; chunk=chk_fcc1e75b13c2b6b81e62564f",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-090"
+  },
+  {
+    "id": "cv5-091",
+    "question": "在「Stamp服务部署 > 矢量编辑服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 矢量编辑服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_fe1271dc9081c048"
+      }
+    ],
+    "required_section_ids": [
+      "sec_fe1271dc9081c048"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-091; chunk=chk_2b51529cdf19bd32eb03acf4",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-091"
+  },
+  {
+    "id": "cv5-092",
+    "question": "在「Stamp服务部署 > 工程地质服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 工程地质服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_geologic.so",
+      "/data/stampmanager/server.xml",
+      "StampManager-"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_961bd74ff561fe7e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_961bd74ff561fe7e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-092; chunk=chk_1df5602a1fa74c8406a069d1",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-092"
+  },
+  {
+    "id": "cv5-093",
+    "question": "「操作系统安装 > Rocky安装」中关于字段/表项有哪些关键取值说明？",
+    "answerability": "full",
+    "ground_truth": "文档在「操作系统安装 > Rocky安装」写明：Swap。",
+    "required_facts": [
+      "Swap",
+      "交换分区（虚拟内存），分区大小一般是内存的2倍，如果内存时8G，则设置16384M（16G）",
+      "注意",
+      "由于小文件读写性能方面ext4比xfs优越，因此文件系统格式不能选择默认的xfs。"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_75e24f963d502d6a"
+      }
+    ],
+    "required_section_ids": [
+      "sec_75e24f963d502d6a"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-093; chunk=chk_abdc89c5f7ac5eda63a6c8cc",
+    "category": "table",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-093"
+  },
+  {
+    "id": "cv5-094",
+    "question": "在「Stamp服务部署 > 矢量瓦片服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 矢量瓦片服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_geo_server.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_42667ca6aeef5fcb"
+      }
+    ],
+    "required_section_ids": [
+      "sec_42667ca6aeef5fcb"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-094; chunk=chk_c39e3f7a89a912501026d960",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-094"
+  },
+  {
+    "id": "cv5-095",
+    "question": "在「Stamp服务部署 > 三维数据库更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 三维数据库更新服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_model_tool_publish.so",
+      "/data/stampmanager/server.xml",
+      "ModelLayer"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_b12e344b9f0534c1"
+      }
+    ],
+    "required_section_ids": [
+      "sec_b12e344b9f0534c1"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-095; chunk=chk_c04599937d55cf6a38137c0f",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-095"
+  },
+  {
+    "id": "cv5-096",
+    "question": "在「Stamp服务部署 > 管线分析服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线分析服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_pipeline.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_268df927ca698a14"
+      }
+    ],
+    "required_section_ids": [
+      "sec_268df927ca698a14"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-096; chunk=chk_3d74f6770602bddbded56c8b",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-096"
+  },
+  {
+    "id": "cv5-096-oral",
+    "question": "在「Stamp服务部署 > 管线分析服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线分析服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_pipeline.so",
+      "/data/stampmanager/server.xml",
+      "Oracle"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_268df927ca698a14"
+      }
+    ],
+    "required_section_ids": [
+      "sec_268df927ca698a14"
+    ],
+    "forbidden_claims": [],
+    "notes": "oral rewrite regression twin; same anchors",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-096"
+  },
+  {
+    "id": "cv5-097",
+    "question": "在「Stamp服务部署 > 三维搜索服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 三维搜索服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_search.so",
+      "/data/stampmanager/server.xml",
+      "StampManager"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_a9ba445b616f3a0d"
+      }
+    ],
+    "required_section_ids": [
+      "sec_a9ba445b616f3a0d"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-097; chunk=chk_be8144817a3ada7ca50b0741",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-097"
+  },
+  {
+    "id": "cv5-098",
+    "question": "在「Stamp服务部署 > 管线查询服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线查询服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_query.so",
+      "/dataquery",
+      "/data/stampmanager/server.xml"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f10919b36f26cd41"
+      }
+    ],
+    "required_section_ids": [
+      "sec_f10919b36f26cd41"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-098; chunk=chk_08034b82ec212b9142e713c5",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-098"
+  },
+  {
+    "id": "cv5-098-oral",
+    "question": "在「Stamp服务部署 > 管线查询服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线查询服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_query.so",
+      "/dataquery",
+      "/data/stampmanager/server.xml"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f10919b36f26cd41"
+      }
+    ],
+    "required_section_ids": [
+      "sec_f10919b36f26cd41"
+    ],
+    "forbidden_claims": [],
+    "notes": "oral rewrite regression twin; same anchors",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-098"
+  },
+  {
+    "id": "cv5-099",
+    "question": "在「Stamp服务部署 > 管线发布服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线发布服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_pipeline_publish.so",
+      "/data/stampmanager/server.xml",
+      "Apache"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f6f3ac2bd5f54c9e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_f6f3ac2bd5f54c9e"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-099; chunk=chk_24fc2ef9fe8665bda94f90b5",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-099"
+  },
+  {
+    "id": "cv5-099-oral",
+    "question": "在「Stamp服务部署 > 管线发布服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+    "answerability": "full",
+    "ground_truth": "文档在「Stamp服务部署 > 管线发布服务」给出：/etc/httpd/conf/httpd.conf。",
+    "required_facts": [
+      "/etc/httpd/conf/httpd.conf",
+      "/data/stampserver/se_pipeline_publish.so",
+      "/data/stampmanager/server.xml",
+      "Apache"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_f6f3ac2bd5f54c9e"
+      }
+    ],
+    "required_section_ids": [
+      "sec_f6f3ac2bd5f54c9e"
+    ],
+    "forbidden_claims": [],
+    "notes": "oral rewrite regression twin; same anchors",
+    "category": "procedure",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-099"
+  },
+  {
+    "id": "cv5-100",
+    "question": "关于「矢量数据入库 > PostGIS Bundle」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+    "answerability": "full",
+    "ground_truth": "文档在「矢量数据入库 > PostGIS Bundle」给出：注意。",
+    "required_facts": [
+      "注意",
+      "经纬度数据入库时必须要填写SRID：4490",
+      "字符编码",
+      "根据SHP数据的字符类型设置导入数据的字符类型为：UTF-8（默认）或GBK，设置不正确会导入不成功。"
+    ],
+    "evidence_anchors": [
+      {
+        "source": "StampServer用户手册_Rocky9 .docx",
+        "section_id": "sec_ff960052757adc25"
+      }
+    ],
+    "required_section_ids": [
+      "sec_ff960052757adc25"
+    ],
+    "forbidden_claims": [],
+    "notes": "coverage slot slot-100; chunk=chk_87a0df41a0cabf7c0ee0f4c1",
+    "category": "fact",
+    "source_snapshot_hash": "b8024cc5c67011b8",
+    "evaluation_scope": "fr10_retrieval",
+    "review_status": "pending",
+    "review_basis": "v5 automated draft from coverage matrix",
+    "slot_id": "slot-100"
+  }
+]

@@ -133,8 +133,8 @@ rag_python/
 ├── Dockerfile                      # 后端镜像（ARG INSTALL_RERANKER，默认 false）
 ├── docker-compose.yml              # 双服务编排（rag-service + rag-web）
 ├── requirements.txt                # 开发全量依赖（-r base + -r reranker）
-├── requirements-base.txt           # 业务依赖（不含 torch/FlagEmbedding）
-├── requirements-reranker.txt         # Reranker 可选依赖
+├── requirements-base.txt           # 业务依赖（无 Reranker；禁止 unstructured[pdf]，避免另路拉 torch）
+├── requirements-reranker.txt         # Reranker 可选依赖（torch/FlagEmbedding；INSTALL_RERANKER 门控）
 ├── requirements-cuda.txt             # 本地 GPU 开发覆盖（不纳入 Docker CPU 验收）
 ├── requirements-dev.txt              # 开发依赖（-r requirements.txt + pytest）
 ├── deploy/README.md                # Docker 生产部署说明
@@ -617,7 +617,7 @@ docker compose up -d
 - **Profile sync 生产写门禁**：`graph_governance.assert_write_confirmation()` 要求显式确认 DB 路径、batch id、备份文件；`profile_sync` / `domain_catalog_seed` 等 mode 禁止 `--approve-all`
 - **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 104 条 `missing_evidence` 不改变专项判定
 - **Reranker 全局门控**：`[reranker] enabled=false`（或 `RERANKER_ENABLED=false`）时三层防御——(1) `QueryPlanner` / `_plan_retrieval` fallback 不产出 `enable_rerank=True`；(2) `_get_reranker()` 返回 `None`；(3) `_postprocess_docs` / `_postprocess_docs_sync` 对 `None` 或加载失败截断 `top_n`。`force_rerank=True` 不能绕过全局开关
-- **Docker 依赖拆分**：`requirements-base.txt`（业务）+ `requirements-reranker.txt`（torch/FlagEmbedding，可选）；`requirements.txt` 聚合两者供本地开发；`requirements-cuda.txt` 仅本地 GPU，不纳入 CPU 生产镜像验收
+- **Docker 依赖拆分（两条 torch 口子）**：路径 A = `INSTALL_RERANKER` + `requirements-reranker.txt`（Reranker）；路径 B = base 里若写 `unstructured[pdf]` 会经 inference 再拉 torch（与 Reranker 门控无关）。现 base 为 `unstructured==0.18.32` 且禁止 `[pdf]`。`requirements.txt` 聚合两者供本地开发；`requirements-cuda.txt` 仅本地 GPU，不纳入 CPU 生产镜像验收。详见 [`deploy/README.md`](deploy/README.md) §5
 - **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据
 
 ## Prompt 与回答规范

@@ -1,0 +1,870 @@
+{
+  "report": "E:\\申浩霖实习文件夹\\rag_cy\\rag\\docs\\3_待办清单\\切块基石治理\\已完成-第0B轮-并行准备与预研\\评测基线与黄金集\\fr10_live_2537_v5_coverage_baseline\\fr10_baseline_report.json",
+  "summary": {
+    "total": 90,
+    "passed": 48,
+    "pass_rate": 0.5333333333333333,
+    "mean_completeness": 0.6138888888888889,
+    "mean_evidence_recall": 0.7111111111111111,
+    "forbidden_rate": 0.0,
+    "by_category": {
+      "table": {
+        "total": 8,
+        "passed": 2,
+        "pass_rate": 0.25,
+        "mean_completeness": 0.34375,
+        "mean_evidence_recall": 0.625
+      },
+      "fact": {
+        "total": 34,
+        "passed": 12,
+        "pass_rate": 0.35294117647058826,
+        "mean_completeness": 0.45588235294117646,
+        "mean_evidence_recall": 0.5294117647058824
+      },
+      "procedure": {
+        "total": 48,
+        "passed": 34,
+        "pass_rate": 0.7083333333333334,
+        "mean_completeness": 0.7708333333333334,
+        "mean_evidence_recall": 0.8541666666666666
+      }
+    },
+    "by_answerability": {
+      "full": {
+        "total": 90,
+        "passed": 48,
+        "pass_rate": 0.5333333333333333,
+        "mean_completeness": 0.6138888888888889,
+        "mean_evidence_recall": 0.7111111111111111
+      }
+    }
+  },
+  "failure_counts": {
+    "no_evidence": 4,
+    "not_retrieved": 21,
+    "partial_evidence": 12,
+    "pass": 48,
+    "rerank_drop": 5
+  },
+  "items": [
+    {
+      "id": "cv5-001",
+      "category": "table",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-003",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-004",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-005",
+      "category": "table",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-006",
+      "category": "fact",
+      "passed": false,
+      "bucket": "rerank_drop",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-007",
+      "category": "fact",
+      "passed": false,
+      "bucket": "no_evidence",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-008",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-009",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-010",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.5,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-011",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-012",
+      "category": "table",
+      "passed": false,
+      "bucket": "rerank_drop",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-013",
+      "category": "fact",
+      "passed": false,
+      "bucket": "no_evidence",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-014",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-015",
+      "category": "table",
+      "passed": false,
+      "bucket": "rerank_drop",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-016",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-017",
+      "category": "table",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-019",
+      "category": "fact",
+      "passed": false,
+      "bucket": "no_evidence",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-020",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-021",
+      "category": "table",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-022",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-023",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.5,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-026",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.5,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-027",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-028",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-029",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-030",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-031",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-032",
+      "category": "fact",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.5,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-033",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-034",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-035",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-036",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-037",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-038",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-039",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-041",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-042",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-043",
+      "category": "fact",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-044",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "rerank_drop",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-045",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-046",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-047",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-048",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-049",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-050",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-051",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-052",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-053",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-054",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-055",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-056",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-057",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-058",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-059",
+      "category": "fact",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-062",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-065",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-066",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-068",
+      "category": "table",
+      "passed": false,
+      "bucket": "partial_evidence",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-070",
+      "category": "fact",
+      "passed": false,
+      "bucket": "no_evidence",
+      "completeness": 0.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-071",
+      "category": "fact",
+      "passed": false,
+      "bucket": "rerank_drop",
+      "completeness": 0.25,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-072",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-073",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-076",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-077",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-078",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-079",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-080",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-081",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-083",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-084",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-085",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-086",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-086-oral",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-087",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-088",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-089",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-090",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-091",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-092",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-093",
+      "category": "table",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-094",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-095",
+      "category": "procedure",
+      "passed": false,
+      "bucket": "not_retrieved",
+      "completeness": 0.5,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-096",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-096-oral",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-097",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-098",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-098-oral",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-099",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-099-oral",
+      "category": "procedure",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    },
+    {
+      "id": "cv5-100",
+      "category": "fact",
+      "passed": true,
+      "bucket": "pass",
+      "completeness": 1.0,
+      "evidence_recall": null,
+      "question": null
+    }
+  ],
+  "tuning_hints": {
+    "not_retrieved": "改写 query / soft_match 别名 / Hybrid 召回",
+    "rerank_drop": "reranker 开关或候选宽度",
+    "quality_filter": "retrieval_quality 阈值",
+    "final_top_k_trim": "top_k / candidate_k",
+    "partial_evidence": "多章节题或 required_facts 过宽",
+    "no_evidence": "锚点与检索路径严重偏离"
+  }
+}

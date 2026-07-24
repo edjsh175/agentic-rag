@@ -1,0 +1,4483 @@
+{
+  "generated_at": "2026-07-24T06:36:23.958357+00:00",
+  "mode": "retrieval",
+  "gold_path": "docs\\3_待办清单\\切块基石治理\\已完成-第0B轮-并行准备与预研\\评测基线与黄金集\\multi_chunk_qa_gold_v5_coverage.json",
+  "gold_version": "multi_chunk_qa_gold_v5_coverage",
+  "evaluator_version": "fr10-evidence-v4",
+  "retrieval_path": "production",
+  "notes": "Baseline on current production chunks. Conflict/completeness may be low until Round 0C–0F and FR-08 prompt wiring. Retrieval mode scores concatenated retrieved content as a proxy answer (not LLM generation). Retrieval candidates use the production query planner and graph plan.",
+  "summary": {
+    "total": 90,
+    "passed": 48,
+    "pass_rate": 0.5333333333333333,
+    "mean_completeness": 0.6138888888888889,
+    "mean_evidence_recall": 0.7111111111111111,
+    "forbidden_rate": 0.0,
+    "by_category": {
+      "table": {
+        "total": 8,
+        "passed": 2,
+        "pass_rate": 0.25,
+        "mean_completeness": 0.34375,
+        "mean_evidence_recall": 0.625
+      },
+      "fact": {
+        "total": 34,
+        "passed": 12,
+        "pass_rate": 0.35294117647058826,
+        "mean_completeness": 0.45588235294117646,
+        "mean_evidence_recall": 0.5294117647058824
+      },
+      "procedure": {
+        "total": 48,
+        "passed": 34,
+        "pass_rate": 0.7083333333333334,
+        "mean_completeness": 0.7708333333333334,
+        "mean_evidence_recall": 0.8541666666666666
+      }
+    },
+    "by_answerability": {
+      "full": {
+        "total": 90,
+        "passed": 48,
+        "pass_rate": 0.5333333333333333,
+        "mean_completeness": 0.6138888888888889,
+        "mean_evidence_recall": 0.7111111111111111
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "cv5-001",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "CGCS2000",
+          "degree",
+          "Gauss-Kruger"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_523dff5061ad2108"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_523dff5061ad2108"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-003",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "开始管段",
+          "选择分析的开始管段",
+          "结束管段",
+          "选择分析的结束管段"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebGL用户手册.docx",
+              "section_id": "sec_ad2c2eb9cbda96a4"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebGL用户手册.docx",
+            "section_id": "sec_ad2c2eb9cbda96a4"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-004",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "分析日期",
+          "法定标准时间为大寒日或冬至，也可以选择自定义时间。",
+          "自定义",
+          "自定义日照分析日期"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC用户手册.docx",
+              "section_id": "sec_a01accf07a254df4"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC用户手册.docx",
+            "section_id": "sec_a01accf07a254df4"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-005",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "varchar",
+          "projectid",
+          "imgpath",
+          "creater"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampWebRTC数据库表结构.docx",
+              "section_id": "sec_43fd1daae30d8e5e"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampWebRTC数据库表结构.docx",
+            "section_id": "sec_43fd1daae30d8e5e"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-006",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "管段",
+          "选择管段",
+          "半径",
+          "分析的缓冲半径"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "PipelineSystem用户手册.docx",
+              "section_id": "sec_142d69dc9fe0414e"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "PipelineSystem用户手册.docx",
+            "section_id": "sec_142d69dc9fe0414e"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "cv5-007",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "全局类型规定如下",
+          "a)",
+          "resultType",
+          "MPAlarmRecordType"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "section_id": "sec_3968ad53ac5ea103"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+            "section_id": "sec_3968ad53ac5ea103"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-008",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "ca727efa70847b49f0f67528544d210"
+        ],
+        "misses": [
+          "运维基础配置",
+          "aksusbd",
+          "StampServer"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_603c0992f8f3d849"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "2ca727efa70847b49f0f67528544d210.pdf",
+            "section_id": "sec_603c0992f8f3d849"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-009",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "参照如下conf示例修改配置文件。"
+        ],
+        "misses": [
+          "p_kafka_password",
+          "p_kafka_security",
+          "scram.ScramLoginModule"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_500268edfe232341"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+            "section_id": "sec_500268edfe232341"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-010",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "POSTGIS",
+          "llvm-toolset-7.0"
+        ],
+        "misses": [
+          "/home/stampserver/se_query.so",
+          "openssl"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "uso -- 源码安装集合.docx",
+            "section_id": "sec_92f04e5508e6e7dd"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "uso -- 源码安装集合.docx",
+            "section_id": "sec_92f04e5508e6e7dd"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-011",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "水平箭头",
+          "选中呈黄色，进行水平剖切",
+          "水平面",
+          "选中呈红色，沿水平箭头方向移动则向前或向后进行连续剖切。在剖切状态或非剖切状态时可以左右移动剖切操作符位置。"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampExplorer用户手册.docx",
+              "section_id": "sec_7ca694138364ef1a"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampExplorer用户手册.docx",
+            "section_id": "sec_7ca694138364ef1a"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-012",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "http://192.168.10.224/egis/base/v1/wtts/publish?",
+          "http://192.168.10.224/egis/base/v1/wtts/publish/add?",
+          "http://192.168.10.224/egis/base/v1/wtts/publish/getProgress?",
+          "http://192.168.10.224/egis/base/v1/wtts/publish/createLayer?"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "三维数据发布服务接口 - v1.4.docx",
+              "section_id": "sec_bf9df5658a962bd5"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "三维数据发布服务接口 - v1.4.docx",
+            "section_id": "sec_bf9df5658a962bd5"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "cv5-013",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "Layers",
+          "wops_beijing",
+          "/name",
+          "/srid"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "EGIS三维数据服务接口规范0902.docx",
+            "section_id": "sec_bee3c1ef33e0160a"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-014",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "tar -xzvf cmake-3.30.2.tar.gz"
+        ],
+        "misses": [
+          "tar -xzvf boost_1_74_0.tar.gz",
+          "yum install gcc-c++",
+          "/data/setup/postgresql-15.8/contrib/fuzzystrmatch"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "麒麟SP3x86版本安装手册.docx",
+            "section_id": "sec_e1b52dde53e67735"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "麒麟SP3x86版本安装手册.docx",
+            "section_id": "sec_e1b52dde53e67735"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-015",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "http://192.168.10.224/wtts/publish?",
+          "http://192.168.10.224/wtts/publish/add?",
+          "http://192.168.10.224/wtts/publish/getProgress?",
+          "http://192.168.10.224/wtts/publish/createLayer?"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "三维数据发布服务接口 - v1.4.1.docx",
+              "section_id": "sec_badb87d23f5a62fd"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "三维数据发布服务接口 - v1.4.1.docx",
+            "section_id": "sec_badb87d23f5a62fd"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "cv5-016",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "/data/pgdata/"
+        ],
+        "misses": [
+          "/usr/local/pgsql-15/bin/postgresql-15-check-db-dir",
+          "Environment",
+          "PGDATA=/data/pgdata/"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "麒麟SP3ARM版本安装手册.docx",
+            "section_id": "sec_ab153f321212a04d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "麒麟SP3ARM版本安装手册.docx",
+            "section_id": "sec_ab153f321212a04d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-017",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "Sheet1"
+        ],
+        "misses": [
+          "FillPower2",
+          "WaitCount",
+          "WaitTime"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "config.ini说明.xlsx",
+            "section_id": "sec_86277f44c3f46df5"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "config.ini说明.xlsx",
+            "section_id": "sec_86277f44c3f46df5"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-019",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "地形数据",
+          "表示地表起伏",
+          "DEM",
+          "Digital Elevation Model，数字高程模型，是DTM的分支，用于对地貌形态的虚拟表示，可派生出等高线、"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "三维基本概念.pptx",
+            "section_id": "sec_5e9f5a18a66e7774"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "三维基本概念.pptx",
+            "section_id": "sec_5e9f5a18a66e7774"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-020",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/home/stamp_tmp/db_bak/bin2/191_scdrelation_2.bin",
+          "/home/stamp_tmp/db_bak/bin2/191_sctexture_2.bin",
+          "/home/stamp_tmp/db_bak/bin2/191_smeshtexture_2.bin",
+          "/home/stamp_tmp/db_bak/bin2/191_spatial_2.bin"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "postgresql编辑图层迁移.docx",
+            "section_id": "sec_c441dfde93e47cd7"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "postgresql编辑图层迁移.docx",
+            "section_id": "sec_c441dfde93e47cd7"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-021",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "search"
+        ],
+        "misses": [
+          "输出参数",
+          "见表38。",
+          "matchmodel"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "三维地图服务接口.docx",
+            "section_id": "sec_f0257cfc7e5ad168"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-022",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "position",
+          "svn.layout.trunkRegexName",
+          "Number",
+          "commit"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "VSCode+SVN配置.docx",
+            "section_id": "sec_741b3de9a051e03c"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "VSCode+SVN配置.docx",
+            "section_id": "sec_741b3de9a051e03c"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-023",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "VMwareESXI",
+          "NVIDIA"
+        ],
+        "misses": [
+          "systemctl set-default graphical.target",
+          "nvidia-smi"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "VMware ESXi虚拟机GPU直通和Kylin推流配置.docx",
+            "section_id": "sec_74709522e82f7239"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "VMware ESXi虚拟机GPU直通和Kylin推流配置.docx",
+            "section_id": "sec_74709522e82f7239"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-026",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "-离起点最近的线",
+          "-离终点最近的线"
+        ],
+        "misses": [
+          "-距离起点最近线的终点",
+          "-距离终点最近线的起点"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "路径规划.sql",
+            "section_id": "sec_5f7b1007b9e90d94"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "路径规划.sql",
+            "section_id": "sec_5f7b1007b9e90d94"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-027",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "将下载的压缩包放在/home/目录",
+          "/usr/local/openssl",
+          "可以在线安装",
+          "yum install gcc"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "https配置部署文档.docx",
+            "section_id": "sec_9c6375a8670143ec"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "https配置部署文档.docx",
+            "section_id": "sec_9c6375a8670143ec"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-028",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/usr/lib/systemd/system/minio.service",
+          "/usr/local/bin/minio",
+          "/usr/local",
+          "地址"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "minio 单机多磁盘部署.docx",
+              "section_id": "sec_2712b32d218939f0"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "minio 单机多磁盘部署.docx",
+            "section_id": "sec_2712b32d218939f0"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-029",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "线程池 & 异步",
+          "降低资源消耗、提高响应速度、统一管理。",
+          "同步",
+          "你等结果回来再干别的（打电话等对方说完）。"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "实景三维新功能.txt",
+            "section_id": "sec_c60446dc30cddcb8"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "实景三维新功能.txt",
+            "section_id": "sec_c60446dc30cddcb8"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-030",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "- 无符号 tinyint（0~255） create table tt2(num tinyint unsigned)",
+          "TINYINT、INT、BIGINT、FLOAT、DECIMAL",
+          "TINYINT",
+          "1字节，-128~127"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "section_id": "sec_e6feaab443ae50e0"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+            "section_id": "sec_e6feaab443ae50e0"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-031",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "http"
+        ],
+        "misses": [
+          "http://192.168.10.224/geoserver?",
+          "//192.168.10.224/geoserver?",
+          "//192.168.10.224/geoserver"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "Geoserver 叠加分析 -v0.2.docx",
+              "section_id": "sec_d31b9bfbda399034"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "Geoserver 叠加分析 -v0.2.docx",
+            "section_id": "sec_d31b9bfbda399034"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-032",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "type",
+          "slope_connected"
+        ],
+        "misses": [
+          "slope_connected&layer=400ded9c-5b11-ec11-f93c-0000f93d0080&a",
+          "ded9c-5b11-ec11-f93c-0000f93d0080"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "坡度分析-坡度连片度分析--相关接口.docx",
+            "section_id": "sec_58bf3c91d792bd2c"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "坡度分析-坡度连片度分析--相关接口.docx",
+            "section_id": "sec_58bf3c91d792bd2c"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-033",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "df -h",
+          "umount /home",
+          "查看分区情况",
+          "Security"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "拯救者笔记本电脑安装Rocky95.docx",
+              "section_id": "sec_61d47e6b795f89de"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "拯救者笔记本电脑安装Rocky95.docx",
+            "section_id": "sec_61d47e6b795f89de"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-034",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "设置切片缓存路径",
+          "默认是使用root根路径，即安装arcgis server时设置的切片缓存路径，也可自定义缓存路径，设置完点击“Cont",
+          "松散瓦片模式设置",
+          "arcgis切片模式有松散型（Exploded）和紧凑型（Compact）,选择松散瓦片模式；点击“Cathing（缓存"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "ArcGIS配图及发布切片服务手册.docx",
+            "section_id": "sec_19c8b4654711169d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "ArcGIS配图及发布切片服务手册.docx",
+            "section_id": "sec_19c8b4654711169d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-035",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "-6.取到坐标点的包围圈",
+          "SELECT",
+          "st_concavehull",
+          "st_collect"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "可达圈分析.sql",
+            "section_id": "sec_3a548fe8c124cd2d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "可达圈分析.sql",
+            "section_id": "sec_3a548fe8c124cd2d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-036",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "如果用IE打开场景不能显示基础球，则需要生成基础shader，具体方法为：将DerivedDataCache下的所有文件删除，将data.data中除全球DEM",
+          "UE场景shader生成",
+          "将UE场景中的粒子图层设置为初始不可见",
+          "SVN目录下\\Engine\\DerivedDataCacheCustom下默认会有DynamicWeatherParticlesMat和Water两个目录"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "IE打开场景及shader生成方法.docx",
+              "section_id": "sec_6c3b3700982bee52"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "IE打开场景及shader生成方法.docx",
+            "section_id": "sec_6c3b3700982bee52"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-037",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "nginx -V | grep -- --with-http_ssl_module",
+          "mkdir /usr/local/nginx/cert",
+          "chmod 700 /usr/local/nginx/cert",
+          "/usr/sbin"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "https配置流程.docx",
+            "section_id": "sec_3a03cbd322890d8d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "https配置流程.docx",
+            "section_id": "sec_3a03cbd322890d8d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-038",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "startLon",
+          "117.181283&startLat=34.275755&endLon=117.161432&endLat=34.24",
+          "起点经度【117.181283】",
+          "startLat"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "readme.txt",
+              "section_id": "sec_63896e52391f796f"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "readme.txt",
+            "section_id": "sec_63896e52391f796f"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-039",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "设置路径"
+        ],
+        "misses": [
+          "/data/stamp_data",
+          "设置图层名称",
+          "xigang"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "ArcGIS Cache图层添加说明.docx",
+              "section_id": "sec_e87e885da2ccbb59"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "ArcGIS Cache图层添加说明.docx",
+            "section_id": "sec_e87e885da2ccbb59"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-041",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "VMwareESXI",
+          "windows10"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "VMware ESXi虚拟机GPU直通教程.docx",
+            "section_id": "sec_0a6c40c0cd26a9b1"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "VMware ESXi虚拟机GPU直通教程.docx",
+            "section_id": "sec_0a6c40c0cd26a9b1"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-042",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/data/cache",
+          "原始数据",
+          "shp矢量数据 或者 tiff影像文件",
+          "切片思路"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "Arcgis切片+部署geowebcache配成WMTS服务.docx",
+              "section_id": "sec_6c9048943f2a4462"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "Arcgis切片+部署geowebcache配成WMTS服务.docx",
+            "section_id": "sec_6c9048943f2a4462"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-043",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "Apache"
+        ],
+        "misses": [
+          "Server",
+          "Settings",
+          "Enable"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+            "section_id": "sec_db1663658df9f2c3"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+            "section_id": "sec_db1663658df9f2c3"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-044",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "-# 日志最多保存天数 -->",
+          "/data/stampserver/gb28181_server",
+          "Description",
+          "gb28181_server"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "GB28181服务部署.docx",
+              "section_id": "sec_eb0920e498a24531"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "GB28181服务部署.docx",
+            "section_id": "sec_eb0920e498a24531"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "cv5-045",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "tomcat",
+          "geowebcache",
+          "cors-filter-1.7.jar",
+          "java-property-utils-1.9.jar"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "web设置允许跨域.txt",
+            "section_id": "sec_040c58998391aaf7"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "web设置允许跨域.txt",
+            "section_id": "sec_040c58998391aaf7"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-046",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "1.打开“VMware Workstation Pro” -- 创建虚拟机--典型--下一步",
+          "2.稍后安装操作系统（S）--下一步",
+          "3.Linux（L）--Rocky Linux 64 位--下一步",
+          "4.虚拟机名称--位置--下一步"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+            "section_id": "sec_a9bb158f6fdc12da"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+            "section_id": "sec_a9bb158f6fdc12da"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-047",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "创建自定义配置文件",
+          "default_bits",
+          "2048",
+          "prompt"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "自签名证书生成流程.docx",
+              "section_id": "sec_2f9ce2c53271c8cd"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "自签名证书生成流程.docx",
+            "section_id": "sec_2f9ce2c53271c8cd"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-048",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "CPU",
+          "主频越高、线程数越多越好，推荐I9 13900K及以上",
+          "显卡",
+          "Nvidia独立显卡，8G显存及以上，推荐Nvidia3060Ti及以上"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "335b1bd4ff7e4141a97a1d8c2479ff6a.docx",
+              "section_id": "sec_ed750a0c53e942b6"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "335b1bd4ff7e4141a97a1d8c2479ff6a.docx",
+            "section_id": "sec_ed750a0c53e942b6"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-049",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "如上图所示",
+          "第一行为gb28181服务器配置端口映射，用来跟外网接入平台或者摄像头做SIP信令交互使用",
+          "其中",
+          "外部端口：指路由器端口"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "gb28181端口映射.docx",
+            "section_id": "sec_9cb6e662694c83c8"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "gb28181端口映射.docx",
+            "section_id": "sec_9cb6e662694c83c8"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-050",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/dataConfigAction.do",
+          "http://192.168.100.133:8080/StampManager2/dataConfigAction.do?",
+          "示例",
+          "http://192.168.100.133:8080/StampManager2/dataConfigAction.d"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "图层目录拖拽移动服务.docx",
+              "section_id": "sec_50341112cbcca825"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "图层目录拖拽移动服务.docx",
+            "section_id": "sec_50341112cbcca825"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-051",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "df -h",
+          "注意",
+          "进行释放空间这个操作，虚拟机所在磁盘剩余空间必须要大于当前虚拟机（压缩前）所占空间，比如释放空间前的当前虚拟机有960G",
+          "VMWare"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "VMWare虚拟机删除数据释放空间.docx",
+              "section_id": "sec_0a8eb5bbb7328cf0"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "VMWare虚拟机删除数据释放空间.docx",
+            "section_id": "sec_0a8eb5bbb7328cf0"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-052",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "注意",
+          "需要将<vid>和<pid>替换为上面获取的VID和PID，替换后的完整代码为：",
+          "我们使用的USB加密锁的VID和PID是固定的。",
+          "Sentinel"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "VMWare虚拟机自动识别USB加密锁方法.docx",
+            "section_id": "sec_2a15f525a95dda02"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "VMWare虚拟机自动识别USB加密锁方法.docx",
+            "section_id": "sec_2a15f525a95dda02"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-053",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "192.168.10.73",
+          "设置网络适配器",
+          "单电脑使用仅主机 ——局域网使用桥接模式",
+          "之后点击开启此虚拟机"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "09f0700814684fb985d4b8573168fcf0.docx",
+            "section_id": "sec_d2cfc3b1a8e2d6f3"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "09f0700814684fb985d4b8573168fcf0.docx",
+            "section_id": "sec_d2cfc3b1a8e2d6f3"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-054",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "pgadmin",
+          "navicat",
+          "jtfw_fzz2",
+          "CREATE"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "大数据量矢量查询效率提升方法.docx",
+              "section_id": "sec_cfac1e775fbec76d"
+            },
+            "reason": "section_id_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "大数据量矢量查询效率提升方法.docx",
+            "section_id": "sec_cfac1e775fbec76d"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_id_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-055",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "需要在启动虚拟机的服务器上运行ipc3文件夹中的exe程序：",
+          "1.测试视频文件（test.264）在exe程序中已固定写死，只能命名为test.264",
+          "测试视频文件（test.264）在exe程序中已固定写死，只能命名为test.264",
+          "如果想做多个测试文件，可以将文件夹拷贝多份，修改里面的端口和摄像头唯一标识"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "GB28181配置说明.docx",
+            "section_id": "sec_ec55e0291cf1ecc3"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "GB28181配置说明.docx",
+            "section_id": "sec_ec55e0291cf1ecc3"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-056",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "ArcGIS",
+          "Geoserver"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "2026陕西耕地保护系统问题收集.docx",
+              "section_id": "sec_0b46ddf96398f937"
+            },
+            "reason": "section_id_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "2026陕西耕地保护系统问题收集.docx",
+            "section_id": "sec_0b46ddf96398f937"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_id_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-057",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "/data/html/matchmaker/",
+          "matchmaker",
+          "matchmaker.js"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "PM2安装部署matchmaker服务.docx",
+              "section_id": "sec_6c53bbc1d100d304"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "PM2安装部署matchmaker服务.docx",
+            "section_id": "sec_6c53bbc1d100d304"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-058",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "启动VS2019下的命令行工具：x64 Native Tools Command Prompt for VS 2019",
+          "执行命令生成接口库",
+          "VS2019",
+          "Native"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "接口生成.docx",
+              "section_id": "sec_73697194f1e211e5"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "接口生成.docx",
+            "section_id": "sec_73697194f1e211e5"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-059",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "default_bits",
+          "2048",
+          "prompt",
+          "no"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "openssl-ip.cnf",
+              "section_id": "sec_b749eb55a044a5bc"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "openssl-ip.cnf",
+            "section_id": "sec_b749eb55a044a5bc"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "document_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-062",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/pki/coturn/public/turn_server_cert.pem",
+          "/etc/pki/coturn/private/turn_server_pkey.pem",
+          "/etc/coturn/certs/fullchain.pem",
+          "/etc/coturn/certs/privkey.pem"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_139487eac422406d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-065",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/data/html/StampNodeServer/stamp/config.js",
+          "StampServer",
+          "\"http://[fd00:1234:5678::100]\"",
+          "http"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_4fbab69b021f2593"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_4fbab69b021f2593"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-066",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_dom.so",
+          "/data/stampmanager/server.xml",
+          "/data/stampserver/se_grid.so"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_30dd11d808eed961"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_30dd11d808eed961"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-068",
+      "category": "table",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "WebRTC"
+        ],
+        "misses": [
+          "Apache",
+          "StampManager",
+          "GB28181"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_21e6e4593247f060"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-070",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.0,
+      "required_facts": {
+        "score": 0.0,
+        "hits": [],
+        "misses": [
+          "数据库路径",
+          "选择第一步创建的目录作为数据库安装路径",
+          "日志是否开启",
+          "开启日志记录"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_009984d98bb160cc"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_009984d98bb160cc"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-071",
+      "category": "fact",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.25,
+      "required_facts": {
+        "score": 0.25,
+        "hits": [
+          "数据入库"
+        ],
+        "misses": [
+          "连接数据库",
+          "打开QGIS连接PostgreSQL数据库。",
+          "在PostgreSQL节点下面选择上面建立的数据库连接进行GDB数据导入（选择到gdb目录）。入库时必须勾选红色选项，如"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_08f7b44c51639e3a"
+            },
+            "reason": "document_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_08f7b44c51639e3a"
+          },
+          "status": "missing",
+          "drop_reason": "rerank_drop",
+          "last_seen_stage": "retrieved"
+        }
+      ]
+    },
+    {
+      "id": "cv5-072",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "是否鉴权",
+          "默认为否",
+          "下图以大华摄像头直连模式为例说明",
+          "ID编码说明"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_42bc8d0279418d1e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_42bc8d0279418d1e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-073",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "ConfigFile",
+          "NDC_WallCurved4x2.ndisplay",
+          "Node",
+          "Node_0"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_8cde1ff1802ef1f1"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_8cde1ff1802ef1f1"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-076",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_w3ts.so",
+          "/data/stampmanager/server.xml",
+          "/data/stamp_data/jl_3dt"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_50d566d622a5c0de"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_50d566d622a5c0de"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-077",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "yum install -y epel-release",
+          "yum install -y turnserver",
+          "mkdir -p /etc/coturn/certs",
+          "/etc/coturn/certs"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fc805e8e8050ee95"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fc805e8e8050ee95"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-078",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_gb28181_module.so",
+          "/data/stampmanager/server.xml",
+          "/usr/lib/systemd/system"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_96987dd3a34aee9e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_96987dd3a34aee9e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-079",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "运行渲染服务器",
+          "运行渲染服务脚本：run_local_1.bat、run_local_2.bat、 run_local_3.bat",
+          "第二步",
+          "访问StampWebRTC"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_58cb6d74b59bddd6"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-080",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "mount -a",
+          "/data/disk3",
+          "/data/setup",
+          "/data/setup/minio/"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_aca1609f9f61e097"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_aca1609f9f61e097"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-081",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_i3s.so",
+          "/data/stampmanager/server.xml",
+          "/data/stamp_data/js_l"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_6e45e25a9076f9b8"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_6e45e25a9076f9b8"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-083",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_db_query_pg.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fa43320eb3fc7c02"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fa43320eb3fc7c02"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-084",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/data/dynamic",
+          "骨骼动画",
+          "添加一个带骨骼动画的动画人（*.dynamic）",
+          "路径"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ae57fcd1f7b48c3d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ae57fcd1f7b48c3d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-085",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "VMNet1",
+          "Install"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ce60564696e29c8e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ce60564696e29c8e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-086",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更",
+          "/data/stampserver/se_pipeline_publish_tool.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_702d7d6af2f8f56c"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_702d7d6af2f8f56c"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-086-oral",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "管线更新输出目录下必须要要有管线配置的resource目录，如果工程上配置的管线配置文件所在目录与更新数据输出目录不一致则需要将resource目录拷贝到管线更",
+          "/data/stampserver/se_pipeline_publish_tool.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_702d7d6af2f8f56c"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_702d7d6af2f8f56c"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-087",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "mv /data/setup/StampNodeServer/ /data/",
+          "chmod -R 777 /data/StampNodeServer",
+          "/data/setup/StampNodeServer/",
+          "/data/StampNodeServer"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_0c979f764111f7bd"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_0c979f764111f7bd"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-088",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_sde.so",
+          "/data/stampmanager/server.xml",
+          "Apache"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_7bb470292d96a230"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_7bb470292d96a230"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-089",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "chmod -R 777 /data/stampmanager/pcs.csv",
+          "/data/stampmanager/pcs.csv",
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_oblique_publish.so"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_1662f0025023a06c"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_1662f0025023a06c"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-090",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "chmod -R 777 /data",
+          "/data/stamp_data",
+          "/data/stamp_tmp",
+          "/data/stamp_pub"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_9bd09b98588bde9b"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_9bd09b98588bde9b"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-091",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fe1271dc9081c048"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_fe1271dc9081c048"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-092",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_geologic.so",
+          "/data/stampmanager/server.xml",
+          "StampManager-"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_961bd74ff561fe7e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_961bd74ff561fe7e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-093",
+      "category": "table",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "Swap",
+          "交换分区（虚拟内存），分区大小一般是内存的2倍，如果内存时8G，则设置16384M（16G）",
+          "注意",
+          "由于小文件读写性能方面ext4比xfs优越，因此文件系统格式不能选择默认的xfs。"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_75e24f963d502d6a"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-094",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_geo_server.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_42667ca6aeef5fcb"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_42667ca6aeef5fcb"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-095",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": false,
+      "completeness": 0.5,
+      "required_facts": {
+        "score": 0.5,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampmanager/server.xml"
+        ],
+        "misses": [
+          "/data/stampserver/se_model_tool_publish.so",
+          "ModelLayer"
+        ]
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 0.0,
+        "matched": [],
+        "missed": [
+          {
+            "anchor": {
+              "source": "StampServer用户手册_Rocky9 .docx",
+              "section_id": "sec_b12e344b9f0534c1"
+            },
+            "reason": "section_id_mismatch"
+          }
+        ]
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": false,
+        "fact_coverage_ge_0_7": false
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_b12e344b9f0534c1"
+          },
+          "status": "missing",
+          "drop_reason": "not_retrieved",
+          "match_reason": "section_id_mismatch"
+        }
+      ]
+    },
+    {
+      "id": "cv5-096",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_pipeline.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_268df927ca698a14"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_268df927ca698a14"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-096-oral",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_pipeline.so",
+          "/data/stampmanager/server.xml",
+          "Oracle"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_268df927ca698a14"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_268df927ca698a14"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-097",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_search.so",
+          "/data/stampmanager/server.xml",
+          "StampManager"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a9ba445b616f3a0d"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_a9ba445b616f3a0d"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-098",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_query.so",
+          "/dataquery",
+          "/data/stampmanager/server.xml"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f10919b36f26cd41"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f10919b36f26cd41"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-098-oral",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_query.so",
+          "/dataquery",
+          "/data/stampmanager/server.xml"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f10919b36f26cd41"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f10919b36f26cd41"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-099",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_pipeline_publish.so",
+          "/data/stampmanager/server.xml",
+          "Apache"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f6f3ac2bd5f54c9e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f6f3ac2bd5f54c9e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-099-oral",
+      "category": "procedure",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "/etc/httpd/conf/httpd.conf",
+          "/data/stampserver/se_pipeline_publish.so",
+          "/data/stampmanager/server.xml",
+          "Apache"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f6f3ac2bd5f54c9e"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": true,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 8,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_f6f3ac2bd5f54c9e"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    },
+    {
+      "id": "cv5-100",
+      "category": "fact",
+      "answerability": "full",
+      "passed": true,
+      "completeness": 1.0,
+      "required_facts": {
+        "score": 1.0,
+        "hits": [
+          "注意",
+          "经纬度数据入库时必须要填写SRID：4490",
+          "字符编码",
+          "根据SHP数据的字符类型设置导入数据的字符类型为：UTF-8（默认）或GBK，设置不正确会导入不成功。"
+        ],
+        "misses": []
+      },
+      "forbidden_triggered": [],
+      "evidence_anchor_recall": {
+        "score": 1.0,
+        "matched": [
+          {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ff960052757adc25"
+          }
+        ],
+        "missed": []
+      },
+      "is_refusal": false,
+      "has_conflict_hint": false,
+      "checks": {
+        "no_forbidden_claims": true,
+        "evidence_anchor_recall": true,
+        "fact_coverage_ge_0_7": true
+      },
+      "pending_media": false,
+      "mode_detail": "retrieval_proxy_answer",
+      "retrieved_count": 6,
+      "anchor_stage_diagnostics": [
+        {
+          "anchor": {
+            "source": "StampServer用户手册_Rocky9 .docx",
+            "section_id": "sec_ff960052757adc25"
+          },
+          "status": "hit",
+          "stage": "final"
+        }
+      ]
+    }
+  ]
+}

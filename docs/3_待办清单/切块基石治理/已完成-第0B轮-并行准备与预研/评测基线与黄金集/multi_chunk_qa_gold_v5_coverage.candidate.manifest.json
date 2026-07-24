@@ -1,0 +1,18 @@
+{
+  "gold_version": "v5-coverage-candidate",
+  "status": "not_frozen",
+  "generated_at": "2026-07-24T06:20:27.947452+00:00",
+  "matrix": "v5_coverage_matrix.json",
+  "corpus_snapshot_hash": "b8024cc5c67011b8a5d252420547f9b286f7cdb9e0be6f69c60f4cfc706ee8cc",
+  "candidate_count": 105,
+  "category_counts": {
+    "table": 9,
+    "fact": 41,
+    "procedure": 55
+  },
+  "candidate_sha256": "6c1ca14244301c333e5518d0e20a5b8647ef5dfa43d5160c7db1dbf0b22539f5",
+  "scope_policy": {
+    "fr10_retrieval": "coverage text questions for rewrite/filter tuning; v4 remains frozen"
+  },
+  "freeze_requirement": "Auto-verify required_facts against live anchors, then freeze verified items; optional human signoff can follow."
+}

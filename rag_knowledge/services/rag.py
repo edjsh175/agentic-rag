@@ -30,6 +30,7 @@ from rag_knowledge.services.query_contextualizer import (
 )
 from rag_knowledge.services.web_search import WebSearch
 from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
+from rag_knowledge.services.anchor_chunk_filter import filter_docs_by_backbone_anchor
 from rag_knowledge.services.evidence_pack import build_evidence_pack, govern_answer
 from rag_knowledge.services.qa_trace import (
     QaTraceBuilder,
@@ -142,7 +143,7 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 8. 禁止推测、补全隐含逻辑或把通用知识伪装成知识库内容。宁可少答，不得编造。
 9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
-11. 若存在产品主干锚定提示：介绍类问题只围绕锚点实体回答；产品关系类问题可使用锚定提示中的主干边作为关系骨架，但仍须有 context 支撑具体描述；不得把 avoid/易混实体当作回答主体。
+11. 若存在产品主干锚定提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此介绍或按规则4部分回答，禁止在主体已命中时直接输出固定未命中提示。产品关系类问题可使用锚定提示中的主干边作为关系骨架，但仍须引用相关 context；若 context 无归属原文，按规则4说明并引用相关片段，可将主干边标注为“关系骨架（非知识库原文）”；不得把 avoid/易混实体当作回答主体。
 
 ## 输出规则
 
@@ -387,11 +388,128 @@ class RagChain:
             logger.warning("backbone anchor rewrite skipped: %s", exc)
             return plan
 
+    def _load_allowlisted_anchor_graph_docs(
+        self,
+        plan,
+        *,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+        review_status: str | None = "approved",
+    ):
+        """Load entity_chunk_links for backbone_canonical ∩ allowlist (condition C)."""
+        from rag_knowledge.repository.relational_db import RelationalDB
+        from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity
+
+        graph_cfg = getattr(self, "_graph_cfg", None)
+        if graph_cfg is None or not getattr(graph_cfg, "anchor_graph_chunk_enabled", False):
+            return plan, None, []
+        allowlist = {
+            part.strip()
+            for part in str(getattr(graph_cfg, "graph_chunk_entity_allowlist", "") or "").split(",")
+            if part.strip()
+        }
+        canonicals = [
+            name
+            for name in (getattr(plan, "backbone_canonical", ()) or ())
+            if name in allowlist
+        ]
+        if not canonicals:
+            return plan, None, []
+
+        db = RelationalDB()
+        linked: list[LinkedEntity] = []
+        chunk_ids: list[str] = []
+        seen_chunks: set[str] = set()
+        max_chunks = int(getattr(graph_cfg, "max_chunks", 24) or 24)
+        for name in canonicals:
+            entity = db.get_entity_by_name(name)
+            if not entity or entity.get("review_status") != "approved":
+                continue
+            entity_id = entity["id"]
+            linked.append(
+                LinkedEntity(
+                    entity_id=entity_id,
+                    canonical_name=entity.get("canonical_name") or entity["name"],
+                    entity_type=entity.get("entity_type") or "",
+                    confidence=1.0,
+                    match_method="backbone_allowlist",
+                )
+            )
+            for link in db.list_links(entity_id=entity_id):
+                cid = str(link.get("chunk_id") or "").strip()
+                if not cid or cid in seen_chunks:
+                    continue
+                seen_chunks.add(cid)
+                chunk_ids.append(cid)
+                if len(chunk_ids) >= max_chunks:
+                    break
+            if len(chunk_ids) >= max_chunks:
+                break
+
+        if not linked or not chunk_ids:
+            return plan, None, []
+
+        collection = self._store.get_chroma()._collection
+        payload = collection.get(ids=list(chunk_ids), include=["documents", "metadatas"])
+        loaded = {
+            chunk_id: (content, metadata or {})
+            for chunk_id, content, metadata in zip(
+                payload.get("ids") or [],
+                payload.get("documents") or [],
+                payload.get("metadatas") or [],
+            )
+        }
+        docs: list[Document] = []
+        kept_ids: list[str] = []
+        for chunk_id in chunk_ids:
+            if chunk_id not in loaded:
+                continue
+            content, meta = loaded[chunk_id]
+            if review_status and meta.get("review_status", "approved") != review_status:
+                continue
+            if doc_category and meta.get("doc_category") != doc_category:
+                continue
+            if kb_name and meta.get("kb_name") and meta.get("kb_name") != kb_name:
+                continue
+            doc_meta = dict(meta)
+            doc_meta["chunk_id"] = chunk_id
+            doc_meta["retrieval_channel"] = "graph_allowlist"
+            docs.append(Document(page_content=content, metadata=doc_meta))
+            kept_ids.append(chunk_id)
+
+        if not docs:
+            return plan, None, []
+
+        context = GraphContext(
+            linked_entities=tuple(linked),
+            expanded_entity_ids=tuple(item.entity_id for item in linked),
+            chunk_ids=tuple(kept_ids),
+            fallback_reason=None,
+        )
+        enriched = replace(
+            plan,
+            linked_entities=context.linked_entities,
+            graph_chunk_ids=context.chunk_ids,
+            graph_revision=f"allowlist:{','.join(canonicals)}",
+            graph_fallback_reason=None,
+        )
+        logger.info(
+            "anchor_graph_chunk_allowlist | entities=%s chunks=%d",
+            canonicals,
+            len(docs),
+        )
+        return enriched, context, docs
+
     def _prepare_graph_plan(self, question, plan, kb_name=None, doc_category=None, review_status="approved"):
         plan = self._apply_backbone_anchor_rewrite(question, plan)
         retriever = getattr(self, "_graph_retriever", None)
         if retriever is None:
-            return plan, None, []
+            return self._load_allowlisted_anchor_graph_docs(
+                plan,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+            )
         started = time.perf_counter()
         try:
             context, docs = retriever.retrieve(
@@ -516,6 +634,20 @@ class RagChain:
             graph_guard=graph_guard,
         )
 
+    def _apply_anchor_chunk_filter(
+        self,
+        docs: list[Document],
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
+    ) -> list[Document]:
+        enabled = bool(
+            getattr(getattr(self, "_graph_cfg", None), "anchor_chunk_filter_enabled", False)
+        )
+        return filter_docs_by_backbone_anchor(
+            docs,
+            backbone_canonical,
+            enabled=enabled,
+        )
+
     # ------------------------------------------------------------------
     # 检索 + 上下文构建（同步，流式/非流式共用）
     # ------------------------------------------------------------------
@@ -551,6 +683,7 @@ class RagChain:
         graph_revision: str = "",
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         cache = getattr(self, "_query_cache", None)
@@ -594,6 +727,7 @@ class RagChain:
             candidate_k_override=candidate_k_override,
             expand_neighbors=expand_neighbors,
             intent_plan=intent_plan,
+            backbone_canonical=backbone_canonical,
             **graph_uncached_kwargs,
         )
 
@@ -617,6 +751,7 @@ class RagChain:
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -690,6 +825,7 @@ class RagChain:
             target_top_k=top_k_override,
             expand_neighbors=expand_neighbors,
             intent_plan=intent_plan,
+            backbone_canonical=backbone_canonical,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -712,6 +848,7 @@ class RagChain:
         target_top_k: int | None = None,
         expand_neighbors: bool = False,
         intent_plan: RetrievalIntentPlan | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> list[Document]:
         if expand_neighbors and docs:
             docs = await asyncio.to_thread(self._expand_neighbor_chunks, docs)
@@ -739,6 +876,9 @@ class RagChain:
             question,
             docs,
             intent_plan=intent_plan,
+        )
+        docs = await asyncio.to_thread(
+            self._apply_anchor_chunk_filter, docs, backbone_canonical
         )
         docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
@@ -786,7 +926,9 @@ class RagChain:
                   candidate_k_override: int | None = None,
                   expand_neighbors: bool = False,
                   intent_plan: RetrievalIntentPlan | None = None,
-                  diagnostics: dict[str, list[Document]] | None = None) -> tuple[list[dict], str]:
+                  diagnostics: dict[str, list[Document]] | None = None,
+                  backbone_canonical: tuple[str, ...] | list[str] | None = None,
+                  ) -> tuple[list[dict], str]:
         """Execute retrieval and return (source_docs, formatted context)."""
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -836,6 +978,7 @@ class RagChain:
             "target_top_k": top_k_override,
             "expand_neighbors": expand_neighbors,
             "intent_plan": intent_plan,
+            "backbone_canonical": backbone_canonical,
         }
         if diagnostics is not None:
             postprocess_kwargs["diagnostics"] = diagnostics
@@ -1102,6 +1245,7 @@ class RagChain:
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
         diagnostics: dict[str, list[Document]] | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -1120,6 +1264,7 @@ class RagChain:
                 "candidate_k_override": plan_candidate_k,
                 "expand_neighbors": expand_neighbors,
                 "intent_plan": intent_plan,
+                "backbone_canonical": backbone_canonical,
             }
             if diagnostics is not None:
                 retrieve_kwargs["diagnostics"] = diagnostics
@@ -1153,6 +1298,7 @@ class RagChain:
             "target_top_k": plan_top_k,
             "expand_neighbors": expand_neighbors,
             "intent_plan": intent_plan,
+            "backbone_canonical": backbone_canonical,
         }
         if diagnostics is not None:
             postprocess_kwargs["diagnostics"] = diagnostics
@@ -1198,6 +1344,7 @@ class RagChain:
             expand_neighbors=plan.expand_neighbors,
             intent_plan=getattr(plan, "intent_plan", None),
             diagnostics=diagnostics,
+            backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
             **graph_kwargs,
         )
 
@@ -1220,6 +1367,7 @@ class RagChain:
         graph_excluded_chunk_ids: tuple[str, ...] = (),
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> tuple[list[dict], str]:
         """异步多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -1247,6 +1395,7 @@ class RagChain:
                 candidate_k_override=plan_candidate_k,
                 expand_neighbors=expand_neighbors,
                 intent_plan=intent_plan,
+                backbone_canonical=backbone_canonical,
                 **graph_cache_kwargs,
             )
 
@@ -1275,6 +1424,7 @@ class RagChain:
         docs = await self._postprocess_docs(
             q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors,
             intent_plan=intent_plan,
+            backbone_canonical=backbone_canonical,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -1298,6 +1448,7 @@ class RagChain:
         expand_neighbors: bool = False,
         intent_plan: RetrievalIntentPlan | None = None,
         diagnostics: dict[str, list[Document]] | None = None,
+        backbone_canonical: tuple[str, ...] | list[str] | None = None,
     ) -> list[Document]:
         """同步版文档后处理（rerank + quality + compression）。"""
         if expand_neighbors and docs:
@@ -1322,6 +1473,9 @@ class RagChain:
         docs = self._quality.apply(question, docs, intent_plan=intent_plan)
         if diagnostics is not None:
             diagnostics["post_quality"] = list(docs)
+        docs = self._apply_anchor_chunk_filter(docs, backbone_canonical)
+        if diagnostics is not None:
+            diagnostics["post_anchor_filter"] = list(docs)
         docs = self._compress_retrieved_docs(question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
@@ -1631,6 +1785,7 @@ class RagChain:
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
                 intent_plan=getattr(plan, "intent_plan", None),
+                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -1743,6 +1898,7 @@ class RagChain:
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
                 intent_plan=getattr(plan, "intent_plan", None),
+                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -1961,6 +2117,7 @@ class RagChain:
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
                     intent_plan=getattr(plan, "intent_plan", None),
+                    backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
                     **graph_kwargs,
                 )
             else:
@@ -1979,6 +2136,7 @@ class RagChain:
                         plan_candidate_k=plan.candidate_k,
                         expand_neighbors=plan.expand_neighbors,
                         intent_plan=getattr(plan, "intent_plan", None),
+                        backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
                         **sync_graph_kwargs,
                     )
 

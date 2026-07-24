@@ -1,0 +1,1024 @@
+{
+  "ledger_version": "v5-coverage-review-v1",
+  "generated_at": "2026-07-24T06:20:30.964469+00:00",
+  "candidate": "multi_chunk_qa_gold_v5_coverage_candidate.json",
+  "counts": {
+    "approved": 90,
+    "rejected": 15
+  },
+  "items": [
+    {
+      "id": "cv5-001",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 7,
+      "missing_facts": [],
+      "question": "「矢量数据入库 > EPSG编码」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-002",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "CGCS2000",
+        "degree",
+        "Gauss-Kruger"
+      ],
+      "question": "「工具概述 > EPSG编码」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-003",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 13,
+      "missing_facts": [],
+      "question": "关于「分析」，文档中与 StampWebGL用户手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-004",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 9,
+      "missing_facts": [],
+      "question": "关于「分析」，文档中与 StampWebRTC用户手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-005",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 33,
+      "missing_facts": [],
+      "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-006",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 8,
+      "missing_facts": [],
+      "question": "关于「分析」，文档中与 PipelineSystem用户手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-007",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 489,
+      "missing_facts": [],
+      "question": "关于「GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求」，文档中与 GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-008",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 59,
+      "missing_facts": [],
+      "question": "在「2ca727efa70847b49f0f67528544d210 > 2024 年6 月」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-009",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 23,
+      "missing_facts": [],
+      "question": "在「200 OK > 修改安装配置文件」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-010",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 19,
+      "missing_facts": [],
+      "question": "在「编译安装POSTGIS > 安装postgis扩展」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-011",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 11,
+      "missing_facts": [],
+      "question": "关于「分析」，文档中与 StampExplorer用户手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-012",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 110,
+      "missing_facts": [],
+      "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-013",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 110,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 EGIS三维数据服务接口规范0902 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-014",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 27,
+      "missing_facts": [],
+      "question": "根据文档「9.安装httpd > 建立软链接」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-015",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 113,
+      "missing_facts": [],
+      "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-016",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 24,
+      "missing_facts": [],
+      "question": "在「安装aksusbd-8.23.1」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-017",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 31,
+      "missing_facts": [],
+      "question": "「Sheet1」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-018",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "道路名称",
+        "输入需要查询的道路名称关键字进行模糊查询，查询结果显示在道路列表框中。如果不输入关键字则查询全部道路。",
+        "道路",
+        "选择需要查询的道路名称，与之相交的道路显示在交叉路列表框中"
+      ],
+      "question": "关于「查询统计 > 管线查询」，文档中与 PipelineWebGL用户手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-018-oral",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "道路名称",
+        "输入需要查询的道路名称关键字进行模糊查询，查询结果显示在道路列表框中。如果不输入关键字则查询全部道路。",
+        "道路",
+        "选择需要查询的道路名称，与之相交的道路显示在交叉路列表框中"
+      ],
+      "question": "管线工具这一节主要讲什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-019",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 6,
+      "missing_facts": [],
+      "question": "关于「空间数据」，文档中与 三维基本概念 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-020",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "文档「四、使用命令行 > 4. 旧库导出」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-021",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 36,
+      "missing_facts": [],
+      "question": "「(no_section)」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-022",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 18,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 VSCode+SVN配置 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-023",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 14,
+      "missing_facts": [],
+      "question": "根据文档「VMwareESXI创建虚拟机 > linux系统安装显卡驱动」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-024",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 10,
+      "missing_facts": [
+        "mkdir -p /etc/nginx/ssl",
+        "chmod 400 /etc/nginx/ssl/stamp.key",
+        "/etc/nginx/ssl",
+        "/etc/nginx/ssl/stamp.key"
+      ],
+      "question": "根据文档「HTTPS配置 > 私有CA配置」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-025",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "StampGIS"
+      ],
+      "question": "关于「产品概述 > 产品技术特点」，文档中与 StampGIS三维产品白皮书 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-026",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 11,
+      "missing_facts": [],
+      "question": "在「FUNCTION public.stamp_shortest_road」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-027",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 7,
+      "missing_facts": [],
+      "question": "在「2、Apache配置https」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-028",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 15,
+      "missing_facts": [],
+      "question": "文档「(no_section)」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-029",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 16,
+      "missing_facts": [],
+      "question": "在「11.陕西耕地保护」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-030",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「1.MySQL 数据类型 > 1.1 数值类型」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-031",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "文档「示例」中给出的访问地址是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-032",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 12,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 坡度分析-坡度连片度分析--相关接口 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-033",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 17,
+      "missing_facts": [],
+      "question": "根据文档「(no_section)」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-034",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「服务发布」，文档中与 ArcGIS配图及发布切片服务手册 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-035",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「SQL 6」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-036",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 5,
+      "missing_facts": [],
+      "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-037",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 4,
+      "missing_facts": [],
+      "question": "根据文档「一、SSL模块检查与安装」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-038",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 4,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 readme 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-039",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 5,
+      "missing_facts": [],
+      "question": "文档「(no_section)」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-040",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "取消勾选",
+        "Local System account",
+        "选择",
+        "This account"
+      ],
+      "question": "关于「六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务」，文档中与 信令以及节点管理程序Windows自启动 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-041",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「VMwareESXI创建虚拟机 > 配置虚拟机规格」，文档中与 VMware ESXi虚拟机GPU直通教程 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-042",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "文档「(no_section)」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-043",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "关于「IIS配置代理转发到Apache或其他端口监听服务」，文档中与 IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-044",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-045",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 4,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 web设置允许跨域 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-046",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "在「一、安装rockyLinux9镜像 > 7.选择“x86-64/”」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-047",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-048",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 335b1bd4ff7e4141a97a1d8c2479ff6a 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-049",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 gb28181端口映射 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-050",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "文档「(no_section)」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-051",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "根据文档「(no_section)」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-052",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「(no_section)」，文档中与 VMWare虚拟机自动识别USB加密锁方法 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-053",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "文档「虚拟机服务器操作文档」中给出的访问地址是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-054",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「普通索引」，文档中与 大数据量矢量查询效率提升方法 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-055",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「虚拟测试设备配置：」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-056",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「权限管理」，文档中与 2026陕西耕地保护系统问题收集 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-057",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 9,
+      "missing_facts": [],
+      "question": "文档「(no_section)」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-058",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「(no_section)」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-059",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「req」，文档中与 openssl-ip 相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-060",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "样式文件",
+        "为MVT服务图层配置已经存在的样式文件（*.prj2d）",
+        "渲染类型",
+        "贴地形或贴模型"
+      ],
+      "question": "关于「运维管理配置 > 数据配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-061",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "systemctl enable postgresql-16",
+        "systemctl start postgresql-16",
+        "/data/setup/postgresql-16/"
+      ],
+      "question": "根据文档「基础软件安装 > 基础软件安装」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-062",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 5,
+      "missing_facts": [],
+      "question": "在「应用系统部署 > WebRTC部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-063",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 2,
+      "missing_facts": [
+        "/etc/nginx/conf.d/default.conf",
+        "listen"
+      ],
+      "question": "文档「HTTPS配置 > 私有CA配置」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-064",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "/etc/nginx/conf.d/default.conf",
+        "/usr/share/nginx/html",
+        "http://127.0.0.1:8082",
+        "server"
+      ],
+      "question": "在「Stamp服务部署 > Nginx代理设置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-065",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 4,
+      "missing_facts": [],
+      "question": "文档「IPV6配置」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-066",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-067",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "/etc/sysctl.conf",
+        "设置完成后执行",
+        "sysctl -p",
+        "注意公式"
+      ],
+      "question": "在「操作系统安装 > 系统基础配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-068",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "「应用系统部署 > 系统网络拓扑」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-069",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "渲染服务管理",
+        "platform_scripts",
+        "run_local_1.bat"
+      ],
+      "question": "在「Stamp服务部署 > SignallingWebServer部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-070",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 4,
+      "missing_facts": [],
+      "question": "关于「运维管理配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-071",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "关于「矢量数据入库」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-072",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "关于「运维管理配置 > GB28181配置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-073",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「应用系统部署 > 多显卡大屏部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-074",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "数据处理缓存",
+        "设置数据处理的内存缓存大小，默认为4G，具体可根据数据量和内存大小设置。",
+        "数据处理线程数",
+        "设置数据处理的线程数量，默认为4个，可根据CPU的核数和线程数设置。"
+      ],
+      "question": "关于「运维管理配置 > 服务设置」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-075",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "mount /dev/cdrom /media/cdrom/",
+        "mkdir /etc/yum.repos.d/tmp",
+        "mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/tmp/",
+        "yum clean all"
+      ],
+      "question": "根据文档「基础软件安装 > 软件安装准备」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-076",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 3DTiles服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-077",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "根据文档「Stamp服务部署 > Trunserver部署」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-078",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 3,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > GB28181服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-079",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "在「应用系统部署」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-080",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "根据文档「MINIO部署」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-081",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > I3S服务配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-082",
+      "decision": "rejected",
+      "reason": "facts_not_in_anchor",
+      "matched_chunk_count": 1,
+      "missing_facts": [
+        "登录管理界面",
+        "获取Mac地址",
+        "AX1800",
+        "//192.168.10.1"
+      ],
+      "question": "在「HTTPS配置 > 私有域名配置」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-083",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 三维数据库服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-084",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "文档「运维管理配置 > 运动物体配置」提到的关键路径是什么？",
+      "category": "fact"
+    },
+    {
+      "id": "cv5-085",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 2,
+      "missing_facts": [],
+      "question": "在「操作系统安装」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-086",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-086-oral",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-087",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "根据文档「Stamp服务部署 > StampNodeServer部署」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-088",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > Apache数据服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-089",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "根据文档「Stamp服务部署 > 倾斜发布服务」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-090",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "根据文档「Stamp服务部署 > 服务部署准备」，相关操作应执行什么命令？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-091",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 矢量编辑服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-092",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 工程地质服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-093",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "「操作系统安装 > Rocky安装」中关于字段/表项有哪些关键取值说明？",
+      "category": "table"
+    },
+    {
+      "id": "cv5-094",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 矢量瓦片服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-095",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 三维数据库更新服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-096",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线分析服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-096-oral",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线分析服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-097",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 三维搜索服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-098",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线查询服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-098-oral",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线查询服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-099",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线发布服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-099-oral",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "在「Stamp服务部署 > 管线发布服务」中，执行或配置时需要用到哪条关键命令/步骤？",
+      "category": "procedure"
+    },
+    {
+      "id": "cv5-100",
+      "decision": "approved",
+      "reason": "anchor_and_facts_verified",
+      "matched_chunk_count": 1,
+      "missing_facts": [],
+      "question": "关于「矢量数据入库 > PostGIS Bundle」，文档中与 StampServer用户手册_Rocky9  相关的关键配置/事实是什么？",
+      "category": "fact"
+    }
+  ],
+  "note": "Automated verification only; optional human signoff can refine later without changing v4."
+}

@@ -73,6 +73,23 @@ docker compose exec rag-service \
 /data/rag_python/models/bge-reranker-v2-m3:/app/models/bge-reranker-v2-m3:ro
 ```
 
+### 5. 依赖拆分：两条互不替代的「torch 口子」
+
+清单拆分只门控 **Reranker**；业务 base 里另有一条曾未门控的深度学习依赖，二者不要混为一谈。
+
+| 路径 | 控制方式 | 内容 | 生产 CPU 默认 |
+|------|----------|------|----------------|
+| **A. Reranker** | Dockerfile `ARG INSTALL_RERANKER`（默认 `false`）+ `requirements-reranker.txt` | `torch` / FlagEmbedding / transformers | **不装** |
+| **B. 文档解析 extras** | `requirements-base.txt` 是否写 `unstructured[pdf]` | `[pdf]` → `unstructured-inference` → **torch** 等 | **禁止**；现用 `unstructured==0.18.32`（仅 md/txt 分区） |
+
+说明：
+
+- `INSTALL_RERANKER=false` **不能**挡住路径 B；旧 base 写 `unstructured[pdf,...]` 时，即便关掉 Reranker，镜像仍会又大又慢（甚至 pip 回退失败）。
+- 运行时 PDF/DOCX **不**依赖 unstructured 版面推理：PDF 走 PyMuPDF/pypdf，DOCX 走 python-docx；unstructured 只用于 `.md`/`.txt` 章节切片。
+- 验收「无 torch」时：路径 A 关 + 路径 B 未引入 `[pdf]`，二者都满足才算 CPU 瘦镜像。
+
+相关文件：[`requirements-base.txt`](../requirements-base.txt)、[`requirements-reranker.txt`](../requirements-reranker.txt)、[`Dockerfile`](../Dockerfile)。
+
 ## 构建与启动
 
 ```bash
@@ -87,5 +104,6 @@ docker compose up -d
 1. `curl http://localhost/api/health` 或经 Nginx 访问 `/api/health`
 2. `POST /api/query`、`/api/query/stream` 正常
 3. 前端 `/` 加载，刷新子路由不 404
-4. 日志无 `FlagReranker` 加载、无 torch import 错误
-5. `docker images` 确认镜像无 2.2GB 模型层
+4. 日志无 `FlagReranker` 加载、无 torch import 错误（路径 A 关闭）
+5. `docker images` 确认镜像无 Reranker 模型层；`pip show torch` / `unstructured-inference` 在容器内应不存在（路径 A + B 均未引入）
+6. `requirements-base.txt` 未使用 `unstructured[pdf]`（路径 B）

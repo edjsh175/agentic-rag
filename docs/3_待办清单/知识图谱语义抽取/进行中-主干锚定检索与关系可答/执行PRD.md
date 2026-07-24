@@ -1,7 +1,7 @@
 # 执行 PRD — 主干产品线实体锚定检索与关系可答
 
 - **记录日期**：2026-07-22
-- **状态**：**进行中**（P0 已落地；图谱 chunk 召回已关闭延后）
+- **状态**：**A1/A2 收口**（锚定层通过；语料债开放；图谱 chunk 召回已关闭延后）
 - **目录**：`docs/3_待办清单/知识图谱语义抽取/进行中-主干锚定检索与关系可答/`
 - **母文档**：[`../2026-07-09-知识图谱语义抽取升级整体计划与PRD.md`](../2026-07-09-知识图谱语义抽取升级整体计划与PRD.md)
 - **关联总览**：[`../2026-07-13-知识图谱PRD剩余轮次总览.md`](../2026-07-13-知识图谱PRD剩余轮次总览.md)
@@ -97,10 +97,11 @@
 
 | ID | 项 | 说明 | 优先级 |
 |----|----|------|--------|
-| A1 | 端到端问答页验收 | 重启后端后固定题集：StampManager 介绍、Tools vs Server、PipelineBuilder 归属、口语管线工具；核对来源是否跟锚点一致 | P1 |
-| A2 | 口语别名补强 | 如「管线工具」→ PipelineBuilder 写入主干 aliases（无 soft_hit 时小模型易猜错 PipelineWebGL） | P1 |
-| A3 | helper 模型评估 | `gemma3:4b` 词表大时偶发慢/偏；可评估更稳小模型或缩短 lexicon | P1 |
+| A1 | 端到端问答页验收 | ✅ 2026-07-24：脚本+台账；锚定 6/6；全链路 4/6 | 完成 |
+| A2 | 口语别名补强 | ✅ PipelineBuilder 增补「管线工具」；口语题复测 pass | 完成 |
+| A3 | helper 模型评估 | 未触发（soft_hit 后无改锚问题）；暂缓 | P2 |
 | A4 | 可观测性 | 可选：日志/debug 露出 canonical 与 anchored_queries（不改 API 契约亦可） | P2 |
+| 债 | sm-intro / pipeline-belongs 全链路 | ✅ 2026-07-24：`govern_answer` 主体命中回退规则4；复验 6/6 | 完成 |
 
 ### 4.2 明确延后（不挡本阶段）
 
@@ -125,11 +126,13 @@
 
 ## 5. 成功标准（本阶段）
 
-- [ ] 口语/别名题：改写 `canonical` 与 `anchored_queries` 落在主干正确实体上（soft_hit 场景不得被 LLM 改锚）
-- [ ] Hybrid 检索结果主体与锚点一致（抽检 StampManager / StampGIS Tools / PipelineBuilder）
-- [ ] 产品关系题：回答侧 prompt 含主干一跳摘要；有 context 时可正确表述归属/区分
+- [x] 口语/别名题：改写 `canonical` 与 `anchored_queries` 落在主干正确实体上（soft_hit 场景不得被 LLM 改锚）
+- [x] Hybrid 检索结果主体与锚点一致（抽检 StampManager / StampGIS Tools / PipelineBuilder）
+- [x] 产品关系题：回答侧 prompt 含主干一跳摘要；有 context 时可正确表述归属/区分
 - [x] **图谱 chunk 召回关闭**，不作为本阶段通过条件
-- [ ] 改写失败时降级不阻断主问答
+- [x] 改写失败时降级不阻断主问答
+
+> 2026-07-24 A1/A2 收口：锚定层 6/6；全链路 4/6（`sm-intro`/`pipeline-belongs` 记语料债）。详见 [2026-07-24-A1A2收口纪要.md](./2026-07-24-A1A2收口纪要.md)。
 
 ---
 
@@ -162,3 +165,4 @@
 | 日期 | 说明 |
 |------|------|
 | 2026-07-22 | 初版：汇总已完成锚定主线、P0、配置关闭图 chunk、后续 A/D 计划 |
+| 2026-07-24 | A1/A2 收口：固定题集验收脚本与台账；PipelineBuilder 别名「管线工具」；锚定 6/6 |

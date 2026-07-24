@@ -67,6 +67,16 @@ def test_soft_match_backbone_stamp_manager():
     assert soft_match_backbone_entities("StampTools 是什么", constraints) == ["StampGIS Tools"]
 
 
+def test_soft_match_live_backbone_oral_pipeline_tool():
+    """A2: oral「管线工具」must soft-hit PipelineBuilder on live backbone JSON."""
+    from rag_knowledge.services.backbone_guard import load_backbone_constraints
+
+    constraints = load_backbone_constraints()
+    hits = soft_match_backbone_entities("管线工具是什么", constraints)
+    assert "PipelineBuilder" in hits
+    assert "PipelineWebGL" not in hits
+
+
 def test_format_anchor_relation_summary_includes_belongs_to():
     constraints = {
         "canonical_by_alias": {

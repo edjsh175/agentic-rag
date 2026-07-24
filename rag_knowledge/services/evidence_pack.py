@@ -14,6 +14,12 @@ _KEY_VALUE_RE = re.compile(r"(?im)^\s*([A-Za-z][A-Za-z0-9_.-]{1,80})\s*(?:=|:|�
 _TLS_PORT_RE = re.compile(
     r"(?im)(?:tls(?:/dtls)?[-_\s]?listening[-_\s]?port|tls\s*端口)\s*(?:=|:|：|\||为|是)\s*(\d{2,5})"
 )
+_LATIN_SUBJECT_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{2,}")
+_CJK_SUBJECT_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
+_QUESTION_STOPWORDS = {
+    "什么", "怎么", "如何", "哪些", "哪个", "介绍", "一下", "属于", "区别",
+    "相关", "内容", "问题", "查询", "请问", "是否", "可以", "怎么用",
+}
 
 
 def citation_ids(answer: str) -> set[int]:
@@ -117,15 +123,117 @@ def _conflict_notice(sources: list[dict[str, Any]]) -> str:
     return "\n\n检测到同一配置项存在不同证据值：\n" + "\n".join(lines) + "\n请核对原文。"
 
 
+def question_subjects(question: str) -> list[str]:
+    """Extract coarse subject tokens from a question for grounded partial answers."""
+    text = (question or "").strip()
+    if not text:
+        return []
+    subjects: list[str] = []
+    seen: set[str] = set()
+    for match in _LATIN_SUBJECT_RE.findall(text):
+        key = match.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        subjects.append(match)
+    for match in _CJK_SUBJECT_RE.findall(text):
+        if match in _QUESTION_STOPWORDS:
+            continue
+        key = match.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        subjects.append(match)
+    return subjects
+
+
+def _doc_blob(source: dict[str, Any]) -> str:
+    meta = source.get("metadata") or {}
+    return " ".join(
+        [
+            str(source.get("content") or ""),
+            str(meta.get("section_path") or ""),
+            str(meta.get("section_title") or ""),
+            str(meta.get("source") or ""),
+            str(meta.get("file_name") or ""),
+        ]
+    ).casefold()
+
+
+def matching_context_docs(
+    question: str,
+    context_docs: list[dict[str, Any]],
+    *,
+    max_docs: int = 3,
+) -> list[dict[str, Any]]:
+    """Prefer context docs that mention question subjects; else keep top docs."""
+    docs = [doc for doc in (context_docs or []) if isinstance(doc, dict)]
+    if not docs:
+        return []
+    subjects = [s.casefold() for s in question_subjects(question)]
+    if subjects:
+        matched = [doc for doc in docs if any(subject in _doc_blob(doc) for subject in subjects)]
+        if matched:
+            return matched[:max_docs]
+    return docs[:max_docs]
+
+
+def build_partial_grounded_answer(
+    question: str,
+    context_docs: list[dict[str, Any]],
+) -> str | None:
+    """Rule-4 fallback: keep subject-related citations when the model omitted them."""
+    matched = matching_context_docs(question, context_docs)
+    if not matched:
+        return None
+    citation_ids_ordered: list[int] = []
+    section_hints: list[str] = []
+    for doc in matched:
+        meta = doc.get("metadata") or {}
+        try:
+            cid = int(meta.get("citation_id"))
+        except (TypeError, ValueError):
+            continue
+        if cid in citation_ids_ordered:
+            continue
+        citation_ids_ordered.append(cid)
+        hint = str(meta.get("section_path") or meta.get("section_title") or "").strip()
+        if hint and hint not in section_hints:
+            section_hints.append(hint)
+    if not citation_ids_ordered:
+        return None
+    subjects = question_subjects(question)
+    subject = subjects[0] if subjects else "该主题"
+    hint_text = "、".join(section_hints[:3]) if section_hints else "相关章节"
+    cites = "".join(f"[{cid}]" for cid in citation_ids_ordered)
+    aspect = (question or "").strip() or "该问题"
+    return (
+        f"知识库中查到了{subject}的部分相关内容（如{hint_text}），"
+        f"但未检索到关于「{aspect}」的完整说明。{cites}"
+    )
+
+
 def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]) -> str:
     """Prevent an uncited or completeness-sensitive answer from overclaiming."""
     answer = (answer or "").strip()
+    docs = [doc for doc in (context_docs or []) if isinstance(doc, dict)]
+
+    # If retrieval already hit subject-related chunks, never collapse to bare miss / uncited wipe.
+    if (not answer or answer == NO_KNOWLEDGE_ANSWER) and docs:
+        repaired = build_partial_grounded_answer(question, docs)
+        if repaired:
+            return repaired
+        return answer or NO_KNOWLEDGE_ANSWER
     if not answer or answer == NO_KNOWLEDGE_ANSWER:
         return answer or NO_KNOWLEDGE_ANSWER
-    cited = cited_sources(answer, context_docs)
+
+    cited = cited_sources(answer, docs)
     if not cited:
+        repaired = build_partial_grounded_answer(question, docs)
+        if repaired:
+            return repaired
         return "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。"
-    conflict_notice = _conflict_notice(context_docs)
+    conflict_notice = _conflict_notice(docs)
     if conflict_notice and "请核对原文" not in answer:
         answer += conflict_notice
     if _COMPLETE_RE.search(question or "") and "证据不足" not in answer and "未查询到" not in answer:

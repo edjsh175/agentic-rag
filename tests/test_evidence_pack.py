@@ -14,11 +14,31 @@ def test_evidence_pack_keeps_chunk_section_document_lineage_and_trim_reason():
     assert {v["value"] for v in pack["conflicts"][0]["values"]} == {"5439", "5349"}
 
 
-def test_governance_rejects_uncited_and_downgrades_complete_claim():
-    source = _source(1, "步骤一：安装")
-    assert "无法给出" in govern_answer("步骤一：安装", "如何安装？", [source])
+def test_governance_repairs_uncited_with_subject_context_and_downgrades_complete_claim():
+    source = _source(
+        1,
+        "PipelineBuilder 工程设置说明",
+        section_path="PipelineBuilder > 工程设置",
+    )
+    repaired = govern_answer("PipelineBuilder 属于工具层。", "PipelineBuilder 属于什么", [source])
+    assert "部分相关内容" in repaired
+    assert "[1]" in repaired
+    assert "无法给出" not in repaired
+
+    miss_repaired = govern_answer(
+        "当前知识库中未查询到相关内容。",
+        "介绍一下 StampManager",
+        [_source(2, "StampManager 部署步骤", section_path="Stamp服务部署 > StampManager部署")],
+    )
+    assert "StampManager" in miss_repaired
+    assert "[2]" in miss_repaired
+
     governed = govern_answer("完整流程如下：[1]", "完整安装流程是什么？", [source])
     assert "不能据此确认完整流程" in governed
+
+
+def test_governance_keeps_hard_fail_when_context_empty():
+    assert "无法给出" in govern_answer("步骤一：安装", "如何安装？", [])
 
 
 def test_governance_lists_conflicting_configuration_values_with_citations():

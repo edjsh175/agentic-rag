@@ -1,0 +1,6353 @@
+{
+  "matrix_version": "v5-coverage-matrix-v1",
+  "generated_at": "2026-07-24T06:18:35.630211+00:00",
+  "target_slots": 100,
+  "slot_count": 100,
+  "text_file_count": 59,
+  "files": [
+    {
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "chunk_count": 151,
+      "char_count": 71464,
+      "section_count": 59,
+      "sections": [
+        {
+          "section_key": "矢量数据入库 > EPSG编码",
+          "section_path_sample": "矢量数据入库 > EPSG编码",
+          "section_ids": [
+            "sec_523dff5061ad2108"
+          ],
+          "chunk_count": 4,
+          "char_count": 9438,
+          "best_chunk_id": "chk_4ff0ebe92eaf2c95b5187707"
+        },
+        {
+          "section_key": "运维管理配置 > 数据配置",
+          "section_path_sample": "运维管理配置 > 数据配置 > 数据配置",
+          "section_ids": [
+            "sec_8cefa5d9be39e249",
+            "sec_915dcc3b86e45ac1",
+            "sec_d71c4f1a1311977c",
+            "sec_d8fc233aa62979b1",
+            "sec_f6649e83a0b0997e"
+          ],
+          "chunk_count": 20,
+          "char_count": 9049,
+          "best_chunk_id": "chk_95d1b881e45c97b562c677de"
+        },
+        {
+          "section_key": "基础软件安装 > 基础软件安装",
+          "section_path_sample": "基础软件安装 > 基础软件安装 > （1）安装Redis",
+          "section_ids": [
+            "sec_02bac374e057f706",
+            "sec_64b19accef499dfd",
+            "sec_6aee85c481697865",
+            "sec_7f9b6411b0fe8fe4",
+            "sec_836ce83729048d29",
+            "sec_843b29d63de5f96f",
+            "sec_94e70c9cfdbc6b1d",
+            "sec_b2a94c61ac65ec99",
+            "sec_d63b37cee00d957a",
+            "sec_ebc8d2e2eff65f78",
+            "sec_f214f3799c488769",
+            "sec_f2cbd1636595add6"
+          ],
+          "chunk_count": 14,
+          "char_count": 4662,
+          "best_chunk_id": "chk_047df5598f2df80e8bf63f84"
+        },
+        {
+          "section_key": "应用系统部署 > WebRTC部署",
+          "section_path_sample": "应用系统部署 > WebRTC部署 > UDP外网部署",
+          "section_ids": [
+            "sec_139487eac422406d",
+            "sec_21e3883b0c741195"
+          ],
+          "chunk_count": 10,
+          "char_count": 4008,
+          "best_chunk_id": "chk_348f70a56dd7256d75dda8d5"
+        },
+        {
+          "section_key": "HTTPS配置 > 私有CA配置",
+          "section_path_sample": "HTTPS配置 > 私有CA配置 > 创建根CA",
+          "section_ids": [
+            "sec_0941cbb622b8b765",
+            "sec_4b46a7af03e94a03",
+            "sec_dc9483ae7e165139",
+            "sec_f479010826b1c073"
+          ],
+          "chunk_count": 10,
+          "char_count": 3770,
+          "best_chunk_id": "chk_3f8f0a54b56f704d9ba881c0"
+        },
+        {
+          "section_key": "Stamp服务部署 > Nginx代理设置",
+          "section_path_sample": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+          "section_ids": [
+            "sec_503e89d82f61a6f5",
+            "sec_555c9177b5b65d25",
+            "sec_587f718adb490f8b",
+            "sec_f8dcf73da48fd2f9"
+          ],
+          "chunk_count": 9,
+          "char_count": 3609,
+          "best_chunk_id": "chk_5ceae5af89cc81246a541eb5"
+        },
+        {
+          "section_key": "IPV6配置",
+          "section_path_sample": "IPV6配置",
+          "section_ids": [
+            "sec_4fbab69b021f2593"
+          ],
+          "chunk_count": 4,
+          "char_count": 1721,
+          "best_chunk_id": "chk_3992ac79284a52e24e0807e0"
+        },
+        {
+          "section_key": "Stamp服务部署",
+          "section_path_sample": "Stamp服务部署",
+          "section_ids": [
+            "sec_30dd11d808eed961"
+          ],
+          "chunk_count": 3,
+          "char_count": 1663,
+          "best_chunk_id": "chk_1528ea0c1092cefdf25c95a2"
+        },
+        {
+          "section_key": "操作系统安装 > 系统基础配置",
+          "section_path_sample": "操作系统安装 > 系统基础配置 > SSH设置",
+          "section_ids": [
+            "sec_0bf744ea150e6296",
+            "sec_61cdad3da6ee5bff",
+            "sec_776f4721324188c1",
+            "sec_a54fe3120b9d5c34"
+          ],
+          "chunk_count": 4,
+          "char_count": 1610,
+          "best_chunk_id": "chk_c7ea05f84480fe71e64db18e"
+        },
+        {
+          "section_key": "应用系统部署 > 系统网络拓扑",
+          "section_path_sample": "应用系统部署 > 系统网络拓扑 > 端口说明",
+          "section_ids": [
+            "sec_21e6e4593247f060",
+            "sec_b03a56d1925971d3"
+          ],
+          "chunk_count": 2,
+          "char_count": 1449,
+          "best_chunk_id": "chk_9b317d8155d2bd66db752022"
+        },
+        {
+          "section_key": "Stamp服务部署 > SignallingWebServer部署",
+          "section_path_sample": "Stamp服务部署 > SignallingWebServer部署 > 信令服务部署",
+          "section_ids": [
+            "sec_adf8b378b3ed1294",
+            "sec_ba5fd7fea5c7dfb4"
+          ],
+          "chunk_count": 2,
+          "char_count": 1414,
+          "best_chunk_id": "chk_9c898f9cd445a88019b5a1db"
+        },
+        {
+          "section_key": "运维管理配置",
+          "section_path_sample": "运维管理配置",
+          "section_ids": [
+            "sec_009984d98bb160cc"
+          ],
+          "chunk_count": 4,
+          "char_count": 1363,
+          "best_chunk_id": "chk_3a21a02ddee7107c1bb11ac5"
+        },
+        {
+          "section_key": "矢量数据入库",
+          "section_path_sample": "矢量数据入库",
+          "section_ids": [
+            "sec_08f7b44c51639e3a"
+          ],
+          "chunk_count": 3,
+          "char_count": 1338,
+          "best_chunk_id": "chk_e60ae2dc1b4162b5673121c3"
+        },
+        {
+          "section_key": "运维管理配置 > GB28181配置",
+          "section_path_sample": "运维管理配置 > GB28181配置",
+          "section_ids": [
+            "sec_42bc8d0279418d1e"
+          ],
+          "chunk_count": 3,
+          "char_count": 1331,
+          "best_chunk_id": "chk_49e034ad625c68094abccac7"
+        },
+        {
+          "section_key": "应用系统部署 > 多显卡大屏部署",
+          "section_path_sample": "应用系统部署 > 多显卡大屏部署 > 多显卡合并设置",
+          "section_ids": [
+            "sec_8cde1ff1802ef1f1",
+            "sec_c949108414efff59"
+          ],
+          "chunk_count": 2,
+          "char_count": 1273,
+          "best_chunk_id": "chk_c6b02cafa94e0797713adf58"
+        },
+        {
+          "section_key": "运维管理配置 > 服务设置",
+          "section_path_sample": "运维管理配置 > 服务设置 > 基础配置",
+          "section_ids": [
+            "sec_2e8ef6053f4aa007",
+            "sec_8a70c1bbd51a826a"
+          ],
+          "chunk_count": 2,
+          "char_count": 1260,
+          "best_chunk_id": "chk_b1df7c0b755720f0c6b2c95e"
+        },
+        {
+          "section_key": "基础软件安装 > 软件安装准备",
+          "section_path_sample": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+          "section_ids": [
+            "sec_0485a33f7546440e",
+            "sec_184df6688fd09c83",
+            "sec_2aece9ec8c47fa5b"
+          ],
+          "chunk_count": 3,
+          "char_count": 1216,
+          "best_chunk_id": "chk_08bc776b4783ecd8e8e9dd3d"
+        },
+        {
+          "section_key": "Stamp服务部署 > 3DTiles服务配置",
+          "section_path_sample": "Stamp服务部署 > 3DTiles服务配置",
+          "section_ids": [
+            "sec_50d566d622a5c0de"
+          ],
+          "chunk_count": 1,
+          "char_count": 1133,
+          "best_chunk_id": "chk_188269df6f4e195097e873e2"
+        },
+        {
+          "section_key": "Stamp服务部署 > Trunserver部署",
+          "section_path_sample": "Stamp服务部署 > Trunserver部署",
+          "section_ids": [
+            "sec_fc805e8e8050ee95"
+          ],
+          "chunk_count": 3,
+          "char_count": 1006,
+          "best_chunk_id": "chk_c34ad66325afcba11c01f91e"
+        },
+        {
+          "section_key": "Stamp服务部署 > GB28181服务配置",
+          "section_path_sample": "Stamp服务部署 > GB28181服务配置",
+          "section_ids": [
+            "sec_96987dd3a34aee9e"
+          ],
+          "chunk_count": 3,
+          "char_count": 999,
+          "best_chunk_id": "chk_4ed3c15f79c2ad5caad49a61"
+        },
+        {
+          "section_key": "应用系统部署",
+          "section_path_sample": "应用系统部署",
+          "section_ids": [
+            "sec_58cb6d74b59bddd6"
+          ],
+          "chunk_count": 2,
+          "char_count": 948,
+          "best_chunk_id": "chk_fd843157c4777cad208dc764"
+        },
+        {
+          "section_key": "MINIO部署",
+          "section_path_sample": "MINIO部署",
+          "section_ids": [
+            "sec_aca1609f9f61e097"
+          ],
+          "chunk_count": 2,
+          "char_count": 902,
+          "best_chunk_id": "chk_fb0a5baee995f880da44bf60"
+        },
+        {
+          "section_key": "Stamp服务部署 > I3S服务配置",
+          "section_path_sample": "Stamp服务部署 > I3S服务配置",
+          "section_ids": [
+            "sec_6e45e25a9076f9b8"
+          ],
+          "chunk_count": 2,
+          "char_count": 894,
+          "best_chunk_id": "chk_cefcb0faf64596233176ec43"
+        },
+        {
+          "section_key": "HTTPS配置 > 私有域名配置",
+          "section_path_sample": "HTTPS配置 > 私有域名配置 > 获取Mac地址",
+          "section_ids": [
+            "sec_3d0ef5346c9c6d06",
+            "sec_b02a98f8cd4a2f27"
+          ],
+          "chunk_count": 2,
+          "char_count": 724,
+          "best_chunk_id": "chk_ed75318f72bcf6b139400fec"
+        },
+        {
+          "section_key": "Stamp服务部署 > 三维数据库服务",
+          "section_path_sample": "Stamp服务部署 > 三维数据库服务",
+          "section_ids": [
+            "sec_fa43320eb3fc7c02"
+          ],
+          "chunk_count": 2,
+          "char_count": 700,
+          "best_chunk_id": "chk_f5b246394d2b12a0e4dcb6cb"
+        },
+        {
+          "section_key": "运维管理配置 > 运动物体配置",
+          "section_path_sample": "运维管理配置 > 运动物体配置",
+          "section_ids": [
+            "sec_ae57fcd1f7b48c3d"
+          ],
+          "chunk_count": 1,
+          "char_count": 660,
+          "best_chunk_id": "chk_84d360c2dcb66ae27b7d1b4e"
+        },
+        {
+          "section_key": "操作系统安装",
+          "section_path_sample": "操作系统安装",
+          "section_ids": [
+            "sec_ce60564696e29c8e"
+          ],
+          "chunk_count": 2,
+          "char_count": 641,
+          "best_chunk_id": "chk_0f1ce3a8585752046eafa97d"
+        },
+        {
+          "section_key": "Stamp服务部署 > 管线更新服务",
+          "section_path_sample": "Stamp服务部署 > 管线更新服务",
+          "section_ids": [
+            "sec_702d7d6af2f8f56c"
+          ],
+          "chunk_count": 1,
+          "char_count": 635,
+          "best_chunk_id": "chk_3e4c0791be4bc67e322cd44c"
+        },
+        {
+          "section_key": "Stamp服务部署 > StampNodeServer部署",
+          "section_path_sample": "Stamp服务部署 > StampNodeServer部署",
+          "section_ids": [
+            "sec_0c979f764111f7bd"
+          ],
+          "chunk_count": 1,
+          "char_count": 541,
+          "best_chunk_id": "chk_6f80c5b187ae5acfb4221b19"
+        },
+        {
+          "section_key": "Stamp服务部署 > Apache数据服务",
+          "section_path_sample": "Stamp服务部署 > Apache数据服务",
+          "section_ids": [
+            "sec_7bb470292d96a230"
+          ],
+          "chunk_count": 1,
+          "char_count": 527,
+          "best_chunk_id": "chk_1d72515ac64bfe339b600c63"
+        },
+        {
+          "section_key": "Stamp服务部署 > 倾斜发布服务",
+          "section_path_sample": "Stamp服务部署 > 倾斜发布服务",
+          "section_ids": [
+            "sec_1662f0025023a06c"
+          ],
+          "chunk_count": 1,
+          "char_count": 504,
+          "best_chunk_id": "chk_31e22159c54f3a8a46fa9ea1"
+        },
+        {
+          "section_key": "Stamp服务部署 > 服务部署准备",
+          "section_path_sample": "Stamp服务部署 > 服务部署准备 > 权限设置",
+          "section_ids": [
+            "sec_9bd09b98588bde9b"
+          ],
+          "chunk_count": 1,
+          "char_count": 476,
+          "best_chunk_id": "chk_fcc1e75b13c2b6b81e62564f"
+        },
+        {
+          "section_key": "Stamp服务部署 > 矢量编辑服务",
+          "section_path_sample": "Stamp服务部署 > 矢量编辑服务",
+          "section_ids": [
+            "sec_fe1271dc9081c048"
+          ],
+          "chunk_count": 1,
+          "char_count": 466,
+          "best_chunk_id": "chk_2b51529cdf19bd32eb03acf4"
+        },
+        {
+          "section_key": "Stamp服务部署 > 工程地质服务",
+          "section_path_sample": "Stamp服务部署 > 工程地质服务",
+          "section_ids": [
+            "sec_961bd74ff561fe7e"
+          ],
+          "chunk_count": 1,
+          "char_count": 464,
+          "best_chunk_id": "chk_1df5602a1fa74c8406a069d1"
+        },
+        {
+          "section_key": "操作系统安装 > Rocky安装",
+          "section_path_sample": "操作系统安装 > Rocky安装 > 语言设置",
+          "section_ids": [
+            "sec_75e24f963d502d6a"
+          ],
+          "chunk_count": 1,
+          "char_count": 463,
+          "best_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc"
+        },
+        {
+          "section_key": "Stamp服务部署 > 矢量瓦片服务",
+          "section_path_sample": "Stamp服务部署 > 矢量瓦片服务",
+          "section_ids": [
+            "sec_42667ca6aeef5fcb"
+          ],
+          "chunk_count": 1,
+          "char_count": 450,
+          "best_chunk_id": "chk_c39e3f7a89a912501026d960"
+        },
+        {
+          "section_key": "Stamp服务部署 > 三维数据库更新服务",
+          "section_path_sample": "Stamp服务部署 > 三维数据库更新服务",
+          "section_ids": [
+            "sec_b12e344b9f0534c1"
+          ],
+          "chunk_count": 1,
+          "char_count": 447,
+          "best_chunk_id": "chk_c04599937d55cf6a38137c0f"
+        },
+        {
+          "section_key": "Stamp服务部署 > 管线分析服务",
+          "section_path_sample": "Stamp服务部署 > 管线分析服务",
+          "section_ids": [
+            "sec_268df927ca698a14"
+          ],
+          "chunk_count": 1,
+          "char_count": 446,
+          "best_chunk_id": "chk_3d74f6770602bddbded56c8b"
+        },
+        {
+          "section_key": "Stamp服务部署 > 三维搜索服务",
+          "section_path_sample": "Stamp服务部署 > 三维搜索服务",
+          "section_ids": [
+            "sec_a9ba445b616f3a0d"
+          ],
+          "chunk_count": 1,
+          "char_count": 438,
+          "best_chunk_id": "chk_be8144817a3ada7ca50b0741"
+        },
+        {
+          "section_key": "Stamp服务部署 > 管线查询服务",
+          "section_path_sample": "Stamp服务部署 > 管线查询服务",
+          "section_ids": [
+            "sec_f10919b36f26cd41"
+          ],
+          "chunk_count": 1,
+          "char_count": 424,
+          "best_chunk_id": "chk_08034b82ec212b9142e713c5"
+        },
+        {
+          "section_key": "Stamp服务部署 > 管线发布服务",
+          "section_path_sample": "Stamp服务部署 > 管线发布服务",
+          "section_ids": [
+            "sec_f6f3ac2bd5f54c9e"
+          ],
+          "chunk_count": 1,
+          "char_count": 411,
+          "best_chunk_id": "chk_24fc2ef9fe8665bda94f90b5"
+        },
+        {
+          "section_key": "矢量数据入库 > PostGIS Bundle",
+          "section_path_sample": "矢量数据入库 > PostGIS Bundle",
+          "section_ids": [
+            "sec_ff960052757adc25"
+          ],
+          "chunk_count": 1,
+          "char_count": 408,
+          "best_chunk_id": "chk_87a0df41a0cabf7c0ee0f4c1"
+        },
+        {
+          "section_key": "Stamp服务部署 > 部件发布服务",
+          "section_path_sample": "Stamp服务部署 > 部件发布服务",
+          "section_ids": [
+            "sec_e4c03e9064222432"
+          ],
+          "chunk_count": 1,
+          "char_count": 394,
+          "best_chunk_id": "chk_163e7336b1d589dad5a1d68a"
+        },
+        {
+          "section_key": "Stamp服务部署 > Mesh转换服务",
+          "section_path_sample": "Stamp服务部署 > Mesh转换服务",
+          "section_ids": [
+            "sec_3c134132065118b2"
+          ],
+          "chunk_count": 1,
+          "char_count": 385,
+          "best_chunk_id": "chk_999c660fd10205ddc47a1f85"
+        },
+        {
+          "section_key": "Stamp服务部署 > 三维分析服务",
+          "section_path_sample": "Stamp服务部署 > 三维分析服务",
+          "section_ids": [
+            "sec_224e9d092078f9a2"
+          ],
+          "chunk_count": 1,
+          "char_count": 379,
+          "best_chunk_id": "chk_63a6d9234085c75288d9cd9d"
+        },
+        {
+          "section_key": "2）USB授权锁",
+          "section_path_sample": "2）USB授权锁",
+          "section_ids": [
+            "sec_5f1ba3da7b76668f"
+          ],
+          "chunk_count": 1,
+          "char_count": 375,
+          "best_chunk_id": "chk_083442f82f9097fac48465c4"
+        },
+        {
+          "section_key": "Stamp服务部署 > 网络分析服务",
+          "section_path_sample": "Stamp服务部署 > 网络分析服务",
+          "section_ids": [
+            "sec_b3e42603d8b18664"
+          ],
+          "chunk_count": 1,
+          "char_count": 371,
+          "best_chunk_id": "chk_05346d1f09fb96cfb102abb7"
+        },
+        {
+          "section_key": "Stamp服务部署 > 授权服务",
+          "section_path_sample": "Stamp服务部署 > 授权服务",
+          "section_ids": [
+            "sec_f837661da1b55a6a"
+          ],
+          "chunk_count": 1,
+          "char_count": 368,
+          "best_chunk_id": "chk_b415638bfc67d636fe42da24"
+        },
+        {
+          "section_key": "Stamp服务部署 > StampManager部署",
+          "section_path_sample": "Stamp服务部署 > StampManager部署",
+          "section_ids": [
+            "sec_29ec1d0f784da0ac"
+          ],
+          "chunk_count": 1,
+          "char_count": 366,
+          "best_chunk_id": "chk_f5c82e09be2aca1d905bb7e9"
+        },
+        {
+          "section_key": "基础软件安装",
+          "section_path_sample": "基础软件安装",
+          "section_ids": [
+            "sec_07e8da8f6a7d3f92"
+          ],
+          "chunk_count": 1,
+          "char_count": 362,
+          "best_chunk_id": "chk_9d1da9dd7b6a593a1d6ce19e"
+        },
+        {
+          "section_key": "Stamp服务部署 > 模型LOD发布服务",
+          "section_path_sample": "Stamp服务部署 > 模型LOD发布服务",
+          "section_ids": [
+            "sec_82277c3b66f0bfa2"
+          ],
+          "chunk_count": 1,
+          "char_count": 355,
+          "best_chunk_id": "chk_96b02e2e1e2b77593a906f77"
+        },
+        {
+          "section_key": "Stamp服务部署 > 地形切割服务",
+          "section_path_sample": "Stamp服务部署 > 地形切割服务",
+          "section_ids": [
+            "sec_e91109d37046e0cf"
+          ],
+          "chunk_count": 1,
+          "char_count": 346,
+          "best_chunk_id": "chk_d6db5417a609c9e550a6abf5"
+        },
+        {
+          "section_key": "MINIO部署 > 挂载磁盘",
+          "section_path_sample": "MINIO部署 > 挂载磁盘 > 添加磁盘",
+          "section_ids": [
+            "sec_cc5a77a00034b5cc"
+          ],
+          "chunk_count": 1,
+          "char_count": 336,
+          "best_chunk_id": "chk_c9b87e4dd2d3e5325d1b5d62"
+        },
+        {
+          "section_key": "操作系统安装 > 创建虚拟机",
+          "section_path_sample": "操作系统安装 > 创建虚拟机 > 安装模式",
+          "section_ids": [
+            "sec_f3a81ff9c2f84ed5"
+          ],
+          "chunk_count": 1,
+          "char_count": 332,
+          "best_chunk_id": "chk_e4a87f564f78dbe94a629ae2"
+        },
+        {
+          "section_key": "Stamp服务部署 > Port服务",
+          "section_path_sample": "Stamp服务部署 > Port服务",
+          "section_ids": [
+            "sec_ccf7b3c3c16f15c6"
+          ],
+          "chunk_count": 1,
+          "char_count": 325,
+          "best_chunk_id": "chk_65cf7e9a94c10e13b5d56103"
+        },
+        {
+          "section_key": "Stamp服务部署 > ROAM发布服务",
+          "section_path_sample": "Stamp服务部署 > ROAM发布服务",
+          "section_ids": [
+            "sec_66311442199aa1e4"
+          ],
+          "chunk_count": 1,
+          "char_count": 322,
+          "best_chunk_id": "chk_e280a09e83ec024e5c7932aa"
+        },
+        {
+          "section_key": "常见错误",
+          "section_path_sample": "常见错误",
+          "section_ids": [
+            "sec_12376c731a4186a6"
+          ],
+          "chunk_count": 1,
+          "char_count": 241,
+          "best_chunk_id": "chk_3270c5305a94838e0ded1684"
+        },
+        {
+          "section_key": "运维管理配置 > 用户登录",
+          "section_path_sample": "运维管理配置 > 用户登录",
+          "section_ids": [
+            "sec_a7d70aa04fa5da75"
+          ],
+          "chunk_count": 1,
+          "char_count": 226,
+          "best_chunk_id": "chk_fe6d43d6f3527433ad446163"
+        },
+        {
+          "section_key": "1）授权文件",
+          "section_path_sample": "1）授权文件",
+          "section_ids": [
+            "sec_a18800142b6c59c2"
+          ],
+          "chunk_count": 1,
+          "char_count": 100,
+          "best_chunk_id": "chk_b02d0bcc56e588abadc002f4"
+        }
+      ]
+    },
+    {
+      "source": "StampTools用户手册.docx",
+      "doc_category": "StampTools",
+      "chunk_count": 59,
+      "char_count": 29645,
+      "section_count": 34,
+      "sections": [
+        {
+          "section_key": "工具概述 > EPSG编码",
+          "section_path_sample": "工具概述 > EPSG编码 > 地理坐标编码",
+          "section_ids": [
+            "sec_3ecd783f6021333b",
+            "sec_963e4dde2fec109c"
+          ],
+          "chunk_count": 3,
+          "char_count": 3654,
+          "best_chunk_id": "chk_98389046eb19231623ec0217"
+        },
+        {
+          "section_key": "PipelineBuilder > 数据规范",
+          "section_path_sample": "PipelineBuilder > 数据规范 > 管线点表",
+          "section_ids": [
+            "sec_466d56a3443be95d",
+            "sec_5d633bcaa3f4aa4a",
+            "sec_fe20b4a695c94279"
+          ],
+          "chunk_count": 3,
+          "char_count": 1895,
+          "best_chunk_id": "chk_689627c0e8b401328246ad70"
+        },
+        {
+          "section_key": "PipelineBuilder > 值域映射",
+          "section_path_sample": "PipelineBuilder > 值域映射",
+          "section_ids": [
+            "sec_244349ece6a7fdb8"
+          ],
+          "chunk_count": 4,
+          "char_count": 1724,
+          "best_chunk_id": "chk_6a48b2478bcb8310df9afd89"
+        },
+        {
+          "section_key": "ModelBuilder > 数据设置",
+          "section_path_sample": "ModelBuilder > 数据设置",
+          "section_ids": [
+            "sec_9ef2a3db12a32bbd"
+          ],
+          "chunk_count": 3,
+          "char_count": 1363,
+          "best_chunk_id": "chk_eebe58628fd6a15560bba1e8"
+        },
+        {
+          "section_key": "ModelBuilder > 数据规范",
+          "section_path_sample": "ModelBuilder > 数据规范 > 数据格式",
+          "section_ids": [
+            "sec_1690a2fa0fcddc6b",
+            "sec_6f35960e07f550fc",
+            "sec_a1d15026ef6e1757"
+          ],
+          "chunk_count": 3,
+          "char_count": 1349,
+          "best_chunk_id": "chk_9ad5b0a23bca33294c056fe6"
+        },
+        {
+          "section_key": "PipelineBuilder > 数据设置",
+          "section_path_sample": "PipelineBuilder > 数据设置",
+          "section_ids": [
+            "sec_c80a816ef6c5f5a6"
+          ],
+          "chunk_count": 1,
+          "char_count": 1196,
+          "best_chunk_id": "chk_c9b0c0e3b0a6601d2259ddce"
+        },
+        {
+          "section_key": "UEModelBuilder > UEModelBuilder",
+          "section_path_sample": "UEModelBuilder > UEModelBuilder > 工程设置",
+          "section_ids": [
+            "sec_921d1d883764bf59",
+            "sec_d15d8926f2efbfa8"
+          ],
+          "chunk_count": 2,
+          "char_count": 1168,
+          "best_chunk_id": "chk_d09991faa6b6cfd5ee44b301"
+        },
+        {
+          "section_key": "工具概述 > 空间参考",
+          "section_path_sample": "工具概述 > 空间参考 > 投影参数",
+          "section_ids": [
+            "sec_42dc6b9aa0b67d52",
+            "sec_455f2e61d6c0211e"
+          ],
+          "chunk_count": 2,
+          "char_count": 1163,
+          "best_chunk_id": "chk_122f64d8eb10669555444d37"
+        },
+        {
+          "section_key": "PipelineBuilder > 材质设置",
+          "section_path_sample": "PipelineBuilder > 材质设置",
+          "section_ids": [
+            "sec_13878cbf6ec7b71c"
+          ],
+          "chunk_count": 1,
+          "char_count": 1153,
+          "best_chunk_id": "chk_c72dba9a9160b45bb9997959"
+        },
+        {
+          "section_key": "TerrainBuilder > TINIncise",
+          "section_path_sample": "TerrainBuilder > TINIncise > 数据设置",
+          "section_ids": [
+            "sec_3823319930b3959e",
+            "sec_3eb9c4ef1046b80a"
+          ],
+          "chunk_count": 2,
+          "char_count": 1146,
+          "best_chunk_id": "chk_08562885db70e831d9ad2b87"
+        },
+        {
+          "section_key": "ObliqueModelBuilder > 数据设置",
+          "section_path_sample": "ObliqueModelBuilder > 数据设置",
+          "section_ids": [
+            "sec_79e9717576ef4b0e"
+          ],
+          "chunk_count": 1,
+          "char_count": 1127,
+          "best_chunk_id": "chk_bd911fdf929e2cf6702b31df"
+        },
+        {
+          "section_key": "TerrainBuilder > DOMBuilder",
+          "section_path_sample": "TerrainBuilder > DOMBuilder > 工程设置",
+          "section_ids": [
+            "sec_7136ee38aee5b2c7",
+            "sec_80322b95b66a2ca5",
+            "sec_b700fabab21ecbd0"
+          ],
+          "chunk_count": 3,
+          "char_count": 1061,
+          "best_chunk_id": "chk_bec36117ad75128a535e7c74"
+        },
+        {
+          "section_key": "UEModelBuilder > UE导出插件",
+          "section_path_sample": "UEModelBuilder > UE导出插件 > 导出非复用模型",
+          "section_ids": [
+            "sec_0d7c53c947045d9d",
+            "sec_a487aaf63774371b",
+            "sec_f98ab937cd27326e"
+          ],
+          "chunk_count": 3,
+          "char_count": 1036,
+          "best_chunk_id": "chk_42cb988c14a78a05e5206718"
+        },
+        {
+          "section_key": "TerrainBuilder",
+          "section_path_sample": "TerrainBuilder",
+          "section_ids": [
+            "sec_0744eac63934cbbe"
+          ],
+          "chunk_count": 2,
+          "char_count": 957,
+          "best_chunk_id": "chk_d70d37bfeb06c7c31ab0c9e1"
+        },
+        {
+          "section_key": "工具概述",
+          "section_path_sample": "工具概述",
+          "section_ids": [
+            "sec_f6096ea6be452fed"
+          ],
+          "chunk_count": 3,
+          "char_count": 949,
+          "best_chunk_id": "chk_d90ecf300974a6e61278dcef"
+        },
+        {
+          "section_key": "ModelBuilder > 工程设置",
+          "section_path_sample": "ModelBuilder > 工程设置",
+          "section_ids": [
+            "sec_19dba0cb8137dd91"
+          ],
+          "chunk_count": 1,
+          "char_count": 909,
+          "best_chunk_id": "chk_e2b4f94fed46c5fd10f45784"
+        },
+        {
+          "section_key": "UEModelBuilder > UE蓝图支持说明",
+          "section_path_sample": "UEModelBuilder > UE蓝图支持说明 > 时间轴",
+          "section_ids": [
+            "sec_a959298a4274cbc7",
+            "sec_de57876fe008ebd0"
+          ],
+          "chunk_count": 2,
+          "char_count": 850,
+          "best_chunk_id": "chk_59e4f002bc233bc0d6a3bf84"
+        },
+        {
+          "section_key": "TerrainBuilder > DEMBuilder",
+          "section_path_sample": "TerrainBuilder > DEMBuilder > 工程设置",
+          "section_ids": [
+            "sec_28792dc1ce95e845",
+            "sec_7a873042a5e29e13"
+          ],
+          "chunk_count": 2,
+          "char_count": 828,
+          "best_chunk_id": "chk_481528457633084a9f7482d9"
+        },
+        {
+          "section_key": "ModelBuilder",
+          "section_path_sample": "ModelBuilder",
+          "section_ids": [
+            "sec_4fc07bf1493fb2b5"
+          ],
+          "chunk_count": 1,
+          "char_count": 729,
+          "best_chunk_id": "chk_ec50a71e798d586e007cd9df"
+        },
+        {
+          "section_key": "UEModelBuilder",
+          "section_path_sample": "UEModelBuilder",
+          "section_ids": [
+            "sec_48a0755289f1920f"
+          ],
+          "chunk_count": 2,
+          "char_count": 594,
+          "best_chunk_id": "chk_147f31e8cc772f415367acc9"
+        },
+        {
+          "section_key": "工具概述 > Cesium加载3DTiles",
+          "section_path_sample": "工具概述 > Cesium加载3DTiles > WebGL版本设置",
+          "section_ids": [
+            "sec_30c510c2b0f4162b",
+            "sec_c3c2b54b285c7b6c"
+          ],
+          "chunk_count": 2,
+          "char_count": 523,
+          "best_chunk_id": "chk_7f468a171613e9d4dcb58257"
+        },
+        {
+          "section_key": "ObliqueModelBuilder",
+          "section_path_sample": "ObliqueModelBuilder",
+          "section_ids": [
+            "sec_2781108dd69fa5cd"
+          ],
+          "chunk_count": 1,
+          "char_count": 460,
+          "best_chunk_id": "chk_8dcec6a2097479129457ca61"
+        },
+        {
+          "section_key": "ObliqueModelBuilder > 工程设置",
+          "section_path_sample": "ObliqueModelBuilder > 工程设置",
+          "section_ids": [
+            "sec_b933e1fdf041265b"
+          ],
+          "chunk_count": 1,
+          "char_count": 458,
+          "best_chunk_id": "chk_d93e36139c304b9368264b0b"
+        },
+        {
+          "section_key": "点云数据处理工具",
+          "section_path_sample": "点云数据处理工具",
+          "section_ids": [
+            "sec_4238f09db59e9204"
+          ],
+          "chunk_count": 1,
+          "char_count": 440,
+          "best_chunk_id": "chk_347b3ce1153872357f4a9916"
+        },
+        {
+          "section_key": "TerrainBuilder > 数据规范",
+          "section_path_sample": "TerrainBuilder > 数据规范",
+          "section_ids": [
+            "sec_42cf408addff3e19"
+          ],
+          "chunk_count": 1,
+          "char_count": 420,
+          "best_chunk_id": "chk_a5915f9ca40b0f65b3b1a109"
+        },
+        {
+          "section_key": "PipelineBuilder > 字段映射",
+          "section_path_sample": "PipelineBuilder > 字段映射",
+          "section_ids": [
+            "sec_d68bc529ec72e42a"
+          ],
+          "chunk_count": 1,
+          "char_count": 409,
+          "best_chunk_id": "chk_70479adf0b67ace99818a6ca"
+        },
+        {
+          "section_key": "工具概述 > 瓦片级别",
+          "section_path_sample": "工具概述 > 瓦片级别",
+          "section_ids": [
+            "sec_b1d196b9d60c1bcf"
+          ],
+          "chunk_count": 1,
+          "char_count": 402,
+          "best_chunk_id": "chk_412d9a70e55cc4b60d183583"
+        },
+        {
+          "section_key": "TerrainBuilder > TINBuilder",
+          "section_path_sample": "TerrainBuilder > TINBuilder > 数据设置",
+          "section_ids": [
+            "sec_6893d597ad3bc6fa"
+          ],
+          "chunk_count": 1,
+          "char_count": 373,
+          "best_chunk_id": "chk_4d50f34840d9cf6624ff505d"
+        },
+        {
+          "section_key": "UEModelBuilder > UE材质集添加蓝图",
+          "section_path_sample": "UEModelBuilder > UE材质集添加蓝图 > 新建蓝图",
+          "section_ids": [
+            "sec_35c9d92968296a41"
+          ],
+          "chunk_count": 1,
+          "char_count": 351,
+          "best_chunk_id": "chk_ac67afa3dc8f361bde6081c5"
+        },
+        {
+          "section_key": "加密锁驱动安装",
+          "section_path_sample": "加密锁驱动安装",
+          "section_ids": [
+            "sec_b6aa5b81ce59ac4c"
+          ],
+          "chunk_count": 1,
+          "char_count": 261,
+          "best_chunk_id": "chk_a6b107a532087c2a68b0dade"
+        },
+        {
+          "section_key": "PipelineBuilder > 工程设置",
+          "section_path_sample": "PipelineBuilder > 工程设置",
+          "section_ids": [
+            "sec_525b05c75e512f74"
+          ],
+          "chunk_count": 1,
+          "char_count": 229,
+          "best_chunk_id": "chk_de4a0af528520aaebfda14fc"
+        },
+        {
+          "section_key": "点云数据处理工具 > 数据规范",
+          "section_path_sample": "点云数据处理工具 > 数据规范",
+          "section_ids": [
+            "sec_2ff062afc2856bac"
+          ],
+          "chunk_count": 1,
+          "char_count": 216,
+          "best_chunk_id": "chk_1129392efbcf4c4e8273164b"
+        },
+        {
+          "section_key": "ObliqueModelBuilder > 数据规范",
+          "section_path_sample": "ObliqueModelBuilder > 数据规范",
+          "section_ids": [
+            "sec_6ebb697508f1e831"
+          ],
+          "chunk_count": 1,
+          "char_count": 133,
+          "best_chunk_id": "chk_9873d53f4aca33629a7f8e5d"
+        },
+        {
+          "section_key": "PipelineBuilder > 生成数据",
+          "section_path_sample": "PipelineBuilder > 生成数据",
+          "section_ids": [
+            "sec_fcf1ab75819b5ae0"
+          ],
+          "chunk_count": 1,
+          "char_count": 119,
+          "best_chunk_id": "chk_9804784ed5527cf7a7ee381c"
+        }
+      ]
+    },
+    {
+      "source": "StampWebGL用户手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 64,
+      "char_count": 25076,
+      "section_count": 28,
+      "sections": [
+        {
+          "section_key": "分析",
+          "section_path_sample": "分析",
+          "section_ids": [
+            "sec_ad2c2eb9cbda96a4"
+          ],
+          "chunk_count": 13,
+          "char_count": 4964,
+          "best_chunk_id": "chk_0dddbcbabc28962f559e1797"
+        },
+        {
+          "section_key": "场景",
+          "section_path_sample": "场景",
+          "section_ids": [
+            "sec_1bebbc41117805e7"
+          ],
+          "chunk_count": 9,
+          "char_count": 3643,
+          "best_chunk_id": "chk_1e50c232e9411f95fc11d17b"
+        },
+        {
+          "section_key": "场景 > 数据发布",
+          "section_path_sample": "场景 > 数据发布",
+          "section_ids": [
+            "sec_144949c01c3696d2"
+          ],
+          "chunk_count": 6,
+          "char_count": 2551,
+          "best_chunk_id": "chk_653eed73d10cfa038c7c9e73"
+        },
+        {
+          "section_key": "标绘",
+          "section_path_sample": "标绘",
+          "section_ids": [
+            "sec_349407e89adac114"
+          ],
+          "chunk_count": 3,
+          "char_count": 1481,
+          "best_chunk_id": "chk_ce5500bbfc9403909b101a34"
+        },
+        {
+          "section_key": "标绘 > 军事标绘",
+          "section_path_sample": "标绘 > 军事标绘",
+          "section_ids": [
+            "sec_cca21ebe316332c4"
+          ],
+          "chunk_count": 3,
+          "char_count": 1255,
+          "best_chunk_id": "chk_8501fa5b3d930f274d35a522"
+        },
+        {
+          "section_key": "编辑",
+          "section_path_sample": "编辑",
+          "section_ids": [
+            "sec_e8206fe4021e93bf"
+          ],
+          "chunk_count": 3,
+          "char_count": 1031,
+          "best_chunk_id": "chk_63ec89eb93e667505f436d94"
+        },
+        {
+          "section_key": "标绘 > 几何对象绘制",
+          "section_path_sample": "标绘 > 几何对象绘制",
+          "section_ids": [
+            "sec_fa9e8fd887046b64"
+          ],
+          "chunk_count": 1,
+          "char_count": 1030,
+          "best_chunk_id": "chk_5a6d8f13dd7af760b577126c"
+        },
+        {
+          "section_key": "场景 > 飞行路径",
+          "section_path_sample": "场景 > 飞行路径",
+          "section_ids": [
+            "sec_af48f8fcbb2b09ab"
+          ],
+          "chunk_count": 1,
+          "char_count": 1021,
+          "best_chunk_id": "chk_3a2e4a0e83edf358c5732753"
+        },
+        {
+          "section_key": "标绘 > 二维对象绘制",
+          "section_path_sample": "标绘 > 二维对象绘制",
+          "section_ids": [
+            "sec_7941a1ed0c5d5479"
+          ],
+          "chunk_count": 1,
+          "char_count": 761,
+          "best_chunk_id": "chk_78aa3a22a459948d4b1543ec"
+        },
+        {
+          "section_key": "查询",
+          "section_path_sample": "查询",
+          "section_ids": [
+            "sec_5bd50e6de4c69209"
+          ],
+          "chunk_count": 2,
+          "char_count": 746,
+          "best_chunk_id": "chk_d33b45998861f7eefeed368c"
+        },
+        {
+          "section_key": "量算",
+          "section_path_sample": "量算",
+          "section_ids": [
+            "sec_ca2b416bec72b56e"
+          ],
+          "chunk_count": 2,
+          "char_count": 652,
+          "best_chunk_id": "chk_cc3b0953a68f0de48b9b3b42"
+        },
+        {
+          "section_key": "概述 > 基本操作",
+          "section_path_sample": "概述 > 基本操作 > 鼠标",
+          "section_ids": [
+            "sec_03db6ffa1c285cb8",
+            "sec_c80d02fa8cd67e89"
+          ],
+          "chunk_count": 2,
+          "char_count": 624,
+          "best_chunk_id": "chk_88ef47bb8a803e6f6fde0cde"
+        },
+        {
+          "section_key": "快捷菜单",
+          "section_path_sample": "快捷菜单",
+          "section_ids": [
+            "sec_cf49ef81bcd72fee"
+          ],
+          "chunk_count": 2,
+          "char_count": 549,
+          "best_chunk_id": "chk_041b6c005108ea278dff4663"
+        },
+        {
+          "section_key": "分析 > 挖填方分析",
+          "section_path_sample": "分析 > 挖填方分析",
+          "section_ids": [
+            "sec_2de5ebc7cb8ff0f5"
+          ],
+          "chunk_count": 1,
+          "char_count": 517,
+          "best_chunk_id": "chk_d47b1f8437155e5c3fab373f"
+        },
+        {
+          "section_key": "场景 > 场景漫游",
+          "section_path_sample": "场景 > 场景漫游",
+          "section_ids": [
+            "sec_dcaed32c29ce1e0d"
+          ],
+          "chunk_count": 1,
+          "char_count": 455,
+          "best_chunk_id": "chk_8dc07075290aea5b3470b893"
+        },
+        {
+          "section_key": "钻孔",
+          "section_path_sample": "钻孔",
+          "section_ids": [
+            "sec_c63add67c1f9e764"
+          ],
+          "chunk_count": 2,
+          "char_count": 453,
+          "best_chunk_id": "chk_1bb1fdf8f9dbb4fe1293d4ba"
+        },
+        {
+          "section_key": "概述",
+          "section_path_sample": "概述",
+          "section_ids": [
+            "sec_fca05b758c5edb27"
+          ],
+          "chunk_count": 1,
+          "char_count": 414,
+          "best_chunk_id": "chk_75cb8b16ae2b4478263d75b0"
+        },
+        {
+          "section_key": "场景 > 路径漫游",
+          "section_path_sample": "场景 > 路径漫游",
+          "section_ids": [
+            "sec_fbd1533ed4155408"
+          ],
+          "chunk_count": 1,
+          "char_count": 386,
+          "best_chunk_id": "chk_615c5fa8cfb5069123789c3d"
+        },
+        {
+          "section_key": "分析 > 剖切分析",
+          "section_path_sample": "分析 > 剖切分析",
+          "section_ids": [
+            "sec_623e24bbd19f7068"
+          ],
+          "chunk_count": 1,
+          "char_count": 372,
+          "best_chunk_id": "chk_63677934850cb90fd88b0f2d"
+        },
+        {
+          "section_key": "分析 > 淹没分析",
+          "section_path_sample": "分析 > 淹没分析",
+          "section_ids": [
+            "sec_349abc7c6547da80"
+          ],
+          "chunk_count": 1,
+          "char_count": 343,
+          "best_chunk_id": "chk_52699483eabf35cd06776265"
+        },
+        {
+          "section_key": "场景 > 双屏比对",
+          "section_path_sample": "场景 > 双屏比对",
+          "section_ids": [
+            "sec_c68512ae86183eb7"
+          ],
+          "chunk_count": 1,
+          "char_count": 336,
+          "best_chunk_id": "chk_c233f06c5d8f1a871720416f"
+        },
+        {
+          "section_key": "分析 > 动态视域",
+          "section_path_sample": "分析 > 动态视域",
+          "section_ids": [
+            "sec_ed8ae546cc5d6214"
+          ],
+          "chunk_count": 1,
+          "char_count": 325,
+          "best_chunk_id": "chk_236efab29f382aa8b58746f2"
+        },
+        {
+          "section_key": "查询 > 属性查询",
+          "section_path_sample": "查询 > 属性查询",
+          "section_ids": [
+            "sec_5d6c93c2d23b8f85"
+          ],
+          "chunk_count": 1,
+          "char_count": 313,
+          "best_chunk_id": "chk_9515ab309c313d0dc8cef596"
+        },
+        {
+          "section_key": "标绘 > 三维对象添加",
+          "section_path_sample": "标绘 > 三维对象添加",
+          "section_ids": [
+            "sec_fc6f05c6963ff16e"
+          ],
+          "chunk_count": 1,
+          "char_count": 249,
+          "best_chunk_id": "chk_bcb36b167914bf936fbb979f"
+        },
+        {
+          "section_key": "场景 > 视点管理",
+          "section_path_sample": "场景 > 视点管理",
+          "section_ids": [
+            "sec_0b7743233d709d3e"
+          ],
+          "chunk_count": 1,
+          "char_count": 239,
+          "best_chunk_id": "chk_64a843919abebee94c7fd880"
+        },
+        {
+          "section_key": "分析 > 阴影率分析",
+          "section_path_sample": "分析 > 阴影率分析",
+          "section_ids": [
+            "sec_0a13b48da27b8a52"
+          ],
+          "chunk_count": 1,
+          "char_count": 126,
+          "best_chunk_id": "chk_3e6e54ddda6c133288dd9282"
+        },
+        {
+          "section_key": "编辑 > 增加顶点",
+          "section_path_sample": "编辑 > 增加顶点",
+          "section_ids": [
+            "sec_34df6a221dd999d1"
+          ],
+          "chunk_count": 1,
+          "char_count": 124,
+          "best_chunk_id": "chk_1b76389a5d49dd544acc72cf"
+        },
+        {
+          "section_key": "场景 > 工程设置",
+          "section_path_sample": "场景 > 工程设置",
+          "section_ids": [
+            "sec_7887ae81ac7a3a3a"
+          ],
+          "chunk_count": 1,
+          "char_count": 116,
+          "best_chunk_id": "chk_dcd63af942ca9071011eb94c"
+        }
+      ]
+    },
+    {
+      "source": "StampWebRTC用户手册.docx",
+      "doc_category": "StampWebRTC",
+      "chunk_count": 59,
+      "char_count": 24028,
+      "section_count": 23,
+      "sections": [
+        {
+          "section_key": "分析",
+          "section_path_sample": "分析",
+          "section_ids": [
+            "sec_a01accf07a254df4"
+          ],
+          "chunk_count": 9,
+          "char_count": 3386,
+          "best_chunk_id": "chk_de27690af06c217ccf8991c0"
+        },
+        {
+          "section_key": "标绘 > 几何标绘",
+          "section_path_sample": "标绘 > 几何标绘",
+          "section_ids": [
+            "sec_3ed49c48370928a1"
+          ],
+          "chunk_count": 6,
+          "char_count": 2800,
+          "best_chunk_id": "chk_edfb3df229b51b35a94d910c"
+        },
+        {
+          "section_key": "快捷菜单",
+          "section_path_sample": "快捷菜单",
+          "section_ids": [
+            "sec_c6c564b302d20ae8"
+          ],
+          "chunk_count": 5,
+          "char_count": 2567,
+          "best_chunk_id": "chk_5aed2067f0365652ee886c6a"
+        },
+        {
+          "section_key": "标绘 > 二维标绘",
+          "section_path_sample": "标绘 > 二维标绘",
+          "section_ids": [
+            "sec_e53666eaea51762f"
+          ],
+          "chunk_count": 5,
+          "char_count": 2436,
+          "best_chunk_id": "chk_b1b31a9f520395c457dc7177"
+        },
+        {
+          "section_key": "标绘 > 军事标绘",
+          "section_path_sample": "标绘 > 军事标绘",
+          "section_ids": [
+            "sec_ac3dd564d1c94b6a"
+          ],
+          "chunk_count": 4,
+          "char_count": 1856,
+          "best_chunk_id": "chk_f1adf9314e4483d33f42f27b"
+        },
+        {
+          "section_key": "浏览",
+          "section_path_sample": "浏览",
+          "section_ids": [
+            "sec_48231c18a6a840cb"
+          ],
+          "chunk_count": 5,
+          "char_count": 1825,
+          "best_chunk_id": "chk_0bfb7f5e53c9fac0c25bc4f1"
+        },
+        {
+          "section_key": "编辑",
+          "section_path_sample": "编辑",
+          "section_ids": [
+            "sec_6d69d68d6300e218"
+          ],
+          "chunk_count": 3,
+          "char_count": 1160,
+          "best_chunk_id": "chk_66e3c5c765af893d9c2d5fef"
+        },
+        {
+          "section_key": "钻孔",
+          "section_path_sample": "钻孔",
+          "section_ids": [
+            "sec_51baa618a07270e4"
+          ],
+          "chunk_count": 3,
+          "char_count": 1019,
+          "best_chunk_id": "chk_f28035f080ef0628899956a4"
+        },
+        {
+          "section_key": "查询",
+          "section_path_sample": "查询",
+          "section_ids": [
+            "sec_97515817db0ebf50"
+          ],
+          "chunk_count": 2,
+          "char_count": 746,
+          "best_chunk_id": "chk_0730992f15b8a2659845f45e"
+        },
+        {
+          "section_key": "量算",
+          "section_path_sample": "量算",
+          "section_ids": [
+            "sec_ffa0020428b66244"
+          ],
+          "chunk_count": 2,
+          "char_count": 673,
+          "best_chunk_id": "chk_2ad0ff03a9dc273229bbf25b"
+        },
+        {
+          "section_key": "概述",
+          "section_path_sample": "概述",
+          "section_ids": [
+            "sec_ea83ec72079158a1"
+          ],
+          "chunk_count": 2,
+          "char_count": 670,
+          "best_chunk_id": "chk_fff1a012a66ddbf458a319f7"
+        },
+        {
+          "section_key": "浏览 > GPSTrack",
+          "section_path_sample": "浏览 > GPSTrack",
+          "section_ids": [
+            "sec_647b3d64f2a11045"
+          ],
+          "chunk_count": 1,
+          "char_count": 649,
+          "best_chunk_id": "chk_7a15b2b9a1a7851806f0d490"
+        },
+        {
+          "section_key": "概述 > 基本操作",
+          "section_path_sample": "概述 > 基本操作 > 鼠标",
+          "section_ids": [
+            "sec_542dc4f4385f743f",
+            "sec_7ee27df9ad3e01fa"
+          ],
+          "chunk_count": 2,
+          "char_count": 624,
+          "best_chunk_id": "chk_9c0cb3908f3e77a59d686af6"
+        },
+        {
+          "section_key": "标绘 > 动态特效",
+          "section_path_sample": "标绘 > 动态特效",
+          "section_ids": [
+            "sec_4a62254a8c69cfff"
+          ],
+          "chunk_count": 1,
+          "char_count": 513,
+          "best_chunk_id": "chk_89409f5be827d23a1b85b01f"
+        },
+        {
+          "section_key": "分析 > 开挖分析",
+          "section_path_sample": "分析 > 开挖分析",
+          "section_ids": [
+            "sec_7c52161d79d29390"
+          ],
+          "chunk_count": 1,
+          "char_count": 468,
+          "best_chunk_id": "chk_75b76d68830dd08fb4758ed7"
+        },
+        {
+          "section_key": "浏览 > 多屏显示",
+          "section_path_sample": "浏览 > 多屏显示",
+          "section_ids": [
+            "sec_b8ee7fb9a6bcc235"
+          ],
+          "chunk_count": 1,
+          "char_count": 461,
+          "best_chunk_id": "chk_9b5726b0eb8698a6e9dfe244"
+        },
+        {
+          "section_key": "分析 > 全局剖切",
+          "section_path_sample": "分析 > 全局剖切",
+          "section_ids": [
+            "sec_7ad068ed0498aa7d"
+          ],
+          "chunk_count": 1,
+          "char_count": 405,
+          "best_chunk_id": "chk_dfdfb1241ff4fcea2b5caa82"
+        },
+        {
+          "section_key": "浏览 > 车流穿梭",
+          "section_path_sample": "浏览 > 车流穿梭",
+          "section_ids": [
+            "sec_4aca85b05c7cb673"
+          ],
+          "chunk_count": 1,
+          "char_count": 365,
+          "best_chunk_id": "chk_bae01d3086e8c1a578aa4842"
+        },
+        {
+          "section_key": "浏览 > 场景漫游",
+          "section_path_sample": "浏览 > 场景漫游",
+          "section_ids": [
+            "sec_dc5f92cb86b805ae"
+          ],
+          "chunk_count": 1,
+          "char_count": 345,
+          "best_chunk_id": "chk_1162a3b11f3c0a11a8cd6563"
+        },
+        {
+          "section_key": "分析 > 淹没分析",
+          "section_path_sample": "分析 > 淹没分析",
+          "section_ids": [
+            "sec_ad1cb26c347a7b88"
+          ],
+          "chunk_count": 1,
+          "char_count": 343,
+          "best_chunk_id": "chk_537d3105c4dfa20327b45274"
+        },
+        {
+          "section_key": "查询 > 属性查询",
+          "section_path_sample": "查询 > 属性查询",
+          "section_ids": [
+            "sec_2f4999103e977434"
+          ],
+          "chunk_count": 1,
+          "char_count": 313,
+          "best_chunk_id": "chk_2d7cadb9eefa86299008aa1b"
+        },
+        {
+          "section_key": "标绘 > 三维标绘",
+          "section_path_sample": "标绘 > 三维标绘",
+          "section_ids": [
+            "sec_e7068cc2b94a2294"
+          ],
+          "chunk_count": 1,
+          "char_count": 209,
+          "best_chunk_id": "chk_755297d8d165f258720a561b"
+        },
+        {
+          "section_key": "浏览 > 楼块配色",
+          "section_path_sample": "浏览 > 楼块配色",
+          "section_ids": [
+            "sec_de8ec07f7a4fca28"
+          ],
+          "chunk_count": 1,
+          "char_count": 195,
+          "best_chunk_id": "chk_5e4609d9801b506e2714146f"
+        }
+      ]
+    },
+    {
+      "source": "StampWebRTC数据库表结构.docx",
+      "doc_category": "StampWebRTC",
+      "chunk_count": 20,
+      "char_count": 6909,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_43fd1daae30d8e5e"
+          ],
+          "chunk_count": 20,
+          "char_count": 6909,
+          "best_chunk_id": "chk_1287905f47034988da49cf44"
+        }
+      ]
+    },
+    {
+      "source": "PipelineSystem用户手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 43,
+      "char_count": 14755,
+      "section_count": 18,
+      "sections": [
+        {
+          "section_key": "分析",
+          "section_path_sample": "分析",
+          "section_ids": [
+            "sec_142d69dc9fe0414e"
+          ],
+          "chunk_count": 8,
+          "char_count": 2777,
+          "best_chunk_id": "chk_c68829cb713bab30f2e16106"
+        },
+        {
+          "section_key": "查询",
+          "section_path_sample": "查询",
+          "section_ids": [
+            "sec_1da669783bcee652"
+          ],
+          "chunk_count": 6,
+          "char_count": 2466,
+          "best_chunk_id": "chk_fe9d79e2b3853ffdfde73ff1"
+        },
+        {
+          "section_key": "统计",
+          "section_path_sample": "统计",
+          "section_ids": [
+            "sec_1f8a8c56f9f177c9"
+          ],
+          "chunk_count": 5,
+          "char_count": 1830,
+          "best_chunk_id": "chk_c7639231ef8560494f45af30"
+        },
+        {
+          "section_key": "浏览 > 飞行路径",
+          "section_path_sample": "浏览 > 飞行路径",
+          "section_ids": [
+            "sec_4e9a30e34db91fdb"
+          ],
+          "chunk_count": 4,
+          "char_count": 1646,
+          "best_chunk_id": "chk_0c62c79ab67b27b1424dc19e"
+        },
+        {
+          "section_key": "浏览",
+          "section_path_sample": "浏览",
+          "section_ids": [
+            "sec_10b397eef4468e39"
+          ],
+          "chunk_count": 4,
+          "char_count": 1404,
+          "best_chunk_id": "chk_5591e9155b2a452c0fcea621"
+        },
+        {
+          "section_key": "概述 > 基本操作",
+          "section_path_sample": "概述 > 基本操作 > 鼠标",
+          "section_ids": [
+            "sec_c77b1e779d6ee7b7",
+            "sec_d90c012b471544a1"
+          ],
+          "chunk_count": 2,
+          "char_count": 623,
+          "best_chunk_id": "chk_579dd00e2b132ec695dc6f3d"
+        },
+        {
+          "section_key": "标注",
+          "section_path_sample": "标注",
+          "section_ids": [
+            "sec_b100dfafdb2c8ac1"
+          ],
+          "chunk_count": 2,
+          "char_count": 510,
+          "best_chunk_id": "chk_d5dd02c7b8bacc5d6d2ddd33"
+        },
+        {
+          "section_key": "量算",
+          "section_path_sample": "量算",
+          "section_ids": [
+            "sec_ea715cfba7b10598"
+          ],
+          "chunk_count": 2,
+          "char_count": 451,
+          "best_chunk_id": "chk_7a3cd7d7708c4ef09355e7a6"
+        },
+        {
+          "section_key": "浏览 > 人车漫游",
+          "section_path_sample": "浏览 > 人车漫游",
+          "section_ids": [
+            "sec_861c6d2cb591066d"
+          ],
+          "chunk_count": 1,
+          "char_count": 428,
+          "best_chunk_id": "chk_bf96f07492431aed94b05a4e"
+        },
+        {
+          "section_key": "浏览 > 视点管理",
+          "section_path_sample": "浏览 > 视点管理",
+          "section_ids": [
+            "sec_bc7d89f119e8149b"
+          ],
+          "chunk_count": 1,
+          "char_count": 354,
+          "best_chunk_id": "chk_4647023b762d2f2d40005730"
+        },
+        {
+          "section_key": "查询 > 关联查询",
+          "section_path_sample": "查询 > 关联查询",
+          "section_ids": [
+            "sec_c68cc5246cad764d"
+          ],
+          "chunk_count": 1,
+          "char_count": 350,
+          "best_chunk_id": "chk_9b1377316b8c7ef295a339e5"
+        },
+        {
+          "section_key": "概述",
+          "section_path_sample": "概述",
+          "section_ids": [
+            "sec_52556a4c53ce213c"
+          ],
+          "chunk_count": 1,
+          "char_count": 347,
+          "best_chunk_id": "chk_b9036a88fff76e48f9896f4a"
+        },
+        {
+          "section_key": "快捷菜单",
+          "section_path_sample": "快捷菜单",
+          "section_ids": [
+            "sec_8d008361acdee775"
+          ],
+          "chunk_count": 1,
+          "char_count": 345,
+          "best_chunk_id": "chk_684e8c942e17d1fa5ea42cc7"
+        },
+        {
+          "section_key": "概述 > 运行环境",
+          "section_path_sample": "概述 > 运行环境",
+          "section_ids": [
+            "sec_88ff45cfafca5673"
+          ],
+          "chunk_count": 1,
+          "char_count": 340,
+          "best_chunk_id": "chk_c52e6bf7f520e7ad119d67b4"
+        },
+        {
+          "section_key": "浏览 > 2.5D出图",
+          "section_path_sample": "浏览 > 2.5D出图",
+          "section_ids": [
+            "sec_d0b042318f1a22bd"
+          ],
+          "chunk_count": 1,
+          "char_count": 319,
+          "best_chunk_id": "chk_c6a3f329fda201dff27b3954"
+        },
+        {
+          "section_key": "查询 > SQL查询",
+          "section_path_sample": "查询 > SQL查询",
+          "section_ids": [
+            "sec_db1ff7e1db039a16"
+          ],
+          "chunk_count": 1,
+          "char_count": 302,
+          "best_chunk_id": "chk_8ce16dc1f4705dbafa81b01f"
+        },
+        {
+          "section_key": "统计 > 行政统计",
+          "section_path_sample": "统计 > 行政统计",
+          "section_ids": [
+            "sec_214fd360d9d6bcd5"
+          ],
+          "chunk_count": 1,
+          "char_count": 180,
+          "best_chunk_id": "chk_90ebb734d8eab7e89647e786"
+        },
+        {
+          "section_key": "快捷菜单 > 属性",
+          "section_path_sample": "快捷菜单 > 属性",
+          "section_ids": [
+            "sec_ef8971f602240e2c"
+          ],
+          "chunk_count": 1,
+          "char_count": 83,
+          "best_chunk_id": "chk_3ca111da416c249fc5a411bc"
+        }
+      ]
+    },
+    {
+      "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+      "doc_category": "其他",
+      "chunk_count": 508,
+      "char_count": 205879,
+      "section_count": 4,
+      "sections": [
+        {
+          "section_key": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+          "section_path_sample": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+          "section_ids": [
+            "sec_3968ad53ac5ea103"
+          ],
+          "chunk_count": 488,
+          "char_count": 197979,
+          "best_chunk_id": "chk_a9a007267e60f1b84c8f2b68"
+        },
+        {
+          "section_key": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 中国国家标准化管理委员会 发布",
+          "section_path_sample": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 中国国家标准化管理委员会 发布",
+          "section_ids": [
+            "sec_0e634264c1cab1ed",
+            "sec_e5aa99b74a830d40"
+          ],
+          "chunk_count": 18,
+          "char_count": 7490,
+          "best_chunk_id": "chk_4d6c7ec4e145add604c9f773"
+        },
+        {
+          "section_key": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 前    言",
+          "section_path_sample": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 前    言",
+          "section_ids": [
+            "sec_589c0f864691c11a"
+          ],
+          "chunk_count": 1,
+          "char_count": 243,
+          "best_chunk_id": "chk_2a434d9be056a39460b6f241"
+        },
+        {
+          "section_key": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 安全防范视频监控联网系统 \n信息传输、交换、控制技术要求",
+          "section_path_sample": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 安全防范视频监控联网系统 \n信息传输、交换、控制技术要求 > Technical Specification for Information Transport, Switch and Control",
+          "section_ids": [
+            "sec_ce1d903393815a3d"
+          ],
+          "chunk_count": 1,
+          "char_count": 167,
+          "best_chunk_id": "chk_2cf7a265c1f38f7866e7bf41"
+        }
+      ]
+    },
+    {
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "doc_category": "其他",
+      "chunk_count": 249,
+      "char_count": 92285,
+      "section_count": 8,
+      "sections": [
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月",
+          "section_ids": [
+            "sec_603c0992f8f3d849",
+            "sec_79db1e2a8c1aaf1c"
+          ],
+          "chunk_count": 60,
+          "char_count": 24768,
+          "best_chunk_id": "chk_2d114a1b57e2de409b844142"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.STAMP服务部署 > 3.1.1.授权服务",
+          "section_ids": [
+            "sec_025890bbbf0bcffa",
+            "sec_09bdcc0865893293",
+            "sec_102baf62e8f72e52",
+            "sec_2683e211e74e88a5",
+            "sec_340330433cefd4f8",
+            "sec_37fb543d0f15d636",
+            "sec_3ce26ddebd297e9a",
+            "sec_45bebbc22cf79b06",
+            "sec_4b75f6b16e6bdc9f",
+            "sec_5c943f0b3b7ed61a",
+            "sec_5e26dae498f2ddd9",
+            "sec_694e4f401c369a3b",
+            "sec_702b9dda62bf1bf5",
+            "sec_7763c582f409c20b",
+            "sec_79996eb0b9d5d47a",
+            "sec_7a954d79d0b6aef2",
+            "sec_82cdb9c6d055a99c",
+            "sec_8b74d101d9215b7b",
+            "sec_9a4b1af2ae13c663",
+            "sec_9dc54e6f3f075967",
+            "sec_a88a187266d3ea94",
+            "sec_aa5096b67feefe67",
+            "sec_b3d31d2483f6d814",
+            "sec_be2d69c75e6887c6",
+            "sec_ce5f6fe59fa26539",
+            "sec_cf377699388eb1a3",
+            "sec_d5e4ccbb4bb0ee52",
+            "sec_d62c61b90df25524",
+            "sec_e88850b2391677e5",
+            "sec_e98fd845deae10ec",
+            "sec_ea1fb9d8482c1376",
+            "sec_f47d006b28e82cc7"
+          ],
+          "chunk_count": 46,
+          "char_count": 17571,
+          "best_chunk_id": "chk_997d0870a33b13dc8f959373"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 1.系统基础配置 > 1.1.创建虚拟机 > 1.1.1.安装模式",
+          "section_ids": [
+            "sec_025baf272e0f04a4",
+            "sec_0ae59d2da7d8203b",
+            "sec_16d58697fe6bc058",
+            "sec_18ba0c0bd9d2848a",
+            "sec_1a21f9bea74ab6bb",
+            "sec_2cf8e3f6d9cb3a7b",
+            "sec_2d5274553bf7189a",
+            "sec_3440f680bde1a52a",
+            "sec_37b69c9ed3ae77b5",
+            "sec_49a567b379d71fba",
+            "sec_4ad71f0c2b8049e9",
+            "sec_5273c3e813d521ce",
+            "sec_552866195fe2b199",
+            "sec_5805114694036bd6",
+            "sec_60f84b335760908c",
+            "sec_61600fd9786f19cf",
+            "sec_628c60aa0696fb73",
+            "sec_62dece4321a99edb",
+            "sec_6ede7cdfc0e97f45",
+            "sec_90a500fdb88027c1",
+            "sec_a2ac578c0bf207fc",
+            "sec_b29fd453fc6eda63",
+            "sec_ba625c49803ce4f8",
+            "sec_bf4570edfa769fe9",
+            "sec_c155b9d400bfac85",
+            "sec_c52e9aacbf2e528b",
+            "sec_cc6418265ba70c17",
+            "sec_d6964e27ed4bbc74",
+            "sec_d841f5b8291a67ff",
+            "sec_d98e8bad85bb7afe",
+            "sec_ee33b8d59dc10f08",
+            "sec_f1146ce8f8a599f0",
+            "sec_f3b0f5c8e8c7ad21",
+            "sec_ff883249dc989c11"
+          ],
+          "chunk_count": 48,
+          "char_count": 14510,
+          "best_chunk_id": "chk_6633c6e24fa6d5d7447ab449"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 5.矢量数据入库",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 5.矢量数据入库 > 5.1.SHP数据入库",
+          "section_ids": [
+            "sec_755ef45b118b0aa0",
+            "sec_80cf899dc3b35b11",
+            "sec_83178da6903972b1",
+            "sec_91614b01118abb1e",
+            "sec_d912d16c4a5853b0"
+          ],
+          "chunk_count": 24,
+          "char_count": 10705,
+          "best_chunk_id": "chk_28a7f3e0a02709bf70004cc7"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 4.三维数据配置",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 4.三维数据配置 > 4.1.图层配置文件",
+          "section_ids": [
+            "sec_0cdf7f620b2ee5bc",
+            "sec_10219ba3c49fce12",
+            "sec_3fc1ab94985bd9eb",
+            "sec_414e896078303d68",
+            "sec_47619aaa0423ff46",
+            "sec_4a7dafea4018940a",
+            "sec_611d2a90c0d2f5a0",
+            "sec_66300c33b4a4654b",
+            "sec_76a86741c13fb2ae",
+            "sec_7ece839c057d31e2",
+            "sec_9b166b512f358e68",
+            "sec_9c9b48ca0039f981",
+            "sec_9f2e0b2304ed7cf3",
+            "sec_b0f24219019911e2",
+            "sec_c9cb052863573617",
+            "sec_cf2e28c19eceff6e",
+            "sec_d5e7f57d3d7ed265",
+            "sec_d90258ba81147c8c",
+            "sec_de3b8b3a2b6e3f8c",
+            "sec_fb7e2574a71e21e1",
+            "sec_fce3a1bc4c7a13c1",
+            "sec_ffeedf6ba3a2dcfe"
+          ],
+          "chunk_count": 29,
+          "char_count": 10484,
+          "best_chunk_id": "chk_6948b7b70e8c16e03bdac4e8"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 2.运维基础配置",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 2.运维基础配置 > 2.1.运维管理部署",
+          "section_ids": [
+            "sec_03d1daa91e92f874",
+            "sec_0f9285cd79859f74",
+            "sec_1bef423c146e0a14",
+            "sec_1f10f4d0b7f50f6e",
+            "sec_2d5d27f21aa8fcf9",
+            "sec_45587d3690d2d1cb",
+            "sec_5d357afcc716e319",
+            "sec_687501337343651d",
+            "sec_82cc4da47b522389",
+            "sec_90a8b64769b9a47f",
+            "sec_9928b79ecea32e94",
+            "sec_a6fc46088bb4ac44",
+            "sec_a8b62bce17865624",
+            "sec_e8a2a1fc71551c0a",
+            "sec_ebf26748d17781ee",
+            "sec_edb53edbdc50f31f"
+          ],
+          "chunk_count": 22,
+          "char_count": 6568,
+          "best_chunk_id": "chk_6f936dd300989dc8bd995bf2"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 6.WebGL部署",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 6.WebGL部署 > 6.1.Nginx代理配置",
+          "section_ids": [
+            "sec_3ade4d2e3172759b",
+            "sec_bbee9548982efd41"
+          ],
+          "chunk_count": 11,
+          "char_count": 4257,
+          "best_chunk_id": "chk_743aa8c8ff65ecf5f7847a6b"
+        },
+        {
+          "section_key": "2ca727efa70847b49f0f67528544d210 > 7.推流部署",
+          "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 7.推流部署 > 7.1.推流服务部署 > 7.1.1.matchmaker部署",
+          "section_ids": [
+            "sec_25dbd147e391eed2",
+            "sec_6b65d06623394279",
+            "sec_77b05f26cbef91a3",
+            "sec_7b69a2c96766e4dc",
+            "sec_821838532b72c616",
+            "sec_ebcaad6c68988986"
+          ],
+          "chunk_count": 9,
+          "char_count": 3422,
+          "best_chunk_id": "chk_73e4679518cf75d5e29cdd92"
+        }
+      ]
+    },
+    {
+      "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 131,
+      "char_count": 33845,
+      "section_count": 21,
+      "sections": [
+        {
+          "section_key": "200 OK > 修改安装配置文件",
+          "section_path_sample": "200 OK > 修改安装配置文件",
+          "section_ids": [
+            "sec_500268edfe232341"
+          ],
+          "chunk_count": 19,
+          "char_count": 6773,
+          "best_chunk_id": "chk_1adb62b49d9cc6d867e6b637"
+        },
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_3bd519bfa6d1f01f"
+          ],
+          "chunk_count": 17,
+          "char_count": 4862,
+          "best_chunk_id": "chk_963cd0a3e782833a3bb9f536"
+        },
+        {
+          "section_key": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查",
+          "section_path_sample": "安装云数据库GaussDB管理平台（TPOPS） > 环境配置与检查 > 配置yum源",
+          "section_ids": [
+            "sec_171810d13146d774",
+            "sec_46495dab9f119368",
+            "sec_76bdde39098b3374"
+          ],
+          "chunk_count": 17,
+          "char_count": 3613,
+          "best_chunk_id": "chk_59508be7125cb89a5646831c"
+        },
+        {
+          "section_key": "部署环境要求 > 其它要求",
+          "section_path_sample": "部署环境要求 > 其它要求 > 关闭swap交换内存",
+          "section_ids": [
+            "sec_698daca1bb49c3b2"
+          ],
+          "chunk_count": 8,
+          "char_count": 2950,
+          "best_chunk_id": "chk_d2dca9c255847bdd771cea89"
+        },
+        {
+          "section_key": "安装GaussDB数据库实例 > 安装GaussDB实例",
+          "section_path_sample": "安装GaussDB数据库实例 > 安装GaussDB实例 > 前提条件",
+          "section_ids": [
+            "sec_2f0bf2ec389e0b7d",
+            "sec_444fc39d9df26fb4",
+            "sec_82ee32a670503528",
+            "sec_a0c80dd8c0c854d9"
+          ],
+          "chunk_count": 11,
+          "char_count": 2600,
+          "best_chunk_id": "chk_7d1b209265444489a28255ed"
+        },
+        {
+          "section_key": "200 OK > 安装后检查",
+          "section_path_sample": "200 OK > 安装后检查",
+          "section_ids": [
+            "sec_127ffcbb3ee78371"
+          ],
+          "chunk_count": 5,
+          "char_count": 1541,
+          "best_chunk_id": "chk_34936084747b5acc1f9ff82b"
+        },
+        {
+          "section_key": "安装禹贡pgis插件 > Yukon插件安装",
+          "section_path_sample": "安装禹贡pgis插件 > Yukon插件安装 > 安装准备",
+          "section_ids": [
+            "sec_4fdcd30bbf6dd399",
+            "sec_b4dd84e4ef1df929"
+          ],
+          "chunk_count": 4,
+          "char_count": 1534,
+          "best_chunk_id": "chk_cab5b9d7ac468dc2b90d69d3"
+        },
+        {
+          "section_key": "安装GaussDB数据库实例 > 准备初始化环境",
+          "section_path_sample": "安装GaussDB数据库实例 > 准备初始化环境 > 配置操作系统参数（可选）",
+          "section_ids": [
+            "sec_64debe7d5ac5d679",
+            "sec_c1c2d4c3f9f627db"
+          ],
+          "chunk_count": 9,
+          "char_count": 1461,
+          "best_chunk_id": "chk_d71b49a2513229ba40d71ed6"
+        },
+        {
+          "section_key": "200 OK > 使用root账户安装TPOPS",
+          "section_path_sample": "200 OK > 使用root账户安装TPOPS",
+          "section_ids": [
+            "sec_2b4d699c7ce86fb4"
+          ],
+          "chunk_count": 7,
+          "char_count": 1286,
+          "best_chunk_id": "chk_aa267b1246a963708f1d455c"
+        },
+        {
+          "section_key": "安装禹贡pgis插件 > 安装前提",
+          "section_path_sample": "安装禹贡pgis插件 > 安装前提",
+          "section_ids": [
+            "sec_3f5feb8118dbddb1"
+          ],
+          "chunk_count": 3,
+          "char_count": 1113,
+          "best_chunk_id": "chk_3532fd823696e9b24edca23d"
+        },
+        {
+          "section_key": "安装GaussDB数据库实例 > 主机标准化预检查",
+          "section_path_sample": "安装GaussDB数据库实例 > 主机标准化预检查",
+          "section_ids": [
+            "sec_e138b146f95da229"
+          ],
+          "chunk_count": 5,
+          "char_count": 1102,
+          "best_chunk_id": "chk_599152c06669447bcb42c229"
+        },
+        {
+          "section_key": "200 OK > 上传软件包",
+          "section_path_sample": "200 OK > 上传软件包",
+          "section_ids": [
+            "sec_92610b00c8dd9bd6"
+          ],
+          "chunk_count": 5,
+          "char_count": 1082,
+          "best_chunk_id": "chk_2f1c1e49e8f58b6a51e8ac38"
+        },
+        {
+          "section_key": "200 OK > 检查audit服务",
+          "section_path_sample": "200 OK > 检查audit服务",
+          "section_ids": [
+            "sec_9e8fd8f4a409f741"
+          ],
+          "chunk_count": 6,
+          "char_count": 1007,
+          "best_chunk_id": "chk_7962813e6285d5f62cbcbca9"
+        },
+        {
+          "section_key": "200 OK > 检查JRE",
+          "section_path_sample": "200 OK > 检查JRE",
+          "section_ids": [
+            "sec_cdecef3d30e8a50a"
+          ],
+          "chunk_count": 3,
+          "char_count": 854,
+          "best_chunk_id": "chk_7b794ab49c6e5213bdec7cae"
+        },
+        {
+          "section_key": "安装GaussDB数据库实例 > 连接GaussDB数据库实例",
+          "section_path_sample": "安装GaussDB数据库实例 > 连接GaussDB数据库实例",
+          "section_ids": [
+            "sec_6549d27be1ea31ab"
+          ],
+          "chunk_count": 2,
+          "char_count": 740,
+          "best_chunk_id": "chk_3ee4655201be255fa4c39217"
+        },
+        {
+          "section_key": "安装GaussDB数据库实例 > 添加主机",
+          "section_path_sample": "安装GaussDB数据库实例 > 添加主机 > 添加单个主机",
+          "section_ids": [
+            "sec_fa4db898cd0336e6"
+          ],
+          "chunk_count": 2,
+          "char_count": 429,
+          "best_chunk_id": "chk_015b68b99545b2ca126a0457"
+        },
+        {
+          "section_key": "200 OK > 检查防火墙",
+          "section_path_sample": "200 OK > 检查防火墙",
+          "section_ids": [
+            "sec_bd9c17be5c3bc4db"
+          ],
+          "chunk_count": 2,
+          "char_count": 250,
+          "best_chunk_id": "chk_e3342218103360f842bcb482"
+        },
+        {
+          "section_key": "安装禹贡pgis插件 > 安装说明",
+          "section_path_sample": "安装禹贡pgis插件 > 安装说明",
+          "section_ids": [
+            "sec_759f229d33c79eb1"
+          ],
+          "chunk_count": 2,
+          "char_count": 216,
+          "best_chunk_id": "chk_5d194689fe889b9eb8ea6e86"
+        },
+        {
+          "section_key": "200 OK > 设置字符集参数",
+          "section_path_sample": "200 OK > 设置字符集参数",
+          "section_ids": [
+            "sec_bfbf249210626d9c"
+          ],
+          "chunk_count": 2,
+          "char_count": 214,
+          "best_chunk_id": "chk_fe712b8c1efdd6963b3d41fd"
+        },
+        {
+          "section_key": "200 OK > 配置主机名与IP地址映射关系",
+          "section_path_sample": "200 OK > 配置主机名与IP地址映射关系",
+          "section_ids": [
+            "sec_8e41742792938128"
+          ],
+          "chunk_count": 1,
+          "char_count": 133,
+          "best_chunk_id": "chk_2a8d4d6374461cc888fe52ed"
+        },
+        {
+          "section_key": "200 OK > 检查runc服务",
+          "section_path_sample": "200 OK > 检查runc服务",
+          "section_ids": [
+            "sec_c788388584f69ec9"
+          ],
+          "chunk_count": 1,
+          "char_count": 85,
+          "best_chunk_id": "chk_8b07ae5f905132b4947a3794"
+        }
+      ]
+    },
+    {
+      "source": "uso -- 源码安装集合.docx",
+      "doc_category": "其他",
+      "chunk_count": 87,
+      "char_count": 27747,
+      "section_count": 7,
+      "sections": [
+        {
+          "section_key": "编译安装POSTGIS > 安装postgis扩展",
+          "section_path_sample": "编译安装POSTGIS > 安装postgis扩展",
+          "section_ids": [
+            "sec_92f04e5508e6e7dd",
+            "sec_f0f9ad043c0c49a0"
+          ],
+          "chunk_count": 29,
+          "char_count": 9577,
+          "best_chunk_id": "chk_a60b23a17ab8cb491d5a012b"
+        },
+        {
+          "section_key": "安装mdb的odbc驱动",
+          "section_path_sample": "安装mdb的odbc驱动",
+          "section_ids": [
+            "sec_0682d6243edf3c5e"
+          ],
+          "chunk_count": 23,
+          "char_count": 7679,
+          "best_chunk_id": "chk_31787d78ba584a3832285b2c"
+        },
+        {
+          "section_key": "Arm的yum源",
+          "section_path_sample": "Arm的yum源",
+          "section_ids": [
+            "sec_d3963f0fab8ba8c1"
+          ],
+          "chunk_count": 13,
+          "char_count": 3733,
+          "best_chunk_id": "chk_a3ce658f4055e4c1e207b1d8"
+        },
+        {
+          "section_key": "编译安装POSTGIS > gdal-3.5.3",
+          "section_path_sample": "编译安装POSTGIS > gdal-3.5.3 > protobuf-3.21.8",
+          "section_ids": [
+            "sec_4aef697f95ba1d72"
+          ],
+          "chunk_count": 9,
+          "char_count": 2601,
+          "best_chunk_id": "chk_b0af3e409ff50fb9821e9592"
+        },
+        {
+          "section_key": "源码安装postgresql-15 > 编译fuzzystrmatch",
+          "section_path_sample": "源码安装postgresql-15 > 编译fuzzystrmatch",
+          "section_ids": [
+            "sec_2df5dd86ed4a29cf"
+          ],
+          "chunk_count": 7,
+          "char_count": 2421,
+          "best_chunk_id": "chk_2bcadc08f31d55f1e74af055"
+        },
+        {
+          "section_key": "编译安装POSTGIS > 编译安装postgis-3.3.2的基础",
+          "section_path_sample": "编译安装POSTGIS > 编译安装postgis-3.3.2的基础",
+          "section_ids": [
+            "sec_d98a027e66c24811"
+          ],
+          "chunk_count": 5,
+          "char_count": 1646,
+          "best_chunk_id": "chk_bb125859ae24e694b9e638ae"
+        },
+        {
+          "section_key": "源码安装postgresql-15 > 编译postgres_fdw",
+          "section_path_sample": "源码安装postgresql-15 > 编译postgres_fdw",
+          "section_ids": [
+            "sec_5c64febb892d966e"
+          ],
+          "chunk_count": 1,
+          "char_count": 90,
+          "best_chunk_id": "chk_84f4f3ff9093885891734031"
+        }
+      ]
+    },
+    {
+      "source": "StampExplorer用户手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 62,
+      "char_count": 24766,
+      "section_count": 28,
+      "sections": [
+        {
+          "section_key": "分析",
+          "section_path_sample": "分析",
+          "section_ids": [
+            "sec_7ca694138364ef1a"
+          ],
+          "chunk_count": 11,
+          "char_count": 4387,
+          "best_chunk_id": "chk_4bcfb1a72d137fe563e1bab6"
+        },
+        {
+          "section_key": "场景",
+          "section_path_sample": "场景",
+          "section_ids": [
+            "sec_adc345a2fa907720"
+          ],
+          "chunk_count": 8,
+          "char_count": 3508,
+          "best_chunk_id": "chk_62c8271f187921a06d5f361e"
+        },
+        {
+          "section_key": "场景 > 飞行路径",
+          "section_path_sample": "场景 > 飞行路径",
+          "section_ids": [
+            "sec_cfabaccadeef5ca9"
+          ],
+          "chunk_count": 4,
+          "char_count": 1683,
+          "best_chunk_id": "chk_dc8ba5e4ce8da0e8b3ac589f"
+        },
+        {
+          "section_key": "标绘 > 几何对象绘制",
+          "section_path_sample": "标绘 > 几何对象绘制",
+          "section_ids": [
+            "sec_22269413f46442ae"
+          ],
+          "chunk_count": 3,
+          "char_count": 1463,
+          "best_chunk_id": "chk_541c8bd485d9dfbba1892d1a"
+        },
+        {
+          "section_key": "编辑",
+          "section_path_sample": "编辑",
+          "section_ids": [
+            "sec_7c5becc027fff79a"
+          ],
+          "chunk_count": 4,
+          "char_count": 1341,
+          "best_chunk_id": "chk_fdb51ae3f0a8731ad5fa4518"
+        },
+        {
+          "section_key": "量算",
+          "section_path_sample": "量算",
+          "section_ids": [
+            "sec_57349b182d731904"
+          ],
+          "chunk_count": 4,
+          "char_count": 1254,
+          "best_chunk_id": "chk_c9278c877f16ef6911dd6fc5"
+        },
+        {
+          "section_key": "标绘 > 标绘",
+          "section_path_sample": "标绘 > 标绘",
+          "section_ids": [
+            "sec_1db6f282e654f012"
+          ],
+          "chunk_count": 3,
+          "char_count": 1249,
+          "best_chunk_id": "chk_268f266f48d54f4ac756d5c2"
+        },
+        {
+          "section_key": "标绘",
+          "section_path_sample": "标绘",
+          "section_ids": [
+            "sec_91082605a537c508"
+          ],
+          "chunk_count": 1,
+          "char_count": 957,
+          "best_chunk_id": "chk_2e8e358a7d574f4fc89455b8"
+        },
+        {
+          "section_key": "查询",
+          "section_path_sample": "查询",
+          "section_ids": [
+            "sec_735153551651d70b"
+          ],
+          "chunk_count": 3,
+          "char_count": 935,
+          "best_chunk_id": "chk_543fcc3834a7ed66d49d1ded"
+        },
+        {
+          "section_key": "场景 > GPS",
+          "section_path_sample": "场景 > GPS",
+          "section_ids": [
+            "sec_505c423d04e0ef34"
+          ],
+          "chunk_count": 1,
+          "char_count": 780,
+          "best_chunk_id": "chk_cf1b77cbb7431ab7900a189d"
+        },
+        {
+          "section_key": "场景 > 系统设置",
+          "section_path_sample": "场景 > 系统设置",
+          "section_ids": [
+            "sec_5034685ff6fe6eff"
+          ],
+          "chunk_count": 1,
+          "char_count": 689,
+          "best_chunk_id": "chk_da15852b4a64b23dda0617e4"
+        },
+        {
+          "section_key": "概述 > 基本操作",
+          "section_path_sample": "概述 > 基本操作 > 鼠标",
+          "section_ids": [
+            "sec_5f025f250bcf414d",
+            "sec_c267eee0f0220fee"
+          ],
+          "chunk_count": 2,
+          "char_count": 624,
+          "best_chunk_id": "chk_83b5d723d0fe12e1e6588b82"
+        },
+        {
+          "section_key": "快捷菜单",
+          "section_path_sample": "快捷菜单",
+          "section_ids": [
+            "sec_56bda827cd07134d"
+          ],
+          "chunk_count": 2,
+          "char_count": 553,
+          "best_chunk_id": "chk_a3de435bef8bf5ad43e1cb42"
+        },
+        {
+          "section_key": "标绘 > 三维导入导出",
+          "section_path_sample": "标绘 > 三维导入导出",
+          "section_ids": [
+            "sec_4fe791f555a8e1ac"
+          ],
+          "chunk_count": 1,
+          "char_count": 526,
+          "best_chunk_id": "chk_096e87f0f90ecb44e5d54ab2"
+        },
+        {
+          "section_key": "场景 > 场景漫游",
+          "section_path_sample": "场景 > 场景漫游",
+          "section_ids": [
+            "sec_f4cd1ec0664fe291"
+          ],
+          "chunk_count": 1,
+          "char_count": 455,
+          "best_chunk_id": "chk_4ba4548cbb57951367fc67dc"
+        },
+        {
+          "section_key": "场景 > 地形发布",
+          "section_path_sample": "场景 > 地形发布",
+          "section_ids": [
+            "sec_b63498303ab2c79f"
+          ],
+          "chunk_count": 1,
+          "char_count": 418,
+          "best_chunk_id": "chk_17f288624cd7e7e810864717"
+        },
+        {
+          "section_key": "场景 > 影像发布",
+          "section_path_sample": "场景 > 影像发布",
+          "section_ids": [
+            "sec_ed2c38fd854baf81"
+          ],
+          "chunk_count": 1,
+          "char_count": 376,
+          "best_chunk_id": "chk_86e309244d90b30730547274"
+        },
+        {
+          "section_key": "分析 > 日照分析",
+          "section_path_sample": "分析 > 日照分析",
+          "section_ids": [
+            "sec_e582b7de315f8bcb"
+          ],
+          "chunk_count": 1,
+          "char_count": 370,
+          "best_chunk_id": "chk_b5695e76ca2e0820c71e8f9a"
+        },
+        {
+          "section_key": "标绘 > 二维对象处理",
+          "section_path_sample": "标绘 > 二维对象处理",
+          "section_ids": [
+            "sec_f415c7d8c234769d"
+          ],
+          "chunk_count": 1,
+          "char_count": 363,
+          "best_chunk_id": "chk_604a36c4b29a3691481a1847"
+        },
+        {
+          "section_key": "场景 > 双屏比对",
+          "section_path_sample": "场景 > 双屏比对",
+          "section_ids": [
+            "sec_797f0187ae872c79"
+          ],
+          "chunk_count": 1,
+          "char_count": 358,
+          "best_chunk_id": "chk_3830aaa7bcf8eb0abc2f16e5"
+        },
+        {
+          "section_key": "概述",
+          "section_path_sample": "概述",
+          "section_ids": [
+            "sec_555048c9bbc9d3aa"
+          ],
+          "chunk_count": 1,
+          "char_count": 347,
+          "best_chunk_id": "chk_da9d1586906ff7b9046c4e77"
+        },
+        {
+          "section_key": "分析 > 淹没分析",
+          "section_path_sample": "分析 > 淹没分析",
+          "section_ids": [
+            "sec_1f5ff5af9011d3ce"
+          ],
+          "chunk_count": 1,
+          "char_count": 343,
+          "best_chunk_id": "chk_aac3de3cd77823744f7fd64d"
+        },
+        {
+          "section_key": "概述 > 运行环境",
+          "section_path_sample": "概述 > 运行环境",
+          "section_ids": [
+            "sec_b8f3aebff4b6bd45"
+          ],
+          "chunk_count": 1,
+          "char_count": 340,
+          "best_chunk_id": "chk_857987887141e3d58348d84c"
+        },
+        {
+          "section_key": "标绘 > 三维对象添加",
+          "section_path_sample": "标绘 > 三维对象添加",
+          "section_ids": [
+            "sec_50ddaac66e81b715"
+          ],
+          "chunk_count": 1,
+          "char_count": 329,
+          "best_chunk_id": "chk_ba281749085bbdd9ea6ecac4"
+        },
+        {
+          "section_key": "分析 > 天际线分析",
+          "section_path_sample": "分析 > 天际线分析",
+          "section_ids": [
+            "sec_d6cc257809857da6"
+          ],
+          "chunk_count": 1,
+          "char_count": 319,
+          "best_chunk_id": "chk_aacc912eaacb1edbab3e1127"
+        },
+        {
+          "section_key": "标绘 > 二维导入导出",
+          "section_path_sample": "标绘 > 二维导入导出",
+          "section_ids": [
+            "sec_db77623206f87c44"
+          ],
+          "chunk_count": 1,
+          "char_count": 317,
+          "best_chunk_id": "chk_603f7b0bd367abfd3f094739"
+        },
+        {
+          "section_key": "查询 > 属性查询",
+          "section_path_sample": "查询 > 属性查询",
+          "section_ids": [
+            "sec_8e28e53a43dc54bd"
+          ],
+          "chunk_count": 1,
+          "char_count": 313,
+          "best_chunk_id": "chk_937dfff40ce88a252809ff4e"
+        },
+        {
+          "section_key": "场景 > 工程设置",
+          "section_path_sample": "场景 > 工程设置",
+          "section_ids": [
+            "sec_e0061ab33160493e"
+          ],
+          "chunk_count": 1,
+          "char_count": 169,
+          "best_chunk_id": "chk_f65799f4b1cfd6d3ba55e6f1"
+        }
+      ]
+    },
+    {
+      "source": "三维数据发布服务接口 - v1.4.docx",
+      "doc_category": "其他",
+      "chunk_count": 96,
+      "char_count": 20125,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_bf9df5658a962bd5"
+          ],
+          "chunk_count": 96,
+          "char_count": 20125,
+          "best_chunk_id": "chk_87ef22d0a848c95c8d32bda9"
+        }
+      ]
+    },
+    {
+      "source": "EGIS三维数据服务接口规范0902.docx",
+      "doc_category": "其他",
+      "chunk_count": 94,
+      "char_count": 19702,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_bee3c1ef33e0160a"
+          ],
+          "chunk_count": 94,
+          "char_count": 19702,
+          "best_chunk_id": "chk_d21b063c40e7988a4b62d059"
+        }
+      ]
+    },
+    {
+      "source": "麒麟SP3x86版本安装手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 63,
+      "char_count": 19117,
+      "section_count": 11,
+      "sections": [
+        {
+          "section_key": "9.安装httpd > 建立软链接",
+          "section_path_sample": "9.安装httpd > 建立软链接",
+          "section_ids": [
+            "sec_e1b52dde53e67735"
+          ],
+          "chunk_count": 25,
+          "char_count": 8735,
+          "best_chunk_id": "chk_cb05a2532a5392580314cf00"
+        },
+        {
+          "section_key": "7.安装tomcat",
+          "section_path_sample": "7.安装tomcat",
+          "section_ids": [
+            "sec_50239b9fe0a7b435"
+          ],
+          "chunk_count": 19,
+          "char_count": 6024,
+          "best_chunk_id": "chk_868de928cbf0261f35abf448"
+        },
+        {
+          "section_key": "8.安装nginx",
+          "section_path_sample": "8.安装nginx",
+          "section_ids": [
+            "sec_6b96b55d49f4f6aa"
+          ],
+          "chunk_count": 6,
+          "char_count": 2204,
+          "best_chunk_id": "chk_93cbce294a70b240746a8917"
+        },
+        {
+          "section_key": "3.创建目录",
+          "section_path_sample": "3.创建目录",
+          "section_ids": [
+            "sec_87d1bad3344c7baa"
+          ],
+          "chunk_count": 1,
+          "char_count": 461,
+          "best_chunk_id": "chk_83cc119160afede2f4686c8c"
+        },
+        {
+          "section_key": "1.设置yum源",
+          "section_path_sample": "1.设置yum源",
+          "section_ids": [
+            "sec_e359a6456aa1ffac"
+          ],
+          "chunk_count": 3,
+          "char_count": 375,
+          "best_chunk_id": "chk_533bf5507c69ea4bfc56e161"
+        },
+        {
+          "section_key": "4.nodejs部署",
+          "section_path_sample": "4.nodejs部署",
+          "section_ids": [
+            "sec_0c87359e0042c34e"
+          ],
+          "chunk_count": 2,
+          "char_count": 321,
+          "best_chunk_id": "chk_c47b0e6d57fa2c8cd1585759"
+        },
+        {
+          "section_key": "9.安装httpd > 修改环境文件/usr/local/apache/bin/envvars",
+          "section_path_sample": "9.安装httpd > 修改环境文件/usr/local/apache/bin/envvars",
+          "section_ids": [
+            "sec_2a1245cc038e4090"
+          ],
+          "chunk_count": 1,
+          "char_count": 241,
+          "best_chunk_id": "chk_7001fe8d61beaf92bd6d5740"
+        },
+        {
+          "section_key": "5.pm2部署",
+          "section_path_sample": "5.pm2部署",
+          "section_ids": [
+            "sec_ef12bbca416394e9"
+          ],
+          "chunk_count": 2,
+          "char_count": 229,
+          "best_chunk_id": "chk_02b9244007693fbfc8c46b58"
+        },
+        {
+          "section_key": "6.安装redis",
+          "section_path_sample": "6.安装redis",
+          "section_ids": [
+            "sec_89e99117356003ff"
+          ],
+          "chunk_count": 2,
+          "char_count": 215,
+          "best_chunk_id": "chk_290e3abe9575aa1754e8a08b"
+        },
+        {
+          "section_key": "2.防火墙设置",
+          "section_path_sample": "2.防火墙设置",
+          "section_ids": [
+            "sec_003bfcf6ee3f0e69"
+          ],
+          "chunk_count": 1,
+          "char_count": 169,
+          "best_chunk_id": "chk_4bb8e6c334904d2689a9b647"
+        },
+        {
+          "section_key": "4.nodejs部署 > Nginx代理设置",
+          "section_path_sample": "4.nodejs部署 > Nginx代理设置",
+          "section_ids": [
+            "sec_170ead8812e42023"
+          ],
+          "chunk_count": 1,
+          "char_count": 143,
+          "best_chunk_id": "chk_459e030f0a814719157e71cf"
+        }
+      ]
+    },
+    {
+      "source": "三维数据发布服务接口 - v1.4.1.docx",
+      "doc_category": "其他",
+      "chunk_count": 93,
+      "char_count": 18981,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_badb87d23f5a62fd"
+          ],
+          "chunk_count": 93,
+          "char_count": 18981,
+          "best_chunk_id": "chk_5c6814b6aa48e119ebbe5a4c"
+        }
+      ]
+    },
+    {
+      "source": "麒麟SP3ARM版本安装手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 53,
+      "char_count": 17481,
+      "section_count": 6,
+      "sections": [
+        {
+          "section_key": "安装aksusbd-8.23.1",
+          "section_path_sample": "安装aksusbd-8.23.1",
+          "section_ids": [
+            "sec_ab153f321212a04d"
+          ],
+          "chunk_count": 22,
+          "char_count": 8020,
+          "best_chunk_id": "chk_230627b626ea9d6d4aac54a8"
+        },
+        {
+          "section_key": "安装tomcat",
+          "section_path_sample": "安装tomcat",
+          "section_ids": [
+            "sec_747c01cbb88436e8"
+          ],
+          "chunk_count": 17,
+          "char_count": 4887,
+          "best_chunk_id": "chk_c027656f9715601a804dceda"
+        },
+        {
+          "section_key": "安装nginx",
+          "section_path_sample": "安装nginx",
+          "section_ids": [
+            "sec_a784a69fe6061d59"
+          ],
+          "chunk_count": 6,
+          "char_count": 2554,
+          "best_chunk_id": "chk_4ee9ebb547b41c942e527c12"
+        },
+        {
+          "section_key": "设置yum源 > 创建目录",
+          "section_path_sample": "设置yum源 > 创建目录",
+          "section_ids": [
+            "sec_11cd337abab3bd68"
+          ],
+          "chunk_count": 2,
+          "char_count": 980,
+          "best_chunk_id": "chk_92141b7402a844897b1f6f50"
+        },
+        {
+          "section_key": "设置yum源",
+          "section_path_sample": "设置yum源",
+          "section_ids": [
+            "sec_0e921026309c1613"
+          ],
+          "chunk_count": 4,
+          "char_count": 546,
+          "best_chunk_id": "chk_da0a544e915d71a9db98db5d"
+        },
+        {
+          "section_key": "安装httpd > 修改环境文件/usr/local/apache/bin/envvars",
+          "section_path_sample": "安装httpd > 修改环境文件/usr/local/apache/bin/envvars",
+          "section_ids": [
+            "sec_57d9ebae501d2678"
+          ],
+          "chunk_count": 2,
+          "char_count": 494,
+          "best_chunk_id": "chk_36d25cacc481db0e41539a8e"
+        }
+      ]
+    },
+    {
+      "source": "config.ini说明.xlsx",
+      "doc_category": "其他",
+      "chunk_count": 31,
+      "char_count": 14562,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "Sheet1",
+          "section_path_sample": "Sheet1",
+          "section_ids": [
+            "sec_86277f44c3f46df5"
+          ],
+          "chunk_count": 31,
+          "char_count": 14562,
+          "best_chunk_id": "chk_879448093884de31fa0741e7"
+        }
+      ]
+    },
+    {
+      "source": "PipelineWebGL用户手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 33,
+      "char_count": 12697,
+      "section_count": 14,
+      "sections": [
+        {
+          "section_key": "查询统计 > 管线查询",
+          "section_path_sample": "查询统计 > 管线查询 > 空间查询",
+          "section_ids": [
+            "sec_453097767d9d256e",
+            "sec_5da8c2206e203df7",
+            "sec_77045d3d38fa0955",
+            "sec_7c44771f9665a44b",
+            "sec_97b6deee685af0d8",
+            "sec_c08f2d08ab4c6cb8"
+          ],
+          "chunk_count": 6,
+          "char_count": 2767,
+          "best_chunk_id": "chk_cc9e8fb61817028973011569"
+        },
+        {
+          "section_key": "辅助决策",
+          "section_path_sample": "辅助决策",
+          "section_ids": [
+            "sec_47cd9c57edfa81d0"
+          ],
+          "chunk_count": 7,
+          "char_count": 2663,
+          "best_chunk_id": "chk_0e8c0c63f68e9bd731195384"
+        },
+        {
+          "section_key": "浏览测量 > 场景浏览",
+          "section_path_sample": "浏览测量 > 场景浏览 > 飞行路径",
+          "section_ids": [
+            "sec_78318ecfaf05acb2",
+            "sec_9e7a57c4228a1955",
+            "sec_ca3d1ced2d1020dc"
+          ],
+          "chunk_count": 3,
+          "char_count": 1758,
+          "best_chunk_id": "chk_7dc0b94fbe0121a369b412f1"
+        },
+        {
+          "section_key": "查询统计 > 管线统计",
+          "section_path_sample": "查询统计 > 管线统计 > 管径分段",
+          "section_ids": [
+            "sec_0fa297d85a2e267b",
+            "sec_62c9d004c5fc30b2",
+            "sec_a28909ab3860cd51",
+            "sec_b959616af262ae08",
+            "sec_b9a44fcee566f437"
+          ],
+          "chunk_count": 5,
+          "char_count": 1728,
+          "best_chunk_id": "chk_e84e35894f2266ef718745b4"
+        },
+        {
+          "section_key": "概述 > 基本操作",
+          "section_path_sample": "概述 > 基本操作 > 鼠标",
+          "section_ids": [
+            "sec_7cf74ee4cbf86619",
+            "sec_b684af67fc5af964"
+          ],
+          "chunk_count": 2,
+          "char_count": 624,
+          "best_chunk_id": "chk_886fe224320b01088b938b45"
+        },
+        {
+          "section_key": "管线标注",
+          "section_path_sample": "管线标注",
+          "section_ids": [
+            "sec_499949e156c27330"
+          ],
+          "chunk_count": 2,
+          "char_count": 534,
+          "best_chunk_id": "chk_3be0370e05f5ae6c19be7dc4"
+        },
+        {
+          "section_key": "概述",
+          "section_path_sample": "概述",
+          "section_ids": [
+            "sec_758c932bda1c4ae6"
+          ],
+          "chunk_count": 1,
+          "char_count": 452,
+          "best_chunk_id": "chk_e4fc2f8cafee40369ba709b1"
+        },
+        {
+          "section_key": "查询统计",
+          "section_path_sample": "查询统计",
+          "section_ids": [
+            "sec_21e2977a5911548f"
+          ],
+          "chunk_count": 1,
+          "char_count": 379,
+          "best_chunk_id": "chk_b3508241b1ce7e080368f978"
+        },
+        {
+          "section_key": "浏览测量",
+          "section_path_sample": "浏览测量",
+          "section_ids": [
+            "sec_adf4b2eaba134321"
+          ],
+          "chunk_count": 1,
+          "char_count": 374,
+          "best_chunk_id": "chk_e805bc40dba5756398276a31"
+        },
+        {
+          "section_key": "辅助决策 > 智能排管",
+          "section_path_sample": "辅助决策 > 智能排管",
+          "section_ids": [
+            "sec_45f46349cde6bd56"
+          ],
+          "chunk_count": 1,
+          "char_count": 370,
+          "best_chunk_id": "chk_897e0665d14295889705ff36"
+        },
+        {
+          "section_key": "辅助决策 > 开挖分析",
+          "section_path_sample": "辅助决策 > 开挖分析",
+          "section_ids": [
+            "sec_33fa9fad606f2f06"
+          ],
+          "chunk_count": 1,
+          "char_count": 315,
+          "best_chunk_id": "chk_fa1fa34aa4269994e30898a5"
+        },
+        {
+          "section_key": "浏览测量 > 量算分析",
+          "section_path_sample": "浏览测量 > 量算分析 > 垂直距离",
+          "section_ids": [
+            "sec_e59c779237035d3e"
+          ],
+          "chunk_count": 1,
+          "char_count": 258,
+          "best_chunk_id": "chk_3a8b930ca8f76eb6998eee5a"
+        },
+        {
+          "section_key": "快捷菜单",
+          "section_path_sample": "快捷菜单",
+          "section_ids": [
+            "sec_af53efc6c6188ec5"
+          ],
+          "chunk_count": 1,
+          "char_count": 257,
+          "best_chunk_id": "chk_800d5d263689613a49c23487"
+        },
+        {
+          "section_key": "快捷查询",
+          "section_path_sample": "快捷查询",
+          "section_ids": [
+            "sec_8c480b834d17d2ce"
+          ],
+          "chunk_count": 1,
+          "char_count": 218,
+          "best_chunk_id": "chk_b378d2280fbc9de5663e6b78"
+        }
+      ]
+    },
+    {
+      "source": "三维基本概念.pptx",
+      "doc_category": "其他",
+      "chunk_count": 27,
+      "char_count": 8474,
+      "section_count": 13,
+      "sections": [
+        {
+          "section_key": "空间数据",
+          "section_path_sample": "空间数据",
+          "section_ids": [
+            "sec_5e9f5a18a66e7774"
+          ],
+          "chunk_count": 5,
+          "char_count": 1731,
+          "best_chunk_id": "chk_2862aa77b768cb8ad688274b"
+        },
+        {
+          "section_key": "图形API",
+          "section_path_sample": "图形API",
+          "section_ids": [
+            "sec_0d2b8f130963ec99"
+          ],
+          "chunk_count": 5,
+          "char_count": 1604,
+          "best_chunk_id": "chk_b949f1004fa149255ecd77a6"
+        },
+        {
+          "section_key": "三维场景",
+          "section_path_sample": "三维场景",
+          "section_ids": [
+            "sec_f52d2d428961d17b"
+          ],
+          "chunk_count": 3,
+          "char_count": 1028,
+          "best_chunk_id": "chk_6c0487ae72db07c794fa0810"
+        },
+        {
+          "section_key": "空间坐标系",
+          "section_path_sample": "空间坐标系",
+          "section_ids": [
+            "sec_9b270043eb58a3cc"
+          ],
+          "chunk_count": 3,
+          "char_count": 982,
+          "best_chunk_id": "chk_aa57820dd420d44d06a5e1f7"
+        },
+        {
+          "section_key": "物联网",
+          "section_path_sample": "物联网",
+          "section_ids": [
+            "sec_f57003186614e4b4"
+          ],
+          "chunk_count": 3,
+          "char_count": 823,
+          "best_chunk_id": "chk_7509d14adc872920c1c13c02"
+        },
+        {
+          "section_key": "系统架构",
+          "section_path_sample": "系统架构",
+          "section_ids": [
+            "sec_63e7c2cd8977b55c"
+          ],
+          "chunk_count": 1,
+          "char_count": 477,
+          "best_chunk_id": "chk_aec52b35d6ce6628378afec0"
+        },
+        {
+          "section_key": "系统开发",
+          "section_path_sample": "系统开发",
+          "section_ids": [
+            "sec_1d9307f1dd4338c9"
+          ],
+          "chunk_count": 1,
+          "char_count": 325,
+          "best_chunk_id": "chk_cfb88cc1a1c7887dd5ec98dc"
+        },
+        {
+          "section_key": "操作系统",
+          "section_path_sample": "操作系统",
+          "section_ids": [
+            "sec_6d60c80be2533046"
+          ],
+          "chunk_count": 1,
+          "char_count": 305,
+          "best_chunk_id": "chk_ce6dd65a15c8c1fa9473c848"
+        },
+        {
+          "section_key": "GUID",
+          "section_path_sample": "GUID",
+          "section_ids": [
+            "sec_5831a372cde9a9f9"
+          ],
+          "chunk_count": 1,
+          "char_count": 278,
+          "best_chunk_id": "chk_fda8dea5e232d620573516c5"
+        },
+        {
+          "section_key": "数据库",
+          "section_path_sample": "数据库",
+          "section_ids": [
+            "sec_3d67e5727acaeaea"
+          ],
+          "chunk_count": 1,
+          "char_count": 269,
+          "best_chunk_id": "chk_d6a69dc80e1fe27ed6d886d3"
+        },
+        {
+          "section_key": "虚拟现实",
+          "section_path_sample": "虚拟现实",
+          "section_ids": [
+            "sec_2a63f71f856343b4"
+          ],
+          "chunk_count": 1,
+          "char_count": 228,
+          "best_chunk_id": "chk_7d218c59d3af8bca6ef7aed4"
+        },
+        {
+          "section_key": "硬件",
+          "section_path_sample": "硬件",
+          "section_ids": [
+            "sec_ed2e295288bd190f"
+          ],
+          "chunk_count": 1,
+          "char_count": 217,
+          "best_chunk_id": "chk_8fecb22aa74ad23dd618d4c4"
+        },
+        {
+          "section_key": "LOD技术",
+          "section_path_sample": "LOD技术",
+          "section_ids": [
+            "sec_50b02c2111a66bca"
+          ],
+          "chunk_count": 1,
+          "char_count": 207,
+          "best_chunk_id": "chk_5730c5fa9db15a1b56270cd4"
+        }
+      ]
+    },
+    {
+      "source": "postgresql编辑图层迁移.docx",
+      "doc_category": "其他",
+      "chunk_count": 27,
+      "char_count": 8155,
+      "section_count": 13,
+      "sections": [
+        {
+          "section_key": "四、使用命令行 > 4. 旧库导出",
+          "section_path_sample": "四、使用命令行 > 4. 旧库导出 > Lod:",
+          "section_ids": [
+            "sec_c441dfde93e47cd7",
+            "sec_ddd207cf7b86847a"
+          ],
+          "chunk_count": 6,
+          "char_count": 2242,
+          "best_chunk_id": "chk_c99f43a793660d601ca4ac23"
+        },
+        {
+          "section_key": "四、使用命令行 > 5. 新库导入",
+          "section_path_sample": "四、使用命令行 > 5. 新库导入 > Lod:",
+          "section_ids": [
+            "sec_5a4a20fe5a2c6510",
+            "sec_9d839a70ad22cbdc"
+          ],
+          "chunk_count": 6,
+          "char_count": 2141,
+          "best_chunk_id": "chk_1657deb6ee9274be689e82d8"
+        },
+        {
+          "section_key": "二、校验导入成功之后务必新旧表数据是否一致 > Model",
+          "section_path_sample": "二、校验导入成功之后务必新旧表数据是否一致 > Model",
+          "section_ids": [
+            "sec_5a29be57aa41c106"
+          ],
+          "chunk_count": 3,
+          "char_count": 1215,
+          "best_chunk_id": "chk_a5fd6bba4df97c2ae581c589"
+        },
+        {
+          "section_key": "二、校验导入成功之后务必新旧表数据是否一致 > Lod",
+          "section_path_sample": "二、校验导入成功之后务必新旧表数据是否一致 > Lod",
+          "section_ids": [
+            "sec_74d8f1eedf666bd1"
+          ],
+          "chunk_count": 2,
+          "char_count": 997,
+          "best_chunk_id": "chk_5bd1de4cf376592bfa389797"
+        },
+        {
+          "section_key": "二、校验导入成功之后务必新旧表数据是否一致 > 校验数据正确性最好从下面几个方面验证：",
+          "section_path_sample": "二、校验导入成功之后务必新旧表数据是否一致 > 校验数据正确性最好从下面几个方面验证：",
+          "section_ids": [
+            "sec_958d33ef7ca6b632"
+          ],
+          "chunk_count": 1,
+          "char_count": 324,
+          "best_chunk_id": "chk_b555d558e29cf7b833af1087"
+        },
+        {
+          "section_key": "一. 涉及内容 > 1. 表",
+          "section_path_sample": "一. 涉及内容 > 1. 表 > 1) 模型",
+          "section_ids": [
+            "sec_170a3471cc58a555",
+            "sec_938666d078f7302e"
+          ],
+          "chunk_count": 2,
+          "char_count": 283,
+          "best_chunk_id": "chk_4b7b6482dd210fc459b30a3d"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 6. 导出 旧表block数据",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 6. 导出 旧表block数据",
+          "section_ids": [
+            "sec_c1984c305bdfc54f"
+          ],
+          "chunk_count": 1,
+          "char_count": 211,
+          "best_chunk_id": "chk_cc8dfe48ccb987042183b6c0"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 5. 把从旧库导出的数据导入到新库对应表",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 5. 把从旧库导出的数据导入到新库对应表",
+          "section_ids": [
+            "sec_4ad2f10798177efb"
+          ],
+          "chunk_count": 1,
+          "char_count": 146,
+          "best_chunk_id": "chk_0637f578bbc49f7112354a02"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 7. 把block数据导入新表",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 7. 把block数据导入新表",
+          "section_ids": [
+            "sec_0dbbf8937c0d289a"
+          ],
+          "chunk_count": 1,
+          "char_count": 143,
+          "best_chunk_id": "chk_bf82d9e87a1bcb163d32278f"
+        },
+        {
+          "section_key": "四、使用命令行",
+          "section_path_sample": "四、使用命令行",
+          "section_ids": [
+            "sec_4ac9fc554a2d85eb"
+          ],
+          "chunk_count": 1,
+          "char_count": 132,
+          "best_chunk_id": "chk_1d20c5d9fcce8748e80d7a0d"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 2. 通过客户端查看新建图层的layerid",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 2. 通过客户端查看新建图层的layerid",
+          "section_ids": [
+            "sec_de1a82164834b3b4"
+          ],
+          "chunk_count": 1,
+          "char_count": 119,
+          "best_chunk_id": "chk_5f43a1c61b06992631e9a86e"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 4. 根据旧layerid导出旧库的相关表",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 4. 根据旧layerid导出旧库的相关表",
+          "section_ids": [
+            "sec_e402d40330c82856"
+          ],
+          "chunk_count": 1,
+          "char_count": 114,
+          "best_chunk_id": "chk_84457fd1c16aff70a15993b2"
+        },
+        {
+          "section_key": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 1. \t新库创建对应图层",
+          "section_path_sample": "三、编辑图层数据库迁移步骤（使用pgAdmin客户端） > 1. \t新库创建对应图层",
+          "section_ids": [
+            "sec_08b7d51fcd60ff8f"
+          ],
+          "chunk_count": 1,
+          "char_count": 88,
+          "best_chunk_id": "chk_3399a5026d5e5526fdb74c51"
+        }
+      ]
+    },
+    {
+      "source": "三维地图服务接口.docx",
+      "doc_category": "其他",
+      "chunk_count": 26,
+      "char_count": 5174,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_f0257cfc7e5ad168"
+          ],
+          "chunk_count": 26,
+          "char_count": 5174,
+          "best_chunk_id": "chk_567ea8af5966fdd214af4f82"
+        }
+      ]
+    },
+    {
+      "source": "VSCode+SVN配置.docx",
+      "doc_category": "其他",
+      "chunk_count": 16,
+      "char_count": 5031,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_741b3de9a051e03c"
+          ],
+          "chunk_count": 16,
+          "char_count": 5031,
+          "best_chunk_id": "chk_40101da2f4cc5d7aeb5dd5bc"
+        }
+      ]
+    },
+    {
+      "source": "VMware ESXi虚拟机GPU直通和Kylin推流配置.docx",
+      "doc_category": "基础环境",
+      "chunk_count": 21,
+      "char_count": 4426,
+      "section_count": 9,
+      "sections": [
+        {
+          "section_key": "VMwareESXI创建虚拟机 > linux系统安装显卡驱动",
+          "section_path_sample": "VMwareESXI创建虚拟机 > linux系统安装显卡驱动",
+          "section_ids": [
+            "sec_74709522e82f7239"
+          ],
+          "chunk_count": 10,
+          "char_count": 1802,
+          "best_chunk_id": "chk_1915dd8b819580768d22a5fa"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > linux推流部署",
+          "section_path_sample": "VMwareESXI创建虚拟机 > linux推流部署",
+          "section_ids": [
+            "sec_12d1cdb58ab7e83a"
+          ],
+          "chunk_count": 4,
+          "char_count": 1151,
+          "best_chunk_id": "chk_f05d1242f670fc9441cfba87"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 麒麟虚拟机安装",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 麒麟虚拟机安装",
+          "section_ids": [
+            "sec_ce1f751ff7bcad95"
+          ],
+          "chunk_count": 1,
+          "char_count": 400,
+          "best_chunk_id": "chk_e0832de76d8dca1c446cbcf3"
+        },
+        {
+          "section_key": "VMwareESXi安装 > 进入系统界面",
+          "section_path_sample": "VMwareESXi安装 > 进入系统界面",
+          "section_ids": [
+            "sec_0fd087295769c266"
+          ],
+          "chunk_count": 1,
+          "char_count": 258,
+          "best_chunk_id": "chk_a2cd7f5064ad5903f551021c"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+          "section_ids": [
+            "sec_edf1005301142470"
+          ],
+          "chunk_count": 1,
+          "char_count": 228,
+          "best_chunk_id": "chk_b838271da067128062b99eb5"
+        },
+        {
+          "section_key": "VMwareESXi安装 > 制作启动盘",
+          "section_path_sample": "VMwareESXi安装 > 制作启动盘",
+          "section_ids": [
+            "sec_f2327faad78bd293"
+          ],
+          "chunk_count": 1,
+          "char_count": 212,
+          "best_chunk_id": "chk_564e8317ae31fba26c46c884"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 高级设置",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 高级设置",
+          "section_ids": [
+            "sec_7d14eb53f0820d13"
+          ],
+          "chunk_count": 1,
+          "char_count": 154,
+          "best_chunk_id": "chk_6cf9a486b5bf6aab19a3cbdd"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 其他操作—连接硬盘",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 其他操作—连接硬盘",
+          "section_ids": [
+            "sec_8343abfa38a1bb5f"
+          ],
+          "chunk_count": 1,
+          "char_count": 114,
+          "best_chunk_id": "chk_f759dacf165e01ccf52e18cb"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机",
+          "section_path_sample": "VMwareESXI创建虚拟机",
+          "section_ids": [
+            "sec_537a57ee377af210"
+          ],
+          "chunk_count": 1,
+          "char_count": 107,
+          "best_chunk_id": "chk_9f4ac458b2fa27a8ff7e6389"
+        }
+      ]
+    },
+    {
+      "source": "HTTPS和域名配置.docx",
+      "doc_category": "其他",
+      "chunk_count": 11,
+      "char_count": 4324,
+      "section_count": 2,
+      "sections": [
+        {
+          "section_key": "HTTPS配置 > 私有CA配置",
+          "section_path_sample": "HTTPS配置 > 私有CA配置 > 创建根CA",
+          "section_ids": [
+            "sec_13537a48778952cd",
+            "sec_7f416df7f45e18ae"
+          ],
+          "chunk_count": 10,
+          "char_count": 4061,
+          "best_chunk_id": "chk_afa9ef47e3a34375f7e18ec9"
+        },
+        {
+          "section_key": "HTTPS配置 > 私有域名配置",
+          "section_path_sample": "HTTPS配置 > 私有域名配置 > IP映射域名",
+          "section_ids": [
+            "sec_e8a90b398d00b065"
+          ],
+          "chunk_count": 1,
+          "char_count": 263,
+          "best_chunk_id": "chk_74dd9bbc39ea360dc176e929"
+        }
+      ]
+    },
+    {
+      "source": "StampGIS三维产品白皮书.docx",
+      "doc_category": "其他",
+      "chunk_count": 25,
+      "char_count": 4259,
+      "section_count": 13,
+      "sections": [
+        {
+          "section_key": "产品概述 > 产品技术特点",
+          "section_path_sample": "产品概述 > 产品技术特点 > 三维数据优化处理",
+          "section_ids": [
+            "sec_12687b0f68549f32",
+            "sec_171f383ed207cd8e",
+            "sec_2f8bc6bea74d0a5a",
+            "sec_59e6d8dc784e07f6",
+            "sec_64853542919291a9",
+            "sec_85d437646e09ec30",
+            "sec_c7dee7ac470aa530",
+            "sec_d69180873cb379c6",
+            "sec_e5c14978dcd7712a"
+          ],
+          "chunk_count": 9,
+          "char_count": 1333,
+          "best_chunk_id": "chk_1fe51f587638ea749639a9ff"
+        },
+        {
+          "section_key": "技术架构",
+          "section_path_sample": "技术架构",
+          "section_ids": [
+            "sec_412751e9df4286c3"
+          ],
+          "chunk_count": 2,
+          "char_count": 603,
+          "best_chunk_id": "chk_a876217f9e95fec848b29183"
+        },
+        {
+          "section_key": "场景表现能力 > 复杂场景融合展现",
+          "section_path_sample": "场景表现能力 > 复杂场景融合展现 > 模型数据",
+          "section_ids": [
+            "sec_1b7a63a3a95096d1",
+            "sec_4096b4cbb42f99b1",
+            "sec_c74536bda33eba07",
+            "sec_ee8fc85858a37ca1"
+          ],
+          "chunk_count": 4,
+          "char_count": 520,
+          "best_chunk_id": "chk_e3197aeb63f20dcb6e1bfa08"
+        },
+        {
+          "section_key": "场景表现能力 > 三维特效",
+          "section_path_sample": "场景表现能力 > 三维特效",
+          "section_ids": [
+            "sec_ff1594784cd54b84"
+          ],
+          "chunk_count": 1,
+          "char_count": 443,
+          "best_chunk_id": "chk_acd8e8b03b1bcec3c42ddafa"
+        },
+        {
+          "section_key": "场景表现能力 > 二三维符号化",
+          "section_path_sample": "场景表现能力 > 二三维符号化",
+          "section_ids": [
+            "sec_28ef330932a0e01d"
+          ],
+          "chunk_count": 1,
+          "char_count": 305,
+          "best_chunk_id": "chk_cc73ee46e67bd7d027df18d1"
+        },
+        {
+          "section_key": "产品概述 > 产品简介",
+          "section_path_sample": "产品概述 > 产品简介",
+          "section_ids": [
+            "sec_2a79e46997690acc"
+          ],
+          "chunk_count": 1,
+          "char_count": 183,
+          "best_chunk_id": "chk_bd8bfe6f403e446d1096a0a6"
+        },
+        {
+          "section_key": "行业应用 > 自然资源管理",
+          "section_path_sample": "行业应用 > 自然资源管理",
+          "section_ids": [
+            "sec_8ec10d0a3531fb37"
+          ],
+          "chunk_count": 1,
+          "char_count": 149,
+          "best_chunk_id": "chk_07f2dabcc0baa0e21bd94b15"
+        },
+        {
+          "section_key": "行业应用 > 三维规划审批",
+          "section_path_sample": "行业应用 > 三维规划审批",
+          "section_ids": [
+            "sec_3f460981e44d1e6f"
+          ],
+          "chunk_count": 1,
+          "char_count": 143,
+          "best_chunk_id": "chk_dba3b383522eda37ee1067ca"
+        },
+        {
+          "section_key": "行业应用 > 地下基础设施管理",
+          "section_path_sample": "行业应用 > 地下基础设施管理",
+          "section_ids": [
+            "sec_cdd6b1921001cf77"
+          ],
+          "chunk_count": 1,
+          "char_count": 139,
+          "best_chunk_id": "chk_a48909c4b5a7639113e94747"
+        },
+        {
+          "section_key": "行业应用 > 物联感知集成",
+          "section_path_sample": "行业应用 > 物联感知集成",
+          "section_ids": [
+            "sec_c4fd763dfa756303"
+          ],
+          "chunk_count": 1,
+          "char_count": 123,
+          "best_chunk_id": "chk_7f75376987cf094ce451333d"
+        },
+        {
+          "section_key": "场景表现能力 > 宏微观一体化",
+          "section_path_sample": "场景表现能力 > 宏微观一体化",
+          "section_ids": [
+            "sec_c70bffffbd0a8d63"
+          ],
+          "chunk_count": 1,
+          "char_count": 122,
+          "best_chunk_id": "chk_2a35b410353bf5a5ce9da1b4"
+        },
+        {
+          "section_key": "场景表现能力 > 物联网设备和视频数据接入",
+          "section_path_sample": "场景表现能力 > 物联网设备和视频数据接入",
+          "section_ids": [
+            "sec_de9b170f72a575e9"
+          ],
+          "chunk_count": 1,
+          "char_count": 108,
+          "best_chunk_id": "chk_27ad2129a03c7a85d1bd6250"
+        },
+        {
+          "section_key": "场景表现能力 > GPS接入",
+          "section_path_sample": "场景表现能力 > GPS接入",
+          "section_ids": [
+            "sec_4070df102bf0fcd2"
+          ],
+          "chunk_count": 1,
+          "char_count": 88,
+          "best_chunk_id": "chk_9f7e8c6b9855b892cf02c1a0"
+        }
+      ]
+    },
+    {
+      "source": "路径规划.sql",
+      "doc_category": "其他",
+      "chunk_count": 11,
+      "char_count": 4221,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "FUNCTION public.stamp_shortest_road",
+          "section_path_sample": "FUNCTION public.stamp_shortest_road",
+          "section_ids": [
+            "sec_5f7b1007b9e90d94"
+          ],
+          "chunk_count": 11,
+          "char_count": 4221,
+          "best_chunk_id": "chk_10e5ab8b0fb0b05d4e1fadec"
+        }
+      ]
+    },
+    {
+      "source": "https配置部署文档.docx",
+      "doc_category": "其他",
+      "chunk_count": 13,
+      "char_count": 4011,
+      "section_count": 3,
+      "sections": [
+        {
+          "section_key": "2、Apache配置https",
+          "section_path_sample": "2、Apache配置https",
+          "section_ids": [
+            "sec_9c6375a8670143ec"
+          ],
+          "chunk_count": 7,
+          "char_count": 2519,
+          "best_chunk_id": "chk_eb73451fb537838c1fb84d8d"
+        },
+        {
+          "section_key": "4、Nginx配置https",
+          "section_path_sample": "4、Nginx配置https",
+          "section_ids": [
+            "sec_73eaa5b8c51e4077"
+          ],
+          "chunk_count": 4,
+          "char_count": 1128,
+          "best_chunk_id": "chk_3f8064197975572888679509"
+        },
+        {
+          "section_key": "1、制作证书（自签名的免费证书）",
+          "section_path_sample": "1、制作证书（自签名的免费证书）",
+          "section_ids": [
+            "sec_8d472e051c500f69"
+          ],
+          "chunk_count": 2,
+          "char_count": 364,
+          "best_chunk_id": "chk_78717051ae729791ceb74529"
+        }
+      ]
+    },
+    {
+      "source": "minio 单机多磁盘部署.docx",
+      "doc_category": "其他",
+      "chunk_count": 13,
+      "char_count": 3703,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_2712b32d218939f0"
+          ],
+          "chunk_count": 13,
+          "char_count": 3703,
+          "best_chunk_id": "chk_763a570937c27580ba5c1a8c"
+        }
+      ]
+    },
+    {
+      "source": "实景三维新功能.txt",
+      "doc_category": "实景三维",
+      "chunk_count": 8,
+      "char_count": 2672,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "11.陕西耕地保护",
+          "section_path_sample": "11.陕西耕地保护",
+          "section_ids": [
+            "sec_c60446dc30cddcb8"
+          ],
+          "chunk_count": 8,
+          "char_count": 2672,
+          "best_chunk_id": "chk_30c9a4b79780a0f4f72a552b"
+        }
+      ]
+    },
+    {
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "doc_category": "博客",
+      "chunk_count": 12,
+      "char_count": 2595,
+      "section_count": 12,
+      "sections": [
+        {
+          "section_key": "1.MySQL 数据类型 > 1.1 数值类型",
+          "section_path_sample": "1.MySQL 数据类型 > 1.1 数值类型",
+          "section_ids": [
+            "sec_e6feaab443ae50e0"
+          ],
+          "chunk_count": 1,
+          "char_count": 444,
+          "best_chunk_id": "chk_0c31554dda4e871ed5a7b6af"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.5 PRIMARY KEY 主键",
+          "section_path_sample": "2.MySQL 表约束 > 2.5 PRIMARY KEY 主键",
+          "section_ids": [
+            "sec_ae514a3ae14e3f47"
+          ],
+          "chunk_count": 1,
+          "char_count": 406,
+          "best_chunk_id": "chk_cd27cf379ff65c3173a2d386"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.8 FOREIGN KEY 外键",
+          "section_path_sample": "2.MySQL 表约束 > 2.8 FOREIGN KEY 外键",
+          "section_ids": [
+            "sec_e7b37181e80f7f41"
+          ],
+          "chunk_count": 1,
+          "char_count": 284,
+          "best_chunk_id": "chk_2681c15c4725b78f2a80dc22"
+        },
+        {
+          "section_key": "1.MySQL 数据类型 > 1.2 字符串类型",
+          "section_path_sample": "1.MySQL 数据类型 > 1.2 字符串类型",
+          "section_ids": [
+            "sec_5e83c0eb36cc9abf"
+          ],
+          "chunk_count": 1,
+          "char_count": 282,
+          "best_chunk_id": "chk_fa9de0a7c3866692e82e9e53"
+        },
+        {
+          "section_key": "1.MySQL 数据类型 > 1.4 ENUM 与 SET（单选/多选）",
+          "section_path_sample": "1.MySQL 数据类型 > 1.4 ENUM 与 SET（单选/多选）",
+          "section_ids": [
+            "sec_cd2ce1a3754df330"
+          ],
+          "chunk_count": 1,
+          "char_count": 243,
+          "best_chunk_id": "chk_9a93fc7611a41923f22fdbb6"
+        },
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_b1533b5dba8ff2ce"
+          ],
+          "chunk_count": 1,
+          "char_count": 196,
+          "best_chunk_id": "chk_ba240c99190ed16e1ff9cb26"
+        },
+        {
+          "section_key": "1.MySQL 数据类型 > 1.3 日期时间类型",
+          "section_path_sample": "1.MySQL 数据类型 > 1.3 日期时间类型",
+          "section_ids": [
+            "sec_52edda67dbf19709"
+          ],
+          "chunk_count": 1,
+          "char_count": 164,
+          "best_chunk_id": "chk_a96117a2f8fb980c0e4dc797"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.1 NOT NULL 非空",
+          "section_path_sample": "2.MySQL 表约束 > 2.1 NOT NULL 非空",
+          "section_ids": [
+            "sec_1546393917412d4f"
+          ],
+          "chunk_count": 1,
+          "char_count": 149,
+          "best_chunk_id": "chk_f75fdb9ca1def09983d73d01"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.3 COMMENT 字段注释",
+          "section_path_sample": "2.MySQL 表约束 > 2.3 COMMENT 字段注释",
+          "section_ids": [
+            "sec_712369e8999dc304"
+          ],
+          "chunk_count": 1,
+          "char_count": 121,
+          "best_chunk_id": "chk_ec0f3f81b6956240454f941d"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.6 AUTO_INCREMENT 自增长",
+          "section_path_sample": "2.MySQL 表约束 > 2.6 AUTO_INCREMENT 自增长",
+          "section_ids": [
+            "sec_c7543d3d4ef685e6"
+          ],
+          "chunk_count": 1,
+          "char_count": 113,
+          "best_chunk_id": "chk_520b14d7dff83d423572f728"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.2 DEFAULT 默认值",
+          "section_path_sample": "2.MySQL 表约束 > 2.2 DEFAULT 默认值",
+          "section_ids": [
+            "sec_d8bf85a0c3e6b183"
+          ],
+          "chunk_count": 1,
+          "char_count": 103,
+          "best_chunk_id": "chk_4a8f44be20dc38ee851a5b58"
+        },
+        {
+          "section_key": "2.MySQL 表约束 > 2.4 ZEROFILL 补零",
+          "section_path_sample": "2.MySQL 表约束 > 2.4 ZEROFILL 补零",
+          "section_ids": [
+            "sec_8dc82f588215c32d"
+          ],
+          "chunk_count": 1,
+          "char_count": 90,
+          "best_chunk_id": "chk_5bb1604b082910f1cfd36dfa"
+        }
+      ]
+    },
+    {
+      "source": "Geoserver 叠加分析 -v0.2.docx",
+      "doc_category": "其他",
+      "chunk_count": 9,
+      "char_count": 2052,
+      "section_count": 5,
+      "sections": [
+        {
+          "section_key": "示例",
+          "section_path_sample": "示例",
+          "section_ids": [
+            "sec_d31b9bfbda399034"
+          ],
+          "chunk_count": 2,
+          "char_count": 550,
+          "best_chunk_id": "chk_8a9da0676adaae53bcb010ac"
+        },
+        {
+          "section_key": "接口定义 > 图层与图层缓冲区叠加分析",
+          "section_path_sample": "接口定义 > 图层与图层缓冲区叠加分析",
+          "section_ids": [
+            "sec_6ae3b783d3cdc71b"
+          ],
+          "chunk_count": 2,
+          "char_count": 453,
+          "best_chunk_id": "chk_da6b03779e560cb876f7f377"
+        },
+        {
+          "section_key": "接口定义 > 图层与图层叠加分析",
+          "section_path_sample": "接口定义 > 图层与图层叠加分析",
+          "section_ids": [
+            "sec_ed2bd47677e39e46"
+          ],
+          "chunk_count": 2,
+          "char_count": 417,
+          "best_chunk_id": "chk_7106f1436191784edbff6db5"
+        },
+        {
+          "section_key": "接口定义 > 图层与对象叠加分析",
+          "section_path_sample": "接口定义 > 图层与对象叠加分析",
+          "section_ids": [
+            "sec_054831fe4f5ff8b6"
+          ],
+          "chunk_count": 2,
+          "char_count": 317,
+          "best_chunk_id": "chk_de75917ba60235194dffccb8"
+        },
+        {
+          "section_key": "接口定义 > 叠加分析的操作",
+          "section_path_sample": "接口定义 > 叠加分析的操作",
+          "section_ids": [
+            "sec_2c0a3c3dd31dc2a0"
+          ],
+          "chunk_count": 1,
+          "char_count": 315,
+          "best_chunk_id": "chk_ab27207f7b9c35b5bad2c096"
+        }
+      ]
+    },
+    {
+      "source": "坡度分析-坡度连片度分析--相关接口.docx",
+      "doc_category": "其他",
+      "chunk_count": 10,
+      "char_count": 1887,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_58bf3c91d792bd2c"
+          ],
+          "chunk_count": 10,
+          "char_count": 1887,
+          "best_chunk_id": "chk_84ba1c4df3bda99c4d473232"
+        }
+      ]
+    },
+    {
+      "source": "拯救者笔记本电脑安装Rocky95.docx",
+      "doc_category": "基础环境",
+      "chunk_count": 10,
+      "char_count": 1654,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_61d47e6b795f89de"
+          ],
+          "chunk_count": 10,
+          "char_count": 1654,
+          "best_chunk_id": "chk_255e64f0badbe8e5153214bc"
+        }
+      ]
+    },
+    {
+      "source": "ArcGIS配图及发布切片服务手册.docx",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1532,
+      "section_count": 4,
+      "sections": [
+        {
+          "section_key": "服务发布",
+          "section_path_sample": "服务发布",
+          "section_ids": [
+            "sec_19c8b4654711169d"
+          ],
+          "chunk_count": 1,
+          "char_count": 812,
+          "best_chunk_id": "chk_0b2c8ec022168b510fbcac63"
+        },
+        {
+          "section_key": "矢量配图",
+          "section_path_sample": "矢量配图",
+          "section_ids": [
+            "sec_9d61264dbd9ceb3b"
+          ],
+          "chunk_count": 1,
+          "char_count": 331,
+          "best_chunk_id": "chk_3a92ceed3ce8ded01291d63d"
+        },
+        {
+          "section_key": "切片方案制作",
+          "section_path_sample": "切片方案制作",
+          "section_ids": [
+            "sec_742c6658fc472f15"
+          ],
+          "chunk_count": 1,
+          "char_count": 199,
+          "best_chunk_id": "chk_b39893c97084efc62cc8b697"
+        },
+        {
+          "section_key": "服务测试及查看",
+          "section_path_sample": "服务测试及查看",
+          "section_ids": [
+            "sec_a67b9a5a2dcc5c88"
+          ],
+          "chunk_count": 1,
+          "char_count": 190,
+          "best_chunk_id": "chk_a3106c3641d5bed91061530d"
+        }
+      ]
+    },
+    {
+      "source": "可达圈分析.sql",
+      "doc_category": "其他",
+      "chunk_count": 6,
+      "char_count": 1423,
+      "section_count": 6,
+      "sections": [
+        {
+          "section_key": "SQL 6",
+          "section_path_sample": "SQL 6",
+          "section_ids": [
+            "sec_3a548fe8c124cd2d"
+          ],
+          "chunk_count": 1,
+          "char_count": 368,
+          "best_chunk_id": "chk_73403f23112cb64cff13517e"
+        },
+        {
+          "section_key": "SQL 5",
+          "section_path_sample": "SQL 5",
+          "section_ids": [
+            "sec_69277405644ae104"
+          ],
+          "chunk_count": 1,
+          "char_count": 320,
+          "best_chunk_id": "chk_d528c698be2fb8da169169c2"
+        },
+        {
+          "section_key": "TABLE jiangsu_road_line",
+          "section_path_sample": "TABLE jiangsu_road_line",
+          "section_ids": [
+            "sec_5450c9a87915b166"
+          ],
+          "chunk_count": 1,
+          "char_count": 269,
+          "best_chunk_id": "chk_40e7abba9dc66c1ad0170588"
+        },
+        {
+          "section_key": "SQL 2",
+          "section_path_sample": "SQL 2",
+          "section_ids": [
+            "sec_88f557fe080d12c3"
+          ],
+          "chunk_count": 1,
+          "char_count": 225,
+          "best_chunk_id": "chk_74a2f9b30f46991da7d45e6d"
+        },
+        {
+          "section_key": "SQL 4",
+          "section_path_sample": "SQL 4",
+          "section_ids": [
+            "sec_d99dfd127dca360e"
+          ],
+          "chunk_count": 1,
+          "char_count": 156,
+          "best_chunk_id": "chk_84dad7c32b7c87985ae204d6"
+        },
+        {
+          "section_key": "SQL 3",
+          "section_path_sample": "SQL 3",
+          "section_ids": [
+            "sec_f2809d1199822b7a"
+          ],
+          "chunk_count": 1,
+          "char_count": 85,
+          "best_chunk_id": "chk_677ef2b359f618dca15e4057"
+        }
+      ]
+    },
+    {
+      "source": "IE打开场景及shader生成方法.docx",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1410,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_6c3b3700982bee52"
+          ],
+          "chunk_count": 4,
+          "char_count": 1410,
+          "best_chunk_id": "chk_a92fb0f31f705af314e751b2"
+        }
+      ]
+    },
+    {
+      "source": "https配置流程.docx",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1385,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "一、SSL模块检查与安装",
+          "section_path_sample": "一、SSL模块检查与安装",
+          "section_ids": [
+            "sec_3a03cbd322890d8d"
+          ],
+          "chunk_count": 4,
+          "char_count": 1385,
+          "best_chunk_id": "chk_2c67c60f33158fc8b2183d2b"
+        }
+      ]
+    },
+    {
+      "source": "readme.txt",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1360,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_63896e52391f796f"
+          ],
+          "chunk_count": 4,
+          "char_count": 1360,
+          "best_chunk_id": "chk_479320f4701536efa695c9e4"
+        }
+      ]
+    },
+    {
+      "source": "ArcGIS Cache图层添加说明.docx",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1291,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_e87e885da2ccbb59"
+          ],
+          "chunk_count": 4,
+          "char_count": 1291,
+          "best_chunk_id": "chk_5c3ee633a3f8008acb2303b9"
+        }
+      ]
+    },
+    {
+      "source": "信令以及节点管理程序Windows自启动.docx",
+      "doc_category": "其他",
+      "chunk_count": 7,
+      "char_count": 1211,
+      "section_count": 3,
+      "sections": [
+        {
+          "section_key": "六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务",
+          "section_path_sample": "六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务 > 1）Application 标签（程序路径）",
+          "section_ids": [
+            "sec_0ec101d54125d2e0",
+            "sec_2ac9f49c96de8572",
+            "sec_73ff067dd7bc12cf",
+            "sec_80c67bf0ab704b38"
+          ],
+          "chunk_count": 4,
+          "char_count": 636,
+          "best_chunk_id": "chk_2ef165b955cd53f0401f4d0d"
+        },
+        {
+          "section_key": "五、编写系统服务专用启动脚本",
+          "section_path_sample": "五、编写系统服务专用启动脚本",
+          "section_ids": [
+            "sec_98e3d2835e97abcb"
+          ],
+          "chunk_count": 2,
+          "char_count": 483,
+          "best_chunk_id": "chk_25b182c1632195a7e97cf031"
+        },
+        {
+          "section_key": "四、手动启动项目并保存进程快照 > 2. 启动项目（示例端口 3000）",
+          "section_path_sample": "四、手动启动项目并保存进程快照 > 2. 启动项目（示例端口 3000）",
+          "section_ids": [
+            "sec_db56251e23535079"
+          ],
+          "chunk_count": 1,
+          "char_count": 92,
+          "best_chunk_id": "chk_9e75a07963bbafcc891ca359"
+        }
+      ]
+    },
+    {
+      "source": "VMware ESXi虚拟机GPU直通教程.docx",
+      "doc_category": "基础环境",
+      "chunk_count": 6,
+      "char_count": 1159,
+      "section_count": 6,
+      "sections": [
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+          "section_ids": [
+            "sec_0a6c40c0cd26a9b1"
+          ],
+          "chunk_count": 1,
+          "char_count": 314,
+          "best_chunk_id": "chk_4dc2a645f70b3ec152d0899e"
+        },
+        {
+          "section_key": "VMwareESXi安装 > 进入系统界面",
+          "section_path_sample": "VMwareESXi安装 > 进入系统界面",
+          "section_ids": [
+            "sec_12a23825cedcf402"
+          ],
+          "chunk_count": 1,
+          "char_count": 258,
+          "best_chunk_id": "chk_97e8f4cfd2bd4f7515f1bb09"
+        },
+        {
+          "section_key": "VMwareESXi安装 > 制作启动盘",
+          "section_path_sample": "VMwareESXi安装 > 制作启动盘",
+          "section_ids": [
+            "sec_5142ded7a9da2203"
+          ],
+          "chunk_count": 1,
+          "char_count": 212,
+          "best_chunk_id": "chk_edf98f282a63919f6c6116a0"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 高级设置",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 高级设置",
+          "section_ids": [
+            "sec_36204e0ea21a12c4"
+          ],
+          "chunk_count": 1,
+          "char_count": 154,
+          "best_chunk_id": "chk_3ac9ad6b272977ba41f09535"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机 > 其他操作—连接硬盘",
+          "section_path_sample": "VMwareESXI创建虚拟机 > 其他操作—连接硬盘",
+          "section_ids": [
+            "sec_316997e06e3b0f61"
+          ],
+          "chunk_count": 1,
+          "char_count": 114,
+          "best_chunk_id": "chk_b9f466152c56112fa467a6bc"
+        },
+        {
+          "section_key": "VMwareESXI创建虚拟机",
+          "section_path_sample": "VMwareESXI创建虚拟机",
+          "section_ids": [
+            "sec_2d41ab762b552a0b"
+          ],
+          "chunk_count": 1,
+          "char_count": 107,
+          "best_chunk_id": "chk_5ee72a7e7cd1a961e5d550a1"
+        }
+      ]
+    },
+    {
+      "source": "Arcgis切片+部署geowebcache配成WMTS服务.docx",
+      "doc_category": "其他",
+      "chunk_count": 3,
+      "char_count": 1074,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_6c9048943f2a4462"
+          ],
+          "chunk_count": 3,
+          "char_count": 1074,
+          "best_chunk_id": "chk_5b7020b636bcf98169c5c838"
+        }
+      ]
+    },
+    {
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "doc_category": "其他",
+      "chunk_count": 5,
+      "char_count": 1055,
+      "section_count": 3,
+      "sections": [
+        {
+          "section_key": "IIS配置代理转发到Apache或其他端口监听服务",
+          "section_path_sample": "IIS配置代理转发到Apache或其他端口监听服务",
+          "section_ids": [
+            "sec_db1663658df9f2c3"
+          ],
+          "chunk_count": 3,
+          "char_count": 586,
+          "best_chunk_id": "chk_1bc9c99a5b3f88f025369a1e"
+        },
+        {
+          "section_key": "IIS配置代理转发到Apache或其他端口监听服务 > 公告",
+          "section_path_sample": "IIS配置代理转发到Apache或其他端口监听服务 > 公告",
+          "section_ids": [
+            "sec_d7fd5aaef536247c"
+          ],
+          "chunk_count": 1,
+          "char_count": 389,
+          "best_chunk_id": "chk_985316e17db5aef3bf1b92d6"
+        },
+        {
+          "section_key": "IIS配置代理转发到Apache或其他端口监听服务 > 阅读排行榜",
+          "section_path_sample": "IIS配置代理转发到Apache或其他端口监听服务 > 阅读排行榜",
+          "section_ids": [
+            "sec_b6bba1ae337cc9af"
+          ],
+          "chunk_count": 1,
+          "char_count": 80,
+          "best_chunk_id": "chk_a9733c57bb1272c164363971"
+        }
+      ]
+    },
+    {
+      "source": "GB28181服务部署.docx",
+      "doc_category": "其他",
+      "chunk_count": 3,
+      "char_count": 1051,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_eb0920e498a24531"
+          ],
+          "chunk_count": 3,
+          "char_count": 1051,
+          "best_chunk_id": "chk_d17c72e1aefcac40ce279471"
+        }
+      ]
+    },
+    {
+      "source": "web设置允许跨域.txt",
+      "doc_category": "其他",
+      "chunk_count": 4,
+      "char_count": 1044,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_040c58998391aaf7"
+          ],
+          "chunk_count": 4,
+          "char_count": 1044,
+          "best_chunk_id": "chk_54f83d4db0f0828ed2bb06aa"
+        }
+      ]
+    },
+    {
+      "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+      "doc_category": "博客",
+      "chunk_count": 5,
+      "char_count": 921,
+      "section_count": 2,
+      "sections": [
+        {
+          "section_key": "一、安装rockyLinux9镜像 > 7.选择“x86-64/”",
+          "section_path_sample": "一、安装rockyLinux9镜像 > 7.选择“x86-64/”",
+          "section_ids": [
+            "sec_a9bb158f6fdc12da"
+          ],
+          "chunk_count": 2,
+          "char_count": 508,
+          "best_chunk_id": "chk_7efe4e7d900484ec156da3aa"
+        },
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_ff4c9cae32efe676"
+          ],
+          "chunk_count": 3,
+          "char_count": 413,
+          "best_chunk_id": "chk_d085d6a5192aa0f3766ced73"
+        }
+      ]
+    },
+    {
+      "source": "自签名证书生成流程.docx",
+      "doc_category": "其他",
+      "chunk_count": 3,
+      "char_count": 889,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_2f9ce2c53271c8cd"
+          ],
+          "chunk_count": 3,
+          "char_count": 889,
+          "best_chunk_id": "chk_0276585a3c20f968bd1f8e8d"
+        }
+      ]
+    },
+    {
+      "source": "335b1bd4ff7e4141a97a1d8c2479ff6a.docx",
+      "doc_category": "其他",
+      "chunk_count": 2,
+      "char_count": 789,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_ed750a0c53e942b6"
+          ],
+          "chunk_count": 2,
+          "char_count": 789,
+          "best_chunk_id": "chk_790fced86253a95e6105e041"
+        }
+      ]
+    },
+    {
+      "source": "gb28181端口映射.docx",
+      "doc_category": "其他",
+      "chunk_count": 2,
+      "char_count": 682,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_9cb6e662694c83c8"
+          ],
+          "chunk_count": 2,
+          "char_count": 682,
+          "best_chunk_id": "chk_35405a4448152dfb888e060a"
+        }
+      ]
+    },
+    {
+      "source": "图层目录拖拽移动服务.docx",
+      "doc_category": "其他",
+      "chunk_count": 2,
+      "char_count": 477,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_50341112cbcca825"
+          ],
+          "chunk_count": 2,
+          "char_count": 477,
+          "best_chunk_id": "chk_59445cfe4f7c7052375a3f68"
+        }
+      ]
+    },
+    {
+      "source": "VMWare虚拟机删除数据释放空间.docx",
+      "doc_category": "基础环境",
+      "chunk_count": 1,
+      "char_count": 464,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_0a8eb5bbb7328cf0"
+          ],
+          "chunk_count": 1,
+          "char_count": 464,
+          "best_chunk_id": "chk_ae69b7aa0116777a5ff60e22"
+        }
+      ]
+    },
+    {
+      "source": "VMWare虚拟机自动识别USB加密锁方法.docx",
+      "doc_category": "基础环境",
+      "chunk_count": 1,
+      "char_count": 376,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_2a15f525a95dda02"
+          ],
+          "chunk_count": 1,
+          "char_count": 376,
+          "best_chunk_id": "chk_4cea22c4d22e390bb68d4f36"
+        }
+      ]
+    },
+    {
+      "source": "09f0700814684fb985d4b8573168fcf0.docx",
+      "doc_category": "其他",
+      "chunk_count": 1,
+      "char_count": 368,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "虚拟机服务器操作文档",
+          "section_path_sample": "虚拟机服务器操作文档",
+          "section_ids": [
+            "sec_d2cfc3b1a8e2d6f3"
+          ],
+          "chunk_count": 1,
+          "char_count": 368,
+          "best_chunk_id": "chk_361cd64931fba5746e538aa7"
+        }
+      ]
+    },
+    {
+      "source": "大数据量矢量查询效率提升方法.docx",
+      "doc_category": "其他",
+      "chunk_count": 2,
+      "char_count": 349,
+      "section_count": 2,
+      "sections": [
+        {
+          "section_key": "普通索引",
+          "section_path_sample": "普通索引",
+          "section_ids": [
+            "sec_cfac1e775fbec76d"
+          ],
+          "chunk_count": 1,
+          "char_count": 241,
+          "best_chunk_id": "chk_b29a024ffdfa6a5c630cc280"
+        },
+        {
+          "section_key": "空间索引",
+          "section_path_sample": "空间索引",
+          "section_ids": [
+            "sec_9fb9ee16e5f677e9"
+          ],
+          "chunk_count": 1,
+          "char_count": 108,
+          "best_chunk_id": "chk_98ba40da5a8398e36eb377ff"
+        }
+      ]
+    },
+    {
+      "source": "GB28181配置说明.docx",
+      "doc_category": "其他",
+      "chunk_count": 2,
+      "char_count": 344,
+      "section_count": 2,
+      "sections": [
+        {
+          "section_key": "虚拟测试设备配置：",
+          "section_path_sample": "虚拟测试设备配置：",
+          "section_ids": [
+            "sec_ec55e0291cf1ecc3"
+          ],
+          "chunk_count": 1,
+          "char_count": 204,
+          "best_chunk_id": "chk_ec0f1c1571e80a807daa7f64"
+        },
+        {
+          "section_key": "公共环境：",
+          "section_path_sample": "公共环境：",
+          "section_ids": [
+            "sec_955391e04bd7c471"
+          ],
+          "chunk_count": 1,
+          "char_count": 140,
+          "best_chunk_id": "chk_c21aeecdf306111900d7419b"
+        }
+      ]
+    },
+    {
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "doc_category": "耕地保护",
+      "chunk_count": 2,
+      "char_count": 278,
+      "section_count": 2,
+      "sections": [
+        {
+          "section_key": "权限管理",
+          "section_path_sample": "权限管理",
+          "section_ids": [
+            "sec_0b46ddf96398f937"
+          ],
+          "chunk_count": 1,
+          "char_count": 150,
+          "best_chunk_id": "chk_2fddee5d5d835b9d016b436e"
+        },
+        {
+          "section_key": "分析功能 重要基于这个推进实现业务 > 坡度分析",
+          "section_path_sample": "分析功能 重要基于这个推进实现业务 > 坡度分析",
+          "section_ids": [
+            "sec_a612d2fc7d17a0a3"
+          ],
+          "chunk_count": 1,
+          "char_count": 128,
+          "best_chunk_id": "chk_f39a02547721ccc61eeecf0a"
+        }
+      ]
+    },
+    {
+      "source": "PM2安装部署matchmaker服务.docx",
+      "doc_category": "其他",
+      "chunk_count": 1,
+      "char_count": 154,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_6c53bbc1d100d304"
+          ],
+          "chunk_count": 1,
+          "char_count": 154,
+          "best_chunk_id": "chk_87a7c63396f15dba40afb110"
+        }
+      ]
+    },
+    {
+      "source": "接口生成.docx",
+      "doc_category": "其他",
+      "chunk_count": 1,
+      "char_count": 148,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "(no_section)",
+          "section_path_sample": "",
+          "section_ids": [
+            "sec_73697194f1e211e5"
+          ],
+          "chunk_count": 1,
+          "char_count": 148,
+          "best_chunk_id": "chk_cb980e3b6fed9b5c7661507c"
+        }
+      ]
+    },
+    {
+      "source": "openssl-ip.cnf",
+      "doc_category": "其他",
+      "chunk_count": 1,
+      "char_count": 107,
+      "section_count": 1,
+      "sections": [
+        {
+          "section_key": "req",
+          "section_path_sample": "req",
+          "section_ids": [
+            "sec_b749eb55a044a5bc"
+          ],
+          "chunk_count": 1,
+          "char_count": 107,
+          "best_chunk_id": "chk_5ea27f77987d32f138d01ab2"
+        }
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "slot_id": "slot-001",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "矢量数据入库 > EPSG编码",
+      "section_path_sample": "矢量数据入库 > EPSG编码",
+      "section_ids": [
+        "sec_523dff5061ad2108"
+      ],
+      "best_chunk_id": "chk_4ff0ebe92eaf2c95b5187707",
+      "chunk_count": 4,
+      "char_count": 9438,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-002",
+      "source": "StampTools用户手册.docx",
+      "doc_category": "StampTools",
+      "section_key": "工具概述 > EPSG编码",
+      "section_path_sample": "工具概述 > EPSG编码 > 地理坐标编码",
+      "section_ids": [
+        "sec_3ecd783f6021333b",
+        "sec_963e4dde2fec109c"
+      ],
+      "best_chunk_id": "chk_98389046eb19231623ec0217",
+      "chunk_count": 3,
+      "char_count": 3654,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-003",
+      "source": "StampWebGL用户手册.docx",
+      "doc_category": "其他",
+      "section_key": "分析",
+      "section_path_sample": "分析",
+      "section_ids": [
+        "sec_ad2c2eb9cbda96a4"
+      ],
+      "best_chunk_id": "chk_0dddbcbabc28962f559e1797",
+      "chunk_count": 13,
+      "char_count": 4964,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-004",
+      "source": "StampWebRTC用户手册.docx",
+      "doc_category": "StampWebRTC",
+      "section_key": "分析",
+      "section_path_sample": "分析",
+      "section_ids": [
+        "sec_a01accf07a254df4"
+      ],
+      "best_chunk_id": "chk_de27690af06c217ccf8991c0",
+      "chunk_count": 9,
+      "char_count": 3386,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-005",
+      "source": "StampWebRTC数据库表结构.docx",
+      "doc_category": "StampWebRTC",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_43fd1daae30d8e5e"
+      ],
+      "best_chunk_id": "chk_1287905f47034988da49cf44",
+      "chunk_count": 20,
+      "char_count": 6909,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-006",
+      "source": "PipelineSystem用户手册.docx",
+      "doc_category": "其他",
+      "section_key": "分析",
+      "section_path_sample": "分析",
+      "section_ids": [
+        "sec_142d69dc9fe0414e"
+      ],
+      "best_chunk_id": "chk_c68829cb713bab30f2e16106",
+      "chunk_count": 8,
+      "char_count": 2777,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-007",
+      "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+      "doc_category": "其他",
+      "section_key": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+      "section_path_sample": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿） > 信息传输、交换、控制技术要求",
+      "section_ids": [
+        "sec_3968ad53ac5ea103"
+      ],
+      "best_chunk_id": "chk_a9a007267e60f1b84c8f2b68",
+      "chunk_count": 488,
+      "char_count": 197979,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-008",
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "doc_category": "其他",
+      "section_key": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月",
+      "section_path_sample": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月",
+      "section_ids": [
+        "sec_603c0992f8f3d849",
+        "sec_79db1e2a8c1aaf1c"
+      ],
+      "best_chunk_id": "chk_2d114a1b57e2de409b844142",
+      "chunk_count": 60,
+      "char_count": 24768,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-009",
+      "source": "高斯数据库及禹贡pgis插件部署手册.docx",
+      "doc_category": "其他",
+      "section_key": "200 OK > 修改安装配置文件",
+      "section_path_sample": "200 OK > 修改安装配置文件",
+      "section_ids": [
+        "sec_500268edfe232341"
+      ],
+      "best_chunk_id": "chk_1adb62b49d9cc6d867e6b637",
+      "chunk_count": 19,
+      "char_count": 6773,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-010",
+      "source": "uso -- 源码安装集合.docx",
+      "doc_category": "其他",
+      "section_key": "编译安装POSTGIS > 安装postgis扩展",
+      "section_path_sample": "编译安装POSTGIS > 安装postgis扩展",
+      "section_ids": [
+        "sec_92f04e5508e6e7dd",
+        "sec_f0f9ad043c0c49a0"
+      ],
+      "best_chunk_id": "chk_a60b23a17ab8cb491d5a012b",
+      "chunk_count": 29,
+      "char_count": 9577,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-011",
+      "source": "StampExplorer用户手册.docx",
+      "doc_category": "其他",
+      "section_key": "分析",
+      "section_path_sample": "分析",
+      "section_ids": [
+        "sec_7ca694138364ef1a"
+      ],
+      "best_chunk_id": "chk_4bcfb1a72d137fe563e1bab6",
+      "chunk_count": 11,
+      "char_count": 4387,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-012",
+      "source": "三维数据发布服务接口 - v1.4.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_bf9df5658a962bd5"
+      ],
+      "best_chunk_id": "chk_87ef22d0a848c95c8d32bda9",
+      "chunk_count": 96,
+      "char_count": 20125,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-013",
+      "source": "EGIS三维数据服务接口规范0902.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_bee3c1ef33e0160a"
+      ],
+      "best_chunk_id": "chk_d21b063c40e7988a4b62d059",
+      "chunk_count": 94,
+      "char_count": 19702,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-014",
+      "source": "麒麟SP3x86版本安装手册.docx",
+      "doc_category": "其他",
+      "section_key": "9.安装httpd > 建立软链接",
+      "section_path_sample": "9.安装httpd > 建立软链接",
+      "section_ids": [
+        "sec_e1b52dde53e67735"
+      ],
+      "best_chunk_id": "chk_cb05a2532a5392580314cf00",
+      "chunk_count": 25,
+      "char_count": 8735,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-015",
+      "source": "三维数据发布服务接口 - v1.4.1.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_badb87d23f5a62fd"
+      ],
+      "best_chunk_id": "chk_5c6814b6aa48e119ebbe5a4c",
+      "chunk_count": 93,
+      "char_count": 18981,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-016",
+      "source": "麒麟SP3ARM版本安装手册.docx",
+      "doc_category": "其他",
+      "section_key": "安装aksusbd-8.23.1",
+      "section_path_sample": "安装aksusbd-8.23.1",
+      "section_ids": [
+        "sec_ab153f321212a04d"
+      ],
+      "best_chunk_id": "chk_230627b626ea9d6d4aac54a8",
+      "chunk_count": 22,
+      "char_count": 8020,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-017",
+      "source": "config.ini说明.xlsx",
+      "doc_category": "其他",
+      "section_key": "Sheet1",
+      "section_path_sample": "Sheet1",
+      "section_ids": [
+        "sec_86277f44c3f46df5"
+      ],
+      "best_chunk_id": "chk_879448093884de31fa0741e7",
+      "chunk_count": 31,
+      "char_count": 14562,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-018",
+      "source": "PipelineWebGL用户手册.docx",
+      "doc_category": "其他",
+      "section_key": "查询统计 > 管线查询",
+      "section_path_sample": "查询统计 > 管线查询 > 空间查询",
+      "section_ids": [
+        "sec_453097767d9d256e",
+        "sec_5da8c2206e203df7",
+        "sec_77045d3d38fa0955",
+        "sec_7c44771f9665a44b",
+        "sec_97b6deee685af0d8",
+        "sec_c08f2d08ab4c6cb8"
+      ],
+      "best_chunk_id": "chk_cc9e8fb61817028973011569",
+      "chunk_count": 6,
+      "char_count": 2767,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-019",
+      "source": "三维基本概念.pptx",
+      "doc_category": "其他",
+      "section_key": "空间数据",
+      "section_path_sample": "空间数据",
+      "section_ids": [
+        "sec_5e9f5a18a66e7774"
+      ],
+      "best_chunk_id": "chk_2862aa77b768cb8ad688274b",
+      "chunk_count": 5,
+      "char_count": 1731,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-020",
+      "source": "postgresql编辑图层迁移.docx",
+      "doc_category": "其他",
+      "section_key": "四、使用命令行 > 4. 旧库导出",
+      "section_path_sample": "四、使用命令行 > 4. 旧库导出 > Lod:",
+      "section_ids": [
+        "sec_c441dfde93e47cd7",
+        "sec_ddd207cf7b86847a"
+      ],
+      "best_chunk_id": "chk_c99f43a793660d601ca4ac23",
+      "chunk_count": 6,
+      "char_count": 2242,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-021",
+      "source": "三维地图服务接口.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_f0257cfc7e5ad168"
+      ],
+      "best_chunk_id": "chk_567ea8af5966fdd214af4f82",
+      "chunk_count": 26,
+      "char_count": 5174,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-022",
+      "source": "VSCode+SVN配置.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_741b3de9a051e03c"
+      ],
+      "best_chunk_id": "chk_40101da2f4cc5d7aeb5dd5bc",
+      "chunk_count": 16,
+      "char_count": 5031,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-023",
+      "source": "VMware ESXi虚拟机GPU直通和Kylin推流配置.docx",
+      "doc_category": "基础环境",
+      "section_key": "VMwareESXI创建虚拟机 > linux系统安装显卡驱动",
+      "section_path_sample": "VMwareESXI创建虚拟机 > linux系统安装显卡驱动",
+      "section_ids": [
+        "sec_74709522e82f7239"
+      ],
+      "best_chunk_id": "chk_1915dd8b819580768d22a5fa",
+      "chunk_count": 10,
+      "char_count": 1802,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-024",
+      "source": "HTTPS和域名配置.docx",
+      "doc_category": "其他",
+      "section_key": "HTTPS配置 > 私有CA配置",
+      "section_path_sample": "HTTPS配置 > 私有CA配置 > 创建根CA",
+      "section_ids": [
+        "sec_13537a48778952cd",
+        "sec_7f416df7f45e18ae"
+      ],
+      "best_chunk_id": "chk_afa9ef47e3a34375f7e18ec9",
+      "chunk_count": 10,
+      "char_count": 4061,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-025",
+      "source": "StampGIS三维产品白皮书.docx",
+      "doc_category": "其他",
+      "section_key": "产品概述 > 产品技术特点",
+      "section_path_sample": "产品概述 > 产品技术特点 > 三维数据优化处理",
+      "section_ids": [
+        "sec_12687b0f68549f32",
+        "sec_171f383ed207cd8e",
+        "sec_2f8bc6bea74d0a5a",
+        "sec_59e6d8dc784e07f6",
+        "sec_64853542919291a9",
+        "sec_85d437646e09ec30",
+        "sec_c7dee7ac470aa530",
+        "sec_d69180873cb379c6",
+        "sec_e5c14978dcd7712a"
+      ],
+      "best_chunk_id": "chk_1fe51f587638ea749639a9ff",
+      "chunk_count": 9,
+      "char_count": 1333,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-026",
+      "source": "路径规划.sql",
+      "doc_category": "其他",
+      "section_key": "FUNCTION public.stamp_shortest_road",
+      "section_path_sample": "FUNCTION public.stamp_shortest_road",
+      "section_ids": [
+        "sec_5f7b1007b9e90d94"
+      ],
+      "best_chunk_id": "chk_10e5ab8b0fb0b05d4e1fadec",
+      "chunk_count": 11,
+      "char_count": 4221,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-027",
+      "source": "https配置部署文档.docx",
+      "doc_category": "其他",
+      "section_key": "2、Apache配置https",
+      "section_path_sample": "2、Apache配置https",
+      "section_ids": [
+        "sec_9c6375a8670143ec"
+      ],
+      "best_chunk_id": "chk_eb73451fb537838c1fb84d8d",
+      "chunk_count": 7,
+      "char_count": 2519,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-028",
+      "source": "minio 单机多磁盘部署.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_2712b32d218939f0"
+      ],
+      "best_chunk_id": "chk_763a570937c27580ba5c1a8c",
+      "chunk_count": 13,
+      "char_count": 3703,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-029",
+      "source": "实景三维新功能.txt",
+      "doc_category": "实景三维",
+      "section_key": "11.陕西耕地保护",
+      "section_path_sample": "11.陕西耕地保护",
+      "section_ids": [
+        "sec_c60446dc30cddcb8"
+      ],
+      "best_chunk_id": "chk_30c9a4b79780a0f4f72a552b",
+      "chunk_count": 8,
+      "char_count": 2672,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-030",
+      "source": "b8aa16233693-MySQL数据库_数据类型与表约束.md",
+      "doc_category": "博客",
+      "section_key": "1.MySQL 数据类型 > 1.1 数值类型",
+      "section_path_sample": "1.MySQL 数据类型 > 1.1 数值类型",
+      "section_ids": [
+        "sec_e6feaab443ae50e0"
+      ],
+      "best_chunk_id": "chk_0c31554dda4e871ed5a7b6af",
+      "chunk_count": 1,
+      "char_count": 444,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-031",
+      "source": "Geoserver 叠加分析 -v0.2.docx",
+      "doc_category": "其他",
+      "section_key": "示例",
+      "section_path_sample": "示例",
+      "section_ids": [
+        "sec_d31b9bfbda399034"
+      ],
+      "best_chunk_id": "chk_8a9da0676adaae53bcb010ac",
+      "chunk_count": 2,
+      "char_count": 550,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-032",
+      "source": "坡度分析-坡度连片度分析--相关接口.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_58bf3c91d792bd2c"
+      ],
+      "best_chunk_id": "chk_84ba1c4df3bda99c4d473232",
+      "chunk_count": 10,
+      "char_count": 1887,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-033",
+      "source": "拯救者笔记本电脑安装Rocky95.docx",
+      "doc_category": "基础环境",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_61d47e6b795f89de"
+      ],
+      "best_chunk_id": "chk_255e64f0badbe8e5153214bc",
+      "chunk_count": 10,
+      "char_count": 1654,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-034",
+      "source": "ArcGIS配图及发布切片服务手册.docx",
+      "doc_category": "其他",
+      "section_key": "服务发布",
+      "section_path_sample": "服务发布",
+      "section_ids": [
+        "sec_19c8b4654711169d"
+      ],
+      "best_chunk_id": "chk_0b2c8ec022168b510fbcac63",
+      "chunk_count": 1,
+      "char_count": 812,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-035",
+      "source": "可达圈分析.sql",
+      "doc_category": "其他",
+      "section_key": "SQL 6",
+      "section_path_sample": "SQL 6",
+      "section_ids": [
+        "sec_3a548fe8c124cd2d"
+      ],
+      "best_chunk_id": "chk_73403f23112cb64cff13517e",
+      "chunk_count": 1,
+      "char_count": 368,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-036",
+      "source": "IE打开场景及shader生成方法.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_6c3b3700982bee52"
+      ],
+      "best_chunk_id": "chk_a92fb0f31f705af314e751b2",
+      "chunk_count": 4,
+      "char_count": 1410,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-037",
+      "source": "https配置流程.docx",
+      "doc_category": "其他",
+      "section_key": "一、SSL模块检查与安装",
+      "section_path_sample": "一、SSL模块检查与安装",
+      "section_ids": [
+        "sec_3a03cbd322890d8d"
+      ],
+      "best_chunk_id": "chk_2c67c60f33158fc8b2183d2b",
+      "chunk_count": 4,
+      "char_count": 1385,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-038",
+      "source": "readme.txt",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_63896e52391f796f"
+      ],
+      "best_chunk_id": "chk_479320f4701536efa695c9e4",
+      "chunk_count": 4,
+      "char_count": 1360,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-039",
+      "source": "ArcGIS Cache图层添加说明.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_e87e885da2ccbb59"
+      ],
+      "best_chunk_id": "chk_5c3ee633a3f8008acb2303b9",
+      "chunk_count": 4,
+      "char_count": 1291,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-040",
+      "source": "信令以及节点管理程序Windows自启动.docx",
+      "doc_category": "其他",
+      "section_key": "六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务",
+      "section_path_sample": "六、NSSM 注册系统服务（核心步骤） > 2. 新建 NSSM 服务 > 1）Application 标签（程序路径）",
+      "section_ids": [
+        "sec_0ec101d54125d2e0",
+        "sec_2ac9f49c96de8572",
+        "sec_73ff067dd7bc12cf",
+        "sec_80c67bf0ab704b38"
+      ],
+      "best_chunk_id": "chk_2ef165b955cd53f0401f4d0d",
+      "chunk_count": 4,
+      "char_count": 636,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-041",
+      "source": "VMware ESXi虚拟机GPU直通教程.docx",
+      "doc_category": "基础环境",
+      "section_key": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+      "section_path_sample": "VMwareESXI创建虚拟机 > 配置虚拟机规格",
+      "section_ids": [
+        "sec_0a6c40c0cd26a9b1"
+      ],
+      "best_chunk_id": "chk_4dc2a645f70b3ec152d0899e",
+      "chunk_count": 1,
+      "char_count": 314,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-042",
+      "source": "Arcgis切片+部署geowebcache配成WMTS服务.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_6c9048943f2a4462"
+      ],
+      "best_chunk_id": "chk_5b7020b636bcf98169c5c838",
+      "chunk_count": 3,
+      "char_count": 1074,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-043",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "doc_category": "其他",
+      "section_key": "IIS配置代理转发到Apache或其他端口监听服务",
+      "section_path_sample": "IIS配置代理转发到Apache或其他端口监听服务",
+      "section_ids": [
+        "sec_db1663658df9f2c3"
+      ],
+      "best_chunk_id": "chk_1bc9c99a5b3f88f025369a1e",
+      "chunk_count": 3,
+      "char_count": 586,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-044",
+      "source": "GB28181服务部署.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_eb0920e498a24531"
+      ],
+      "best_chunk_id": "chk_d17c72e1aefcac40ce279471",
+      "chunk_count": 3,
+      "char_count": 1051,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-045",
+      "source": "web设置允许跨域.txt",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_040c58998391aaf7"
+      ],
+      "best_chunk_id": "chk_54f83d4db0f0828ed2bb06aa",
+      "chunk_count": 4,
+      "char_count": 1044,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-046",
+      "source": "0e57a89c3a3e-Linux--如何安装rockyLinux9虚拟机.md",
+      "doc_category": "博客",
+      "section_key": "一、安装rockyLinux9镜像 > 7.选择“x86-64/”",
+      "section_path_sample": "一、安装rockyLinux9镜像 > 7.选择“x86-64/”",
+      "section_ids": [
+        "sec_a9bb158f6fdc12da"
+      ],
+      "best_chunk_id": "chk_7efe4e7d900484ec156da3aa",
+      "chunk_count": 2,
+      "char_count": 508,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-047",
+      "source": "自签名证书生成流程.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_2f9ce2c53271c8cd"
+      ],
+      "best_chunk_id": "chk_0276585a3c20f968bd1f8e8d",
+      "chunk_count": 3,
+      "char_count": 889,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-048",
+      "source": "335b1bd4ff7e4141a97a1d8c2479ff6a.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_ed750a0c53e942b6"
+      ],
+      "best_chunk_id": "chk_790fced86253a95e6105e041",
+      "chunk_count": 2,
+      "char_count": 789,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-049",
+      "source": "gb28181端口映射.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_9cb6e662694c83c8"
+      ],
+      "best_chunk_id": "chk_35405a4448152dfb888e060a",
+      "chunk_count": 2,
+      "char_count": 682,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-050",
+      "source": "图层目录拖拽移动服务.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_50341112cbcca825"
+      ],
+      "best_chunk_id": "chk_59445cfe4f7c7052375a3f68",
+      "chunk_count": 2,
+      "char_count": 477,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-051",
+      "source": "VMWare虚拟机删除数据释放空间.docx",
+      "doc_category": "基础环境",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_0a8eb5bbb7328cf0"
+      ],
+      "best_chunk_id": "chk_ae69b7aa0116777a5ff60e22",
+      "chunk_count": 1,
+      "char_count": 464,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-052",
+      "source": "VMWare虚拟机自动识别USB加密锁方法.docx",
+      "doc_category": "基础环境",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_2a15f525a95dda02"
+      ],
+      "best_chunk_id": "chk_4cea22c4d22e390bb68d4f36",
+      "chunk_count": 1,
+      "char_count": 376,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-053",
+      "source": "09f0700814684fb985d4b8573168fcf0.docx",
+      "doc_category": "其他",
+      "section_key": "虚拟机服务器操作文档",
+      "section_path_sample": "虚拟机服务器操作文档",
+      "section_ids": [
+        "sec_d2cfc3b1a8e2d6f3"
+      ],
+      "best_chunk_id": "chk_361cd64931fba5746e538aa7",
+      "chunk_count": 1,
+      "char_count": 368,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-054",
+      "source": "大数据量矢量查询效率提升方法.docx",
+      "doc_category": "其他",
+      "section_key": "普通索引",
+      "section_path_sample": "普通索引",
+      "section_ids": [
+        "sec_cfac1e775fbec76d"
+      ],
+      "best_chunk_id": "chk_b29a024ffdfa6a5c630cc280",
+      "chunk_count": 1,
+      "char_count": 241,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-055",
+      "source": "GB28181配置说明.docx",
+      "doc_category": "其他",
+      "section_key": "虚拟测试设备配置：",
+      "section_path_sample": "虚拟测试设备配置：",
+      "section_ids": [
+        "sec_ec55e0291cf1ecc3"
+      ],
+      "best_chunk_id": "chk_ec0f1c1571e80a807daa7f64",
+      "chunk_count": 1,
+      "char_count": 204,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-056",
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "doc_category": "耕地保护",
+      "section_key": "权限管理",
+      "section_path_sample": "权限管理",
+      "section_ids": [
+        "sec_0b46ddf96398f937"
+      ],
+      "best_chunk_id": "chk_2fddee5d5d835b9d016b436e",
+      "chunk_count": 1,
+      "char_count": 150,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-057",
+      "source": "PM2安装部署matchmaker服务.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_6c53bbc1d100d304"
+      ],
+      "best_chunk_id": "chk_87a7c63396f15dba40afb110",
+      "chunk_count": 1,
+      "char_count": 154,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-058",
+      "source": "接口生成.docx",
+      "doc_category": "其他",
+      "section_key": "(no_section)",
+      "section_path_sample": "",
+      "section_ids": [
+        "sec_73697194f1e211e5"
+      ],
+      "best_chunk_id": "chk_cb980e3b6fed9b5c7661507c",
+      "chunk_count": 1,
+      "char_count": 148,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-059",
+      "source": "openssl-ip.cnf",
+      "doc_category": "其他",
+      "section_key": "req",
+      "section_path_sample": "req",
+      "section_ids": [
+        "sec_b749eb55a044a5bc"
+      ],
+      "best_chunk_id": "chk_5ea27f77987d32f138d01ab2",
+      "chunk_count": 1,
+      "char_count": 107,
+      "allocation_reason": "per_file_minimum"
+    },
+    {
+      "slot_id": "slot-060",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "运维管理配置 > 数据配置",
+      "section_path_sample": "运维管理配置 > 数据配置 > 数据配置",
+      "section_ids": [
+        "sec_8cefa5d9be39e249",
+        "sec_915dcc3b86e45ac1",
+        "sec_d71c4f1a1311977c",
+        "sec_d8fc233aa62979b1",
+        "sec_f6649e83a0b0997e"
+      ],
+      "best_chunk_id": "chk_95d1b881e45c97b562c677de",
+      "chunk_count": 20,
+      "char_count": 9049,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-061",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "基础软件安装 > 基础软件安装",
+      "section_path_sample": "基础软件安装 > 基础软件安装 > （1）安装Redis",
+      "section_ids": [
+        "sec_02bac374e057f706",
+        "sec_64b19accef499dfd",
+        "sec_6aee85c481697865",
+        "sec_7f9b6411b0fe8fe4",
+        "sec_836ce83729048d29",
+        "sec_843b29d63de5f96f",
+        "sec_94e70c9cfdbc6b1d",
+        "sec_b2a94c61ac65ec99",
+        "sec_d63b37cee00d957a",
+        "sec_ebc8d2e2eff65f78",
+        "sec_f214f3799c488769",
+        "sec_f2cbd1636595add6"
+      ],
+      "best_chunk_id": "chk_047df5598f2df80e8bf63f84",
+      "chunk_count": 14,
+      "char_count": 4662,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-062",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "应用系统部署 > WebRTC部署",
+      "section_path_sample": "应用系统部署 > WebRTC部署 > UDP外网部署",
+      "section_ids": [
+        "sec_139487eac422406d",
+        "sec_21e3883b0c741195"
+      ],
+      "best_chunk_id": "chk_348f70a56dd7256d75dda8d5",
+      "chunk_count": 10,
+      "char_count": 4008,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-063",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "HTTPS配置 > 私有CA配置",
+      "section_path_sample": "HTTPS配置 > 私有CA配置 > 创建根CA",
+      "section_ids": [
+        "sec_0941cbb622b8b765",
+        "sec_4b46a7af03e94a03",
+        "sec_dc9483ae7e165139",
+        "sec_f479010826b1c073"
+      ],
+      "best_chunk_id": "chk_3f8f0a54b56f704d9ba881c0",
+      "chunk_count": 10,
+      "char_count": 3770,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-064",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > Nginx代理设置",
+      "section_path_sample": "Stamp服务部署 > Nginx代理设置 > 运维代理设置",
+      "section_ids": [
+        "sec_503e89d82f61a6f5",
+        "sec_555c9177b5b65d25",
+        "sec_587f718adb490f8b",
+        "sec_f8dcf73da48fd2f9"
+      ],
+      "best_chunk_id": "chk_5ceae5af89cc81246a541eb5",
+      "chunk_count": 9,
+      "char_count": 3609,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-065",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "IPV6配置",
+      "section_path_sample": "IPV6配置",
+      "section_ids": [
+        "sec_4fbab69b021f2593"
+      ],
+      "best_chunk_id": "chk_3992ac79284a52e24e0807e0",
+      "chunk_count": 4,
+      "char_count": 1721,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-066",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署",
+      "section_path_sample": "Stamp服务部署",
+      "section_ids": [
+        "sec_30dd11d808eed961"
+      ],
+      "best_chunk_id": "chk_1528ea0c1092cefdf25c95a2",
+      "chunk_count": 3,
+      "char_count": 1663,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-067",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "操作系统安装 > 系统基础配置",
+      "section_path_sample": "操作系统安装 > 系统基础配置 > SSH设置",
+      "section_ids": [
+        "sec_0bf744ea150e6296",
+        "sec_61cdad3da6ee5bff",
+        "sec_776f4721324188c1",
+        "sec_a54fe3120b9d5c34"
+      ],
+      "best_chunk_id": "chk_c7ea05f84480fe71e64db18e",
+      "chunk_count": 4,
+      "char_count": 1610,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-068",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "应用系统部署 > 系统网络拓扑",
+      "section_path_sample": "应用系统部署 > 系统网络拓扑 > 端口说明",
+      "section_ids": [
+        "sec_21e6e4593247f060",
+        "sec_b03a56d1925971d3"
+      ],
+      "best_chunk_id": "chk_9b317d8155d2bd66db752022",
+      "chunk_count": 2,
+      "char_count": 1449,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-069",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > SignallingWebServer部署",
+      "section_path_sample": "Stamp服务部署 > SignallingWebServer部署 > 信令服务部署",
+      "section_ids": [
+        "sec_adf8b378b3ed1294",
+        "sec_ba5fd7fea5c7dfb4"
+      ],
+      "best_chunk_id": "chk_9c898f9cd445a88019b5a1db",
+      "chunk_count": 2,
+      "char_count": 1414,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-070",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "运维管理配置",
+      "section_path_sample": "运维管理配置",
+      "section_ids": [
+        "sec_009984d98bb160cc"
+      ],
+      "best_chunk_id": "chk_3a21a02ddee7107c1bb11ac5",
+      "chunk_count": 4,
+      "char_count": 1363,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-071",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "矢量数据入库",
+      "section_path_sample": "矢量数据入库",
+      "section_ids": [
+        "sec_08f7b44c51639e3a"
+      ],
+      "best_chunk_id": "chk_e60ae2dc1b4162b5673121c3",
+      "chunk_count": 3,
+      "char_count": 1338,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-072",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "运维管理配置 > GB28181配置",
+      "section_path_sample": "运维管理配置 > GB28181配置",
+      "section_ids": [
+        "sec_42bc8d0279418d1e"
+      ],
+      "best_chunk_id": "chk_49e034ad625c68094abccac7",
+      "chunk_count": 3,
+      "char_count": 1331,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-073",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "应用系统部署 > 多显卡大屏部署",
+      "section_path_sample": "应用系统部署 > 多显卡大屏部署 > 多显卡合并设置",
+      "section_ids": [
+        "sec_8cde1ff1802ef1f1",
+        "sec_c949108414efff59"
+      ],
+      "best_chunk_id": "chk_c6b02cafa94e0797713adf58",
+      "chunk_count": 2,
+      "char_count": 1273,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-074",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "运维管理配置 > 服务设置",
+      "section_path_sample": "运维管理配置 > 服务设置 > 基础配置",
+      "section_ids": [
+        "sec_2e8ef6053f4aa007",
+        "sec_8a70c1bbd51a826a"
+      ],
+      "best_chunk_id": "chk_b1df7c0b755720f0c6b2c95e",
+      "chunk_count": 2,
+      "char_count": 1260,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-075",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "基础软件安装 > 软件安装准备",
+      "section_path_sample": "基础软件安装 > 软件安装准备 > 本地yum源设置",
+      "section_ids": [
+        "sec_0485a33f7546440e",
+        "sec_184df6688fd09c83",
+        "sec_2aece9ec8c47fa5b"
+      ],
+      "best_chunk_id": "chk_08bc776b4783ecd8e8e9dd3d",
+      "chunk_count": 3,
+      "char_count": 1216,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-076",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 3DTiles服务配置",
+      "section_path_sample": "Stamp服务部署 > 3DTiles服务配置",
+      "section_ids": [
+        "sec_50d566d622a5c0de"
+      ],
+      "best_chunk_id": "chk_188269df6f4e195097e873e2",
+      "chunk_count": 1,
+      "char_count": 1133,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-077",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > Trunserver部署",
+      "section_path_sample": "Stamp服务部署 > Trunserver部署",
+      "section_ids": [
+        "sec_fc805e8e8050ee95"
+      ],
+      "best_chunk_id": "chk_c34ad66325afcba11c01f91e",
+      "chunk_count": 3,
+      "char_count": 1006,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-078",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > GB28181服务配置",
+      "section_path_sample": "Stamp服务部署 > GB28181服务配置",
+      "section_ids": [
+        "sec_96987dd3a34aee9e"
+      ],
+      "best_chunk_id": "chk_4ed3c15f79c2ad5caad49a61",
+      "chunk_count": 3,
+      "char_count": 999,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-079",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "应用系统部署",
+      "section_path_sample": "应用系统部署",
+      "section_ids": [
+        "sec_58cb6d74b59bddd6"
+      ],
+      "best_chunk_id": "chk_fd843157c4777cad208dc764",
+      "chunk_count": 2,
+      "char_count": 948,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-080",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "MINIO部署",
+      "section_path_sample": "MINIO部署",
+      "section_ids": [
+        "sec_aca1609f9f61e097"
+      ],
+      "best_chunk_id": "chk_fb0a5baee995f880da44bf60",
+      "chunk_count": 2,
+      "char_count": 902,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-081",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > I3S服务配置",
+      "section_path_sample": "Stamp服务部署 > I3S服务配置",
+      "section_ids": [
+        "sec_6e45e25a9076f9b8"
+      ],
+      "best_chunk_id": "chk_cefcb0faf64596233176ec43",
+      "chunk_count": 2,
+      "char_count": 894,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-082",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "HTTPS配置 > 私有域名配置",
+      "section_path_sample": "HTTPS配置 > 私有域名配置 > 获取Mac地址",
+      "section_ids": [
+        "sec_3d0ef5346c9c6d06",
+        "sec_b02a98f8cd4a2f27"
+      ],
+      "best_chunk_id": "chk_ed75318f72bcf6b139400fec",
+      "chunk_count": 2,
+      "char_count": 724,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-083",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 三维数据库服务",
+      "section_path_sample": "Stamp服务部署 > 三维数据库服务",
+      "section_ids": [
+        "sec_fa43320eb3fc7c02"
+      ],
+      "best_chunk_id": "chk_f5b246394d2b12a0e4dcb6cb",
+      "chunk_count": 2,
+      "char_count": 700,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-084",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "运维管理配置 > 运动物体配置",
+      "section_path_sample": "运维管理配置 > 运动物体配置",
+      "section_ids": [
+        "sec_ae57fcd1f7b48c3d"
+      ],
+      "best_chunk_id": "chk_84d360c2dcb66ae27b7d1b4e",
+      "chunk_count": 1,
+      "char_count": 660,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-085",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "操作系统安装",
+      "section_path_sample": "操作系统安装",
+      "section_ids": [
+        "sec_ce60564696e29c8e"
+      ],
+      "best_chunk_id": "chk_0f1ce3a8585752046eafa97d",
+      "chunk_count": 2,
+      "char_count": 641,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-086",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 管线更新服务",
+      "section_path_sample": "Stamp服务部署 > 管线更新服务",
+      "section_ids": [
+        "sec_702d7d6af2f8f56c"
+      ],
+      "best_chunk_id": "chk_3e4c0791be4bc67e322cd44c",
+      "chunk_count": 1,
+      "char_count": 635,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-087",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > StampNodeServer部署",
+      "section_path_sample": "Stamp服务部署 > StampNodeServer部署",
+      "section_ids": [
+        "sec_0c979f764111f7bd"
+      ],
+      "best_chunk_id": "chk_6f80c5b187ae5acfb4221b19",
+      "chunk_count": 1,
+      "char_count": 541,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-088",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > Apache数据服务",
+      "section_path_sample": "Stamp服务部署 > Apache数据服务",
+      "section_ids": [
+        "sec_7bb470292d96a230"
+      ],
+      "best_chunk_id": "chk_1d72515ac64bfe339b600c63",
+      "chunk_count": 1,
+      "char_count": 527,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-089",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 倾斜发布服务",
+      "section_path_sample": "Stamp服务部署 > 倾斜发布服务",
+      "section_ids": [
+        "sec_1662f0025023a06c"
+      ],
+      "best_chunk_id": "chk_31e22159c54f3a8a46fa9ea1",
+      "chunk_count": 1,
+      "char_count": 504,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-090",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 服务部署准备",
+      "section_path_sample": "Stamp服务部署 > 服务部署准备 > 权限设置",
+      "section_ids": [
+        "sec_9bd09b98588bde9b"
+      ],
+      "best_chunk_id": "chk_fcc1e75b13c2b6b81e62564f",
+      "chunk_count": 1,
+      "char_count": 476,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-091",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 矢量编辑服务",
+      "section_path_sample": "Stamp服务部署 > 矢量编辑服务",
+      "section_ids": [
+        "sec_fe1271dc9081c048"
+      ],
+      "best_chunk_id": "chk_2b51529cdf19bd32eb03acf4",
+      "chunk_count": 1,
+      "char_count": 466,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-092",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 工程地质服务",
+      "section_path_sample": "Stamp服务部署 > 工程地质服务",
+      "section_ids": [
+        "sec_961bd74ff561fe7e"
+      ],
+      "best_chunk_id": "chk_1df5602a1fa74c8406a069d1",
+      "chunk_count": 1,
+      "char_count": 464,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-093",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "操作系统安装 > Rocky安装",
+      "section_path_sample": "操作系统安装 > Rocky安装 > 语言设置",
+      "section_ids": [
+        "sec_75e24f963d502d6a"
+      ],
+      "best_chunk_id": "chk_abdc89c5f7ac5eda63a6c8cc",
+      "chunk_count": 1,
+      "char_count": 463,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-094",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 矢量瓦片服务",
+      "section_path_sample": "Stamp服务部署 > 矢量瓦片服务",
+      "section_ids": [
+        "sec_42667ca6aeef5fcb"
+      ],
+      "best_chunk_id": "chk_c39e3f7a89a912501026d960",
+      "chunk_count": 1,
+      "char_count": 450,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-095",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 三维数据库更新服务",
+      "section_path_sample": "Stamp服务部署 > 三维数据库更新服务",
+      "section_ids": [
+        "sec_b12e344b9f0534c1"
+      ],
+      "best_chunk_id": "chk_c04599937d55cf6a38137c0f",
+      "chunk_count": 1,
+      "char_count": 447,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-096",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 管线分析服务",
+      "section_path_sample": "Stamp服务部署 > 管线分析服务",
+      "section_ids": [
+        "sec_268df927ca698a14"
+      ],
+      "best_chunk_id": "chk_3d74f6770602bddbded56c8b",
+      "chunk_count": 1,
+      "char_count": 446,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-097",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 三维搜索服务",
+      "section_path_sample": "Stamp服务部署 > 三维搜索服务",
+      "section_ids": [
+        "sec_a9ba445b616f3a0d"
+      ],
+      "best_chunk_id": "chk_be8144817a3ada7ca50b0741",
+      "chunk_count": 1,
+      "char_count": 438,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-098",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 管线查询服务",
+      "section_path_sample": "Stamp服务部署 > 管线查询服务",
+      "section_ids": [
+        "sec_f10919b36f26cd41"
+      ],
+      "best_chunk_id": "chk_08034b82ec212b9142e713c5",
+      "chunk_count": 1,
+      "char_count": 424,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-099",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "Stamp服务部署 > 管线发布服务",
+      "section_path_sample": "Stamp服务部署 > 管线发布服务",
+      "section_ids": [
+        "sec_f6f3ac2bd5f54c9e"
+      ],
+      "best_chunk_id": "chk_24fc2ef9fe8665bda94f90b5",
+      "chunk_count": 1,
+      "char_count": 411,
+      "allocation_reason": "section_fill"
+    },
+    {
+      "slot_id": "slot-100",
+      "source": "StampServer用户手册_Rocky9 .docx",
+      "doc_category": "StampServer",
+      "section_key": "矢量数据入库 > PostGIS Bundle",
+      "section_path_sample": "矢量数据入库 > PostGIS Bundle",
+      "section_ids": [
+        "sec_ff960052757adc25"
+      ],
+      "best_chunk_id": "chk_87a0df41a0cabf7c0ee0f4c1",
+      "chunk_count": 1,
+      "char_count": 408,
+      "allocation_reason": "section_fill"
+    }
+  ],
+  "skipped_summary": {
+    "noise_or_short": 322
+  },
+  "skipped_sample": [
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_5c52562f29397a78f5c46505"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_aff941d2b4fe9ef5ae01c477"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_6b4c892e4f933cf423195d46"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_7cd1fcc6c753a284ee3c85d9"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_6eb2bb50c2a321e165a540fe"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_004b9399a2968e2ff5b981aa"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_6ae947910ac03369308d8e93"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_68e187e9ed55701cfd62960e"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_c5322e8f12bdcbecd1228afe"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_628bed53dc20c5c8fddf0c80"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_573f210a11eede9e87658aa4"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_f91beee08fe969b83aeae656"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_49d2888239d60073f86d8e1b"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_c5e0a3fed85cf6f9190a7928"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_b4772b9855ca13313ea414b1"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_8776ff228403ef28ed66aab3"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_4ccf130fe354356f1eac5dc9"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_1229e45bd3cd256760d3c2a1"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_dd9e2075e1ec6e7b9275ea66"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_4d79b82b37bd65ae0d0bbbbd"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_02de3a9d82e5197a06960251"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_69320603c6e7c2eb1d94d75e"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_6096bd4d32c9b1f1013327fd"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_098f9b585d4a1ff7d911a850"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_7a9f5883a2baf61a4158811b"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_1f5247c1d926b8e91e6c3c54"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_3ad5702ee1abb8b27d553eac"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_b12e41ce901d9e3f1ed74964"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_1fcb8d0dfe968a238d0b10d3"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_8e7189a829fe48a7a2a37b5d"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_c328ec20029e5f70e1bd41f5"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "IIS配置代理转发到Apache或其他端口监听服务 - love_coder - 博客园.html",
+      "chunk_id": "chk_50aa802f47ffba081cd4c35a"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "openssl-ip.cnf",
+      "chunk_id": "chk_42d99547e59734edebfe54ac"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "openssl-ip.cnf",
+      "chunk_id": "chk_939a34c69c3f0d86f1c70149"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "openssl-ip.cnf",
+      "chunk_id": "chk_443289e400db12f53b8fc282"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "三维基本概念.pptx",
+      "chunk_id": "chk_42a7e5b18b7d6465995c80ac"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "三维基本概念.pptx",
+      "chunk_id": "chk_394eafdc8729945019f05847"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "三维基本概念.pptx",
+      "chunk_id": "chk_d70210d8146e9114835662bf"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "路径规划.sql",
+      "chunk_id": "chk_b97a19799c1e55f2a161e350"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "chunk_id": "chk_996bdf9d0adbe49f82107889"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "chunk_id": "chk_866ad567a83910fa5dbdbab9"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "chunk_id": "chk_a9514679849c1fa442929ec9"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2ca727efa70847b49f0f67528544d210.pdf",
+      "chunk_id": "chk_11e8fd871bf7777502db9fe7"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+      "chunk_id": "chk_c8b6d649ee22bc0c2ca6c583"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "GB+28181国家标准《安全防范视频监控联网系统信息传输、交换、控制技术要求》+（征求意见稿）.pdf",
+      "chunk_id": "chk_78322ef938db04eb90e08dac"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "chunk_id": "chk_02b5335e4be7fb30c046f6a4"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "chunk_id": "chk_a10d1422bc34d5ca7c1239ed"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "2026陕西耕地保护系统问题收集.docx",
+      "chunk_id": "chk_e59029c644bec6a9f4d8a9b6"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "实景三维新功能.txt",
+      "chunk_id": "chk_13131aa0c4ea36ad9fd8c644"
+    },
+    {
+      "reason": "noise_or_short",
+      "source": "实景三维新功能.txt",
+      "chunk_id": "chk_458968f919b28197803a2a1a"
+    }
+  ],
+  "corpus_snapshot_hash": "b8024cc5c67011b8a5d252420547f9b286f7cdb9e0be6f69c60f4cfc706ee8cc",
+  "live_chunk_count": 2537
+}

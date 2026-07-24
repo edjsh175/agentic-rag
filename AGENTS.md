@@ -71,7 +71,7 @@
 
 ## 关键约束
 
-- 始终使用项目根目录的 `venv`；不要用系统 Python、`.venv` 或其他 Chroma 版本打开同一 `chroma_db`。依赖版本以 `requirements-base.txt` 为准。
+- 始终使用项目根目录的 `venv`；不要用系统 Python、`.venv` 或其他 Chroma 版本打开同一 `chroma_db`。依赖版本以 `requirements-base.txt` 为准。CPU 生产镜像：`INSTALL_RERANKER=false` 只关 Reranker；**不要**在 base 里写 `unstructured[pdf]`（会另路拉 torch）。说明见 `deploy/README.md` §5。
 - 操作正式 `chroma_db`、`data/` 或关系数据库前，先停止后端和评估进程。重建通过 `/rebuild` 或 `RebuildCoordinator` 执行，不要手动拼接清库流程。
 - `pytest` 默认隔离运行时路径并排除 `integration` 标记；访问正式库的测试必须显式执行 `pytest -m integration`。
 - 嵌入模型变更后必须重建知识库；重建会改变 chunk ID，相关评测集需要重新生成。
