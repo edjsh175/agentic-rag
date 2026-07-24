@@ -7,6 +7,7 @@ from typing import Optional
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.chunk_admin import ChunkAdminService
+from rag_knowledge.services.product_backbone_live_sync import ProductBackboneLiveSyncService
 from rag_knowledge.models.api import (
     GraphDataResponse,
     GraphNode,
@@ -32,6 +33,15 @@ class KnowledgeGraphService:
     def __init__(self):
         self.db = RelationalDB()
         self._vector_store = None
+        self._backbone_live_sync = ProductBackboneLiveSyncService(db=self.db)
+
+    def _sync_backbone_json(self, summary: dict | None) -> None:
+        if summary:
+            logger.info(
+                "backbone JSON synced from live | entities=%s relations=%s",
+                summary.get("entities"),
+                summary.get("relations"),
+            )
 
     @property
     def vector_store(self):
@@ -131,6 +141,11 @@ class KnowledgeGraphService:
         if not created:
             raise RuntimeError("Failed to retrieve created entity")
 
+        try:
+            self._sync_backbone_json(self._backbone_live_sync.sync_after_entity_change(eid))
+        except Exception as exc:
+            logger.warning("backbone JSON sync after create_entity failed: %s", exc)
+
         return EntityCreateResponse(
             id=created["id"],
             name=created["name"],
@@ -184,6 +199,11 @@ class KnowledgeGraphService:
         if not updated:
             raise RuntimeError("Failed to retrieve updated entity")
 
+        try:
+            self._sync_backbone_json(self._backbone_live_sync.sync_after_entity_change(entity_id))
+        except Exception as exc:
+            logger.warning("backbone JSON sync after update_entity failed: %s", exc)
+
         return EntityResponse(
             id=updated["id"],
             name=updated["name"],
@@ -200,7 +220,17 @@ class KnowledgeGraphService:
 
     def delete_entity(self, entity_id: str) -> bool:
         """Cascade deletes an entity."""
+        existing = self.db.get_entity(entity_id)
+        touched_backbone = False
+        if existing:
+            names = self._backbone_live_sync.backbone_entity_names()
+            touched_backbone = self._backbone_live_sync.entity_is_backbone(existing, names=names)
         self.db.delete_entity(entity_id)
+        if touched_backbone:
+            try:
+                self._sync_backbone_json(self._backbone_live_sync.export_from_live())
+            except Exception as exc:
+                logger.warning("backbone JSON sync after delete_entity failed: %s", exc)
         return True
 
     def create_relation(
@@ -259,6 +289,17 @@ class KnowledgeGraphService:
                 raise RuntimeError("Failed to retrieve created relation")
             created_relation = dict(row)
 
+        try:
+            self._sync_backbone_json(
+                self._backbone_live_sync.sync_after_relation_change(
+                    relation_id=rid,
+                    source_id=source_id,
+                    target_id=target_id,
+                )
+            )
+        except Exception as exc:
+            logger.warning("backbone JSON sync after create_relation failed: %s", exc)
+
         return RelationResponse(
             id=created_relation["id"],
             source_id=created_relation["source_entity_id"],
@@ -276,7 +317,21 @@ class KnowledgeGraphService:
 
     def delete_relation(self, relation_id: str) -> bool:
         """Idempotent relation delete."""
+        before = None
+        with self.db._get_conn() as conn:
+            row = conn.execute("SELECT * FROM relations WHERE id = ?", (relation_id,)).fetchone()
+            if row:
+                before = dict(row)
         self.db.delete_relation(relation_id)
+        try:
+            self._sync_backbone_json(
+                self._backbone_live_sync.sync_after_relation_change(
+                    relation_id=None,
+                    relation_before=before,
+                )
+            )
+        except Exception as exc:
+            logger.warning("backbone JSON sync after delete_relation failed: %s", exc)
         return True
 
     def link_entity_chunk(self, entity_id: str, chunk_id: str, link_type: LinkTypeEnum) -> EntityChunkLinkResponse:
@@ -386,6 +441,11 @@ class KnowledgeGraphService:
         if not created:
             raise RuntimeError("Failed to retrieve created alias")
 
+        try:
+            self._sync_backbone_json(self._backbone_live_sync.sync_after_alias_change(entity_id))
+        except Exception as exc:
+            logger.warning("backbone JSON sync after create_entity_alias failed: %s", exc)
+
         return GraphAliasItem(
             id=created["id"],
             entity_id=created["entity_id"],
@@ -399,7 +459,17 @@ class KnowledgeGraphService:
         )
 
     def delete_alias(self, alias_id: str) -> bool:
+        entity_id = ""
+        with self.db._get_conn() as conn:
+            row = conn.execute("SELECT entity_id FROM aliases WHERE id = ?", (alias_id,)).fetchone()
+            if row:
+                entity_id = str(row["entity_id"] or "")
         self.db.delete_alias(alias_id)
+        if entity_id:
+            try:
+                self._sync_backbone_json(self._backbone_live_sync.sync_after_alias_change(entity_id))
+            except Exception as exc:
+                logger.warning("backbone JSON sync after delete_alias failed: %s", exc)
         return True
 
     def list_entity_chunks(self, entity_id: str) -> list[EntityChunkDetailResponse]:
