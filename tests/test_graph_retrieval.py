@@ -653,7 +653,8 @@ def test_rag_chain_fuse_graph_docs_skips_when_graph_docs_missing():
     from rag_knowledge.services.rag import RagChain
 
     docs = [Document(page_content="pipeline", metadata={"chunk_id": "pipeline"})]
-    fused = RagChain._fuse_graph_docs(
+    chain = RagChain.__new__(RagChain)
+    fused = chain._fuse_graph_docs(
         docs,
         None,
         top_k=4,

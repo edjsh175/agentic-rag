@@ -59,7 +59,11 @@ import 'github-markdown-css/github-markdown.css'
 
     <!-- 视图容器 -->
     <div class="view-container">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive>
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
     </div>
   </div>
 </template>

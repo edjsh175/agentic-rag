@@ -173,6 +173,7 @@ export async function queryKnowledge(
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
   docCategory?: string,
+  entityName?: string,
 ) {
   const { data } = await http.post<QueryResult>(
     '/query',
@@ -182,6 +183,7 @@ export async function queryKnowledge(
       llm_model: llmModel,
       kb_name: kbName,
       doc_category: docCategory,
+      entity_name: entityName,
       thinking,
       web_search: webSearch,
       agent_prompt: agentPrompt,
@@ -216,6 +218,7 @@ export async function queryKnowledgeStream(
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
   docCategory?: string,
+  entityName?: string,
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
@@ -226,6 +229,7 @@ export async function queryKnowledgeStream(
       llm_model: llmModel,
       kb_name: kbName,
       doc_category: docCategory,
+      entity_name: entityName,
       thinking,
       web_search: webSearch,
       agent_prompt: agentPrompt,

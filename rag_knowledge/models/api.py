@@ -26,6 +26,7 @@ class QueryRequest(BaseModel):
     collection_name: Optional[str] = "rag_knowledge"
     kb_name: Optional[str] = None
     doc_category: Optional[str] = None
+    entity_name: Optional[str] = None
     history: Optional[list[HistoryItem]] = None
     llm_model: Optional[str] = None
     vision_model: Optional[str] = None
@@ -51,6 +52,7 @@ class ClarifyRequest(BaseModel):
     question: str
     kb_name: Optional[str] = None
     doc_category: Optional[str] = None
+    entity_name: Optional[str] = None
 
 
 class ClarifyResponse(BaseModel):

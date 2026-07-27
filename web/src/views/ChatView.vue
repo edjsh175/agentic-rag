@@ -385,6 +385,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
   }
 
   const docCategory = option.filter.doc_category || undefined
+  const entityName = option.filter.entity_name || undefined
 
   try {
     abortController.value = new AbortController()
@@ -438,6 +439,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         activeAgent.value?.system_prompt,
         undefined,
         docCategory,
+        entityName,
       )
     } catch {
       aiMsg.status = undefined
@@ -453,6 +455,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
           activeAgent.value?.system_prompt,
           undefined,
           docCategory,
+          entityName,
         )
         aiMsg.content = result.answer
         aiMsg.loading = false

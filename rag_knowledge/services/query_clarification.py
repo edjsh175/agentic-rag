@@ -1,7 +1,7 @@
-"""MVP clarification (反问) detection for ambiguous queries.
+"""Query clarification (反问) before retrieval.
 
-Returns structured A/B/C options for a separate frontend to render as cards.
-Rules: data/disambiguation_rules.json + domain_catalog different_from pairs.
+Helper LLM decides whether clarification is needed. Rules / catalog / wide terms
+only supply option seeds and act as fallback when the LLM is unavailable.
 """
 from __future__ import annotations
 
@@ -92,12 +92,12 @@ def _contains_term(question: str, term: str) -> bool:
         return False
     q = _normalize_blob(question)
     t = _normalize_blob(term)
-    if t in q:
-        return True
-    # Latin identifiers: word boundary
+    if not t:
+        return False
+    # Latin identifiers: require token boundary (avoid pipeline ⊂ PipelineBuilder).
     if re.search(r"[a-z0-9]", t):
         return re.search(rf"(?<![a-z0-9_.-]){re.escape(t)}(?![a-z0-9_.-])", q) is not None
-    return False
+    return t in q
 
 
 def _doc_category_for_entity(catalog: DomainCatalogLoader, entity_name: str) -> str | None:
@@ -245,6 +245,64 @@ def _filter_matches_doc_category(
     return tuple(matched)
 
 
+# Wide oral terms that often map to multiple products/modules.
+# Bare「管线」仅在问题过短/过泛时启用，避免「管线点表字段」误触发。
+_WIDE_SURFACE_TERMS: tuple[str, ...] = (
+    "pipeline",
+    "Pipeline",
+    "管线工具",
+    "管线发布工具",
+    "管线",
+)
+
+
+def _question_is_underspecified(question: str) -> bool:
+    """True for single-token / ultra-short questions (e.g. pipeline / 管线)."""
+    text = (question or "").strip()
+    if not text:
+        return True
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]{1,40}", text):
+        return True
+    compact = re.sub(r"[\s？?！!。．\.，,、]", "", text)
+    return len(compact) <= 4
+
+
+def _is_explicit_comparison(question: str, names: list[str]) -> bool:
+    """Skip clarify when the user already juxtaposes two known entities."""
+    q = _normalize_blob(question)
+    if not any(token in q for token in ("区别", "对比", "不同", " vs ", " versus ", "和")):
+        return False
+    hit = 0
+    for name in names:
+        if name and _contains_term(question, name):
+            hit += 1
+            if hit >= 2:
+                return True
+    return False
+
+
+_CLARIFY_LLM_PROMPT = """你是 RAG 知识库的歧义预检助手。根据用户问题与候选实体，判断是否必须先反问用户再检索。
+
+规则：
+1. 仅当问题意图模糊、主体不明确、或可能对应多个不同产品/模块时，needs_clarification=true。
+2. 若问题已明确指向单一实体（即使候选列表有相近项），needs_clarification=false。
+3. 比较题（A和B的区别）且两边都已写出时，needs_clarification=false。
+4. 若需要反问：只从候选里选 2~{max_options} 个 option_id；ask_question 用简洁中文；禁止编造候选之外的 id。
+5. 只输出 JSON，不要 markdown，不要解释。
+
+用户问题：
+{question}
+
+候选选项（JSON）：
+{candidates_json}
+
+输出格式：
+{{"needs_clarification": false, "ask_question": "", "trigger": "", "option_ids": []}}
+或
+{{"needs_clarification": true, "ask_question": "请选择…", "trigger": "pipeline", "option_ids": ["a", "b"]}}
+"""
+
+
 class QueryClarificationService:
     def __init__(
         self,
@@ -254,14 +312,23 @@ class QueryClarificationService:
         enabled: bool | None = None,
         min_options: int = 2,
         max_options: int = 4,
+        llm_enabled: bool | None = None,
+        llm_timeout_seconds: float | None = None,
+        llm_caller: Any | None = None,
     ):
         self._catalog = catalog
         self._rules_cache: list[_Rule] | None = None
+        self._llm_caller = llm_caller
+        self._ollama_base = ""
+        self._llm_model = ""
         if rules_path is not None and enabled is not None:
             self.enabled = enabled
             self.min_options = max(2, min_options)
             self.max_options = max(2, min(max_options, 4))
             self._rules_path = rules_path
+            # Unit tests default to deterministic rule/heuristic path unless overridden.
+            self.llm_enabled = bool(llm_enabled) if llm_enabled is not None else False
+            self.llm_timeout_seconds = float(llm_timeout_seconds or 15.0)
             return
         cfg = Config()
         clar = getattr(cfg, "clarification", None)
@@ -269,6 +336,18 @@ class QueryClarificationService:
         self.min_options = max(2, getattr(clar, "min_options", min_options) if clar else min_options)
         self.max_options = max(2, min(getattr(clar, "max_options", max_options) if clar else max_options, 4))
         self._rules_path = rules_path or (cfg.data_dir / "disambiguation_rules.json")
+        self.llm_enabled = (
+            bool(llm_enabled)
+            if llm_enabled is not None
+            else bool(getattr(clar, "llm_enabled", True))
+        )
+        self.llm_timeout_seconds = float(
+            llm_timeout_seconds
+            if llm_timeout_seconds is not None
+            else getattr(clar, "llm_timeout_seconds", 15.0)
+        )
+        self._ollama_base = cfg.ollama_base_url
+        self._llm_model = cfg.helper_llm_model
 
     def _catalog_loader(self) -> DomainCatalogLoader:
         if self._catalog is None:
@@ -285,41 +364,389 @@ class QueryClarificationService:
         self._rules_cache = rules
         return rules
 
+    def _narrow_options(
+        self,
+        options: list[ClarificationOption],
+        *,
+        doc_category: str | None,
+        kb_name: str | None,
+    ) -> list[ClarificationOption]:
+        if doc_category:
+            options = list(_filter_matches_doc_category(tuple(options), doc_category))
+        if kb_name:
+            options = [
+                opt for opt in options
+                if not opt.filter.kb_name or opt.filter.kb_name == kb_name
+            ]
+        return options
+
+    def _result_from_options(
+        self,
+        *,
+        ask_question: str,
+        trigger: str,
+        reason: str,
+        options: list[ClarificationOption],
+        doc_category: str | None,
+        kb_name: str | None,
+    ) -> ClarificationResult | None:
+        options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
+        options = _assign_option_ids(options, self.max_options)
+        if len(options) < self.min_options:
+            return None
+        return ClarificationResult(
+            needs_clarification=True,
+            ask_question=ask_question,
+            trigger=trigger,
+            reason=reason,
+            options=options[: self.max_options],
+        )
+
+    def _options_for_names(self, names: list[str]) -> list[ClarificationOption]:
+        catalog = self._catalog_loader()
+        opts: list[ClarificationOption] = []
+        seen: set[str] = set()
+        for name in names:
+            key = (name or "").casefold()
+            if not key or key in seen:
+                continue
+            opt = _option_for_entity(catalog, name)
+            if not opt:
+                continue
+            seen.add(key)
+            opts.append(opt)
+        return opts
+
+    def _merge_seed_options(self, batches: list[list[ClarificationOption]]) -> list[ClarificationOption]:
+        merged: list[ClarificationOption] = []
+        seen: set[str] = set()
+        for batch in batches:
+            for opt in batch:
+                key = "|".join(
+                    [
+                        (opt.filter.entity_name or "").casefold(),
+                        (opt.filter.doc_category or "").casefold(),
+                        (opt.filter.kb_name or "").casefold(),
+                        opt.label.casefold(),
+                    ]
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged.append(ClarificationOption(id="", label=opt.label, filter=opt.filter))
+        return merged
+
+    def _collect_seed_options(
+        self,
+        question: str,
+        *,
+        doc_category: str | None,
+        kb_name: str | None,
+    ) -> tuple[list[ClarificationOption], str | None]:
+        """Gather candidate options from rules / catalog / wide terms (seeds only)."""
+        batches: list[list[ClarificationOption]] = []
+        trigger: str | None = None
+        for rule in self._load_rules():
+            hit_trigger = None
+            for term in rule.triggers:
+                if _contains_term(question, term):
+                    hit_trigger = term
+                    break
+            if not hit_trigger:
+                continue
+            if trigger is None:
+                trigger = hit_trigger
+            batches.append(list(rule.options))
+
+        # Reuse heuristic collector for soft/wide expansion without early return semantics.
+        soft_hits: list[str] = []
+        try:
+            from rag_knowledge.services.backbone_guard import soft_match_backbone_entities
+
+            soft_hits = soft_match_backbone_entities(question)
+        except Exception as exc:
+            logger.debug("soft_match for clarify seeds skipped: %s", exc)
+        if soft_hits:
+            batches.append(self._options_for_names(soft_hits))
+            if trigger is None and soft_hits:
+                trigger = soft_hits[0]
+
+        catalog = self._catalog_loader()
+        for term in _WIDE_SURFACE_TERMS:
+            if not _contains_term(question, term):
+                continue
+            if term == "管线" and not _question_is_underspecified(question):
+                continue
+            seed_names: list[str] = []
+            resolved = catalog.resolve(term)
+            if resolved:
+                seed_names.append(resolved[0])
+            if term.casefold() in {"pipeline", "管线工具", "管线发布工具", "管线"}:
+                seed_names.extend(["PipelineBuilder", "管线发布服务"])
+            expanded: list[str] = []
+            for seed_name in seed_names:
+                expanded.append(seed_name)
+                for seed in catalog.seeds():
+                    seed_canonical = (catalog.resolve(seed.name) or (seed.name, ""))[0]
+                    if seed_canonical != seed_name and seed.name != seed_name:
+                        continue
+                    expanded.extend(list(seed.different_from or []))
+                    break
+            batches.append(self._options_for_names(expanded))
+            if trigger is None:
+                trigger = term
+
+        options = self._merge_seed_options(batches)
+        options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
+        options = _assign_option_ids(options, self.max_options)
+        return options, trigger
+
+    def _analyze_wide_or_uncertain(
+        self,
+        question: str,
+        *,
+        doc_category: str | None,
+        kb_name: str | None,
+    ) -> ClarificationResult | None:
+        """Heuristic fallback when helper LLM is unavailable."""
+        catalog = self._catalog_loader()
+
+        soft_hits: list[str] = []
+        try:
+            from rag_knowledge.services.backbone_guard import soft_match_backbone_entities
+
+            soft_hits = soft_match_backbone_entities(question)
+        except Exception as exc:
+            logger.debug("soft_match for clarify skipped: %s", exc)
+
+        if len(soft_hits) >= 2 and not _is_explicit_comparison(question, soft_hits):
+            result = self._result_from_options(
+                ask_question="问题可能对应多个产品/模块，请选择您要查询的方向：",
+                trigger=soft_hits[0],
+                reason="multi_entity_match",
+                options=self._options_for_names(soft_hits),
+                doc_category=doc_category,
+                kb_name=kb_name,
+            )
+            if result:
+                return result
+
+        for term in _WIDE_SURFACE_TERMS:
+            if not _contains_term(question, term):
+                continue
+            if term == "管线" and not _question_is_underspecified(question):
+                continue
+
+            seed_names: list[str] = []
+            resolved = catalog.resolve(term)
+            if resolved:
+                seed_names.append(resolved[0])
+            if term.casefold() in {"pipeline", "管线工具", "管线发布工具", "管线"}:
+                seed_names.extend(["PipelineBuilder", "管线发布服务"])
+
+            expanded: list[str] = []
+            for seed_name in seed_names:
+                expanded.append(seed_name)
+                for seed in catalog.seeds():
+                    seed_canonical = (catalog.resolve(seed.name) or (seed.name, ""))[0]
+                    if seed_canonical != seed_name and seed.name != seed_name:
+                        continue
+                    expanded.extend(list(seed.different_from or []))
+                    break
+
+            names: list[str] = []
+            seen: set[str] = set()
+            for name in expanded:
+                key = name.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                names.append(name)
+
+            if _is_explicit_comparison(question, names):
+                continue
+
+            result = self._result_from_options(
+                ask_question=f"您提到的「{term}」可能对应不同产品/模块，请选择要查询的方向：",
+                trigger=term,
+                reason="vague_surface_term",
+                options=self._options_for_names(names),
+                doc_category=doc_category,
+                kb_name=kb_name,
+            )
+            if result:
+                return result
+
+        if len(soft_hits) == 1:
+            canonical = soft_hits[0]
+            if _contains_term(question, canonical):
+                return None
+            siblings: list[str] = [canonical]
+            for seed in catalog.seeds():
+                resolved = catalog.resolve(seed.name)
+                seed_canonical = resolved[0] if resolved else seed.name
+                if seed_canonical != canonical and seed.name != canonical:
+                    continue
+                siblings.extend(list(seed.different_from or []))
+                break
+            if len(siblings) >= 2:
+                return self._result_from_options(
+                    ask_question=f"「{canonical}」在资料中可能与相近模块混淆，请确认查询方向：",
+                    trigger=canonical,
+                    reason="uncertain_entity_link",
+                    options=self._options_for_names(siblings),
+                    doc_category=doc_category,
+                    kb_name=kb_name,
+                )
+
+        return None
+
+    def _call_clarify_llm(self, prompt: str) -> dict[str, Any]:
+        if self._llm_caller is not None:
+            payload = self._llm_caller(prompt)
+            if not isinstance(payload, dict):
+                raise ValueError("clarify llm_caller must return a dict")
+            return payload
+
+        from rag_knowledge.ollama_http import post as ollama_post
+
+        resp = ollama_post(
+            f"{self._ollama_base}/api/chat",
+            json={
+                "model": self._llm_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "options": {
+                    "temperature": 0.0,
+                    "num_predict": 256,
+                    "top_k": 10,
+                    "thinking": False,
+                },
+            },
+            timeout=self.llm_timeout_seconds,
+        )
+        resp.raise_for_status()
+        raw = resp.json().get("message", {}).get("content", "").strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+        payload = json.loads(cleaned)
+        if not isinstance(payload, dict):
+            raise ValueError("clarify payload is not an object")
+        return payload
+
+    def _analyze_via_llm(
+        self,
+        question: str,
+        seeds: list[ClarificationOption],
+        *,
+        default_trigger: str | None,
+    ) -> ClarificationResult | None:
+        candidates = [
+            {
+                "id": opt.id,
+                "label": opt.label,
+                "entity_name": opt.filter.entity_name,
+                "doc_category": opt.filter.doc_category,
+            }
+            for opt in seeds
+        ]
+        prompt = _CLARIFY_LLM_PROMPT.format(
+            question=question,
+            max_options=self.max_options,
+            candidates_json=json.dumps(candidates, ensure_ascii=False),
+        )
+        payload = self._call_clarify_llm(prompt)
+        if not bool(payload.get("needs_clarification")):
+            return ClarificationResult(
+                needs_clarification=False,
+                reason="llm_clear",
+                trigger=str(payload.get("trigger") or default_trigger or "") or None,
+            )
+
+        wanted_ids = payload.get("option_ids") or payload.get("options") or []
+        if not isinstance(wanted_ids, list):
+            wanted_ids = []
+        id_set = {str(item).strip().casefold() for item in wanted_ids if str(item).strip()}
+        by_id = {opt.id.casefold(): opt for opt in seeds if opt.id}
+        chosen = [by_id[i] for i in id_set if i in by_id]
+        # Preserve original seed order when ids were provided out of order.
+        if chosen:
+            order = {opt.id.casefold(): idx for idx, opt in enumerate(seeds)}
+            chosen.sort(key=lambda opt: order.get(opt.id.casefold(), 999))
+        else:
+            chosen = list(seeds)
+
+        ask = str(payload.get("ask_question") or "").strip() or "请选择您要查询的具体模块或方向："
+        trigger = str(payload.get("trigger") or default_trigger or "").strip() or (default_trigger or "llm")
+        return self._result_from_options(
+            ask_question=ask,
+            trigger=trigger,
+            reason="llm_ambiguity",
+            options=chosen,
+            doc_category=None,
+            kb_name=None,
+        )
+
+    def _analyze_rules_fallback(
+        self,
+        question: str,
+        *,
+        doc_category: str | None,
+        kb_name: str | None,
+    ) -> ClarificationResult | None:
+        for rule in self._load_rules():
+            hit_trigger = None
+            for term in rule.triggers:
+                if _contains_term(question, term):
+                    hit_trigger = term
+                    break
+            if not hit_trigger:
+                continue
+            result = self._result_from_options(
+                ask_question=rule.ask_question,
+                trigger=hit_trigger,
+                reason="entity_ambiguity",
+                options=list(rule.options),
+                doc_category=doc_category,
+                kb_name=kb_name,
+            )
+            if result:
+                return result
+        return self._analyze_wide_or_uncertain(
+            question, doc_category=doc_category, kb_name=kb_name,
+        )
+
     def analyze(
         self,
         question: str,
         *,
         doc_category: str | None = None,
         kb_name: str | None = None,
+        entity_name: str | None = None,
     ) -> ClarificationResult:
         q = (question or "").strip()
         if not self.enabled or not q:
             return ClarificationResult(needs_clarification=False)
 
-        for rule in self._load_rules():
-            hit_trigger = None
-            for trigger in rule.triggers:
-                if _contains_term(q, trigger):
-                    hit_trigger = trigger
-                    break
-            if not hit_trigger:
-                continue
-            options = list(rule.options)
-            if doc_category:
-                options = list(_filter_matches_doc_category(tuple(options), doc_category))
-            if kb_name:
-                options = [
-                    opt for opt in options
-                    if not opt.filter.kb_name or opt.filter.kb_name == kb_name
-                ]
-            if len(options) < self.min_options:
-                continue
-            return ClarificationResult(
-                needs_clarification=True,
-                ask_question=rule.ask_question,
-                trigger=hit_trigger,
-                reason="entity_ambiguity",
-                options=options[: self.max_options],
-            )
+        # User already picked an entity for this turn — do not ask again.
+        if entity_name and str(entity_name).strip():
+            return ClarificationResult(needs_clarification=False)
 
-        return ClarificationResult(needs_clarification=False)
+        seeds, seed_trigger = self._collect_seed_options(
+            q, doc_category=doc_category, kb_name=kb_name,
+        )
+        if len(seeds) < self.min_options:
+            return ClarificationResult(needs_clarification=False)
+
+        if self.llm_enabled:
+            try:
+                decided = self._analyze_via_llm(q, seeds, default_trigger=seed_trigger)
+                if decided is not None:
+                    return decided
+            except Exception as exc:
+                logger.warning("clarify LLM failed, falling back to rules/heuristic: %s", exc)
+
+        fallback = self._analyze_rules_fallback(
+            q, doc_category=doc_category, kb_name=kb_name,
+        )
+        return fallback or ClarificationResult(needs_clarification=False)

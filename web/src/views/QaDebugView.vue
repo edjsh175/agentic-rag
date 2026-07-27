@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream } from '../api'
@@ -263,6 +263,26 @@ function stopDebug() {
   abortCtrl?.abort()
 }
 
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.isComposing) {
+    if (e.ctrlKey) {
+      e.preventDefault()
+      const target = e.target as HTMLTextAreaElement
+      const start = target.selectionStart
+      const end = target.selectionEnd
+      question.value = question.value.substring(0, start) + '\n' + question.value.substring(end)
+      nextTick(() => {
+        target.selectionStart = target.selectionEnd = start + 1
+      })
+    } else if (!e.shiftKey) {
+      e.preventDefault()
+      if (!loading.value && question.value.trim()) {
+        runDebug()
+      }
+    }
+  }
+}
+
 async function removeSelected() {
   if (!selectedId.value || selectedId.value === '(运行中)') return
   if (!confirm(`确认删除追踪记录 ${selectedId.value}？`)) return
@@ -375,7 +395,12 @@ onUnmounted(() => {
               {{ liveStatus }}
             </span>
           </div>
-          <textarea v-model="question" placeholder="请输入需要复现与诊断的问答测试文本..." rows="3" />
+          <textarea
+            v-model="question"
+            placeholder="请输入需要复现与诊断的问答测试文本..."
+            rows="3"
+            @keydown="onKeydown"
+          />
           <div class="ask-actions">
             <button type="submit" class="btn-primary" :disabled="loading || !question.trim()">
               {{ loading ? '调试执行中...' : '发起调试' }}

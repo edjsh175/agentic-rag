@@ -213,25 +213,93 @@ def build_partial_grounded_answer(
     )
 
 
+_THIN_PARTIAL_RE = re.compile(
+    r"^知识库中查到了.+?的部分相关内容（如.+?），"
+    r"但未检索到关于[「\[][^」\]]+[」\]]的完整说明。"
+    r"(?:\[\d+\])*$",
+    re.DOTALL,
+)
+
+
+def _supplement_uncited_answer(
+    answer: str,
+    question: str,
+    context_docs: list[dict[str, Any]],
+) -> str:
+    """Keep model body; append matching citations and a short verification notice."""
+    matched = matching_context_docs(question, context_docs)
+    citation_ids_ordered: list[int] = []
+    for doc in matched:
+        meta = doc.get("metadata") or {}
+        try:
+            cid = int(meta.get("citation_id"))
+        except (TypeError, ValueError):
+            continue
+        if cid not in citation_ids_ordered:
+            citation_ids_ordered.append(cid)
+    body = answer.rstrip()
+    if citation_ids_ordered:
+        cites = "".join(f"[{cid}]" for cid in citation_ids_ordered)
+        return (
+            f"{body}\n\n"
+            f"（以上正文缺少模型引用编号，已根据检索结果补充{cites}；请结合来源栏核对原文。）"
+        )
+    return f"{body}\n\n（以上正文缺少可验证的引用证据，请结合来源栏核对原文。）"
+
+
+def _is_thin_partial_answer(answer: str) -> bool:
+    return bool(_THIN_PARTIAL_RE.match((answer or "").strip()))
+
+
+def _append_evidence_bullets(
+    answer: str,
+    question: str,
+    context_docs: list[dict[str, Any]],
+    *,
+    max_docs: int = 3,
+    snippet_chars: int = 160,
+) -> str:
+    """Attach short grounded bullets when the model only emitted a rule-4 shell."""
+    if "相关原文要点" in (answer or ""):
+        return answer
+    matched = matching_context_docs(question, context_docs, max_docs=max_docs)
+    bullets: list[str] = []
+    for doc in matched:
+        meta = doc.get("metadata") or {}
+        try:
+            cid = int(meta.get("citation_id"))
+        except (TypeError, ValueError):
+            continue
+        section = str(meta.get("section_path") or meta.get("section_title") or "").strip()
+        snippet = " ".join(str(doc.get("content") or "").split())
+        if len(snippet) > snippet_chars:
+            snippet = snippet[:snippet_chars] + "…"
+        label = f"{section}：" if section else ""
+        bullets.append(f"- {label}{snippet} [{cid}]")
+    if not bullets:
+        return answer
+    return answer.rstrip() + "\n\n相关原文要点：\n" + "\n".join(bullets)
+
+
 def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]) -> str:
     """Prevent an uncited or completeness-sensitive answer from overclaiming."""
     answer = (answer or "").strip()
     docs = [doc for doc in (context_docs or []) if isinstance(doc, dict)]
 
-    # If retrieval already hit subject-related chunks, never collapse to bare miss / uncited wipe.
+    # Empty / fixed miss: repair to rule-4 partial answer when subject context exists.
     if (not answer or answer == NO_KNOWLEDGE_ANSWER) and docs:
         repaired = build_partial_grounded_answer(question, docs)
         if repaired:
-            return repaired
+            return _append_evidence_bullets(repaired, question, docs)
         return answer or NO_KNOWLEDGE_ANSWER
     if not answer or answer == NO_KNOWLEDGE_ANSWER:
         return answer or NO_KNOWLEDGE_ANSWER
 
     cited = cited_sources(answer, docs)
     if not cited:
-        repaired = build_partial_grounded_answer(question, docs)
-        if repaired:
-            return repaired
+        # Keep detailed body; do not wipe with the rule-4 template.
+        if docs:
+            return _supplement_uncited_answer(answer, question, docs)
         return "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。"
     conflict_notice = _conflict_notice(docs)
     if conflict_notice and "请核对原文" not in answer:
@@ -239,4 +307,7 @@ def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]
     if _COMPLETE_RE.search(question or "") and "证据不足" not in answer and "未查询到" not in answer:
         citation_id = cited[0].get("metadata", {}).get("citation_id")
         return f"{answer}\n\n以上仅覆盖已引用证据，不能据此确认完整流程。[{citation_id}]"
+    # Model (or prior repair) emitted only the rule-4 shell — keep it, attach evidence bullets.
+    if docs and _is_thin_partial_answer(answer):
+        return _append_evidence_bullets(answer, question, docs)
     return answer

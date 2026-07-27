@@ -135,15 +135,15 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 
 1. 知识库事实只能来自 <context>，历史消息只用于理解追问、指代和用户意图，不能作为事实依据。
 2. 每项知识库事实后必须使用对应的引用编号，例如 `[1]`。只能使用 context 中存在的编号，不得编造文件名、页码、URL、片段或编号。
-3. context 仅能支持部分答案时，先回答有明确依据的部分，并在每项事实后引用编号；然后说明：“以上为知识库中已查到的部分内容。关于[具体未覆盖的方面]，当前知识库中未查询到相关内容。”
-4. context 无法完整回答但存在与问题主体（如工具名、产品名、服务名）相关的片段时，应说明：“知识库中查到了[主体]的部分相关内容（如[已有内容概要]），但未检索到关于[具体问题]的完整说明。”并引用相关片段编号。
+3. context 仅能支持部分答案时，必须先根据 context 写出实质性回答（定义、用途、相关章节/字段/步骤等可依据内容），每项事实后引用编号；然后再补充：“以上为知识库中已查到的部分内容。关于[具体未覆盖的方面]，当前知识库中未查询到相关内容。”禁止只用一句“部分相关/未检索到完整说明”代替作答。
+4. context 无法完整覆盖问题、但仍有与问题主体相关的片段时：先按规则3写出已有依据的实质内容并引用；仅在实质内容之后，可追加一句未覆盖说明。不得在 context 已有可转述要点时，只输出“知识库中查到了…但未检索到关于…的完整说明”这类空壳句。
 5. context 与问题主体完全不相关时，必须先原样输出："当前知识库中未查询到相关内容。"
 6. {general_knowledge_rule}
 7. 外部网页仅在 context 中标记为“外部来源”时可用，必须引用，并与知识库来源明确区分。
 8. 禁止推测、补全隐含逻辑或把通用知识伪装成知识库内容。宁可少答，不得编造。
 9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
-11. 若存在产品主干锚定提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此介绍或按规则4部分回答，禁止在主体已命中时直接输出固定未命中提示。产品关系类问题可使用锚定提示中的主干边作为关系骨架，但仍须引用相关 context；若 context 无归属原文，按规则4说明并引用相关片段，可将主干边标注为“关系骨架（非知识库原文）”；不得把 avoid/易混实体当作回答主体。
+11. 若存在产品主干锚定提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用），禁止在主体已命中时直接输出固定未命中提示或规则4空壳句。产品关系类问题可使用锚定提示中的主干边作为关系骨架，但仍须引用相关 context 并先写实质内容；若 context 无归属原文，说明缺口并引用相关片段，可将主干边标注为“关系骨架（非知识库原文）”；不得把 avoid/易混实体当作回答主体。
 
 ## 输出规则
 
@@ -350,11 +350,39 @@ class RagChain:
             error=error,
         )
 
-    def _apply_backbone_anchor_rewrite(self, question: str, plan):
+    def _apply_backbone_anchor_rewrite(self, question: str, plan, *, entity_name: str | None = None):
         """Map oral terms onto product backbone before graph/hybrid retrieval."""
         graph_cfg = getattr(self, "_graph_cfg", None)
+        forced = (entity_name or "").strip()
+        if forced:
+            return self._force_backbone_entity(question, plan, forced)
+
         if graph_cfg is None or not getattr(graph_cfg, "query_rewrite_enabled", False):
             return plan
+
+        # Do not silently guess when the question is still a vague oral surface term.
+        # Full clarify LLM runs on /query/clarify; this is a cheap defense-in-depth gate.
+        try:
+            from rag_knowledge.services.query_clarification import (
+                _WIDE_SURFACE_TERMS,
+                _contains_term,
+                _question_is_underspecified,
+            )
+
+            vague = _question_is_underspecified(question)
+            if not vague:
+                for term in _WIDE_SURFACE_TERMS:
+                    if term == "管线" and not _question_is_underspecified(question):
+                        continue
+                    if _contains_term(question, term):
+                        vague = True
+                        break
+            if vague:
+                logger.info("backbone_anchor skipped | vague surface question=%s", question[:40])
+                return plan
+        except Exception as exc:
+            logger.debug("vague-surface gate for backbone anchor skipped: %s", exc)
+
         try:
             from rag_knowledge.services.graph_query_rewrite import (
                 GraphQueryRewriter,
@@ -387,6 +415,51 @@ class RagChain:
         except Exception as exc:
             logger.warning("backbone anchor rewrite skipped: %s", exc)
             return plan
+
+    def _force_backbone_entity(self, question: str, plan, entity_name: str):
+        """Honor user-selected clarification entity as the sole backbone anchor."""
+        from rag_knowledge.services.backbone_guard import (
+            avoid_names_for_anchors,
+            load_backbone_constraints,
+            resolve_canonical,
+        )
+        from rag_knowledge.services.graph_query_rewrite import merge_graph_rewrite_queries
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
+
+        constraints = load_backbone_constraints()
+        canonical = resolve_canonical(entity_name, constraints) or entity_name
+        try:
+            from rag_knowledge.services.domain_catalog import DomainCatalogLoader
+
+            resolved = DomainCatalogLoader().resolve(entity_name)
+            if resolved:
+                canonical = resolved[0]
+        except Exception:
+            pass
+
+        avoid = tuple(avoid_names_for_anchors([canonical], constraints))
+        rewrite = RetrievalQuery(
+            text=f"{canonical} 介绍",
+            kind="graph_rewrite",
+            weight=1.1,
+        )
+        merged = merge_graph_rewrite_queries(list(plan.queries), [rewrite])
+        summary = (
+            f"产品主干锚定（用户澄清选择）：\n- 锚点：{canonical}"
+        )
+        logger.info(
+            "backbone_anchor forced | canonical=%s avoid=%s",
+            canonical,
+            list(avoid),
+        )
+        return replace(
+            plan,
+            queries=merged,
+            backbone_canonical=(canonical,),
+            backbone_avoid=avoid,
+            backbone_relation_summary=summary,
+            backbone_primary_intent="product_intro",
+        )
 
     def _load_allowlisted_anchor_graph_docs(
         self,
@@ -500,8 +573,16 @@ class RagChain:
         )
         return enriched, context, docs
 
-    def _prepare_graph_plan(self, question, plan, kb_name=None, doc_category=None, review_status="approved"):
-        plan = self._apply_backbone_anchor_rewrite(question, plan)
+    def _prepare_graph_plan(
+        self,
+        question,
+        plan,
+        kb_name=None,
+        doc_category=None,
+        review_status="approved",
+        entity_name=None,
+    ):
+        plan = self._apply_backbone_anchor_rewrite(question, plan, entity_name=entity_name)
         retriever = getattr(self, "_graph_retriever", None)
         if retriever is None:
             return self._load_allowlisted_anchor_graph_docs(
@@ -629,8 +710,8 @@ class RagChain:
             result["graph_revision"] = plan.graph_revision
         return result
 
-    @staticmethod
     def _fuse_graph_docs(
+        self,
         docs,
         graph_docs,
         *,
@@ -643,6 +724,9 @@ class RagChain:
             return docs
         from rag_knowledge.services.graph_retrieval import GraphRetriever
 
+        cfg = getattr(self, "_graph_cfg", None)
+        max_slots = int(getattr(cfg, "max_graph_only_slots", 1) or 1)
+        protect_top1 = bool(getattr(cfg, "protect_text_top1", True))
         return GraphRetriever.fuse(
             docs,
             graph_docs,
@@ -650,6 +734,8 @@ class RagChain:
             graph_weight=graph_weight,
             excluded_chunk_ids=excluded_chunk_ids,
             graph_guard=graph_guard,
+            max_graph_only_slots=max_slots,
+            protect_text_top1=protect_top1,
         )
 
     def _apply_anchor_chunk_filter(
@@ -1796,6 +1882,7 @@ class RagChain:
     def query(self, question: str, history: list | None = None,
               llm_model: str | None = None, vision_model: str | None = None,
               kb_name: str | None = None, doc_category: str | None = None,
+              entity_name: str | None = None,
               thinking: bool | None = None,
               web_search: bool | None = None,
               allow_general_knowledge: bool | None = None,
@@ -1818,7 +1905,8 @@ class RagChain:
             queries = self._build_retrieval_query_specs(q, history)
             plan = self._plan_retrieval(q, queries, force_rerank=True)
             plan, graph_context, graph_docs = self._prepare_graph_plan(
-                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+                q, plan, kb_name=kb_name, doc_category=doc_category,
+                review_status="approved", entity_name=entity_name,
             )
             graph_kwargs = self._build_graph_kwargs(
                 plan, graph_context, graph_docs, include_cache_fields=False,
@@ -1899,6 +1987,7 @@ class RagChain:
     async def aquery(self, question: str, history: list | None = None,
                      llm_model: str | None = None, vision_model: str | None = None,
                      kb_name: str | None = None, doc_category: str | None = None,
+                     entity_name: str | None = None,
                      thinking: bool | None = None,
                      web_search: bool | None = None,
                      allow_general_knowledge: bool | None = None,
@@ -1928,7 +2017,8 @@ class RagChain:
             plan = self._plan_retrieval(q, queries, force_rerank=True)
             trace.mark("plan")
             plan, graph_context, graph_docs = self._prepare_graph_plan(
-                q, plan, kb_name=kb_name, doc_category=doc_category, review_status="approved"
+                q, plan, kb_name=kb_name, doc_category=doc_category,
+                review_status="approved", entity_name=entity_name,
             )
             trace.set_plan(plan)
             trace.mark("graph_rewrite")
@@ -2050,6 +2140,7 @@ class RagChain:
     async def stream_query(self, question: str, history: list | None = None,
                             llm_model: str | None = None, vision_model: str | None = None,
                             kb_name: str | None = None, doc_category: str | None = None,
+                            entity_name: str | None = None,
                             thinking: bool | None = None,
                             web_search: bool | None = None,
                             allow_general_knowledge: bool | None = None,
@@ -2136,6 +2227,7 @@ class RagChain:
                 kb_name,
                 doc_category,
                 "approved",
+                entity_name,
             )
             trace.set_plan(plan)
             trace.mark("graph_rewrite")

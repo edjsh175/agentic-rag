@@ -112,6 +112,8 @@ class GraphRetrievalConfig:
     max_entities: int = 16
     max_chunks: int = 24
     graph_weight: float = 1.25
+    max_graph_only_slots: int = 1
+    protect_text_top1: bool = True
 
 
 @dataclass
@@ -139,10 +141,12 @@ class QaTraceConfig:
 
 @dataclass
 class ClarificationConfig:
-    """MVP clarification (反问) before full retrieval."""
+    """Clarification (反问) before full retrieval."""
     enabled: bool = True
     min_options: int = 2
     max_options: int = 4
+    llm_enabled: bool = True
+    llm_timeout_seconds: float = 15.0
 
 
 class Config:
@@ -274,6 +278,8 @@ class Config:
             max_entities=int(_get("graph_retrieval", "max_entities", "16")),
             max_chunks=int(_get("graph_retrieval", "max_chunks", "24")),
             graph_weight=float(_get("graph_retrieval", "graph_weight", "1.25")),
+            max_graph_only_slots=int(_get("graph_retrieval", "max_graph_only_slots", "1")),
+            protect_text_top1=_get("graph_retrieval", "protect_text_top1", "true").lower() == "true",
         )
 
         self.cache = CacheConfig(
@@ -393,6 +399,8 @@ class Config:
             enabled=_get("clarification", "enabled", "true").lower() == "true",
             min_options=int(_get("clarification", "min_options", "2")),
             max_options=int(_get("clarification", "max_options", "4")),
+            llm_enabled=_get("clarification", "llm_enabled", "true").lower() == "true",
+            llm_timeout_seconds=float(_get("clarification", "llm_timeout_seconds", "15")),
         )
 
         self._assert_test_paths_are_isolated(root)

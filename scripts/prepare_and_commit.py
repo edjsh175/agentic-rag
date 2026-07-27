@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement query clarification preflight, doc_category filter, and missing_evidence debt resolution"
+    commit_msg = "feat: optimize query clarification, evidence pack formatting, and UI response layout"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

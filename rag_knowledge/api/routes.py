@@ -243,9 +243,11 @@ async def query(req: QueryRequest):
         history = [h.dict() for h in req.history] if req.history else None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+        entity_name = (req.entity_name or "").strip() or None
         result = await _rag.aquery(req.question, history,
                                    llm_model=req.llm_model, vision_model=req.vision_model,
                                    kb_name=kb_name, doc_category=doc_category,
+                                   entity_name=entity_name,
                                    thinking=req.thinking, web_search=req.web_search,
                                    allow_general_knowledge=req.allow_general_knowledge,
                                    agent_prompt=req.agent_prompt)
@@ -266,10 +268,12 @@ async def query_clarify(req: ClarifyRequest):
 
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
+    entity_name = (req.entity_name or "").strip() or None
     result = QueryClarificationService().analyze(
         req.question,
         doc_category=doc_category,
         kb_name=kb_name,
+        entity_name=entity_name,
     )
     return ClarifyResponse(
         needs_clarification=result.needs_clarification,
@@ -307,11 +311,13 @@ async def query_stream(req: QueryRequest):
     history = [h.dict() for h in req.history] if req.history else None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+    entity_name = (req.entity_name or "").strip() or None
 
     async def event_stream():
         async for event in _rag.stream_query(req.question, history,
                                               llm_model=req.llm_model, vision_model=req.vision_model,
                                               kb_name=kb_name, doc_category=doc_category,
+                                              entity_name=entity_name,
                                               thinking=req.thinking, web_search=req.web_search,
                                               allow_general_knowledge=req.allow_general_knowledge,
                                               agent_prompt=req.agent_prompt):
@@ -1066,9 +1072,11 @@ async def admin_qa_debug(req: QueryRequest):
         history = [h.dict() for h in req.history] if req.history else None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+        entity_name = (req.entity_name or "").strip() or None
         result = await _rag.aquery(
             req.question, history, llm_model=req.llm_model, vision_model=req.vision_model,
-            kb_name=kb_name, doc_category=doc_category, thinking=req.thinking,
+            kb_name=kb_name, doc_category=doc_category, entity_name=entity_name,
+            thinking=req.thinking,
             web_search=req.web_search, allow_general_knowledge=req.allow_general_knowledge,
             agent_prompt=req.agent_prompt, include_evidence=True,
         )
@@ -1092,6 +1100,7 @@ async def admin_qa_debug_stream(req: QueryRequest):
     history = [h.dict() for h in req.history] if req.history else None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+    entity_name = (req.entity_name or "").strip() or None
 
     async def event_stream():
         async for event in _rag.stream_query(
@@ -1101,6 +1110,7 @@ async def admin_qa_debug_stream(req: QueryRequest):
             vision_model=req.vision_model,
             kb_name=kb_name,
             doc_category=doc_category,
+            entity_name=entity_name,
             thinking=req.thinking,
             web_search=req.web_search,
             allow_general_knowledge=req.allow_general_knowledge,

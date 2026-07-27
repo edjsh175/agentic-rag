@@ -72,7 +72,11 @@ function handleContentClick(event: MouseEvent) {
         <!-- 歧义反问卡片 -->
         <div v-if="clarification && !isUser" class="clarification-card">
           <div class="clarification-header">
-            <span class="clarification-icon">💡</span>
+            <svg class="clarification-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
             <span class="clarification-title">歧义确认</span>
             <span v-if="clarification.trigger" class="clarification-trigger-badge">
               包含「{{ clarification.trigger }}」

@@ -21,8 +21,10 @@ def test_governance_repairs_uncited_with_subject_context_and_downgrades_complete
         section_path="PipelineBuilder > 工程设置",
     )
     repaired = govern_answer("PipelineBuilder 属于工具层。", "PipelineBuilder 属于什么", [source])
-    assert "部分相关内容" in repaired
+    assert "PipelineBuilder 属于工具层。" in repaired
     assert "[1]" in repaired
+    assert "补充" in repaired
+    assert "部分相关内容" not in repaired
     assert "无法给出" not in repaired
 
     miss_repaired = govern_answer(
@@ -32,6 +34,17 @@ def test_governance_repairs_uncited_with_subject_context_and_downgrades_complete
     )
     assert "StampManager" in miss_repaired
     assert "[2]" in miss_repaired
+    assert "部分相关内容" in miss_repaired
+    assert "相关原文要点" in miss_repaired
+    assert "部署步骤" in miss_repaired
+
+    thin = (
+        "知识库中查到了pipeline的部分相关内容（如PipelineBuilder > 数据规范 > 管线点表），"
+        "但未检索到关于「pipeline」的完整说明。[1]"
+    )
+    enriched = govern_answer(thin, "pipeline", [source])
+    assert "相关原文要点" in enriched
+    assert "PipelineBuilder 工程设置说明" in enriched
 
     governed = govern_answer("完整流程如下：[1]", "完整安装流程是什么？", [source])
     assert "不能据此确认完整流程" in governed
