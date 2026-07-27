@@ -105,8 +105,49 @@ def test_graph_retriever_fuses_graph_channel_with_weight_and_deduplication(graph
 
     fused = GraphRetriever.fuse(standard, graph, top_k=2, graph_weight=1.25)
 
-    assert [doc.metadata["chunk_id"] for doc in fused] == ["chunk-pipeline", "wrong"]
-    assert fused[0].metadata["matched_query_kinds"] == ["retrieval", "graph"]
+    # Text top1 is protected; dual-channel pipeline still fills remaining seats.
+    assert [doc.metadata["chunk_id"] for doc in fused] == ["wrong", "chunk-pipeline"]
+    assert fused[1].metadata["matched_query_kinds"] == ["retrieval", "graph"]
+
+
+def test_fuse_caps_graph_only_slots_and_protects_text_top1(graph_db):
+    standard = [
+        Document(page_content="text-top", metadata={"chunk_id": "text-1"}),
+        Document(page_content="text-2", metadata={"chunk_id": "text-2"}),
+    ]
+    graph = [
+        Document(page_content="g1", metadata={"chunk_id": "graph-1"}),
+        Document(page_content="g2", metadata={"chunk_id": "graph-2"}),
+        Document(page_content="g3", metadata={"chunk_id": "graph-3"}),
+    ]
+
+    fused = GraphRetriever.fuse(standard, graph, top_k=4, graph_weight=5.0)
+
+    ids = [doc.metadata["chunk_id"] for doc in fused]
+    assert ids[0] == "text-1"
+    assert "text-2" in ids
+    graph_only = [cid for cid in ids if cid.startswith("graph-")]
+    assert len(graph_only) == 1
+
+
+def test_fuse_graph_only_cap_can_be_disabled(graph_db):
+    standard = [Document(page_content="text-top", metadata={"chunk_id": "text-1"})]
+    graph = [
+        Document(page_content="g1", metadata={"chunk_id": "graph-1"}),
+        Document(page_content="g2", metadata={"chunk_id": "graph-2"}),
+    ]
+
+    fused = GraphRetriever.fuse(
+        standard,
+        graph,
+        top_k=3,
+        graph_weight=5.0,
+        max_graph_only_slots=2,
+        protect_text_top1=True,
+    )
+    ids = [doc.metadata["chunk_id"] for doc in fused]
+    assert ids[0] == "text-1"
+    assert len([cid for cid in ids if cid.startswith("graph-")]) == 2
 
 
 def test_graph_retriever_soft_downweights_excluded_chunks(graph_db):

@@ -183,6 +183,9 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
     RelationType.runs_command: [
         (EntityType.step, EntityType.command),
         (EntityType.procedure, EntityType.command),
+        (EntityType.tool, EntityType.command),
+        (EntityType.service, EntityType.command),
+        (EntityType.environment_component, EntityType.command),
     ],
     RelationType.configured_by: [
         (EntityType.tool, EntityType.config_item),

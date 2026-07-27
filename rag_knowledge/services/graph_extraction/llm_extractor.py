@@ -10,7 +10,9 @@ import httpx
 
 from rag_knowledge.config import Config
 from rag_knowledge.ollama_http import client as ollama_client
+from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.services.backbone_guard import format_backbone_context, load_backbone_constraints
+from rag_knowledge.services.relation_recovery import is_generic_entity_name
 from . import (
     EntityCandidate,
     RelationCandidate,
@@ -31,6 +33,66 @@ ALLOWED_RELATION_TYPES = {
     "defined_in", "alias_of", "different_from"
 }
 
+# Deterministic anti-noise for ConfigItem (Round3b); keep lists small and explicit.
+_NOISY_CONFIG_FORMATS = frozenset({
+    "jpg", "jpgli", "webp", "crn", "dds", "ktx2", "png", "tiff", "geotiff",
+})
+_NOISY_CONFIG_CRS = frozenset({
+    "wgs-84", "wgs84", "国家2000", "西安80", "北京54", "cgcs2000",
+})
+_NOISY_CONFIG_PROJECTIONS = frozenset({
+    "高斯投影", "utm投影", "墨卡托投影", "enu投影", "web墨卡托",
+    "高斯投影(本地)", "utm投影(本地)", "高斯投影（本地）", "utm投影（本地）",
+})
+_NOISY_CONFIG_UI_LABELS = frozenset({
+    "中央子午线", "基准纬度", "坐标含带号", "北向偏移", "东向偏移",
+    "投影面高程", "缩放参数", "渲染效率",
+    "3度分带", "6度分带", "经纬度坐标", "平面坐标", "高程偏移",
+    "四参数", "平移参数", "旋转参数", "七参数", "坐标偏移",
+})
+_COMMAND_NAME_RE = re.compile(
+    r"^(?:sudo\s+)?"
+    r"(?:systemctl|service|yum|dnf|rpm|apt(?:-get)?|docker|podman|psql|tar|chmod|chown|"
+    r"mkdir|curl|wget|firewall-cmd|semanage|restorecon|nginx|pm2|node|npm|java|jar)\b",
+    re.IGNORECASE,
+)
+_COMMAND_SIGNAL_RE = re.compile(
+    r"(?:^|\n)\s*(?:\$\s*)?(?:sudo\s+)?"
+    r"(?:systemctl|service|yum|dnf|rpm|apt(?:-get)?|docker|podman|psql|tar\s+-[a-zA-Z]*|"
+    r"chmod|chown|firewall-cmd)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def normalize_for_evidence_match(text: str) -> str:
+    """Fold whitespace / full-width punctuation for evidence substring checks only."""
+    if not text:
+        return ""
+    chars: list[str] = []
+    for ch in str(text).replace("\u3000", " "):
+        code = ord(ch)
+        if 0xFF01 <= code <= 0xFF5E:
+            chars.append(chr(code - 0xFEE0))
+        else:
+            chars.append(ch)
+    folded = "".join(chars).replace("（", "(").replace("）", ")")
+    return re.sub(r"\s+", " ", folded).strip()
+
+
+def evidence_matches(evidence: str, content: str, section_path: str = "") -> bool:
+    """True if evidence is a direct excerpt, allowing blank/fullwidth folding only."""
+    ev = str(evidence or "").strip()
+    if not ev:
+        return False
+    content = content or ""
+    section_path = section_path or ""
+    if ev in content or ev in section_path:
+        return True
+    nev = normalize_for_evidence_match(ev)
+    if not nev:
+        return False
+    return nev in normalize_for_evidence_match(content) or nev in normalize_for_evidence_match(section_path)
+
 
 def normalize_name(name: str) -> str:
     """Normalize names: strip, merge spaces, convert full-width parentheses to half-width."""
@@ -40,6 +102,76 @@ def normalize_name(name: str) -> str:
     name = re.sub(r"\s+", " ", name)
     name = name.replace("（", "(").replace("）", ")")
     return name
+
+
+def is_noisy_config_item(name: str) -> bool:
+    """Return True when name is a known enum/UI-label false-positive ConfigItem."""
+    n = normalize_name(name)
+    if not n:
+        return True
+    low = n.lower()
+    if low in _NOISY_CONFIG_FORMATS:
+        return True
+    if low in _NOISY_CONFIG_CRS or n in _NOISY_CONFIG_CRS:
+        return True
+    if low in _NOISY_CONFIG_PROJECTIONS or n in _NOISY_CONFIG_PROJECTIONS:
+        return True
+    if n in _NOISY_CONFIG_UI_LABELS:
+        return True
+    if re.fullmatch(r"epsg\s*:?\s*\d+", low):
+        return True
+    return False
+
+
+def maybe_reclassify_as_command(entity_type: str, name: str) -> str:
+    """Promote shell-like names mistyped as Procedure/Step/ConfigItem to Command."""
+    if entity_type not in {"Procedure", "Step", "ConfigItem"}:
+        return entity_type
+    if _COMMAND_NAME_RE.search(normalize_name(name)):
+        return "Command"
+    return entity_type
+
+
+def chunk_has_command_signal(content: str) -> bool:
+    """True when chunk text contains concrete shell/CLI lines worth LLM Command extract."""
+    return bool(_COMMAND_SIGNAL_RE.search(content or ""))
+
+
+_DIRECTION_FLIP_RELATIONS = frozenset({
+    "runs_command",
+    "configured_by",
+    "uses_config",
+    "has_procedure",
+    "has_step",
+    "solved_by",
+})
+
+
+def early_check_relation_endpoints(
+    source_name: str,
+    relation_type: str,
+    target_name: str,
+    type_index: dict[str, str],
+) -> tuple[str, str, bool, str | None]:
+    """Validate relation against known endpoint types in the same extract.
+
+    Returns (source_name, target_name, flipped, reject_reason).
+    If either endpoint type is unknown, accept without flip (staging may catch later).
+    """
+    src = normalize_entity_name(source_name)
+    tgt = normalize_entity_name(target_name)
+    st = type_index.get(src)
+    tt = type_index.get(tgt)
+    if not st or not tt or not relation_type:
+        return source_name, target_name, False, None
+    ok, reason = validate_relation(st, relation_type, tt)
+    if ok:
+        return source_name, target_name, False, None
+    if relation_type in _DIRECTION_FLIP_RELATIONS:
+        ok_rev, _ = validate_relation(tt, relation_type, st)
+        if ok_rev:
+            return target_name, source_name, True, None
+    return source_name, target_name, False, reason or f"{st}-[{relation_type}]->{tt}"
 
 
 class LLMGraphExtractor:
@@ -196,6 +328,35 @@ class LLMGraphExtractor:
                 )
                 continue
 
+            etype = maybe_reclassify_as_command(etype, name)
+
+            if is_generic_entity_name(name) and etype in {
+                "Procedure",
+                "Step",
+                "Command",
+                "ConfigItem",
+                "Tool",
+                "Module",
+            }:
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="generic_entity_name",
+                        message=f"Rejected {etype} '{name}' as generic/ambiguous leaf name",
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
+            if etype == "ConfigItem" and is_noisy_config_item(name):
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="noisy_config_item",
+                        message=f"Rejected ConfigItem '{name}' as format/CRS/UI-label noise",
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
             evidence = str(item.get("evidence_text", "")).strip()
             if not evidence:
                 result.diagnostics.append(
@@ -207,7 +368,7 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not (evidence in content or evidence in section_path):
+            if not evidence_matches(evidence, content, section_path):
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",
@@ -281,6 +442,11 @@ class LLMGraphExtractor:
                 )
             )
 
+        # Local type index from entities accepted in this same extract (early pair check).
+        type_index: dict[str, str] = {
+            normalize_entity_name(e.name): e.entity_type for e in result.entities
+        }
+
         # 2. Parse and validate relations
         relations_data = data.get("relations", [])
         if not isinstance(relations_data, list):
@@ -314,7 +480,7 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not (evidence in content or evidence in section_path):
+            if not evidence_matches(evidence, content, section_path):
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",
@@ -366,6 +532,22 @@ class LLMGraphExtractor:
                 )
                 continue
 
+            src, tgt, flipped, reject_reason = early_check_relation_endpoints(
+                src, rtype, tgt, type_index
+            )
+            if reject_reason:
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="illegal_relation_pair",
+                        message=(
+                            f"Rejected relation '{src} ->[{rtype}]-> {tgt}' "
+                            f"as illegal endpoint types: {reject_reason}"
+                        ),
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
             result.relations.append(
                 RelationCandidate(
                     source_name=src,
@@ -382,6 +564,7 @@ class LLMGraphExtractor:
                 "confidence": conf,
                 "prompt_version": llm_cfg.prompt_version,
                 "extractor_version": llm_cfg.extractor_version,
+                **({"direction_flipped": True} if flipped else {}),
             }
 
         # 3. Parse and validate aliases
@@ -406,7 +589,7 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not (evidence in content or evidence in section_path):
+            if not evidence_matches(evidence, content, section_path):
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",

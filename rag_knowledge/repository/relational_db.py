@@ -551,6 +551,13 @@ class RelationalDB:
             )
             return cur.rowcount > 0
 
+    def update_extraction_batch_stats(self, batch_id: str, stats: dict) -> None:
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE extraction_batches SET stats_json = ? WHERE id = ?",
+                (json.dumps(stats, ensure_ascii=False, sort_keys=True), batch_id),
+            )
+
     def add_extraction_candidate(
         self,
         batch_id: str,
@@ -571,6 +578,8 @@ class RelationalDB:
                     (cid, batch_id, candidate_kind, fingerprint, payload_json, source_chunk_id, evidence_text, now),
                 )
             except sqlite3.IntegrityError:
+                # Fingerprint collision policy (R4): keep the first-written payload
+                # (including confidence/created_by); only merge additional evidences.
                 row = conn.execute(
                     "SELECT id, payload_json FROM extraction_candidates WHERE batch_id = ? AND fingerprint = ?",
                     (batch_id, fingerprint),

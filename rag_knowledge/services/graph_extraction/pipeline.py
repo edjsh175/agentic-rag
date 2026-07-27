@@ -74,16 +74,24 @@ class GraphBuilder:
         ]
 
     def build_full(self, force_rebuild: bool = False, limit: int | None = None,
-                   doc_categories: list[str] | None = None, include_llm: bool = False) -> BuildBatchResult:
+                   doc_categories: list[str] | None = None, include_llm: bool = False,
+                   resume_batch_id: str | None = None) -> BuildBatchResult:
         chunks = self._chunk_source()
         if doc_categories:
             allowed = set(doc_categories)
             chunks = [item for item in chunks if str((item.get("metadata") or {}).get("doc_category") or "") in allowed]
         if limit is not None:
             chunks = chunks[:limit]
-        return self._build("full", chunks, {"limit": limit, "doc_categories": doc_categories or [], "force_rebuild": force_rebuild, "include_llm": include_llm}, include_llm=include_llm)
+        return self._build(
+            "full",
+            chunks,
+            {"limit": limit, "doc_categories": doc_categories or [], "force_rebuild": force_rebuild, "include_llm": include_llm},
+            include_llm=include_llm,
+            resume_batch_id=resume_batch_id,
+        )
 
-    def build_incremental(self, chunk_ids: list[str], include_llm: bool = False) -> BuildBatchResult:
+    def build_incremental(self, chunk_ids: list[str], include_llm: bool = False,
+                          resume_batch_id: str | None = None) -> BuildBatchResult:
         wanted = set(chunk_ids)
         chunks = [item for item in self._chunk_source() if str(item.get("chunk_id") or "") in wanted]
         matched = {str(item.get("chunk_id") or "") for item in chunks}
@@ -99,15 +107,106 @@ class GraphBuilder:
             },
             missing_chunk_ids=missing,
             include_llm=include_llm,
+            resume_batch_id=resume_batch_id,
+        )
+
+    def resume_batch(self, batch_id: str, *, include_llm: bool | None = None) -> BuildBatchResult:
+        """Continue an interrupted extract batch; skips processed_chunk_ids."""
+        batch = self.db.get_extraction_batch(batch_id)
+        if not batch:
+            raise KeyError(f"extraction batch not found: {batch_id}")
+        status = str(batch.get("status") or "")
+        if status in {"applied", "approved", "rejected", "superseded", "failed"}:
+            raise ValueError(f"cannot resume batch in status={status}")
+
+        filters = json.loads(batch.get("filters_json") or "{}")
+        mode = str(batch.get("mode") or "full")
+        want_llm = bool(filters.get("include_llm")) if include_llm is None else bool(include_llm)
+
+        if mode == "incremental":
+            chunk_ids = list(filters.get("chunk_ids") or [])
+            return self.build_incremental(chunk_ids, include_llm=want_llm, resume_batch_id=batch_id)
+
+        limit = filters.get("limit")
+        return self.build_full(
+            force_rebuild=bool(filters.get("force_rebuild")),
+            limit=int(limit) if limit is not None else None,
+            doc_categories=list(filters.get("doc_categories") or []) or None,
+            include_llm=want_llm,
+            resume_batch_id=batch_id,
         )
 
     def _build(self, mode: str, chunks: list[dict], filters: dict,
                extra_stats: dict | None = None,
                missing_chunk_ids: list[str] | None = None,
-               include_llm: bool = False) -> BuildBatchResult:
+               include_llm: bool = False,
+               resume_batch_id: str | None = None) -> BuildBatchResult:
         snapshot = hashlib.sha256(json.dumps(chunks, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
         force_rebuild = bool(filters.get("force_rebuild"))
-        if mode == "full":
+        processed_chunk_ids: list[str] = []
+        done_set: set[str] = set()
+        batch_id: str | None = None
+        candidate_ids: dict[str, set[str]] = {kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic", "alias")}
+        rule_candidate_ids: set[str] = set()
+        llm_candidate_ids: set[str] = set()
+        type_index: dict[str, str] = {}
+        counts = {
+            "chunks": len(chunks),
+            "entity": 0,
+            "relation": 0,
+            "alias": 0,
+            "field": 0,
+            "link": 0,
+            "diagnostic": 0,
+            "llm_chunks_considered": 0,
+            "llm_chunks_skipped": 0,
+            "llm_chunks_command_rich": 0,
+            "llm_chunks_category_scoped": 0,
+            "relation_direction_flipped": 0,
+            "processed_chunk_ids": [],
+            "extract_progress": "running",
+        }
+        counts.update(extra_stats or {})
+
+        if resume_batch_id:
+            batch = self.db.get_extraction_batch(resume_batch_id)
+            if not batch:
+                raise KeyError(f"extraction batch not found: {resume_batch_id}")
+            status = str(batch.get("status") or "")
+            if status in {"applied", "approved", "rejected", "superseded", "failed"}:
+                raise ValueError(f"cannot resume batch in status={status}")
+            if str(batch.get("mode") or "") != mode:
+                raise ValueError(f"resume mode mismatch: batch={batch.get('mode')} requested={mode}")
+            if str(batch.get("source_snapshot_hash") or "") != snapshot:
+                raise ValueError(
+                    f"cannot resume batch {resume_batch_id}: source snapshot changed; "
+                    "re-run extract with --force-rebuild"
+                )
+            existing_stats = json.loads(batch.get("stats_json") or "{}")
+            processed_chunk_ids = [str(x) for x in (existing_stats.get("processed_chunk_ids") or [])]
+            done_set = set(processed_chunk_ids)
+            batch_id = resume_batch_id
+            candidate_ids, rule_candidate_ids, llm_candidate_ids = self._load_existing_candidate_sets(batch_id)
+            type_index = self._load_type_index(batch_id)
+            for key in (
+                "llm_chunks_considered",
+                "llm_chunks_skipped",
+                "llm_chunks_command_rich",
+                "llm_chunks_category_scoped",
+                "relation_direction_flipped",
+                "requested_chunks",
+                "matched_chunks",
+                "missing_chunks",
+            ):
+                if key in existing_stats:
+                    counts[key] = existing_stats[key]
+            for kind, ids in candidate_ids.items():
+                counts[kind] = len(ids)
+            counts["rule_candidates"] = len(rule_candidate_ids)
+            counts["llm_candidates"] = len(llm_candidate_ids)
+            counts["processed_chunk_ids"] = list(processed_chunk_ids)
+            counts["extract_progress"] = "running"
+        elif mode == "full":
             with self.db._get_conn() as conn:
                 if force_rebuild:
                     conn.execute(
@@ -125,9 +224,15 @@ class GraphBuilder:
                         (snapshot, mode, filters_json),
                     ).fetchone()
                     if existing:
-                        return BuildBatchResult(str(existing["id"]), json.loads(existing["stats_json"] or "{}"))
+                        existing_stats = json.loads(existing["stats_json"] or "{}")
+                        if existing_stats.get("extract_progress") == "running":
+                            raise ValueError(
+                                f"incomplete batch {existing['id']} still in progress; "
+                                f"use --resume-batch {existing['id']} or --force-rebuild"
+                            )
+                        return BuildBatchResult(str(existing["id"]), existing_stats)
 
-        from .llm_extractor import LLMGraphExtractor
+        from .llm_extractor import LLMGraphExtractor, chunk_has_command_signal
         from rag_knowledge.config import Config
         cfg = Config()
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
@@ -142,24 +247,15 @@ class GraphBuilder:
         candidate_normalizer = CandidateNormalizer(catalog=catalog)
         entity_resolver = EntityResolutionService(self.db)
 
-        batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
-        counts = {
-            "chunks": len(chunks),
-            "entity": 0,
-            "relation": 0,
-            "alias": 0,
-            "field": 0,
-            "link": 0,
-            "diagnostic": 0,
-            "llm_chunks_considered": 0,
-            "llm_chunks_skipped": 0,
-        }
-        counts.update(extra_stats or {})
-        candidate_ids: dict[str, set[str]] = {kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic", "alias")}
-        rule_candidate_ids = set()
-        llm_candidate_ids = set()
+        if batch_id is None:
+            batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
+            self.db.update_extraction_batch_stats(batch_id, counts)
 
         for chunk in chunks:
+            chunk_id = str(chunk.get("chunk_id") or "")
+            if chunk_id in done_set:
+                continue
+
             # 1. Rules extractors
             context = section_extractor.extract(chunk)
             combined = ExtractionResult()
@@ -198,6 +294,10 @@ class GraphBuilder:
                     evidence = str(payload.get("evidence_text") or "")
                     if kind in {"entity", "relation", "field"}:
                         payload["evidences"] = [{"source_chunk_id": source_chunk_id, "evidence_text": evidence}]
+                    if kind == "relation":
+                        payload, flipped = self._canonicalize_relation_direction(payload, type_index)
+                        if flipped:
+                            counts["relation_direction_flipped"] = int(counts.get("relation_direction_flipped") or 0) + 1
                     identity_payload = self._identity_payload(kind, payload)
                     fingerprint = hashlib.sha256(
                         json.dumps([kind, identity_payload], ensure_ascii=False, sort_keys=True).encode()
@@ -207,143 +307,236 @@ class GraphBuilder:
                     )
                     if kind == "diagnostic":
                         self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
-                    elif kind in {"entity", "relation"}:
+                    elif kind == "entity":
+                        self._note_entity_type(type_index, payload)
                         self._reject_backbone_conflict(
                             batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                        )
+                    elif kind == "relation":
+                        if (payload.get("properties") or {}).get("direction_flipped"):
+                            self._record_direction_flip_diagnostic(
+                                batch_id, payload, candidate_ids
+                            )
+                        self._reject_backbone_conflict(
+                            batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                        )
+                        self._reject_illegal_relation(
+                            batch_id, candidate_id, payload, type_index, candidate_ids
                         )
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
-            # 2. LLM semantic extractor (backbone neighborhood only)
+            # 2. LLM semantic extractor
+            # Gate: backbone neighborhood OR rule hit OR command-rich
+            # OR explicit --doc-category filter (category-scoped full LLM on that slice)
             if actual_include_llm and llm_extractor:
                 in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
                 rule_hit = rule_result_hits_backbone(combined, backbone_constraints)
-                if not (in_neighborhood or rule_hit):
+                command_rich = chunk_has_command_signal(str(chunk.get("content") or ""))
+                category_scoped = bool(filters.get("doc_categories"))
+                if not (in_neighborhood or rule_hit or command_rich or category_scoped):
                     counts["llm_chunks_skipped"] = int(counts.get("llm_chunks_skipped") or 0) + 1
-                    continue
-                counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
-                llm_result = llm_extractor.extract(chunk)
-                for kind, items in (
-                    ("entity", llm_result.entities),
-                    ("relation", llm_result.relations),
-                    ("diagnostic", llm_result.diagnostics),
-                ):
-                    if kind == "entity":
-                        items = candidate_normalizer.normalize_entities(items)
-                    for item in items:
-                        payload = asdict(item)
+                else:
+                    if command_rich and not (in_neighborhood or rule_hit or category_scoped):
+                        counts["llm_chunks_command_rich"] = int(counts.get("llm_chunks_command_rich") or 0) + 1
+                    if category_scoped and not (in_neighborhood or rule_hit or command_rich):
+                        counts["llm_chunks_category_scoped"] = int(
+                            counts.get("llm_chunks_category_scoped") or 0
+                        ) + 1
+                    counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
+                    llm_result = llm_extractor.extract(chunk)
+                    for kind, items in (
+                        ("entity", llm_result.entities),
+                        ("relation", llm_result.relations),
+                        ("diagnostic", llm_result.diagnostics),
+                    ):
                         if kind == "entity":
-                            resolution = entity_resolver.resolve(item)
-                            payload["resolution_action"] = resolution.action
-                            payload["resolved_entity_id"] = resolution.target_id
-                            for diagnostic in resolution.diagnostics:
-                                diagnostic_payload = {
-                                    "code": diagnostic.code,
-                                    "message": diagnostic.message,
-                                    "chunk_id": str(payload.get("source_chunk_id") or ""),
+                            items = candidate_normalizer.normalize_entities(items)
+                        for item in items:
+                            payload = asdict(item)
+                            if kind == "entity":
+                                resolution = entity_resolver.resolve(item)
+                                payload["resolution_action"] = resolution.action
+                                payload["resolved_entity_id"] = resolution.target_id
+                                for diagnostic in resolution.diagnostics:
+                                    diagnostic_payload = {
+                                        "code": diagnostic.code,
+                                        "message": diagnostic.message,
+                                        "chunk_id": str(payload.get("source_chunk_id") or ""),
+                                    }
+                                    diagnostic_fingerprint = hashlib.sha256(
+                                        json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+                                    ).hexdigest()
+                                    diagnostic_id = self.db.add_extraction_candidate(
+                                        batch_id, "diagnostic", diagnostic_fingerprint, diagnostic_payload,
+                                        diagnostic_payload["chunk_id"], diagnostic.message,
+                                    )
+                                    self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", diagnostic.message)
+                            source_chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+                            evidence = str(payload.get("evidence_text") or "")
+                            if kind in {"entity", "relation"}:
+                                payload["evidences"] = [{"source_chunk_id": source_chunk_id, "evidence_text": evidence}]
+
+                            payload["created_by"] = "llm:schema_extractor"
+                            if kind == "entity":
+                                props = payload.get("properties") or {}
+                                payload["created_by"] = props.get("created_by", "llm:schema_extractor")
+                                payload["confidence"] = props.get("confidence", 1.0)
+                                payload["prompt_version"] = props.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
+                                payload["extractor_version"] = props.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
+                                payload["properties"] = {
+                                    **props,
+                                    "created_by": payload["created_by"],
+                                    "confidence": payload["confidence"],
+                                    "prompt_version": payload["prompt_version"],
+                                    "extractor_version": payload["extractor_version"],
                                 }
-                                diagnostic_fingerprint = hashlib.sha256(
-                                    json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
-                                ).hexdigest()
-                                diagnostic_id = self.db.add_extraction_candidate(
-                                    batch_id, "diagnostic", diagnostic_fingerprint, diagnostic_payload,
-                                    diagnostic_payload["chunk_id"], diagnostic.message,
+                            elif kind == "relation":
+                                meta = {}
+                                if hasattr(llm_result, "relation_metadata"):
+                                    key = (payload["source_name"], payload["relation_type"], payload["target_name"])
+                                    meta = llm_result.relation_metadata.get(key) or {}
+                                payload["confidence"] = meta.get("confidence", 1.0)
+                                payload["prompt_version"] = meta.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
+                                payload["extractor_version"] = meta.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
+                                props = {
+                                    "created_by": "llm:schema_extractor",
+                                    "confidence": payload["confidence"],
+                                    "prompt_version": payload["prompt_version"],
+                                    "extractor_version": payload["extractor_version"],
+                                }
+                                if meta.get("direction_flipped"):
+                                    props["direction_flipped"] = True
+                                payload["properties"] = props
+                                payload, flipped = self._canonicalize_relation_direction(payload, type_index)
+                                if flipped:
+                                    counts["relation_direction_flipped"] = int(counts.get("relation_direction_flipped") or 0) + 1
+
+                            identity_payload = self._identity_payload(kind, payload)
+                            fingerprint = hashlib.sha256(
+                                json.dumps([kind, identity_payload], ensure_ascii=False, sort_keys=True).encode()
+                            ).hexdigest()
+                            candidate_id = self.db.add_extraction_candidate(
+                                batch_id, kind, fingerprint, payload, source_chunk_id, evidence
+                            )
+                            if kind == "diagnostic":
+                                self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
+                            elif kind == "entity":
+                                self._note_entity_type(type_index, payload)
+                                self._reject_backbone_conflict(
+                                    batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
                                 )
-                                self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", diagnostic.message)
-                        source_chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+                            elif kind == "relation":
+                                if (payload.get("properties") or {}).get("direction_flipped"):
+                                    self._record_direction_flip_diagnostic(
+                                        batch_id, payload, candidate_ids
+                                    )
+                                self._reject_backbone_conflict(
+                                    batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                                )
+                                self._reject_illegal_relation(
+                                    batch_id, candidate_id, payload, type_index, candidate_ids
+                                )
+                            candidate_ids[kind].add(candidate_id)
+                            llm_candidate_ids.add(candidate_id)
+
+                    # Custom handling of aliases in LLM result
+                    for alias_item in getattr(llm_result, "aliases", []):
+                        payload = dict(alias_item)
+                        source_chunk_id = str(payload.get("source_chunk_id") or "")
                         evidence = str(payload.get("evidence_text") or "")
-                        if kind in {"entity", "relation"}:
-                            payload["evidences"] = [{"source_chunk_id": source_chunk_id, "evidence_text": evidence}]
-                        
                         payload["created_by"] = "llm:schema_extractor"
-                        if kind == "entity":
-                            props = payload.get("properties") or {}
-                            payload["created_by"] = props.get("created_by", "llm:schema_extractor")
-                            payload["confidence"] = props.get("confidence", 1.0)
-                            payload["prompt_version"] = props.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
-                            payload["extractor_version"] = props.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
-                            payload["properties"] = {
-                                **props,
-                                "created_by": payload["created_by"],
-                                "confidence": payload["confidence"],
-                                "prompt_version": payload["prompt_version"],
-                                "extractor_version": payload["extractor_version"],
-                            }
-                        elif kind == "relation":
-                            meta = {}
-                            if hasattr(llm_result, "relation_metadata"):
-                                key = (payload["source_name"], payload["relation_type"], payload["target_name"])
-                                meta = llm_result.relation_metadata.get(key) or {}
-                            payload["confidence"] = meta.get("confidence", 1.0)
-                            payload["prompt_version"] = meta.get("prompt_version", cfg.graph_extraction_llm.prompt_version)
-                            payload["extractor_version"] = meta.get("extractor_version", cfg.graph_extraction_llm.extractor_version)
-                            payload["properties"] = {
-                                "created_by": "llm:schema_extractor",
-                                "confidence": payload["confidence"],
-                                "prompt_version": payload["prompt_version"],
-                                "extractor_version": payload["extractor_version"],
-                            }
-                        
-                        identity_payload = self._identity_payload(kind, payload)
+                        payload["prompt_version"] = cfg.graph_extraction_llm.prompt_version
+                        payload["extractor_version"] = cfg.graph_extraction_llm.extractor_version
+                        identity_payload = self._identity_payload("alias", payload)
                         fingerprint = hashlib.sha256(
-                            json.dumps([kind, identity_payload], ensure_ascii=False, sort_keys=True).encode()
+                            json.dumps(["alias", identity_payload], ensure_ascii=False, sort_keys=True).encode()
                         ).hexdigest()
                         candidate_id = self.db.add_extraction_candidate(
-                            batch_id, kind, fingerprint, payload, source_chunk_id, evidence
+                            batch_id, "alias", fingerprint, payload, source_chunk_id, evidence
                         )
-                        if kind == "diagnostic":
-                            self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload.get("message", ""))
-                        elif kind in {"entity", "relation"}:
-                            self._reject_backbone_conflict(
-                                batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
-                            )
-                        candidate_ids[kind].add(candidate_id)
+                        self._reject_backbone_conflict(
+                            batch_id, "alias", candidate_id, payload, backbone_constraints, candidate_ids
+                        )
+                        candidate_ids["alias"].add(candidate_id)
                         llm_candidate_ids.add(candidate_id)
 
-                # Custom handling of aliases in LLM result
-                for alias_item in getattr(llm_result, "aliases", []):
-                    payload = dict(alias_item)
-                    source_chunk_id = str(payload.get("source_chunk_id") or "")
-                    evidence = str(payload.get("evidence_text") or "")
-                    payload["created_by"] = "llm:schema_extractor"
-                    payload["prompt_version"] = cfg.graph_extraction_llm.prompt_version
-                    payload["extractor_version"] = cfg.graph_extraction_llm.extractor_version
-                    identity_payload = self._identity_payload("alias", payload)
-                    fingerprint = hashlib.sha256(
-                        json.dumps(["alias", identity_payload], ensure_ascii=False, sort_keys=True).encode()
-                    ).hexdigest()
-                    candidate_id = self.db.add_extraction_candidate(
-                        batch_id, "alias", fingerprint, payload, source_chunk_id, evidence
-                    )
-                    self._reject_backbone_conflict(
-                        batch_id, "alias", candidate_id, payload, backbone_constraints, candidate_ids
-                    )
-                    candidate_ids["alias"].add(candidate_id)
-                    llm_candidate_ids.add(candidate_id)
-
-        for missing_chunk_id in missing_chunk_ids or []:
-            payload = {"code": "missing_chunk", "message": f"chunk not found: {missing_chunk_id}", "chunk_id": missing_chunk_id}
-            fingerprint = hashlib.sha256(
-                json.dumps(["diagnostic", payload], ensure_ascii=False, sort_keys=True).encode()
-            ).hexdigest()
-            candidate_id = self.db.add_extraction_candidate(
-                batch_id, "diagnostic", fingerprint, payload, missing_chunk_id, payload["message"]
+            if chunk_id:
+                processed_chunk_ids.append(chunk_id)
+                done_set.add(chunk_id)
+            self._persist_extract_progress(
+                batch_id, counts, candidate_ids, rule_candidate_ids, llm_candidate_ids, processed_chunk_ids,
+                progress="running",
             )
-            self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload["message"])
-            candidate_ids["diagnostic"].add(candidate_id)
-            rule_candidate_ids.add(candidate_id)
 
+        # Missing-chunk diagnostics only on first pass (not resume).
+        if not resume_batch_id:
+            for missing_chunk_id in missing_chunk_ids or []:
+                payload = {"code": "missing_chunk", "message": f"chunk not found: {missing_chunk_id}", "chunk_id": missing_chunk_id}
+                fingerprint = hashlib.sha256(
+                    json.dumps(["diagnostic", payload], ensure_ascii=False, sort_keys=True).encode()
+                ).hexdigest()
+                candidate_id = self.db.add_extraction_candidate(
+                    batch_id, "diagnostic", fingerprint, payload, missing_chunk_id, payload["message"]
+                )
+                self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", payload["message"])
+                candidate_ids["diagnostic"].add(candidate_id)
+                rule_candidate_ids.add(candidate_id)
+
+        self._persist_extract_progress(
+            batch_id, counts, candidate_ids, rule_candidate_ids, llm_candidate_ids, processed_chunk_ids,
+            progress="completed",
+        )
+        return BuildBatchResult(batch_id, counts)
+
+    def _persist_extract_progress(
+        self,
+        batch_id: str,
+        counts: dict,
+        candidate_ids: dict[str, set[str]],
+        rule_candidate_ids: set[str],
+        llm_candidate_ids: set[str],
+        processed_chunk_ids: list[str],
+        *,
+        progress: str,
+    ) -> None:
         for kind, ids in candidate_ids.items():
             counts[kind] = len(ids)
         counts["rule_candidates"] = len(rule_candidate_ids)
         counts["llm_candidates"] = len(llm_candidate_ids)
+        counts["processed_chunk_ids"] = list(processed_chunk_ids)
+        counts["extract_progress"] = progress
+        self.db.update_extraction_batch_stats(batch_id, counts)
 
-        with self.db._get_conn() as conn:
-            conn.execute(
-                "UPDATE extraction_batches SET stats_json = ? WHERE id = ?",
-                (json.dumps(counts, ensure_ascii=False, sort_keys=True), batch_id),
-            )
-        return BuildBatchResult(batch_id, counts)
+    def _load_existing_candidate_sets(
+        self, batch_id: str
+    ) -> tuple[dict[str, set[str]], set[str], set[str]]:
+        candidate_ids: dict[str, set[str]] = {
+            kind: set() for kind in ("entity", "relation", "field", "link", "diagnostic", "alias")
+        }
+        rule_candidate_ids: set[str] = set()
+        llm_candidate_ids: set[str] = set()
+        for item in self.db.list_extraction_candidates(batch_id):
+            kind = str(item.get("candidate_kind") or "")
+            cid = str(item.get("id") or "")
+            if not cid:
+                continue
+            if kind in candidate_ids:
+                candidate_ids[kind].add(cid)
+            payload = item.get("payload") or {}
+            if self._is_llm_created(payload):
+                llm_candidate_ids.add(cid)
+            else:
+                rule_candidate_ids.add(cid)
+        return candidate_ids, rule_candidate_ids, llm_candidate_ids
+
+    @staticmethod
+    def _is_llm_created(payload: dict) -> bool:
+        created_by = str(payload.get("created_by") or "")
+        if created_by.startswith("llm:"):
+            return True
+        props = payload.get("properties") or {}
+        return str(props.get("created_by") or "").startswith("llm:")
 
     def _reject_backbone_conflict(
         self,
@@ -363,6 +556,138 @@ class GraphBuilder:
             "code": CONFLICT_REASON,
             "message": reason,
             "chunk_id": chunk_id,
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
+        diagnostic_id = self.db.add_extraction_candidate(
+            batch_id, "diagnostic", fingerprint, diagnostic_payload, chunk_id, reason
+        )
+        self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", reason)
+        candidate_ids["diagnostic"].add(diagnostic_id)
+
+    def _load_type_index(self, batch_id: str) -> dict[str, str]:
+        type_index: dict[str, str] = {}
+        for item in self.db.list_extraction_candidates(batch_id):
+            if item.get("candidate_kind") != "entity":
+                continue
+            if item.get("status") == "rejected":
+                continue
+            self._note_entity_type(type_index, item.get("payload") or {})
+        return type_index
+
+    @staticmethod
+    def _note_entity_type(type_index: dict[str, str], payload: dict) -> None:
+        name = normalize_entity_name(str(payload.get("name") or ""))
+        entity_type = str(payload.get("entity_type") or "").strip()
+        if name and entity_type:
+            type_index[name] = entity_type
+
+    def _lookup_entity_type(self, type_index: dict[str, str], name: str) -> str | None:
+        key = normalize_entity_name(name)
+        if not key:
+            return None
+        if key in type_index:
+            return type_index[key]
+        entity = self.db.get_entity_by_name(key)
+        if entity:
+            entity_type = str(entity.get("entity_type") or "")
+            if entity_type:
+                type_index[key] = entity_type
+                return entity_type
+        return None
+
+    _DIRECTION_FLIP_RELATIONS = frozenset({
+        "runs_command",
+        "configured_by",
+        "uses_config",
+        "has_procedure",
+        "has_step",
+        "solved_by",
+    })
+
+    def _canonicalize_relation_direction(
+        self, payload: dict, type_index: dict[str, str]
+    ) -> tuple[dict, bool]:
+        """If direction is illegal but reverse is legal, swap endpoints (audited)."""
+        source_name = str(payload.get("source_name") or "")
+        target_name = str(payload.get("target_name") or "")
+        relation_type = str(payload.get("relation_type") or "")
+        if relation_type not in self._DIRECTION_FLIP_RELATIONS:
+            return payload, False
+        source_type = self._lookup_entity_type(type_index, source_name)
+        target_type = self._lookup_entity_type(type_index, target_name)
+        if not source_type or not target_type:
+            return payload, False
+        ok, _ = validate_relation(source_type, relation_type, target_type)
+        if ok:
+            return payload, False
+        ok_rev, _ = validate_relation(target_type, relation_type, source_type)
+        if not ok_rev:
+            return payload, False
+        flipped = dict(payload)
+        flipped["source_name"] = target_name
+        flipped["target_name"] = source_name
+        props = dict(flipped.get("properties") or {})
+        props["direction_flipped"] = True
+        props["direction_flipped_from"] = f"{source_name}-[{relation_type}]->{target_name}"
+        flipped["properties"] = props
+        return flipped, True
+
+    def _record_direction_flip_diagnostic(
+        self,
+        batch_id: str,
+        payload: dict,
+        candidate_ids: dict[str, set[str]],
+    ) -> None:
+        chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+        message = str((payload.get("properties") or {}).get("direction_flipped_from") or "relation direction flipped")
+        diagnostic_payload = {
+            "code": "relation_direction_flipped",
+            "message": message,
+            "chunk_id": chunk_id,
+            "source_name": payload.get("source_name"),
+            "relation_type": payload.get("relation_type"),
+            "target_name": payload.get("target_name"),
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
+        diagnostic_id = self.db.add_extraction_candidate(
+            batch_id, "diagnostic", fingerprint, diagnostic_payload, chunk_id, message
+        )
+        self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", message)
+        candidate_ids["diagnostic"].add(diagnostic_id)
+
+    def _reject_illegal_relation(
+        self,
+        batch_id: str,
+        candidate_id: str,
+        payload: dict,
+        type_index: dict[str, str],
+        candidate_ids: dict[str, set[str]],
+    ) -> None:
+        """Reject relation at staging when both endpoints' types are known and illegal."""
+        source_type = self._lookup_entity_type(type_index, str(payload.get("source_name") or ""))
+        target_type = self._lookup_entity_type(type_index, str(payload.get("target_name") or ""))
+        relation_type = str(payload.get("relation_type") or "")
+        if not source_type or not target_type or not relation_type:
+            return
+        ok, reason = validate_relation(source_type, relation_type, target_type)
+        if ok:
+            return
+        reject_reason = f"illegal_relation:{reason}"
+        self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reject_reason)
+        chunk_id = str(payload.get("source_chunk_id") or payload.get("chunk_id") or "")
+        diagnostic_payload = {
+            "code": "illegal_relation",
+            "message": reason,
+            "chunk_id": chunk_id,
+            "source_name": payload.get("source_name"),
+            "relation_type": relation_type,
+            "target_name": payload.get("target_name"),
+            "source_type": source_type,
+            "target_type": target_type,
         }
         fingerprint = hashlib.sha256(
             json.dumps(["diagnostic", diagnostic_payload], ensure_ascii=False, sort_keys=True).encode()
@@ -677,7 +1002,12 @@ class GraphQualityService:
         llm_candidates = [
             item for item in candidates
             if item["payload"].get("created_by") == "llm:schema_extractor"
-            or item["candidate_kind"] == "diagnostic" and item["payload"].get("code", "").startswith(("invalid_", "missing_", "low_", "type_conflict", "possible_duplicate"))
+            or (
+                item["candidate_kind"] == "diagnostic"
+                and item["payload"].get("code", "").startswith(
+                    ("invalid_", "missing_", "low_", "type_conflict", "possible_duplicate", "illegal_relation", "noisy_", "relation_direction_flipped")
+                )
+            )
         ]
         report = QualityReport(stats={"total_llm_candidates": sum(item["candidate_kind"] != "diagnostic" for item in llm_candidates)})
         diagnostics = [item["payload"].get("code", "") for item in llm_candidates if item["candidate_kind"] == "diagnostic"]
@@ -690,12 +1020,14 @@ class GraphQualityService:
             "duplicate_candidate_count": sum(code == "duplicate_candidate" for code in diagnostics),
             "type_conflict_count": sum(code == "type_conflict" for code in diagnostics),
             "possible_duplicate_count": sum(code == "possible_duplicate" for code in diagnostics),
+            "illegal_relation_count": sum(code == "illegal_relation" for code in diagnostics),
+            "relation_direction_flipped_count": sum(code == "relation_direction_flipped" for code in diagnostics),
             "high_confidence_candidate_count": sum(float(item["payload"].get("confidence", 0)) >= 0.9 for item in llm_candidates if item["candidate_kind"] != "diagnostic"),
         })
         report.stats["samples"] = {
             "high_confidence": [item["payload"] for item in llm_candidates if item["candidate_kind"] != "diagnostic" and float(item["payload"].get("confidence", 0)) >= 0.9][:5],
             "low_confidence": [item["payload"] for item in llm_candidates if item["payload"].get("code") == "low_confidence"][:5],
-            "conflicts": [item["payload"] for item in llm_candidates if item["payload"].get("code") in {"type_conflict", "possible_duplicate"}][:5],
+            "conflicts": [item["payload"] for item in llm_candidates if item["payload"].get("code") in {"type_conflict", "possible_duplicate", "illegal_relation", "relation_direction_flipped"}][:5],
         }
         return report
 

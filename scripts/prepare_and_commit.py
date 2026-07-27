@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement product backbone live sync and export script"
+    commit_msg = "feat: complete Round 4 GraphRAG validation, R7 domain coverage, and two-stage relation recovery"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

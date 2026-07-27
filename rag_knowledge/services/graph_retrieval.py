@@ -135,6 +135,8 @@ class GraphFusionScorer:
         excluded_chunk_ids: tuple[str, ...] = (),
         exclusion_weight: float = 0.35,
         graph_guard: GraphGuardContext | dict | None = None,
+        max_graph_only_slots: int = 1,
+        protect_text_top1: bool = True,
     ) -> list[Document]:
         guard_linked_names = ()
         guard_linked_aliases = ()
@@ -229,12 +231,48 @@ class GraphFusionScorer:
             fused.items(),
             key=lambda item: (-item[1]["score"], item[1]["best_rank"], item[0]),
         )
-        result: list[Document] = []
-        for _, entry in ranked[:top_k]:
+
+        text_top1_id = ""
+        if protect_text_top1:
+            for doc in retrieval_docs:
+                cid = str((doc.metadata or {}).get("chunk_id") or "")
+                if not cid:
+                    continue
+                if cid in guard_excluded_chunk_ids:
+                    continue
+                text_top1_id = cid
+                break
+
+        def _emit(entry: dict) -> Document:
             doc = entry["doc"]
             doc.metadata["rrf_score"] = entry["score"]
             doc.metadata["matched_query_kinds"] = entry["labels"]
-            result.append(doc)
+            return doc
+
+        def _is_graph_only(entry: dict) -> bool:
+            labels = entry.get("labels") or []
+            return "graph" in labels and "retrieval" not in labels
+
+        result: list[Document] = []
+        used: set[str] = set()
+        graph_only_used = 0
+        max_graph = max(0, int(max_graph_only_slots))
+
+        if text_top1_id and text_top1_id in fused:
+            result.append(_emit(fused[text_top1_id]))
+            used.add(text_top1_id)
+
+        for chunk_id, entry in ranked:
+            if len(result) >= top_k:
+                break
+            if chunk_id in used:
+                continue
+            if _is_graph_only(entry):
+                if graph_only_used >= max_graph:
+                    continue
+                graph_only_used += 1
+            result.append(_emit(entry))
+            used.add(chunk_id)
         return result
 
 
@@ -752,6 +790,8 @@ class GraphRetriever:
         excluded_chunk_ids: tuple[str, ...] = (),
         exclusion_weight: float = 0.35,
         graph_guard: GraphGuardContext | dict | None = None,
+        max_graph_only_slots: int = 1,
+        protect_text_top1: bool = True,
     ) -> list[Document]:
         return GraphFusionScorer.fuse(
             retrieval_docs,
@@ -762,4 +802,6 @@ class GraphRetriever:
             excluded_chunk_ids=excluded_chunk_ids,
             exclusion_weight=exclusion_weight,
             graph_guard=graph_guard,
+            max_graph_only_slots=max_graph_only_slots,
+            protect_text_top1=protect_text_top1,
         )

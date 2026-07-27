@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("--chunk-id", action="append", dest="chunk_ids")
     extract.add_argument("--force-rebuild", action="store_true")
     extract.add_argument("--include-llm", action="store_true")
+    extract.add_argument("--resume-batch", dest="resume_batch")
 
     listing = sub.add_parser("list")
     listing.add_argument("--batch")
@@ -87,6 +88,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     export_man = sub.add_parser("export-manual")
     export_man.add_argument("--output", default="data/manual_graph_facts.json")
+
+    recover = sub.add_parser(
+        "recover-relations",
+        help="Two-phase salvage of endpoint entities + legal relations from rejected LLM candidates",
+    )
+    recover.add_argument("--source-batch", action="append", dest="source_batches", required=True)
+    recover.add_argument(
+        "--relation-type",
+        action="append",
+        dest="relation_types",
+        help="Default: has_step, has_procedure, runs_command",
+    )
+    recover.add_argument("--entity-min-conf", type=float, default=0.80)
+    recover.add_argument("--rel-min-conf", type=float, default=0.80)
+    recover.add_argument(
+        "--include-possible-duplicate",
+        action="store_true",
+        help="Lift possible_duplicate diagnostic entities (never type_conflict)",
+    )
+    recover.add_argument("--output-json", default="data/recover_relations_plan.json")
+    recover.add_argument(
+        "--stage",
+        action="store_true",
+        help="Write approved recovery batch (then run apply with confirm trio); default is dry-run",
+    )
     return parser
 
 
@@ -100,11 +126,17 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
 
     if args.command == "extract":
         builder = GraphBuilder(db=db, chunk_source=chunk_source)
-        result = (
-            builder.build_incremental(args.chunk_ids, include_llm=args.include_llm)
-            if args.chunk_ids
-            else builder.build_full(args.force_rebuild, args.limit, args.doc_categories, include_llm=args.include_llm)
-        )
+        if args.resume_batch:
+            result = builder.resume_batch(
+                args.resume_batch,
+                include_llm=True if args.include_llm else None,
+            )
+        elif args.chunk_ids:
+            result = builder.build_incremental(args.chunk_ids, include_llm=args.include_llm)
+        else:
+            result = builder.build_full(
+                args.force_rebuild, args.limit, args.doc_categories, include_llm=args.include_llm
+            )
         _print({"batch_id": result.batch_id, "stats": result.stats})
         return 0
 
@@ -224,6 +256,61 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
             "summary": summary
         })
         return 0
+
+    if args.command == "recover-relations":
+        from pathlib import Path
+
+        from rag_knowledge.services.relation_recovery import RelationRecoveryService
+
+        service = RelationRecoveryService(db)
+        plan = service.plan(
+            source_batches=list(args.source_batches),
+            relation_types=list(args.relation_types) if args.relation_types else None,
+            entity_min_conf=float(args.entity_min_conf),
+            rel_min_conf=float(args.rel_min_conf),
+            include_possible_duplicate=bool(args.include_possible_duplicate),
+        )
+        out_path = Path(args.output_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(plan.summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        if not args.stage:
+            _print(
+                {
+                    "status": "dry_run",
+                    "output_json": str(out_path),
+                    "entity_count": plan.summary.get("entity_count"),
+                    "rel_count": plan.summary.get("rel_count"),
+                    "skip": plan.summary.get("skip"),
+                    "rel_by_type": plan.summary.get("rel_by_type"),
+                }
+            )
+            return 0
+        if not plan.items:
+            _print({"status": "empty", "output_json": str(out_path), "message": "nothing to stage"})
+            return 1
+        batch_id = service.stage(plan)
+        pre = GraphQualityService(db).inspect_batch(batch_id)
+        _print(
+            {
+                "status": "staged",
+                "batch_id": batch_id,
+                "batch_status": "approved",
+                "output_json": str(out_path),
+                "entity_count": plan.summary.get("entity_count"),
+                "rel_count": plan.summary.get("rel_count"),
+                "preflight_ok": pre.ok,
+                "preflight_errors": pre.errors,
+                "next": (
+                    "run_graph_build.py apply --batch "
+                    f"{batch_id} --confirm-db-path <db> --confirm-batch {batch_id} "
+                    "--confirm-backup <backup>"
+                ),
+            }
+        )
+        return 0 if pre.ok else 1
 
     if args.command == "quality":
         quality = GraphQualityService(db)

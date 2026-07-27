@@ -376,6 +376,97 @@ def test_pipeline_skips_llm_outside_neighborhood(isolated_storage, monkeypatch):
     assert llm.extract.call_count == 1
 
 
+def test_pipeline_llm_runs_for_explicit_doc_category_outside_neighborhood(isolated_storage, monkeypatch):
+    """Explicit --doc-category filter enables LLM even outside backbone neighborhood."""
+    from unittest.mock import MagicMock
+
+    db = make_db(
+        isolated_storage,
+        name="backbone-cat.db",
+        data_dir_name="backbone-cat-data",
+        chroma_name="backbone-cat-chroma",
+    )
+    constraints = _constraints()
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda path=None: constraints,
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
+        lambda **kwargs: "http://test",
+    )
+    llm = MagicMock()
+    llm.extract.return_value = __import__(
+        "rag_knowledge.services.graph_extraction", fromlist=["ExtractionResult"]
+    ).ExtractionResult()
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.llm_extractor.LLMGraphExtractor",
+        lambda *args, **kwargs: llm,
+    )
+    chunks = [
+        chunk(
+            chunk_id="webrtc-far",
+            content="WebRTC 信令与媒体协商说明，不含命令行。",
+            source="webrtc.md",
+            doc_category="StampWebRTC",
+            section_path="信令",
+        ),
+    ]
+    result = GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(
+        force_rebuild=True,
+        include_llm=True,
+        doc_categories=["StampWebRTC"],
+    )
+    assert result.stats["llm_chunks_considered"] == 1
+    assert result.stats["llm_chunks_category_scoped"] == 1
+    assert result.stats["llm_chunks_skipped"] == 0
+    assert llm.extract.call_count == 1
+
+
+def test_pipeline_llm_runs_for_command_rich_outside_neighborhood(isolated_storage, monkeypatch):
+    from unittest.mock import MagicMock
+
+    db = make_db(
+        isolated_storage,
+        name="backbone-cmd.db",
+        data_dir_name="backbone-cmd-data",
+        chroma_name="backbone-cmd-chroma",
+    )
+    constraints = _constraints()
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda path=None: constraints,
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
+        lambda **kwargs: "http://test",
+    )
+    llm = MagicMock()
+    llm.extract.return_value = __import__(
+        "rag_knowledge.services.graph_extraction", fromlist=["ExtractionResult"]
+    ).ExtractionResult()
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.llm_extractor.LLMGraphExtractor",
+        lambda *args, **kwargs: llm,
+    )
+    chunks = [
+        chunk(
+            chunk_id="cmd-far",
+            content="安装完成后执行：\nsystemctl restart redis\n检查状态。",
+            source="os.md",
+            doc_category="基础环境",
+            section_path="Redis安装",
+        ),
+    ]
+    result = GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(
+        force_rebuild=True, include_llm=True
+    )
+    assert result.stats["llm_chunks_considered"] == 1
+    assert result.stats["llm_chunks_command_rich"] == 1
+    assert result.stats["llm_chunks_skipped"] == 0
+    assert llm.extract.call_count == 1
+
+
 def test_pipeline_include_llm_fails_when_ollama_down(isolated_storage, monkeypatch):
     from rag_knowledge.services.ollama_health import OllamaUnreachableError
 

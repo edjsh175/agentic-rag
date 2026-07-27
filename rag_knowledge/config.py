@@ -123,8 +123,7 @@ class GraphLLMExtractorConfig:
     temperature: float = 0.0
     max_retries: int = 2
     min_confidence: float = 0.60
-    auto_approve_confidence: float = 0.90
-    prompt_version: str = "v1"
+    prompt_version: str = "v3"
     extractor_version: str = "v1"
 
 
@@ -369,8 +368,7 @@ class Config:
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
             max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
-            auto_approve_confidence=float(_get("graph_extraction.llm", "auto_approve_confidence", "0.90")),
-            prompt_version=_get("graph_extraction.llm", "prompt_version", "v1"),
+            prompt_version=_get("graph_extraction.llm", "prompt_version", "v3"),
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
         )
 

@@ -56,7 +56,7 @@
 
 ### 当前阶段：质量治理收尾 + 本地已开图试用（生产模板仍关）
 
-当前同步口径截至 **2026-07-22**：文本 RAG 检索与证据治理已形成可复现基线（FR-10 v4 / 2537 live：39/45 = 86.67%）。正处于「第 4 阶段质量治理收尾 → 第 5 阶段图谱准入准备」。**本地 `config.ini` 已打开** `[graph_retrieval] enabled` 与 `query_rewrite_enabled`（扩召回融合 + 图辅助改写 + 实体提示）；**`config-prod.ini` 仍默认关闭**。图谱 **第 3 轮（rebuild-safe execute）现场未完成**（见 `docs/3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md` §1.1）。准入门槛见 `docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/图谱接入前门槛-2026-07-20.md`。生成物归档约定见 `docs/5_操作指南与规范/data目录约定.md`。
+当前同步口径截至 **2026-07-27**：文本 RAG 检索与证据治理已形成可复现基线（FR-10 v4 / 2537 live：39/45 = 86.67%）。知识图谱语义抽取 **第 1–4 轮建设/验收已收口**：第 3 轮规则 + 第 3 轮补实 LLM + R7 类目扩面完成；**第 4 轮 GraphRAG 专项检索 A/B PASS**，并落地 **融合上限**（图块≤1 席 + 保护文本 top1）。**生产模板仍建议 `graph_retrieval.enabled=false`**；本地可开全图体验。阶段总结见 `docs/3_待办清单/知识图谱语义抽取/已完成-第4轮-GraphRAG实效验收/2026-07-27-阶段总结.md`。准入门槛见 `docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/图谱接入前门槛-2026-07-20.md`。生成物归档约定见 `docs/5_操作指南与规范/data目录约定.md`。
 - ✅ 阶段一：评估框架 — 已完成，Baseline 指标已测得（Recall@3=85.7%, MRR=0.79）
 - ✅ 阶段二：BM25 关键词检索 — 已完成（Recall@3=92.9%, MRR=0.85，+7pp）
 - ✅ 阶段三：混合检索（Hybrid Search）— 已完成（Recall@3=92.9%, MRR=0.88）
@@ -77,7 +77,7 @@
 - ✅ Task 8.2 Profile Migration 与 Graph Schema 兼容 — scoped Field（`管线点表.管点编号`）、alias / `different_from` / `has_field` 等经分拆审批写入正式 Graph；`scripts/validate_task81_graph_gate.py` 输出 PASS / NEEDS_APPLY / BLOCKED
 - ✅ Docker 生产部署骨架 — 双容器（`rag-service` FastAPI + `rag-web` Nginx/dist）；生产 CPU 默认 `INSTALL_RERANKER=false`、不将模型打入镜像；`reranker.enabled=false` 三层门控（QueryPlanner / `_get_reranker` / postprocess 降级）；详见 [`deploy/README.md`](deploy/README.md)
 - ✅ 图辅助改写 + 扩召回融合（代码已实现，**默认关闭**）— `graph_query_rewrite.py` 中量图摘要 → helper LLM 改写检索 query；与 `graph_retrieval` 扩召回 chunk 融合共用 `_prepare_graph_plan`；须同时 `enabled=true` 且 `query_rewrite_enabled=true` 才生效
-- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办；图谱 Round 3 execute / Round 4 GraphRAG 正式 A/B 未完成
+- 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办；**第 4 轮 GraphRAG 检索 A/B 已 PASS，生产默认开图仍未批准**
 
 ### 核心功能
 - **章节切片**：`.md`/`.docx`/`.txt` 使用 `unstructured` 按标题结构切片，保留 `section_title`；`.pdf`/`.doc` 回退到固定字数切片

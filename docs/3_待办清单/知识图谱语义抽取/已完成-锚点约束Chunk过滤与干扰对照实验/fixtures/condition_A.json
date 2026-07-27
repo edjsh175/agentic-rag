@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-07-24T07:31:08.916405+00:00",
+    "generated_at": "2026-07-27T02:26:31.475196+00:00",
     "graph_retrieval_enabled": false,
     "query_rewrite_enabled": true,
     "mode": "retrieve_only"
@@ -12,13 +12,11 @@
     {
       "id": "T1",
       "question": "怎么用管线工具",
-      "soft_hits": [
-        "PipelineBuilder"
-      ],
+      "soft_hits": [],
       "canonical": [
         "PipelineBuilder"
       ],
-      "latency_ms": 21984,
+      "latency_ms": 54094,
       "cited": [
         {
           "source": "StampTools用户手册.docx",
@@ -87,14 +85,6 @@
           "content_preview": "# Stamp服务部署 > 管线更新服务\n\n功能说明\n\n本服务主要提供基于空间数据库（支持Oracle和PostgreSQL）的增量式三维管线更新，需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设置接地地形路径（需与用管线"
         },
         {
-          "source": "StampWebGL用户手册.docx",
-          "section_title": "数据发布",
-          "section_path": "场景 > 数据发布",
-          "file_name": "StampWebGL用户手册.docx",
-          "doc_category": "其他",
-          "content_preview": "# 场景 > 数据发布\n\n当前工程：选择新发布倾斜图层的工程。\n\n图层名称：设置发布的倾斜图层名称。\n\n模型源数据：设置模型源数据所在的路径。\n\n空间参考：为需要发布的DEM数据选择对应的空间参考（可以使用数据预处理工具配置一个空间参考文件）。\n\n接地地形：设置倾斜发布的接地地形路径。\n\n纹理格式：设置数据发布的纹理格"
-        },
-        {
           "source": "StampTools用户手册.docx",
           "section_title": "值域映射",
           "section_path": "PipelineBuilder > 值域映射",
@@ -109,6 +99,14 @@
           "file_name": "StampServer用户手册_Rocky9 .docx",
           "doc_category": "StampServer",
           "content_preview": "# 运维管理配置 > 数据配置 > 工程配置\n\n注：上述三个文件由管线工具配置产生，在管线生成后需要随同数据一起拷贝到数据服务器上\n\n管线埋深标准：按照国家或地方定义的管线埋深标准（ISO_Depth.xml），允许自定义（XML文件），与管线系统“覆土分析”功能相关，提供国标定义的管线埋深标准文件\n\n管线水平净距标准"
+        },
+        {
+          "source": "PipelineSystem用户手册.docx",
+          "section_title": "浏览",
+          "section_path": "浏览",
+          "file_name": "PipelineSystem用户手册.docx",
+          "doc_category": "其他",
+          "content_preview": "# 浏览\n\n## 浏览 > 颜色显示\n\n实现3D场景中管线纹理显示和颜色显示的切换控制。\n\n提示：颜色纹理是在StampManager管线图层属性中设置的，材质是在管线工具生成时设置的。\n\n## 浏览 > 显示图例\n\n实现当前场景中管线显示方式（颜色或纹理）图例的显示控制。\n\n## 浏览 > 系统设置\n\n实现当前工程等"
         }
       ],
       "answer_preview": "",
@@ -138,7 +136,7 @@
       "canonical": [
         "PipelineBuilder"
       ],
-      "latency_ms": 10370,
+      "latency_ms": 10532,
       "cited": [
         {
           "source": "StampTools用户手册.docx",
@@ -192,11 +190,11 @@
         },
         {
           "source": "StampTools用户手册.docx",
-          "section_title": "管线点表",
-          "section_path": "PipelineBuilder > 数据规范 > 管线点表",
+          "section_title": "字段映射",
+          "section_path": "PipelineBuilder > 字段映射",
           "file_name": "StampTools用户手册.docx",
           "doc_category": "StampTools",
-          "content_preview": "# PipelineBuilder > 数据规范 > 管线点表\n\n记录管线特征和附属设施信息。\n\n点数据结构"
+          "content_preview": "# PipelineBuilder > 字段映射\n\n字段映射\n\n设置管线编译所需要的必要字段和需要入库的属性字段，其中“*”号字段为必须字段（不能为空）。\n\n高级设置\n\n设置管线生成参数，具体如下：\n\n旋转角度单位：支持弧度和度，默认为弧度。\n\n旋转角度0度范围：支持正东方向、正北方向，默认为正东方向\n\n井/井盖尺寸单"
         },
         {
           "source": "StampTools用户手册.docx",
@@ -208,27 +206,27 @@
         },
         {
           "source": "StampTools用户手册.docx",
-          "section_title": "管线面表：",
-          "section_path": "PipelineBuilder > 数据规范 > 管线面表：",
-          "file_name": "StampTools用户手册.docx",
-          "doc_category": "StampTools",
-          "content_preview": "# PipelineBuilder > 数据规范 > 管线面表：\n\n| 字段名 | 说明 |\n| --- | --- |\n| 管面编号 | 唯一标识码，全局唯一，必填字段 |\n| 管面类型 | 管面类型，如化粪池、附属物、井室、手孔、篦子、管廊 |\n| 井室顶高程 | 井室内顶高程，单位米 |\n| 井室底高程 | 井室"
-        },
-        {
-          "source": "StampTools用户手册.docx",
-          "section_title": "字段映射",
-          "section_path": "PipelineBuilder > 字段映射",
-          "file_name": "StampTools用户手册.docx",
-          "doc_category": "StampTools",
-          "content_preview": "# PipelineBuilder > 字段映射\n\n字段映射\n\n设置管线编译所需要的必要字段和需要入库的属性字段，其中“*”号字段为必须字段（不能为空）。\n\n高级设置\n\n设置管线生成参数，具体如下：\n\n旋转角度单位：支持弧度和度，默认为弧度。\n\n旋转角度0度范围：支持正东方向、正北方向，默认为正东方向\n\n井/井盖尺寸单"
-        },
-        {
-          "source": "StampTools用户手册.docx",
           "section_title": "数据设置",
           "section_path": "PipelineBuilder > 数据设置",
           "file_name": "StampTools用户手册.docx",
           "doc_category": "StampTools",
           "content_preview": "# PipelineBuilder > 数据设置\n\n数据管理\n\n添加管线数据并设置管线的大类和管线子类，以及管线图层的点文件、线文件，以及对应的面文件。\n\n添加文件：将原始数据文件添加到数据列表框，必须同时选择点、线、面文件。\n\n添加目录：选择一个或个多个文件目录，将目录中的管线数据添加到数据列表框中。\n\n删除：从数据"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "管线线表",
+          "section_path": "PipelineBuilder > 数据规范 > 管线线表",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 数据规范 > 管线线表\n\n| 字段名 | 说明 |\n| --- | --- |\n| 管线编号 | 唯一标识码，全局唯一，必要字段 |\n| 起点编号 | 管点编号，全局唯一，必要字段 |\n| 终点编号 | 管点编号，全局唯一，必要字段 |\n| 起点埋深 | 相对于地面的深度，地面以"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "值域映射",
+          "section_path": "PipelineBuilder > 值域映射",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 值域映射\n\n是否有模型：设置是否需要匹配附属物模型。\n\n是否杆塔：设置是否是电力杆塔。\n\n井类型映射\n\n将管点字段“井类型”值域映射成标准井类型并按照映射结果生成井，井类型映射结果优先级高于附属设施映射中的缺省井类型设置。\n\n各种井形状如下：\n\n圆井：默认直径为700。\n\n方井："
         }
       ],
       "answer_preview": "",
@@ -244,13 +242,11 @@
     {
       "id": "T3",
       "question": "管线工具发布要配什么",
-      "soft_hits": [
-        "PipelineBuilder"
-      ],
+      "soft_hits": [],
       "canonical": [
         "PipelineBuilder"
       ],
-      "latency_ms": 6187,
+      "latency_ms": 5509,
       "cited": [
         {
           "source": "StampServer用户手册_Rocky9 .docx",
@@ -259,48 +255,6 @@
           "file_name": "StampServer用户手册_Rocky9 .docx",
           "doc_category": "StampServer",
           "content_preview": "# Stamp服务部署 > 管线发布服务\n\n功能说明\n\n将数据库中的管线数据按照工程上的配置的管线配置文件在线生成三维管线模型。\n\nApache服务配置\n\n打开/etc/httpd/conf/httpd.conf文件，进行服务配置：\n\n##管线发布服务配置开始\n\nLoadModule se_pipeline_publi"
-        },
-        {
-          "source": "StampWebGL用户手册.docx",
-          "section_title": "数据发布",
-          "section_path": "场景 > 数据发布",
-          "file_name": "StampWebGL用户手册.docx",
-          "doc_category": "其他",
-          "content_preview": "# 场景 > 数据发布\n\n当前工程：选择新发布倾斜图层的工程。\n\n图层名称：设置发布的倾斜图层名称。\n\n模型源数据：设置模型源数据所在的路径。\n\n空间参考：为需要发布的DEM数据选择对应的空间参考（可以使用数据预处理工具配置一个空间参考文件）。\n\n接地地形：设置倾斜发布的接地地形路径。\n\n纹理格式：设置数据发布的纹理格"
-        },
-        {
-          "source": "StampServer用户手册_Rocky9 .docx",
-          "section_title": "I3S服务配置",
-          "section_path": "Stamp服务部署 > I3S服务配置",
-          "file_name": "StampServer用户手册_Rocky9 .docx",
-          "doc_category": "StampServer",
-          "content_preview": "# Stamp服务部署 > I3S服务配置\n\n功能说明\n\n用于将倾斜、模型和管线数据工具发布的3Dtiles数据发布成3DTiles格式的三维数据服务。\n\n注1：目前仅支持管线数据发布成I3S服务。\n\n注2：由于在发布成I3S数据服务时会对SLPK进行自动解压，因此将管线SLPK数据拷贝到服务器端后，需要赋予该目录的写"
-        }
-      ],
-      "context_docs": [
-        {
-          "source": "StampServer用户手册_Rocky9 .docx",
-          "section_title": "管线发布服务",
-          "section_path": "Stamp服务部署 > 管线发布服务",
-          "file_name": "StampServer用户手册_Rocky9 .docx",
-          "doc_category": "StampServer",
-          "content_preview": "# Stamp服务部署 > 管线发布服务\n\n功能说明\n\n将数据库中的管线数据按照工程上的配置的管线配置文件在线生成三维管线模型。\n\nApache服务配置\n\n打开/etc/httpd/conf/httpd.conf文件，进行服务配置：\n\n##管线发布服务配置开始\n\nLoadModule se_pipeline_publi"
-        },
-        {
-          "source": "StampWebGL用户手册.docx",
-          "section_title": "数据发布",
-          "section_path": "场景 > 数据发布",
-          "file_name": "StampWebGL用户手册.docx",
-          "doc_category": "其他",
-          "content_preview": "# 场景 > 数据发布\n\n当前工程：选择新发布倾斜图层的工程。\n\n图层名称：设置发布的倾斜图层名称。\n\n模型源数据：设置模型源数据所在的路径。\n\n空间参考：为需要发布的DEM数据选择对应的空间参考（可以使用数据预处理工具配置一个空间参考文件）。\n\n接地地形：设置倾斜发布的接地地形路径。\n\n纹理格式：设置数据发布的纹理格"
-        },
-        {
-          "source": "StampServer用户手册_Rocky9 .docx",
-          "section_title": "I3S服务配置",
-          "section_path": "Stamp服务部署 > I3S服务配置",
-          "file_name": "StampServer用户手册_Rocky9 .docx",
-          "doc_category": "StampServer",
-          "content_preview": "# Stamp服务部署 > I3S服务配置\n\n功能说明\n\n用于将倾斜、模型和管线数据工具发布的3Dtiles数据发布成3DTiles格式的三维数据服务。\n\n注1：目前仅支持管线数据发布成I3S服务。\n\n注2：由于在发布成I3S数据服务时会对SLPK进行自动解压，因此将管线SLPK数据拷贝到服务器端后，需要赋予该目录的写"
         },
         {
           "source": "2ca727efa70847b49f0f67528544d210.pdf",
@@ -311,12 +265,46 @@
           "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.17.3DTiles服务配置\n\n（1）功能说明\n\n用于将倾斜、模型和管线数据工具发布的3Dtiles 数据发布成3DTiles 格式的三维数据服\n\n务。\n\n（2）Apache 服务配置"
         },
         {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        }
+      ],
+      "context_docs": [
+        {
           "source": "StampServer用户手册_Rocky9 .docx",
-          "section_title": "工程配置",
-          "section_path": "运维管理配置 > 数据配置 > 工程配置",
+          "section_title": "管线发布服务",
+          "section_path": "Stamp服务部署 > 管线发布服务",
           "file_name": "StampServer用户手册_Rocky9 .docx",
           "doc_category": "StampServer",
-          "content_preview": "# 运维管理配置 > 数据配置 > 工程配置\n\n基础配置\n\n名称：工程名称，为必填项\n\n空间参考：工程的空间参考文件（*.spatial），为基础工具或管线编译工具生成，与服务和客户端的所有实时投影变换功能相关，为必填项\n\n参考高程：地下浏览时的辅助参考面，一般小于等于地下三维对象（管线或模型）的最低高程（绝对高程），"
+          "content_preview": "# Stamp服务部署 > 管线发布服务\n\n功能说明\n\n将数据库中的管线数据按照工程上的配置的管线配置文件在线生成三维管线模型。\n\nApache服务配置\n\n打开/etc/httpd/conf/httpd.conf文件，进行服务配置：\n\n##管线发布服务配置开始\n\nLoadModule se_pipeline_publi"
+        },
+        {
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "3.1.17.3DTiles服务配置",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.17.3DTiles服务配置",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "doc_category": "其他",
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.17.3DTiles服务配置\n\n（1）功能说明\n\n用于将倾斜、模型和管线数据工具发布的3Dtiles 数据发布成3DTiles 格式的三维数据服\n\n务。\n\n（2）Apache 服务配置"
+        },
+        {
+          "source": "StampTools用户手册.docx",
+          "section_title": "工程设置",
+          "section_path": "PipelineBuilder > 工程设置",
+          "file_name": "StampTools用户手册.docx",
+          "doc_category": "StampTools",
+          "content_preview": "# PipelineBuilder > 工程设置\n\n新建工程\n\n新建一个管线数据的编译处理工程\n\n工程路径：设置工程文件（*.prj）、中间数据、投影文件等信息的存储路径。\n\n输出路径：设置编译发布数据成果的存储路径，为避免二次拷贝建议设置道目标服务器。\n\n分块级别：设置管线瓦片级别，一般设置为15级。\n\n继续工程\n\n"
+        },
+        {
+          "source": "StampWebGL用户手册.docx",
+          "section_title": "数据发布",
+          "section_path": "场景 > 数据发布",
+          "file_name": "StampWebGL用户手册.docx",
+          "doc_category": "其他",
+          "content_preview": "# 场景 > 数据发布\n\n当前工程：选择新发布倾斜图层的工程。\n\n图层名称：设置发布的倾斜图层名称。\n\n模型源数据：设置模型源数据所在的路径。\n\n空间参考：为需要发布的DEM数据选择对应的空间参考（可以使用数据预处理工具配置一个空间参考文件）。\n\n接地地形：设置倾斜发布的接地地形路径。\n\n纹理格式：设置数据发布的纹理格"
         },
         {
           "source": "2ca727efa70847b49f0f67528544d210.pdf",
@@ -325,32 +313,34 @@
           "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
           "doc_category": "其他",
           "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.26.管线发布服务\n\n（1）功能说明\n\n将数据库中的管线数据按照工程上的配置的管线配置文件在线生成三维管线模型。\n\n（2）Apache 服务配置\n\n打开/etc/httpd/conf/httpd.conf 文"
+        },
+        {
+          "source": "StampWebGL用户手册.docx",
+          "section_title": "数据发布",
+          "section_path": "场景 > 数据发布",
+          "file_name": "StampWebGL用户手册.docx",
+          "doc_category": "其他",
+          "content_preview": "# 场景 > 数据发布\n\n点表名：设置发布管线的点表名。\n\n面表名：设置发布管线的面表名。\n\n提示：发布过程中会显示当前阶段名称，中间数据存储于StampManager设置的临时目录中（需手动删除），发布完成后会自动添加到图层树对应工程下（需要刷新IE）。"
         }
       ],
       "answer_preview": "",
       "anchor_ok": true,
-      "positive_cited": false,
-      "positive_context": false,
+      "positive_cited": true,
+      "positive_context": true,
       "interference_cited": [],
-      "interference_context": [
-        "server_project_config"
-      ],
+      "interference_context": [],
       "empty_or_ungrounded": false,
-      "pass": false,
-      "fail_reasons": [
-        "positive_miss"
-      ]
+      "pass": true,
+      "fail_reasons": []
     },
     {
       "id": "T4",
       "question": "管线更新服务是做什么的",
-      "soft_hits": [
-        "管线更新服务"
-      ],
+      "soft_hits": [],
       "canonical": [
-        "管线更新服务"
+        "PipelineBuilder"
       ],
-      "latency_ms": 6137,
+      "latency_ms": 5457,
       "cited": [
         {
           "source": "2ca727efa70847b49f0f67528544d210.pdf",
@@ -369,12 +359,12 @@
           "content_preview": "# Stamp服务部署 > 管线更新服务\n\n功能说明\n\n本服务主要提供基于空间数据库（支持Oracle和PostgreSQL）的增量式三维管线更新，需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设置接地地形路径（需与用管线"
         },
         {
-          "source": "2ca727efa70847b49f0f67528544d210.pdf",
-          "section_title": "目\n录",
-          "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
-          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "source": "PipelineWebGL用户手册.docx",
+          "section_title": "辅助决策",
+          "section_path": "辅助决策",
+          "file_name": "PipelineWebGL用户手册.docx",
           "doc_category": "其他",
-          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n管线更新服务...................................................................................................."
+          "content_preview": "# 辅助决策\n\n## 辅助决策 > 预警分析\n\n根据管线的建设年代和使用年限计算管线的报废时间,在距离设定的阈值时进行报警（以红色标识）。\n\n提示：必须要有建设年代字段\n\n图层：选择进行分析的管线图层\n\n剩余年限：设置报废年限阈值：报废年限=使用年限-（当前年代-建设年代）\n\n显示结果：勾选后在3D场景中红色高亮显示分"
         }
       ],
       "context_docs": [
@@ -395,12 +385,12 @@
           "content_preview": "# Stamp服务部署 > 管线更新服务\n\n功能说明\n\n本服务主要提供基于空间数据库（支持Oracle和PostgreSQL）的增量式三维管线更新，需要先更新二维管线数据库，然后根据更新范围进行更新。\n\n注：1、在StampManager“服务管理/服务配置”中设置临时目录，在数据工程属性中设置接地地形路径（需与用管线"
         },
         {
-          "source": "2ca727efa70847b49f0f67528544d210.pdf",
-          "section_title": "目\n录",
-          "section_path": "2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录",
-          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
+          "source": "PipelineWebGL用户手册.docx",
+          "section_title": "辅助决策",
+          "section_path": "辅助决策",
+          "file_name": "PipelineWebGL用户手册.docx",
           "doc_category": "其他",
-          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 2024 年6 月 > 目\n录\n\n管线更新服务...................................................................................................."
+          "content_preview": "# 辅助决策\n\n## 辅助决策 > 预警分析\n\n根据管线的建设年代和使用年限计算管线的报废时间,在距离设定的阈值时进行报警（以红色标识）。\n\n提示：必须要有建设年代字段\n\n图层：选择进行分析的管线图层\n\n剩余年限：设置报废年限阈值：报废年限=使用年限-（当前年代-建设年代）\n\n显示结果：勾选后在3D场景中红色高亮显示分"
         },
         {
           "source": "2ca727efa70847b49f0f67528544d210.pdf",
@@ -411,20 +401,20 @@
           "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 3.Apache服务配置 > 3.1.9.管线更新服务\n\n61\n\nStampServer 用户手册--北京睿城传奇科技有限公司\n\n（2）Apache 服务配置\n\n打开/etc/httpd/conf/httpd.conf 文件，进行管线服务配置：\n"
         },
         {
-          "source": "PipelineSystem用户手册.docx",
-          "section_title": "浏览",
-          "section_path": "浏览",
-          "file_name": "PipelineSystem用户手册.docx",
+          "source": "2ca727efa70847b49f0f67528544d210.pdf",
+          "section_title": "2.3.4.管线更新配置",
+          "section_path": "2ca727efa70847b49f0f67528544d210 > 2.运维基础配置 > 2.3.数据库配置 > 2.3.4.管线更新配置",
+          "file_name": "2ca727efa70847b49f0f67528544d210.pdf",
           "doc_category": "其他",
-          "content_preview": "# 浏览\n\n## 浏览 > 二维地图\n\n实现以非透明方式叠加二维地图（MapLayer类型图层）\n\n## 浏览 > 二维鹰眼\n\n实现以二维地图鹰眼方式标记当前三维地图的周边位置及当前摄像机朝向。\n\n## 浏览 > 管线更新\n\n实现基于二维数据库的、按给定空间范围和图层的三维管线更新。\n\n更新范围：设置更范围shp数据的"
+          "content_preview": "# 2ca727efa70847b49f0f67528544d210 > 2.运维基础配置 > 2.3.数据库配置 > 2.3.4.管线更新配置\n\n配置管线更新日志是否开启。"
         },
         {
-          "source": "StampWebGL用户手册.docx",
-          "section_title": "场景",
-          "section_path": "场景",
-          "file_name": "StampWebGL用户手册.docx",
+          "source": "EGIS三维数据服务接口规范0902.docx",
+          "section_title": "",
+          "section_path": "",
+          "file_name": "EGIS三维数据服务接口规范0902.docx",
           "doc_category": "其他",
-          "content_preview": "# 场景\n\n## 场景 > 楼块配色\n\n配置图层：选择需要配色的矢量楼块图层。\n\n轮廓设置：\n\n透明度：设置矢量楼块轮廓的透明度。\n\n颜色：设置矢量楼块轮廓的颜色。\n\n宽度：设置矢量楼块轮廓的宽度。\n\n最大角度：设置矢量楼块轮廓的最大角度。\n\n顶部轮廓：勾选是否设置顶部轮廓。\n\n符号系统：\n\n统一：根据单一符号为矢量楼"
+          "content_preview": "| 版  本 | 修订说明 | 编制/日期 | 审核/日期 |\n| --- | --- | --- | --- |\n| 1_A | 更新服务对象定义，规范化服务接口说明 | 2019.08.28 |  |\n| 2_A | 三维地形增加查询服务，修改查询类服务接口名称 | 2019.09.02 |  |\n|  |  | "
         }
       ],
       "answer_preview": "",
@@ -443,8 +433,8 @@
     }
   ],
   "summary": {
-    "t123_pass": 1,
-    "t123_positive_rate": 0.6666666666666666,
+    "t123_pass": 2,
+    "t123_positive_rate": 1.0,
     "t123_interference_cited_rate": 0.3333333333333333,
     "t123_empty_rate": 0.0
   }
