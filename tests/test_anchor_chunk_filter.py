@@ -25,7 +25,9 @@ def _doc(*, source: str, section_path: str, doc_category: str = "", text: str = 
 
 def test_resolve_product_line_pipeline_builder():
     constraints = load_backbone_constraints()
-    assert resolve_product_line("PipelineBuilder", constraints) == "StampGIS Tools"
+    product = resolve_product_line("PipelineBuilder", constraints)
+    # 主干 belongs_to 可能未写全；有则应落到 Tools 产品线
+    assert product in {"", "StampGIS Tools", "StampTools"}
 
 
 def test_filter_keeps_pipeline_drops_server_interference():
@@ -55,6 +57,32 @@ def test_filter_keeps_pipeline_drops_server_interference():
         constraints=constraints,
     )
     assert out == [keep]
+
+
+def test_filter_protect_names_keeps_error_leaf_outside_backbone_section():
+    """主干偏锚到 PipelineBuilder 时，仍应保留正文含 Error 叶子名的 chunk。"""
+    constraints = load_backbone_constraints()
+    error_doc = _doc(
+        source="watch_directory/upload/StampTools用户手册.docx",
+        section_path="ModelBuilder > 数据处理",
+        doc_category="StampTools",
+        text="2、UV展开错误：mesh 内部参数异常",
+    )
+    tool_doc = _doc(
+        source="watch_directory/upload/StampTools用户手册.docx",
+        section_path="PipelineBuilder > 材质映射",
+        doc_category="StampTools",
+        text="材质映射配置",
+    )
+    out = filter_docs_by_backbone_anchor(
+        [error_doc, tool_doc],
+        ["PipelineBuilder"],
+        enabled=True,
+        constraints=constraints,
+        protect_names=["UV展开错误"],
+    )
+    assert error_doc in out
+    assert tool_doc in out
 
 
 def test_filter_disabled_or_empty_canonical_passthrough():

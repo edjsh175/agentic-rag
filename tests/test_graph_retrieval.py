@@ -290,6 +290,98 @@ def test_explicit_tier_uses_original_question_string_matching(graph_db):
     assert linked[0].confidence >= 0.98
 
 
+def test_flexible_whitespace_links_https_config(graph_db):
+    """题面「HTTPS 配置」应命中实体「HTTPS配置」。"""
+    graph_db.create_entity("HTTPS配置", "Procedure", doc_category="StampServer")
+    graph_db.create_entity("私有CA配置", "Procedure", doc_category="StampServer")
+    linked = EntityLinker(graph_db).link(
+        "HTTPS 配置与私有 CA 配置之间怎么衔接？",
+        "procedure",
+    )
+    names = {item.canonical_name for item in linked}
+    assert "HTTPS配置" in names
+    assert "私有CA配置" in names
+
+
+def test_leaf_error_preferred_over_backbone_rewrite_product(graph_db):
+    """原题 Exact 叶子优先于 rewrite query 里的宽 Tool；排错题丢掉非原题宽实体。"""
+    from rag_knowledge.services.query_contextualizer import RetrievalQuery
+
+    graph_db.create_entity("UV展开错误", "Error", doc_category="StampTools")
+    queries = [
+        RetrievalQuery("UV 排查", "planner_stage", 0.5),
+        RetrievalQuery("PipelineBuilder 错误排查", "graph_rewrite", 0.9),
+    ]
+    linked = EntityLinker(graph_db).link_queries(
+        queries,
+        "troubleshooting",
+        original_question="出现 UV展开错误时应如何排查？",
+    )
+    names = [item.canonical_name for item in linked]
+    assert names[0] == "UV展开错误"
+    assert "UV展开错误" in names
+    assert "PipelineBuilder" not in names
+
+
+def test_product_links_ranked_by_question_tokens(graph_db):
+    """Product 多链接时，按问题词（部署）优先排序 evidence。"""
+    product = graph_db.create_entity("StampServer", "Product", doc_category="StampServer")
+    graph_db.create_link(product, "chk-os", evidence_text="操作系统安装")
+    graph_db.create_link(product, "chk-deploy", evidence_text="应用系统部署 > WebRTC部署")
+    graph_db.create_link(product, "chk-ssh", evidence_text="SSH设置")
+    linked = EntityLinker(graph_db).link(
+        "StampServer 产品概述里覆盖哪些部署与运维能力？",
+        "definition",
+    )
+    ctx = GraphExpander(graph_db).expand(
+        linked,
+        "definition",
+        question="StampServer 产品概述里覆盖哪些部署与运维能力？",
+    )
+    assert ctx.chunk_ids
+    assert ctx.chunk_ids[0] == "chk-deploy"
+
+
+def test_multi_entity_links_product_and_environment(graph_db):
+    """非 comparison 也允许多实体：Product + EnvironmentComponent。"""
+    graph_db.create_entity("StampWebRTC", "Product", doc_category="StampWebRTC")
+    graph_db.create_entity("Win11", "EnvironmentComponent", doc_category="StampWebRTC")
+    graph_db.create_entity("Edge", "EnvironmentComponent", doc_category="StampWebRTC")
+    linked = EntityLinker(graph_db).link(
+        "StampWebRTC 对 Win11 与 Edge 浏览器环境有什么要求？",
+        "dependency",
+    )
+    names = {item.canonical_name for item in linked}
+    assert {"Win11", "Edge", "StampWebRTC"} <= names
+    assert len(linked) == 3
+
+
+def test_command_stem_links_run_local(graph_db):
+    """题面 run_local 应命中 Command 实体 run_local_1.bat。"""
+    graph_db.create_entity("StampWebRTC", "Product", doc_category="StampWebRTC")
+    graph_db.create_entity("run_local_1.bat", "Command", doc_category="StampWebRTC")
+    linked = EntityLinker(graph_db).link(
+        "StampWebRTC 本地启动常用哪些 run_local 脚本？",
+        "procedure",
+    )
+    names = {item.canonical_name for item in linked}
+    assert "run_local_1.bat" in names
+
+
+def test_command_stem_keeps_one_when_numbered_scripts_tie(graph_db):
+    """run_local_1/2 同词干同 span 时保留其一，而不是全部丢弃。"""
+    graph_db.create_entity("StampWebRTC", "Product", doc_category="StampWebRTC")
+    graph_db.create_entity("run_local_1.bat", "Command", doc_category="StampWebRTC")
+    graph_db.create_entity("run_local_2.bat", "Command", doc_category="StampWebRTC")
+    linked = EntityLinker(graph_db).link(
+        "StampWebRTC 本地启动常用哪些 run_local 脚本？",
+        "procedure",
+    )
+    names = {item.canonical_name for item in linked}
+    assert names & {"run_local_1.bat", "run_local_2.bat"}
+    assert "StampWebRTC" in names
+
+
 def test_revision_token_changes_when_aliases_or_links_change(graph_db):
     retriever = GraphRetriever(graph_db, store=object())
     r1 = retriever.revision()
@@ -539,6 +631,20 @@ def test_product_own_links_excluded_from_graph_chunks(graph_db):
     assert product["id"] in context.expanded_entity_ids
     assert "chunk-product-overview" not in context.chunk_ids
     assert "StampTools" not in context.retrieval_queries
+
+
+def test_product_link_ranking_prefers_service_overview_evidence():
+    links = [
+        {"chunk_id": "c-os", "evidence_text": "操作系统安装 > 创建虚拟机"},
+        {"chunk_id": "c-svc", "evidence_text": "Stamp服务部署 > 管线查询服务"},
+        {"chunk_id": "c-ops", "evidence_text": "Stamp服务部署 > Nginx代理设置 > 运维代理设置"},
+    ]
+    tokens = GraphExpander._question_rank_tokens(
+        "StampServer 产品概述里覆盖哪些部署与运维能力？"
+    )
+    ranked = GraphExpander._rank_links_by_question(links, tokens)
+    assert ranked[0]["chunk_id"] in {"c-svc", "c-ops"}
+    assert ranked[-1]["chunk_id"] == "c-os"
 
 
 def test_rag_chain_fuse_graph_docs_skips_when_graph_docs_missing():

@@ -35,6 +35,32 @@ class QueryRequest(BaseModel):
     agent_prompt: Optional[str] = None
 
 
+class ClarificationOptionFilter(BaseModel):
+    doc_category: Optional[str] = None
+    entity_name: Optional[str] = None
+    kb_name: Optional[str] = None
+
+
+class ClarificationOption(BaseModel):
+    id: str
+    label: str
+    filter: ClarificationOptionFilter
+
+
+class ClarifyRequest(BaseModel):
+    question: str
+    kb_name: Optional[str] = None
+    doc_category: Optional[str] = None
+
+
+class ClarifyResponse(BaseModel):
+    needs_clarification: bool
+    ask_question: Optional[str] = None
+    trigger: Optional[str] = None
+    reason: Optional[str] = None
+    options: list[ClarificationOption] = Field(default_factory=list)
+
+
 class QueryResponse(BaseModel):
     answer: str
     source_documents: list

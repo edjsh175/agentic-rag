@@ -137,6 +137,14 @@ class QaTraceConfig:
     max_traces: int = 2000
 
 
+@dataclass
+class ClarificationConfig:
+    """MVP clarification (反问) before full retrieval."""
+    enabled: bool = True
+    min_options: int = 2
+    max_options: int = 4
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -379,6 +387,12 @@ class Config:
             max_candidates=int(_get("qa_trace", "max_candidates", "20")),
             retain_days=int(_get("qa_trace", "retain_days", "14")),
             max_traces=int(_get("qa_trace", "max_traces", "2000")),
+        )
+
+        self.clarification = ClarificationConfig(
+            enabled=_get("clarification", "enabled", "true").lower() == "true",
+            min_options=int(_get("clarification", "min_options", "2")),
+            max_options=int(_get("clarification", "max_options", "4")),
         )
 
         self._assert_test_paths_are_isolated(root)

@@ -38,6 +38,7 @@ import type {
   QaDebugResult,
   QaTraceDetail,
   QaTraceListResult,
+  ClarifyResult,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -139,6 +140,27 @@ export async function healthCheck(signal?: AbortSignal) {
   return getJSON<HealthResult>('/health', signal)
 }
 
+/** 问题歧义预检（反问卡片） */
+export async function queryClarify(
+  question: string,
+  docCategory?: string,
+  kbName?: string,
+  signal?: AbortSignal,
+) {
+  const docCat = docCategory && docCategory !== '全部' ? docCategory : undefined
+  const kb = kbName && kbName !== '全部知识库' ? kbName : undefined
+  const { data } = await http.post<ClarifyResult>(
+    '/query/clarify',
+    {
+      question,
+      doc_category: docCat,
+      kb_name: kb,
+    },
+    { signal },
+  )
+  return data
+}
+
 /** 文字问答（带历史 + 可选模型选择） */
 export async function queryKnowledge(
   question: string,
@@ -150,6 +172,7 @@ export async function queryKnowledge(
   signal?: AbortSignal,
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
+  docCategory?: string,
 ) {
   const { data } = await http.post<QueryResult>(
     '/query',
@@ -158,6 +181,7 @@ export async function queryKnowledge(
       history,
       llm_model: llmModel,
       kb_name: kbName,
+      doc_category: docCategory,
       thinking,
       web_search: webSearch,
       agent_prompt: agentPrompt,
@@ -191,11 +215,22 @@ export async function queryKnowledgeStream(
   signal?: AbortSignal,
   agentPrompt?: string,
   allowGeneralKnowledge?: boolean,
+  docCategory?: string,
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, history, llm_model: llmModel, kb_name: kbName, thinking, web_search: webSearch, agent_prompt: agentPrompt, allow_general_knowledge: allowGeneralKnowledge }),
+    body: JSON.stringify({
+      question,
+      history,
+      llm_model: llmModel,
+      kb_name: kbName,
+      doc_category: docCategory,
+      thinking,
+      web_search: webSearch,
+      agent_prompt: agentPrompt,
+      allow_general_knowledge: allowGeneralKnowledge,
+    }),
     signal,
   })
   if (!res.ok) {

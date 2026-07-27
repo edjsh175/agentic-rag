@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role, SourceDoc } from '../types'
+import type { Role, SourceDoc, MessageClarification, ClarificationOption } from '../types'
 import { decorateCitations } from '../utils/citations'
 
 const props = defineProps<{
@@ -13,10 +13,12 @@ const props = defineProps<{
   status?: string
   thinking?: string
   sources?: SourceDoc[]
+  clarification?: MessageClarification
 }>()
 
 const emit = defineEmits<{
   citationClick: [citationId: number]
+  selectClarificationOption: [option: ClarificationOption]
 }>()
 
 const showThinking = ref(true)
@@ -54,7 +56,7 @@ function handleContentClick(event: MouseEvent) {
       <div class="name name--user" v-else>你</div>
 
       <!-- 气泡 -->
-      <div class="bubble" :class="{ 'bubble--user': isUser, 'bubble--loading': loading }">
+      <div class="bubble" :class="{ 'bubble--user': isUser, 'bubble--loading': loading && !content && !clarification }">
         <img v-if="imageUrl" :src="imageUrl" class="msg-image" />
 
         <div v-if="thinking && !isUser" class="thinking-wrap">
@@ -67,18 +69,51 @@ function handleContentClick(event: MouseEvent) {
           <div v-if="showThinking" class="thinking-content">{{ thinking }}</div>
         </div>
 
+        <!-- 歧义反问卡片 -->
+        <div v-if="clarification && !isUser" class="clarification-card">
+          <div class="clarification-header">
+            <span class="clarification-icon">💡</span>
+            <span class="clarification-title">歧义确认</span>
+            <span v-if="clarification.trigger" class="clarification-trigger-badge">
+              包含「{{ clarification.trigger }}」
+            </span>
+          </div>
+          <div class="clarification-question">
+            {{ clarification.ask_question }}
+          </div>
+          <div class="clarification-options">
+            <button
+              v-for="opt in clarification.options"
+              :key="opt.id"
+              class="clarification-option-btn"
+              :class="{
+                'is-selected': clarification.selectedId === opt.id,
+                'is-disabled': clarification.selectedId && clarification.selectedId !== opt.id
+              }"
+              :disabled="!!clarification.selectedId"
+              @click="emit('selectClarificationOption', opt)"
+            >
+              <span class="option-badge">{{ opt.id.toUpperCase() }}</span>
+              <span class="option-label">{{ opt.label }}</span>
+              <svg v-if="clarification.selectedId === opt.id" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <div v-if="loading && status" class="stream-status">
           <span class="status-dot"></span>
           <span>{{ status }}</span>
         </div>
 
-        <div v-else-if="loading" class="typing">
+        <div v-else-if="loading && !content" class="typing">
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
         </div>
 
-        <div v-else-if="content" class="md" v-html="rendered" @click="handleContentClick"></div>
+        <div v-if="content" class="md" v-html="rendered" @click="handleContentClick"></div>
       </div>
     </div>
   </div>
@@ -274,6 +309,124 @@ function handleContentClick(event: MouseEvent) {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* ===== 歧义确认卡片 ===== */
+.clarification-card {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e1e6f0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.clarification-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3370ff;
+}
+
+.clarification-icon {
+  font-size: 14px;
+}
+
+.clarification-title {
+  flex: 1;
+}
+
+.clarification-trigger-badge {
+  font-size: 11px;
+  font-weight: normal;
+  padding: 2px 8px;
+  background: #eef3fe;
+  color: #3370ff;
+  border-radius: 10px;
+  border: 1px solid #d0e1fd;
+}
+
+.clarification-question {
+  font-size: 14px;
+  color: #1e2a41;
+  font-weight: 500;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.clarification-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clarification-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #f7f9fc;
+  border: 1px solid #e4e8f0;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: #2c3e50;
+}
+
+.clarification-option-btn:hover:not(:disabled) {
+  background: #eef4ff;
+  border-color: #a4c2ff;
+  color: #3370ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(51, 112, 255, 0.12);
+}
+
+.clarification-option-btn.is-selected {
+  background: #eef4ff;
+  border-color: #3370ff;
+  color: #3370ff;
+  font-weight: 600;
+}
+
+.clarification-option-btn.is-disabled:not(.is-selected) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #fafbfc;
+}
+
+.option-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #e4e8f0;
+  color: #5c6475;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.is-selected .option-badge {
+  background: #3370ff;
+  color: #ffffff;
+}
+
+.option-label {
+  flex: 1;
+  word-break: break-word;
+}
+
+.check-icon {
+  flex-shrink: 0;
+  color: #3370ff;
 }
 
 /* ===== 移动端响应式 ===== */

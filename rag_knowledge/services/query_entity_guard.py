@@ -241,6 +241,20 @@ def protect_query_list(
         for q in queries
     ]
 
+def _candidate_appears_in_question(question: str, candidate: str) -> bool:
+    """True if candidate appears in question, allowing whitespace differences."""
+    if not question or not candidate:
+        return False
+    q = question.casefold()
+    c = candidate.casefold()
+    if c in q:
+        return True
+    # "HTTPS配置" vs "HTTPS 配置"：压缩空白后再比
+    q_compact = re.sub(r"\s+", "", q)
+    c_compact = re.sub(r"\s+", "", c)
+    return bool(c_compact) and c_compact in q_compact
+
+
 def filter_entity_candidates(
     original_question: str,
     candidate_entities: list[str],
@@ -266,7 +280,15 @@ def filter_entity_candidates(
         conflict = False
         for oe in orig_entities:
             oe_cf = oe.casefold()
-            if (cand_cf in oe_cf) or (oe_cf in cand_cf):
+            if cand_cf in oe_cf:
+                # 短候选被显式长实体包含（ModelBuilder ⊂ UEModelBuilder）→ 冲突
+                conflict = True
+                break
+            if oe_cf in cand_cf:
+                # 短显式拉丁词落在更长候选里（UV ⊂ UV展开错误）：
+                # 若完整候选本就出现在原题中，保留候选，避免误杀中文复合实体。
+                if _candidate_appears_in_question(original_question, cand):
+                    continue
                 conflict = True
                 break
         if not conflict:

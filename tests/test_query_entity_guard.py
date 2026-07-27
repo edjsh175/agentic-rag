@@ -93,6 +93,16 @@ def test_filter_entity_candidates():
     assert sorted(filter_entity_candidates(orig, candidates)) == sorted(["ModelBuilder", "UEModelBuilder"])
 
 
+def test_filter_keeps_chinese_compound_despite_latin_prefix():
+    """UV ⊂ UV展开错误 不应误杀题面中的中文复合 Error 实体。"""
+    orig = "出现 UV展开错误时应如何排查？"
+    candidates = ["UV展开错误", "PipelineBuilder", "ModelBuilder"]
+    kept = filter_entity_candidates(orig, candidates)
+    assert "UV展开错误" in kept
+    # PipelineBuilder / ModelBuilder 与 UV 无包含关系，仍保留
+    assert "PipelineBuilder" in kept
+
+
 def test_protect_accepts_backbone_alias_equivalents():
     aliases = {
         "StampTools": "StampGIS Tools",

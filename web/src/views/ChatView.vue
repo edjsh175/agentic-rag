@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats } from '../types'
-import { queryKnowledgeStream, queryKnowledge, queryImageStream, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, DOCUMENT_PROFILE_OPTIONS } from '../api'
+import type { Message, SourceDoc, Stats, ClarificationOption } from '../types'
+import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
@@ -249,10 +249,41 @@ async function handleSend(text: string, image?: File) {
   }
 
   try {
+    abortController.value = new AbortController()
+
+    // 1. 提问前预检：检测是否有歧义需要反问 (Query Clarification Pre-check)
+    try {
+      const clarifyRes = await queryClarify(
+        text,
+        undefined,
+        currentKb.value && currentKb.value !== '全部知识库' ? currentKb.value : undefined,
+        abortController.value.signal,
+      )
+      if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
+        const msg = lastAiMsg()
+        msg.loading = false
+        msg.status = undefined
+        msg.clarification = {
+          ask_question: clarifyRes.ask_question || '请选择您要查询的具体模块或方向：',
+          trigger: clarifyRes.trigger,
+          reason: clarifyRes.reason,
+          options: clarifyRes.options,
+        }
+        loading.value = false
+        abortController.value = null
+        await persist()
+        scrollDown()
+        return
+      }
+    } catch (err: any) {
+      if ((err as DOMException)?.name === 'AbortError') throw err
+      // 若预检服务异常，优雅降级为正常检索问答
+    }
+
+    // 2. 无歧义或预检跳过，执行常规流式检索问答
     const history = chatHistory.value.slice(0, -1)
     let streamOk = false
     try {
-      abortController.value = new AbortController()
       const llmModel = currentModel.value || undefined
       await queryKnowledgeStream(text, history, {
         onStatus: (status) => {
@@ -323,6 +354,122 @@ async function handleSend(text: string, image?: File) {
       lastAiMsg().status = undefined
       lastAiMsg().content = `**出错了**\n\n${e.message || '请求失败'}`
       lastAiMsg().loading = false
+    }
+    loading.value = false
+    abortController.value = null
+  }
+}
+
+/** 用户点击反问卡片的选项后触发 */
+async function handleSelectClarificationOption(aiMsg: Message, option: ClarificationOption) {
+  if (!aiMsg.clarification || aiMsg.clarification.selectedId || loading.value) return
+
+  aiMsg.clarification.selectedId = option.id
+  aiMsg.loading = true
+  aiMsg.status = `已选择「${option.label}」，正在检索回答...`
+  loading.value = true
+  scrollDown()
+
+  const aiIndex = messages.value.findIndex((m) => m.id === aiMsg.id)
+  let userText = ''
+  let history: { role: string; content: string }[] = []
+  if (aiIndex > 0 && messages.value[aiIndex - 1].role === 'user') {
+    userText = messages.value[aiIndex - 1].content
+    const previousMsgs = messages.value.slice(0, aiIndex - 1)
+    history = previousMsgs
+      .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
+      .map((m) => ({ role: m.role, content: m.content }))
+  } else {
+    userText = messages.value.filter((m) => m.role === 'user').slice(-1)[0]?.content || ''
+    history = chatHistory.value.slice(0, -1)
+  }
+
+  const docCategory = option.filter.doc_category || undefined
+
+  try {
+    abortController.value = new AbortController()
+    let streamOk = false
+    try {
+      const llmModel = currentModel.value || undefined
+      await queryKnowledgeStream(
+        userText,
+        history,
+        {
+          onStatus: (status) => {
+            aiMsg.status = status
+            scrollDown()
+          },
+          onToken: (token) => {
+            aiMsg.status = undefined
+            aiMsg.content += token
+            aiMsg.loading = false
+            scrollDown()
+          },
+          onThinking: (thought) => {
+            aiMsg.thinking = (aiMsg.thinking || '') + thought
+            scrollDown()
+          },
+          onFinalAnswer: (answer) => {
+            aiMsg.status = undefined
+            aiMsg.content = answer
+            aiMsg.loading = false
+            scrollDown()
+          },
+          onSources: (sources) => {
+            currentSources.value = sources
+            aiMsg.sources = sources
+          },
+          onDone: () => {
+            streamOk = true
+            abortController.value = null
+            aiMsg.status = undefined
+            aiMsg.loading = false
+            loading.value = false
+            persist()
+            scrollDown()
+          },
+          onError: () => { throw new Error('stream failed') },
+        },
+        llmModel,
+        currentKb.value,
+        thinkingEnabled.value || undefined,
+        webSearchEnabled.value || undefined,
+        abortController.value?.signal,
+        activeAgent.value?.system_prompt,
+        undefined,
+        docCategory,
+      )
+    } catch {
+      aiMsg.status = undefined
+      if (!streamOk && !abortController.value) {
+        const result = await queryKnowledge(
+          userText,
+          history,
+          currentModel.value || undefined,
+          currentKb.value,
+          thinkingEnabled.value || undefined,
+          webSearchEnabled.value || undefined,
+          undefined,
+          activeAgent.value?.system_prompt,
+          undefined,
+          docCategory,
+        )
+        aiMsg.content = result.answer
+        aiMsg.loading = false
+        currentSources.value = result.source_documents
+        aiMsg.sources = result.source_documents
+        await persist()
+        loading.value = false
+        scrollDown()
+      }
+    }
+  } catch (e: any) {
+    if ((e as DOMException)?.name === 'AbortError') {
+      // 手动中止
+    } else {
+      aiMsg.status = undefined
+      aiMsg.content = `**出错了**\n\n${e.message || '请求失败'}`
+      aiMsg.loading = false
     }
     loading.value = false
     abortController.value = null
@@ -611,7 +758,9 @@ function scrollDown() {
             :status="msg.status"
             :thinking="msg.thinking"
             :sources="msg.sources"
+            :clarification="msg.clarification"
             @citation-click="handleCitationClick(msg, $event)"
+            @select-clarification-option="handleSelectClarificationOption(msg, $event)"
           />
         </div>
       </div>

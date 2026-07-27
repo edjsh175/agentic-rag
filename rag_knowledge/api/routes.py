@@ -4,6 +4,7 @@ API 路由定义 —— FastAPI 接口
 接口列表：
   GET    /health           → 健康检查 + 模型信息
   POST   /query            → 知识库问答
+  POST   /query/clarify    → 歧义检测 / 反问选项（供前端卡片）
   POST   /query/image      → 图片问答（上传图片 + 问题，用 qwen3-vl 视觉模型回答）
   POST   /upload           → 上传文档
   POST   /scan             → 手动触发目录扫描
@@ -31,6 +32,7 @@ from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.services.qa_trace import QaTraceStore, set_request_context
 from rag_knowledge.models.api import AdminQaDebugResponse, QueryRequest, QueryResponse, UploadResponse
+from rag_knowledge.models.api import ClarifyRequest, ClarifyResponse, ClarificationOption, ClarificationOptionFilter
 from rag_knowledge.models.api import (
     AdminChunkListResponse,
     AdminChunkUpdateRequest,
@@ -46,6 +48,7 @@ from rag_knowledge.models.api import (
 from rag_knowledge.models.api import CrawlRequest, CrawlResponse, BlogPostListResponse, BlogPostItem
 from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.document_profiles import normalize_document_profile
+from rag_knowledge.services.query_clarification import QueryClarificationService
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.scanner import DirectoryScanner
 from rag_knowledge.services.blog_syncer import BlogPostSyncer
@@ -250,6 +253,38 @@ async def query(req: QueryRequest):
     except Exception as e:
         logger.error("查询失败: %s", e)
         raise HTTPException(500, detail=str(e))
+
+
+@router.post("/query/clarify", response_model=ClarifyResponse)
+async def query_clarify(req: ClarifyRequest):
+    """检测问题歧义，返回结构化反问选项（供前端渲染卡片）。
+
+    用户选择后，将 option.filter 中的 doc_category / entity_name 带入后续 POST /query。
+    """
+    if not req.question.strip():
+        raise HTTPException(400, detail="问题不能为空")
+
+    doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
+    kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
+    result = QueryClarificationService().analyze(
+        req.question,
+        doc_category=doc_category,
+        kb_name=kb_name,
+    )
+    return ClarifyResponse(
+        needs_clarification=result.needs_clarification,
+        ask_question=result.ask_question,
+        trigger=result.trigger,
+        reason=result.reason,
+        options=[
+            ClarificationOption(
+                id=opt.id,
+                label=opt.label,
+                filter=ClarificationOptionFilter(**opt.filter.to_dict()),
+            )
+            for opt in result.options
+        ],
+    )
 
 
 @router.post("/query/stream")

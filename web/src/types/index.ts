@@ -16,6 +16,40 @@ export interface Message {
   status?: string
   /** 深度思考过程（assistant 消息） */
   thinking?: string
+  /** 歧义反问卡片 */
+  clarification?: MessageClarification
+}
+
+/** 反问选项过滤器 */
+export interface ClarifyOptionFilter {
+  doc_category?: string
+  entity_name?: string
+  kb_name?: string
+}
+
+/** 反问卡片单个选项 */
+export interface ClarificationOption {
+  id: string
+  label: string
+  filter: ClarifyOptionFilter
+}
+
+/** 反问预检响应结构 */
+export interface ClarifyResult {
+  needs_clarification: boolean
+  ask_question?: string
+  trigger?: string
+  reason?: string
+  options: ClarificationOption[]
+}
+
+/** 消息所携带的反问卡片数据与交互状态 */
+export interface MessageClarification {
+  ask_question: string
+  trigger?: string
+  reason?: string
+  options: ClarificationOption[]
+  selectedId?: string
 }
 
 /** 来源文档片段 */

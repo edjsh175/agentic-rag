@@ -94,12 +94,22 @@ def chunk_matches_anchor(
     *,
     canonicals: Sequence[str],
     constraints: dict,
+    protect_names: Sequence[str] | None = None,
 ) -> bool:
     """True when section_path hits a canonical or source/doc_category aligns to product line."""
     section_path, section_title, doc_category, source = _meta_blob(doc)
     section_fold = f"{section_path} {section_title}".casefold()
     source_name = Path(source).name.casefold() if source else ""
     doc_cat_fold = doc_category.casefold()
+    content_fold = (doc.page_content or "").casefold()
+
+    for raw in (protect_names or ()):
+        name = str(raw or "").strip()
+        if len(name) < 2:
+            continue
+        key = name.casefold()
+        if key in section_fold or key in content_fold or key in source_name:
+            return True
 
     for raw in canonicals:
         canonical = resolve_canonical(raw, constraints)
@@ -114,6 +124,13 @@ def chunk_matches_anchor(
             return True
         if source_name and any(m in source_name for m in markers):
             return True
+        # belongs_to 未写入主干时，退回实体自身 doc_category（如 PipelineBuilder→StampTools）
+        doc_cats = constraints.get("doc_category_by_name") or {}
+        own_cat = str(doc_cats.get(canonical) or "").strip().casefold()
+        if own_cat and doc_cat_fold == own_cat:
+            return True
+        if own_cat and own_cat in source_name:
+            return True
     return False
 
 
@@ -122,9 +139,15 @@ def chunk_is_foreign_interference(
     *,
     canonicals: Sequence[str],
     constraints: dict,
+    protect_names: Sequence[str] | None = None,
 ) -> bool:
     """True when chunk clearly belongs to another product line / service chapter."""
-    if chunk_matches_anchor(doc, canonicals=canonicals, constraints=constraints):
+    if chunk_matches_anchor(
+        doc,
+        canonicals=canonicals,
+        constraints=constraints,
+        protect_names=protect_names,
+    ):
         return False
     section_path, section_title, doc_category, source = _meta_blob(doc)
     section_fold = f"{section_path} {section_title}".casefold()
@@ -158,27 +181,35 @@ def filter_docs_by_backbone_anchor(
     *,
     enabled: bool,
     constraints: dict | None = None,
+    protect_names: Iterable[str] | None = None,
 ) -> list[Document]:
     """Keep anchor-aligned chunks; drop clear foreign interference; empty → fallback."""
     if not enabled or not docs:
         return docs
     canonicals = [str(c).strip() for c in (backbone_canonical or ()) if str(c).strip()]
-    if not canonicals:
+    protect = [str(c).strip() for c in (protect_names or ()) if str(c).strip()]
+    if not canonicals and not protect:
         return docs
 
     constraints = constraints if constraints is not None else load_backbone_constraints()
     preferred = [
         doc
         for doc in docs
-        if chunk_matches_anchor(doc, canonicals=canonicals, constraints=constraints)
+        if chunk_matches_anchor(
+            doc,
+            canonicals=canonicals,
+            constraints=constraints,
+            protect_names=protect,
+        )
     ]
     if preferred:
         if len(preferred) < len(docs):
             logger.info(
-                "anchor_chunk_filter kept %d/%d docs | canonicals=%s",
+                "anchor_chunk_filter kept %d/%d docs | canonicals=%s protect=%s",
                 len(preferred),
                 len(docs),
                 canonicals,
+                protect,
             )
         return preferred
 
@@ -186,7 +217,10 @@ def filter_docs_by_backbone_anchor(
         doc
         for doc in docs
         if not chunk_is_foreign_interference(
-            doc, canonicals=canonicals, constraints=constraints
+            doc,
+            canonicals=canonicals,
+            constraints=constraints,
+            protect_names=protect,
         )
     ]
     if cleaned:

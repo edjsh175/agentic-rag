@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import logging
+import re
 from typing import Any
 
 from langchain_core.documents import Document
@@ -11,6 +12,22 @@ from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.repository.relational_db import RelationalDB
 
 logger = logging.getLogger(__name__)
+
+# Prefer concrete leaves over wide Product/Tool when truncating max_links.
+_LEAF_ENTITY_TYPES = frozenset(
+    {
+        "Error",
+        "Command",
+        "Procedure",
+        "ConfigItem",
+        "EnvironmentComponent",
+        "Field",
+        "DataTable",
+        "Step",
+        "Solution",
+    }
+)
+_WIDE_ENTITY_TYPES = frozenset({"Product", "Tool", "Document", "Section", "Module"})
 
 
 @dataclass(frozen=True)
@@ -284,6 +301,7 @@ class EntityLinker:
         "deployment": {"Service", "Product", "Tool"},
         "config": {"Service", "Tool", "ConfigItem", "DataTable", "Field"},
         "troubleshooting": {"Error", "Solution", "Service", "Tool"},
+        "dependency": {"Product", "Tool", "Service", "EnvironmentComponent", "Command"},
     }
 
     def __init__(self, db: RelationalDB | None = None, min_confidence: float = 0.75):
@@ -291,12 +309,72 @@ class EntityLinker:
         self.min_confidence = min_confidence
 
     @staticmethod
-    def _question_contains_name(question: str, name: str, *, case_sensitive: bool) -> bool:
+    def _find_flexible_span(text: str, name: str) -> tuple[int, int] | None:
+        """Find name in text; allow optional whitespace between Latin and non-Latin runs."""
+        if not text or not name:
+            return None
+        # Fast path: exact (case-insensitive) contiguous match
+        start = text.casefold().find(name.casefold())
+        if start != -1:
+            return start, start + len(name)
+
+        # Build pattern: optional \\s* at Latin↔non-Latin boundaries and where name had spaces
+        buf: list[str] = []
+        prev_kind: str | None = None
+        for ch in name:
+            if ch.isspace():
+                buf.append(r"\s*")
+                prev_kind = "space"
+                continue
+            kind = "latin" if ch.isascii() and ch.isalnum() else "other"
+            if prev_kind in {"latin", "other"} and kind != prev_kind:
+                buf.append(r"\s*")
+            buf.append(re.escape(ch))
+            prev_kind = kind
+        pattern = "".join(buf)
+        if not pattern:
+            return None
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            return None
+        return match.start(), match.end()
+
+    @staticmethod
+    def _command_stem_variants(name: str) -> tuple[str, ...]:
+        """run_local_1.bat → (run_local_1.bat, run_local_1, run_local)."""
+        raw = (name or "").strip()
+        if not raw:
+            return ()
+        variants: list[str] = [raw]
+        stem = raw.rsplit(".", 1)[0] if "." in raw else raw
+        if stem and stem not in variants:
+            variants.append(stem)
+        # 去掉末尾 _数字（多脚本编号）
+        base = re.sub(r"_\d+$", "", stem)
+        if base and len(base) >= 4 and base not in variants:
+            variants.append(base)
+        return tuple(variants)
+
+    @classmethod
+    def _question_contains_name(cls, question: str, name: str, *, case_sensitive: bool = False) -> bool:
         if not question or not name:
             return False
-        if case_sensitive:
-            return name in question
-        return name.casefold() in question.casefold()
+        names = (name,)
+        # Command 文件名：题面常写词干（run_local）而非完整 run_local_1.bat
+        if "." in name or re.search(r"_\d+$", name.rsplit(".", 1)[0]):
+            names = cls._command_stem_variants(name)
+        for candidate in names:
+            if case_sensitive:
+                if candidate in question:
+                    return True
+                if cls._find_flexible_span(question, candidate) is not None:
+                    return True
+            else:
+                if candidate.casefold() in question.casefold():
+                    return True
+                if cls._find_flexible_span(question, candidate) is not None:
+                    return True
+        return False
 
     def _explicit_tier(
         self,
@@ -308,18 +386,34 @@ class EntityLinker:
     ) -> int:
         if q_kind in ("last_user", "source_anchor"):
             return 1
-        if method != "name_exact" or not original_question:
+        if method not in {"name_exact", "alias_exact", "command_stem"} or not original_question:
             return 2
 
         candidate_names = [
             entity.get("name") or "",
             entity.get("canonical_name") or "",
         ]
+        if method == "command_stem":
+            expanded: list[str] = []
+            for name in candidate_names:
+                expanded.extend(self._command_stem_variants(name))
+            candidate_names = expanded
         if any(self._question_contains_name(original_question, name, case_sensitive=True) for name in candidate_names):
             return 4
         if any(self._question_contains_name(original_question, name, case_sensitive=False) for name in candidate_names):
             return 3
         return 2
+
+    def _selection_key(self, linked: LinkedEntity, original_question: str | None) -> tuple:
+        in_orig = 0
+        if original_question:
+            in_orig = int(
+                self._question_contains_name(original_question, linked.canonical_name)
+                or self._question_contains_name(original_question, linked.canonical_name, case_sensitive=True)
+            )
+        leaf = int(linked.entity_type in _LEAF_ENTITY_TYPES)
+        wide = int(linked.entity_type in _WIDE_ENTITY_TYPES)
+        return (-in_orig, -leaf, wide, -linked.confidence, linked.canonical_name)
 
     def link(self, question: str, intent: str) -> tuple[LinkedEntity, ...]:
         """Backward compatibility for single string question linking."""
@@ -328,10 +422,21 @@ class EntityLinker:
 
     def link_queries(self, queries: list[Any], intent: str, original_question: str | None = None) -> tuple[LinkedEntity, ...]:
         """Resolve entities across multiple contextualized queries with overlap and tie-breaker handling."""
-        all_linked: dict[str, LinkedEntity] = {}
-        max_links = 3 if intent == "comparison" else 1
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
 
-        for q_spec in queries:
+        all_linked: dict[str, LinkedEntity] = {}
+        # 非重叠多实体保留（原 comparison=3；其余从 1 提到 3，避免环境叶子被宽 Product 挤掉）
+        max_links = 3
+
+        # 始终先用用户原题做一轮匹配，避免 backbone/rewrite query 改写后丢掉叶子实体
+        effective_queries: list[Any] = []
+        orig = (original_question or "").strip()
+        if orig:
+            effective_queries.append(RetrievalQuery(orig, "original", 1.0))
+        for q_spec in queries or []:
+            effective_queries.append(q_spec)
+
+        for q_spec in effective_queries:
             q_text = q_spec.text if hasattr(q_spec, "text") else str(q_spec)
             text = normalize_entity_name(q_text or "")
             if not text:
@@ -341,21 +446,34 @@ class EntityLinker:
             by_id = {item["id"]: item for item in entities}
             candidates: dict[str, tuple[float, str, int, int]] = {}
 
-            # 1. 精确名称匹配与位置记录
+            # 1. 精确名称匹配与位置记录（允许 Latin↔中文边界空白）
             for entity in entities:
                 names = [entity.get("name") or "", entity.get("canonical_name") or ""]
                 for index, name in enumerate(names):
                     name = normalize_entity_name(name)
-                    if name:
-                        start_idx = text.casefold().find(name.casefold())
-                        if start_idx != -1:
-                            end_idx = start_idx + len(name)
-                            score = 0.98 if index == 0 else 0.97
-                            if entity["id"] in candidates:
-                                if score > candidates[entity["id"]][0]:
-                                    candidates[entity["id"]] = (score, "name_exact", start_idx, end_idx)
-                            else:
-                                candidates[entity["id"]] = (score, "name_exact", start_idx, end_idx)
+                    if not name:
+                        continue
+                    span = self._find_flexible_span(text, name)
+                    if span is None:
+                        continue
+                    start_idx, end_idx = span
+                    score = 0.98 if index == 0 else 0.97
+                    if entity["id"] in candidates:
+                        if score > candidates[entity["id"]][0]:
+                            candidates[entity["id"]] = (score, "name_exact", start_idx, end_idx)
+                    else:
+                        candidates[entity["id"]] = (score, "name_exact", start_idx, end_idx)
+
+                # Command：题面写 run_local 时可命中 run_local_1.bat
+                if entity.get("entity_type") == "Command" and entity["id"] not in candidates:
+                    primary = normalize_entity_name(entity.get("name") or "")
+                    for variant in self._command_stem_variants(primary)[1:]:
+                        span = self._find_flexible_span(text, variant)
+                        if span is None:
+                            continue
+                        start_idx, end_idx = span
+                        candidates[entity["id"]] = (0.93, "command_stem", start_idx, end_idx)
+                        break
 
             # 2. 别名精确匹配与位置记录
             for alias in self.db.list_aliases():
@@ -363,15 +481,16 @@ class EntityLinker:
                     continue
                 alias_text = normalize_entity_name(alias.get("alias") or "")
                 if alias_text and alias["entity_id"] in by_id:
-                    start_idx = text.casefold().find(alias_text.casefold())
-                    if start_idx != -1:
-                        end_idx = start_idx + len(alias_text)
-                        score = 0.95
-                        if alias["entity_id"] in candidates:
-                            if score > candidates[alias["entity_id"]][0]:
-                                candidates[alias["entity_id"]] = (score, "alias_exact", start_idx, end_idx)
-                        else:
+                    span = self._find_flexible_span(text, alias_text)
+                    if span is None:
+                        continue
+                    start_idx, end_idx = span
+                    score = 0.95
+                    if alias["entity_id"] in candidates:
+                        if score > candidates[alias["entity_id"]][0]:
                             candidates[alias["entity_id"]] = (score, "alias_exact", start_idx, end_idx)
+                    else:
+                        candidates[alias["entity_id"]] = (score, "alias_exact", start_idx, end_idx)
 
             # 3. 意图类型得分微调与优先级判断
             preferred = self._INTENT_TYPES.get(intent, set())
@@ -403,12 +522,18 @@ class EntityLinker:
             ambiguous_ids = set()
             for i, c1 in enumerate(valid_candidates):
                 for j, c2 in enumerate(valid_candidates):
-                    if i != j:
-                        # 检查区间 [start, end) 是否重叠
-                        overlap = max(c1[4], c2[4]) < min(c1[5], c2[5])
-                        if overlap and c1[0] == c2[0] and c1[1] == c2[1]:
-                            ambiguous_ids.add(c1[2])
-                            ambiguous_ids.add(c2[2])
+                    if i >= j:
+                        continue
+                    overlap = max(c1[4], c2[4]) < min(c1[5], c2[5])
+                    if not overlap or c1[0] != c2[0] or abs(c1[1] - c2[1]) > 1e-9:
+                        continue
+                    # Command 词干撞在同一 span（run_local_1/2.bat）：保留一个，避免双双丢弃
+                    if c1[3] == "command_stem" and c2[3] == "command_stem":
+                        drop = c1[2] if c1[2] > c2[2] else c2[2]
+                        ambiguous_ids.add(drop)
+                    else:
+                        ambiguous_ids.add(c1[2])
+                        ambiguous_ids.add(c2[2])
 
             non_ambiguous = [c for c in valid_candidates if c[2] not in ambiguous_ids]
             # 排序：优先级从高到低，分数从高到低，span长度从长到短，实体名长度从长到短
@@ -447,7 +572,26 @@ class EntityLinker:
                         excluded_entity_ids=tuple(sorted(excluded)),
                     )
 
-        return tuple(list(all_linked.values())[:max_links])
+        ordered = sorted(
+            all_linked.values(),
+            key=lambda item: self._selection_key(item, original_question),
+        )
+        # 排错叶子已在原题中显式出现时，丢掉改写注入的宽 Tool/Product，避免邻域挤占 Error 证据
+        if original_question:
+            leaf_in_orig = [
+                item
+                for item in ordered
+                if item.entity_type in {"Error", "Solution"}
+                and self._question_contains_name(original_question, item.canonical_name)
+            ]
+            if leaf_in_orig:
+                ordered = [
+                    item
+                    for item in ordered
+                    if item.entity_type not in _WIDE_ENTITY_TYPES
+                    or self._question_contains_name(original_question, item.canonical_name)
+                ]
+        return tuple(ordered[:max_links])
 
 
 class GraphExpander:
@@ -530,7 +674,12 @@ class GraphExpander:
         # Default fallback
         return True
 
-    def expand(self, linked_entities: tuple[LinkedEntity, ...], intent: str) -> GraphContext:
+    def expand(
+        self,
+        linked_entities: tuple[LinkedEntity, ...],
+        intent: str,
+        question: str | None = None,
+    ) -> GraphContext:
         if not linked_entities:
             return GraphContext(fallback_reason="no_linked_entity")
 
@@ -542,6 +691,7 @@ class GraphExpander:
         relation_ids: list[str] = []
         allowed = self._RELATIONS.get(intent, self._RELATIONS["definition"])
         max_hops = 2 if intent in {"procedure", "deployment"} else 1
+        question_tokens = self._question_rank_tokens(question or "")
 
         for _ in range(max_hops):
             next_frontier: list[str] = []
@@ -587,7 +737,22 @@ class GraphExpander:
         chunk_ids: list[str] = []
         excluded_chunk_ids: list[str] = []
         queries: list[str] = []
-        for entity_id in entity_ids:
+
+        # 初始叶子实体优先贡献 chunk，避免宽 Product/Tool 的大量链接把 Error/Command 挤出 max_chunks
+        def _entity_chunk_priority(entity_id: str) -> tuple[int, int]:
+            if entity_id in initial_entity_ids:
+                ent = self.db.get_entity(entity_id) or {}
+                et = ent.get("entity_type") or ""
+                if et in _LEAF_ENTITY_TYPES:
+                    return (0, 0)
+                if et in _WIDE_ENTITY_TYPES:
+                    return (2, 0)
+                return (1, 0)
+            return (3, 0)
+
+        ranked_entity_ids = sorted(entity_ids, key=_entity_chunk_priority)
+
+        for entity_id in ranked_entity_ids:
             entity = self.db.get_entity(entity_id)
             is_metadata_only_product = (
                 entity
@@ -598,7 +763,15 @@ class GraphExpander:
                 queries.append(entity["name"])
             if is_metadata_only_product:
                 continue
-            for link in self.db.list_links(entity_id=entity_id):
+            links = list(self.db.list_links(entity_id=entity_id))
+            if (
+                question_tokens
+                and entity
+                and entity.get("entity_type") == "Product"
+                and entity_id in initial_entity_ids
+            ):
+                links = self._rank_links_by_question(links, question_tokens)
+            for link in links:
                 chunk_id = link["chunk_id"]
                 if chunk_id not in chunk_ids and len(chunk_ids) < self.max_chunks:
                     chunk_ids.append(chunk_id)
@@ -618,6 +791,40 @@ class GraphExpander:
             excluded_chunk_ids=tuple(excluded_chunk_ids),
             fallback_reason=None if chunk_ids else "no_graph_evidence",
         )
+
+    @staticmethod
+    def _question_rank_tokens(question: str) -> tuple[str, ...]:
+        q = (question or "").strip()
+        if not q:
+            return ()
+        q_cf = q.casefold()
+        seeds = (
+            "概述", "简介", "介绍", "能力", "部署", "运维", "安装", "配置",
+            "排查", "错误", "启动", "环境", "服务", "功能说明", "代理",
+        )
+        found = [tok for tok in seeds if tok.casefold() in q_cf]
+        # 概述/运维题：证据里常见「服务部署」「功能说明」虽未出现在题面，一并作为弱偏好
+        if any(tok in found for tok in ("概述", "简介", "介绍", "能力", "部署", "运维")):
+            for extra in ("服务部署", "功能说明"):
+                if extra not in found:
+                    found.append(extra)
+        return tuple(found)
+
+    @staticmethod
+    def _rank_links_by_question(links: list[dict], tokens: tuple[str, ...]) -> list[dict]:
+        def score(link: dict) -> tuple[int, int, str]:
+            text = f"{link.get('evidence_text') or ''} {link.get('chunk_id') or ''}".casefold()
+            hit = sum(1 for tok in tokens if tok and tok.casefold() in text)
+            # Prefer service-overview evidence over deep OS-install leaves
+            bonus = 0
+            if "服务部署" in text:
+                bonus += 3
+            if "功能说明" in text:
+                bonus += 2
+            depth = text.count(">")
+            return (-(hit + bonus), depth, str(link.get("chunk_id") or ""))
+
+        return sorted(links, key=score)
 
 
 class GraphRetriever:
@@ -679,7 +886,7 @@ class GraphRetriever:
                 queries = [RetrievalQuery(question, "original", 1.0)]
 
             linked = self.linker.link_queries(queries, intent, original_question=question)
-            context = self.expander.expand(linked, intent)
+            context = self.expander.expand(linked, intent, question=question)
             context = replace(
                 context,
                 guard=self.guard_builder.build(question, intent, linked, context),

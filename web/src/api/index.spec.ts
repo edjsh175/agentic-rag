@@ -11,7 +11,7 @@ vi.mock('axios', () => ({
   },
 }))
 
-import { uploadDocument } from './index'
+import { queryClarify, uploadDocument } from './index'
 
 describe('uploadDocument', () => {
   beforeEach(() => {
@@ -26,5 +26,38 @@ describe('uploadDocument', () => {
 
     const form = mocks.post.mock.calls[0][1] as FormData
     expect(form.get('document_profile')).toBe('procedure')
+  })
+})
+
+describe('queryClarify', () => {
+  beforeEach(() => {
+    mocks.post.mockReset()
+  })
+
+  it('posts clarification request with parameters and returns response data', async () => {
+    const mockData = {
+      needs_clarification: true,
+      ask_question: '您提到的「管线发布」指哪个工具？',
+      trigger: '管线发布',
+      reason: 'entity_ambiguity',
+      options: [
+        { id: 'a', label: 'PipelineBuilder', filter: { doc_category: 'StampTools' } },
+        { id: 'b', label: '管线发布服务', filter: { doc_category: 'StampServer' } },
+      ],
+    }
+    mocks.post.mockResolvedValue({ data: mockData })
+
+    const res = await queryClarify('管线发布怎么配置？', '全部', '全部知识库')
+
+    expect(mocks.post).toHaveBeenCalledWith(
+      '/query/clarify',
+      {
+        question: '管线发布怎么配置？',
+        doc_category: undefined,
+        kb_name: undefined,
+      },
+      { signal: undefined },
+    )
+    expect(res).toEqual(mockData)
   })
 })

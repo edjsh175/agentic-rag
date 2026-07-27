@@ -17,7 +17,7 @@
 
 | 标准 | 例外原因 | 风险 | 后续动作 | 负责人/日期 |
 |------|----------|------|----------|-------------|
-| 4（附属） | `quality --graph` 仍报 missing_golden_relation / missing_evidence / 1 illegal | 全库开图可能扩到弱证据实体 | 不默认生产 on；择机补金边/清非法边 | 2026-07-27 |
+| 4（附属） | `quality --graph` 曾报 missing_golden_relation / missing_evidence / illegal | 全库开图可能扩到弱证据实体 | **missing_evidence 已清零（2026-07-27）**；仍缺 2 条金边 + 1 非法边；不默认生产 on | 2026-07-27 |
 | 5 | Section 占比约 51% | 结构边偏多 | 继续按类目补叶子；不阻断 §13-6 | 2026-07-27 |
 
 ## 收口结论
