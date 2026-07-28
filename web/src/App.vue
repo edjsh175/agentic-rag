@@ -68,7 +68,7 @@ import 'github-markdown-css/github-markdown.css'
     <!-- 视图容器 -->
     <div class="view-container">
       <RouterView v-slot="{ Component }">
-        <KeepAlive>
+        <KeepAlive :include="['ChatView', 'QaDebugView']">
           <component :is="Component" />
         </KeepAlive>
       </RouterView>

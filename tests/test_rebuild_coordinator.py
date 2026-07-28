@@ -243,6 +243,7 @@ def test_successful_rebuild_swaps_staging_and_refreshes_live_only_after_commit(
         "backup_collection": f"rag_knowledge__backup__{OPERATION_ID}",
         "index_backup_path": str(data_dir / "rebuild" / OPERATION_ID / "file_index.before.json"),
         "graph_backup_path": "",
+        "graph_resync_stats": {},
         "new_files": 3,
         "skipped_files": 1,
         "errors": 0,

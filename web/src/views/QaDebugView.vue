@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'QaDebugView' })
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -322,6 +323,25 @@ function fmtTime(iso?: string) {
   return iso.replace('T', ' ').slice(0, 19)
 }
 
+function formatDuration(val: number | string | null | undefined): string {
+  if (val == null || val === '') return '-'
+  const num = Number(val)
+  if (isNaN(num) || num < 0) return '-'
+  const ms = Math.round(num)
+  if (ms === 0) return '0毫秒'
+
+  const minutes = Math.floor(ms / 60000)
+  const seconds = Math.floor((ms % 60000) / 1000)
+  const remMs = ms % 1000
+
+  const parts: string[] = []
+  if (minutes > 0) parts.push(`${minutes}分`)
+  if (seconds > 0) parts.push(`${seconds}秒`)
+  if (remMs > 0) parts.push(`${remMs}毫秒`)
+
+  return parts.length > 0 ? parts.join('') : '0毫秒'
+}
+
 function getItemSnippet(item: any): string {
   if (!item) return ''
   if (typeof item === 'string') return item
@@ -387,7 +407,9 @@ onUnmounted(() => {
               <span v-if="item.feedback === 'unuseful'" class="feedback-badge badge-unuseful">无用</span>
               <span v-else-if="item.feedback === 'useful'" class="feedback-badge badge-useful">有用</span>
               <span class="time">{{ fmtTime(item.created_at) }}</span>
-              <span class="ms-tag">{{ item.elapsed_ms ?? '-' }} ms</span>
+              <span class="ms-tag" :title="item.elapsed_ms != null ? `${item.elapsed_ms} ms` : ''">
+                {{ formatDuration(item.elapsed_ms) }}
+              </span>
             </div>
 
             <div class="q-text" :title="item.question">
@@ -449,7 +471,10 @@ onUnmounted(() => {
               </div>
               <div class="summary-item">
                 <span class="lbl">响应耗时</span>
-                <span class="val highlight-val">{{ detail.meta.elapsed_ms ?? '-' }} ms</span>
+                <span class="val highlight-val" :title="detail.meta.elapsed_ms != null ? `${detail.meta.elapsed_ms} ms` : ''">
+                  {{ formatDuration(detail.meta.elapsed_ms) }}
+                  <span v-if="detail.meta.elapsed_ms != null" class="raw-ms">({{ detail.meta.elapsed_ms }} ms)</span>
+                </span>
               </div>
               <div class="summary-item">
                 <span class="lbl">接口路径</span>
@@ -500,7 +525,9 @@ onUnmounted(() => {
                 <div class="stage-bar-wrapper">
                   <div class="stage-bar" :style="{ width: `${Math.max((Number(ms) / maxStageMs) * 100, 4)}%` }"></div>
                 </div>
-                <div class="stage-ms">{{ ms }} ms</div>
+                <div class="stage-ms" :title="ms != null ? `${ms} ms` : ''">
+                  {{ formatDuration(ms) }}
+                </div>
               </div>
             </div>
             <div v-else class="empty-hint">
@@ -629,8 +656,9 @@ onUnmounted(() => {
                 title="有用"
                 @click="handleTraceFeedback('useful')"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 10v12"/>
+                  <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3 3 0 0 1 3 3.88Z"/>
                 </svg>
                 <span>有用</span>
               </button>
@@ -641,8 +669,9 @@ onUnmounted(() => {
                 title="无用"
                 @click="handleTraceFeedback('unuseful')"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 14V2"/>
+                  <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3 3 0 0 1-3-3.88Z"/>
                 </svg>
                 <span>无用</span>
               </button>
@@ -1098,6 +1127,13 @@ button:disabled {
   color: #2563eb !important;
 }
 
+.raw-ms {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
 .font-mono {
   font-family: monospace;
 }
@@ -1192,7 +1228,7 @@ button:disabled {
 
 .stage-row {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 80px;
+  grid-template-columns: 180px minmax(0, 1fr) 140px;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
@@ -1236,7 +1272,7 @@ button:disabled {
   font-size: 12px;
   font-weight: 600;
   color: #0f172a;
-  font-family: monospace;
+  white-space: nowrap;
 }
 
 .query-grid {

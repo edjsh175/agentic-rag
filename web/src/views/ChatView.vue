@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'ChatView' })
 import { ref, onMounted, nextTick, computed } from 'vue'
 import type { Message, SourceDoc, Stats, ClarificationOption } from '../types'
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'

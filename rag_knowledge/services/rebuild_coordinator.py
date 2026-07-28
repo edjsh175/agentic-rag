@@ -188,6 +188,17 @@ class RebuildCoordinator:
                 self._scanner.reload_index()
                 self._rebuild_bm25()
                 self._invalidate_retrieval_caches("rebuild_commit")
+
+                graph_resync_stats = {}
+                try:
+                    from rag_knowledge.services.graph_resync import GraphResyncService
+
+                    graph_resync_stats = GraphResyncService(store=self._store).resync(index_backup)
+                except Exception as resync_exc:
+                    import logging
+
+                    logging.getLogger(__name__).warning("Graph resync after rebuild failed: %s", resync_exc)
+
                 if state_path.exists():
                     state_path.unlink()
                 return {
@@ -196,6 +207,7 @@ class RebuildCoordinator:
                     "backup_collection": backup_name,
                     "index_backup_path": str(index_backup),
                     "graph_backup_path": graph_backup_path,
+                    "graph_resync_stats": graph_resync_stats,
                     "new_files": result["new_files"],
                     "skipped_files": result["skipped_files"],
                     "errors": result["errors"],

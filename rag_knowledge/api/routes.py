@@ -1679,3 +1679,22 @@ def detect_duplicate_chunks():
     except Exception as e:
         logger.error("检测重复块失败: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/knowledge_graph/resync")
+@router.post("/graph/resync")
+def resync_graph_chunks(index_backup_path: str = ""):
+    """手动触发图谱 Chunk ID 重新映射绑定与溯源同步"""
+    try:
+        from rag_knowledge.services.graph_resync import GraphResyncService
+
+        bp = Path(index_backup_path) if index_backup_path else None
+        res = GraphResyncService(store=_store).resync(index_backup_path=bp)
+        return {
+            "status": "ok",
+            "message": "图谱溯源同步完成",
+            "stats": res,
+        }
+    except Exception as e:
+        logger.error("图谱溯源同步失败: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

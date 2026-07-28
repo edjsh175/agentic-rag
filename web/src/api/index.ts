@@ -39,6 +39,7 @@ import type {
   QaTraceDetail,
   QaTraceListResult,
   ClarifyResult,
+  MessageClarification,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -492,6 +493,7 @@ interface StoredMessage {
   content: string
   hasImage?: boolean
   sources?: any[]
+  clarification?: MessageClarification
 }
 
 /** 从服务器加载聊天记录；无记录时返回 null，便于回退 localStorage */

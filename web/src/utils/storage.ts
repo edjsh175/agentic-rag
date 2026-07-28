@@ -5,7 +5,7 @@
  * 保存策略：服务器为主，localStorage 为回退
  * 图片策略：base64 仅存浏览器 IndexedDB，服务器存 hasImage 标记
  */
-import type { Message as ChatMessage, SourceDoc } from '../types'
+import type { Message as ChatMessage, SourceDoc, MessageClarification } from '../types'
 import { loadServerChat, saveServerChat, deleteServerChat } from '../api'
 import { getFingerprint } from './fingerprint'
 
@@ -24,6 +24,7 @@ interface StoredMsg {
   sources?: SourceDoc[]
   feedback?: 'useful' | 'unuseful' | null
   trace_id?: string | null
+  clarification?: MessageClarification
 }
 
 // ================================================================
@@ -39,6 +40,7 @@ function saveMessages(messages: ChatMessage[]): void {
     sources: m.sources,
     feedback: m.feedback,
     trace_id: m.trace_id,
+    clarification: m.clarification,
   }))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
@@ -138,6 +140,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         sources: s.sources,
         feedback: s.feedback,
         trace_id: s.trace_id,
+        clarification: s.clarification,
       }
       if (s.hasImage) {
         msg.imageUrl = (await loadImageFromDB(s.id)) ?? undefined
@@ -166,6 +169,7 @@ export async function loadChatState(): Promise<ChatMessage[]> {
         sources: m.sources,
         feedback: m.feedback,
         trace_id: m.trace_id,
+        clarification: m.clarification,
       }))
       return restoreMessages(stored)
     }
@@ -202,6 +206,7 @@ export async function saveChatState(messages: ChatMessage[]): Promise<void> {
       sources: m.sources,
       feedback: m.feedback,
       trace_id: m.trace_id,
+      clarification: m.clarification,
     }))
 
   // 2. 写入服务器
