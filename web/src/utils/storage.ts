@@ -22,6 +22,8 @@ interface StoredMsg {
   content: string
   hasImage: boolean
   sources?: SourceDoc[]
+  feedback?: 'useful' | 'unuseful' | null
+  trace_id?: string | null
 }
 
 // ================================================================
@@ -35,6 +37,8 @@ function saveMessages(messages: ChatMessage[]): void {
     content: m.content,
     hasImage: !!m.imageUrl,
     sources: m.sources,
+    feedback: m.feedback,
+    trace_id: m.trace_id,
   }))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
@@ -132,6 +136,8 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         role: s.role,
         content: s.content,
         sources: s.sources,
+        feedback: s.feedback,
+        trace_id: s.trace_id,
       }
       if (s.hasImage) {
         msg.imageUrl = (await loadImageFromDB(s.id)) ?? undefined
@@ -152,12 +158,14 @@ export async function loadChatState(): Promise<ChatMessage[]> {
   try {
     const serverMessages = await loadServerChat(fingerprint)
     if (serverMessages) {
-      const stored: StoredMsg[] = serverMessages.map((m) => ({
+      const stored: StoredMsg[] = serverMessages.map((m: any) => ({
         id: m.id,
         role: m.role,
         content: m.content,
         hasImage: !!m.hasImage,
         sources: m.sources,
+        feedback: m.feedback,
+        trace_id: m.trace_id,
       }))
       return restoreMessages(stored)
     }
@@ -192,6 +200,8 @@ export async function saveChatState(messages: ChatMessage[]): Promise<void> {
       content: m.content,
       hasImage: !!m.imageUrl,
       sources: m.sources,
+      feedback: m.feedback,
+      trace_id: m.trace_id,
     }))
 
   // 2. 写入服务器

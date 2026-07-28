@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: optimize query clarification, evidence pack formatting, and UI response layout"
+    commit_msg = "feat: implement quality feedback service, validation dashboard, and sync coordination"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

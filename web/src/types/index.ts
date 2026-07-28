@@ -18,6 +18,10 @@ export interface Message {
   thinking?: string
   /** 歧义反问卡片 */
   clarification?: MessageClarification
+  /** 用户反馈（useful / unuseful） */
+  feedback?: 'useful' | 'unuseful' | null
+  /** 对应后端追踪 ID */
+  trace_id?: string | null
 }
 
 /** 反问选项过滤器 */
@@ -340,6 +344,7 @@ export interface QaTraceSummary {
   cited_count?: number
   runtime?: Record<string, unknown>
   file?: string
+  feedback?: 'useful' | 'unuseful' | string | null
 }
 
 export interface QaTraceListResult {
@@ -358,6 +363,7 @@ export interface QaTraceDetail {
     elapsed_ms?: number
     error?: string | null
   }
+  feedback?: 'useful' | 'unuseful' | string | null
   request: Record<string, unknown>
   runtime: Record<string, unknown>
   stages: Record<string, number>
@@ -496,3 +502,47 @@ export interface IngestionDecision {
   created_at: string
 }
 
+export interface QualityMetrics {
+  total_chunks: number
+  approved_ratio: number
+  pending_chunks: number
+  isolated_entities: number
+  isolated_chunks: number
+  duplicate_ratio: number
+  no_result_ratio_7d: number
+  satisfaction_ratio_7d: number
+}
+
+export interface QualityAlert {
+  type: 'negative_feedback' | 'duplicate' | string
+  chunk_id: string
+  source_file: string
+  down_count: number
+  reason: string
+}
+
+export interface QualityDashboardData {
+  metrics: QualityMetrics
+  alerts: QualityAlert[]
+}
+
+export interface UserFeedbackPayload {
+  user_id?: string
+  query_text?: string
+  answer_text?: string
+  referenced_chunk_ids?: string[]
+  rating: 'up' | 'down'
+  reason?: string
+  trace_id?: string
+}
+
+export interface UserFeedbackResult {
+  feedback_id: string
+  rating: string
+  triggered_chunks: Array<{
+    chunk_id: string
+    down_count: number
+    reason: string
+  }>
+  message: string
+}

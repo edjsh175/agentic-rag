@@ -207,6 +207,7 @@ export async function queryKnowledgeStream(
     onThinking?: (thought: string) => void
     onFinalAnswer?: (answer: string) => void
     onSources: (sources: any[]) => void
+    onTrace?: (traceId: string) => void
     onDone: () => void
     onError: (err: Error) => void
   },
@@ -275,6 +276,8 @@ export async function queryKnowledgeStream(
             callbacks.onFinalAnswer?.(event.data)
           } else if (event.type === 'sources') {
             callbacks.onSources(event.data)
+          } else if (event.type === 'trace') {
+            callbacks.onTrace?.(event.data)
           } else if (event.type === 'done') {
             callbacks.onDone()
           }
@@ -626,6 +629,14 @@ export async function deleteQaTrace(traceId: string) {
   return data
 }
 
+export async function updateQaTraceFeedback(traceId: string, feedback: 'useful' | 'unuseful' | null) {
+  const { data } = await http.post<{ ok: boolean; trace_id: string; feedback: string | null }>(
+    `/admin/qa-traces/${encodeURIComponent(traceId)}/feedback`,
+    { feedback },
+  )
+  return data
+}
+
 export async function getProductBackbonePreview() {
   return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview')
 }
@@ -738,3 +749,19 @@ export async function getGraphCandidateQuality(batchId: string) {
   return getJSON<GraphQualityReport>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/quality`)
 }
 
+import type { QualityDashboardData, UserFeedbackPayload, UserFeedbackResult } from '../types'
+
+/** 获取质量控制仪表盘数据与预警列表 */
+export async function getQualityDashboard() {
+  return getJSON<QualityDashboardData>('/quality/dashboard')
+}
+
+/** 提交用户反馈并自动触发差评重审闭环 */
+export async function submitUserFeedback(payload: UserFeedbackPayload) {
+  return postJSON<UserFeedbackResult>('/feedback', payload)
+}
+
+/** 手动触发 SimHash 文本重复块检测 */
+export async function triggerDuplicateCheck() {
+  return postJSON<{ duplicate_count: number; duplicates: any[] }>('/quality/detect-duplicates')
+}

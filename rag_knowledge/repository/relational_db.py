@@ -90,6 +90,7 @@ class RelationalDB:
                 1: self._migration_v1,
                 2: self._migration_v2,
                 3: self._migration_v3,
+                4: self._migration_v4,
             }
 
             for version, migration_func in sorted(migrations.items()):
@@ -189,6 +190,24 @@ class RelationalDB:
         """V3 Schema: extraction staging tables."""
         from rag_knowledge.models.graph_schema import KG_DDL_V3_STAGING
         conn.executescript(KG_DDL_V3_STAGING)
+
+    def _migration_v4(self, conn: sqlite3.Connection):
+        """V4 Schema: user_feedbacks table for quality control feedback loop."""
+        conn.executescript(
+            "CREATE TABLE IF NOT EXISTS user_feedbacks ("
+            "  id TEXT PRIMARY KEY,"
+            "  user_id TEXT NOT NULL,"
+            "  query_text TEXT NOT NULL,"
+            "  answer_text TEXT NOT NULL,"
+            "  referenced_chunk_ids TEXT NOT NULL DEFAULT '[]',"
+            "  rating TEXT NOT NULL,"
+            "  reason TEXT DEFAULT '',"
+            "  trace_id TEXT DEFAULT '',"
+            "  created_at TEXT DEFAULT (datetime('now', 'localtime'))"
+            ");"
+            "CREATE INDEX IF NOT EXISTS idx_user_feedbacks_rating ON user_feedbacks(rating);"
+            "CREATE INDEX IF NOT EXISTS idx_user_feedbacks_created_at ON user_feedbacks(created_at);"
+        )
 
     @staticmethod
     def _uid() -> str:
@@ -656,3 +675,93 @@ class RelationalDB:
                 "relations": conn.execute("SELECT COUNT(*) FROM relations").fetchone()[0],
                 "entity_chunk_links": conn.execute("SELECT COUNT(*) FROM entity_chunk_links").fetchone()[0],
             }
+
+    # ------------------------------------------------------------------
+    # User Feedbacks CRUD (Quality Control & Feedback Loop)
+    # ------------------------------------------------------------------
+
+    def create_feedback(
+        self,
+        user_id: str,
+        query_text: str,
+        answer_text: str,
+        referenced_chunk_ids: list[str],
+        rating: str,
+        reason: str = "",
+        trace_id: str = "",
+    ) -> str:
+        fid = self._uid()
+        now = self._now()
+        chunks_json = json.dumps(referenced_chunk_ids or [], ensure_ascii=False)
+        with self._get_conn() as conn:
+            conn.execute(
+                "INSERT INTO user_feedbacks (id, user_id, query_text, answer_text, referenced_chunk_ids, rating, reason, trace_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (fid, user_id, query_text, answer_text, chunks_json, rating, reason, trace_id, now),
+            )
+        return fid
+
+    def get_feedback(self, feedback_id: str) -> dict | None:
+        with self._get_conn() as conn:
+            row = conn.execute("SELECT * FROM user_feedbacks WHERE id = ?", (feedback_id,)).fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            try:
+                d["referenced_chunk_ids"] = json.loads(d.get("referenced_chunk_ids") or "[]")
+            except Exception:
+                d["referenced_chunk_ids"] = []
+            return d
+
+    def list_feedbacks(self, rating: str = "", limit: int = 100) -> list[dict]:
+        sql = "SELECT * FROM user_feedbacks"
+        params = []
+        if rating:
+            sql += " WHERE rating = ?"
+            params.append(rating)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._get_conn() as conn:
+            rows = conn.execute(sql, params).fetchall()
+            res = []
+            for r in rows:
+                d = dict(r)
+                try:
+                    d["referenced_chunk_ids"] = json.loads(d.get("referenced_chunk_ids") or "[]")
+                except Exception:
+                    d["referenced_chunk_ids"] = []
+                res.append(d)
+            return res
+
+    def count_chunk_down_ratings(self, chunk_id: str) -> int:
+        """Count total rating='down' for a specific chunk_id in user_feedbacks."""
+        if not chunk_id:
+            return 0
+        with self._get_conn() as conn:
+            rows = conn.execute("SELECT referenced_chunk_ids FROM user_feedbacks WHERE rating = 'down'").fetchall()
+            count = 0
+            for r in rows:
+                try:
+                    ids = json.loads(r["referenced_chunk_ids"] or "[]")
+                    if chunk_id in ids:
+                        count += 1
+                except Exception:
+                    continue
+            return count
+
+    def get_7d_feedback_stats(self) -> dict:
+        """Get feedback counts (up, down, total) in the last 7 days."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT rating, COUNT(*) as cnt FROM user_feedbacks "
+                "WHERE created_at >= datetime('now', '-7 days', 'localtime') "
+                "GROUP BY rating"
+            ).fetchall()
+            stats = {"up": 0, "down": 0, "total": 0}
+            for r in rows:
+                rating = r["rating"]
+                cnt = r["cnt"]
+                if rating in stats:
+                    stats[rating] = cnt
+                stats["total"] += cnt
+            return stats

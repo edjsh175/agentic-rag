@@ -615,7 +615,7 @@ docker compose up -d
 - **图扩召回证据**：图侧 chunk 来自 `entity_chunk_links`（实体→chunk），不是「向量命中块的父章节兄弟块」；关系级 `source_chunk_id` 用于血缘/准入，与实体链接是两层
 - **Field 限定名（Task 8.2）**：canonical Field 为 `{DataTable}.{leaf}`（如 `管线面表.管面编号`）；禁止裸 Field/Section；profile sync 不得创建裸 `PipelineBuilder > …` Section
 - **Profile sync 生产写门禁**：`graph_governance.assert_write_confirmation()` 要求显式确认 DB 路径、batch id、备份文件；`profile_sync` / `domain_catalog_seed` 等 mode 禁止 `--approve-all`
-- **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 104 条 `missing_evidence` 不改变专项判定
+- **Task 8.1 专项 Gate**：`Task81GraphGateValidator` 校验四 profile 运行时事实 + migration preview；`global_graph_quality` 中历史 `missing_evidence` 不改变专项判定（口头 104 条债已于 2026-07-27 清零，见第 4 轮清债纪要）
 - **Reranker 全局门控**：`[reranker] enabled=false`（或 `RERANKER_ENABLED=false`）时三层防御——(1) `QueryPlanner` / `_plan_retrieval` fallback 不产出 `enable_rerank=True`；(2) `_get_reranker()` 返回 `None`；(3) `_postprocess_docs` / `_postprocess_docs_sync` 对 `None` 或加载失败截断 `top_n`。`force_rerank=True` 不能绕过全局开关
 - **Docker 依赖拆分（两条 torch 口子）**：路径 A = `INSTALL_RERANKER` + `requirements-reranker.txt`（Reranker）；路径 B = base 里若写 `unstructured[pdf]` 会经 inference 再拉 torch（与 Reranker 门控无关）。现 base 为 `unstructured==0.18.32` 且禁止 `[pdf]`。`requirements.txt` 聚合两者供本地开发；`requirements-cuda.txt` 仅本地 GPU，不纳入 CPU 生产镜像验收。详见 [`deploy/README.md`](deploy/README.md) §5
 - **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据

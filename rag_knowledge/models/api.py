@@ -80,6 +80,10 @@ class QaTraceListResponse(BaseModel):
     offset: int
 
 
+class QaTraceFeedbackRequest(BaseModel):
+    feedback: Optional[str] = None
+
+
 class UploadResponse(BaseModel):
     message: str
     chunks_count: int
@@ -584,3 +588,43 @@ class GraphQualityResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     stats: dict = Field(default_factory=dict)
 
+
+class UserFeedbackRequest(BaseModel):
+    user_id: str = "anonymous_user"
+    query_text: str = ""
+    answer_text: str = ""
+    referenced_chunk_ids: list[str] = Field(default_factory=list)
+    rating: str
+    reason: str = ""
+    trace_id: str = ""
+
+
+class UserFeedbackResponse(BaseModel):
+    feedback_id: str
+    rating: str
+    triggered_chunks: list[dict] = Field(default_factory=list)
+    message: str = "Feedback recorded"
+
+
+class QualityMetrics(BaseModel):
+    total_chunks: int
+    approved_ratio: float
+    pending_chunks: int
+    isolated_entities: int
+    isolated_chunks: int
+    duplicate_ratio: float
+    no_result_ratio_7d: float
+    satisfaction_ratio_7d: float
+
+
+class QualityAlert(BaseModel):
+    type: str
+    chunk_id: str
+    source_file: str
+    down_count: int
+    reason: str
+
+
+class QualityDashboardResponse(BaseModel):
+    metrics: QualityMetrics
+    alerts: list[QualityAlert] = Field(default_factory=list)

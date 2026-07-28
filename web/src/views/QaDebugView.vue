@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream } from '../api'
+import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback } from '../api'
 import type { EvidenceChain, QaTraceDetail, QaTraceSummary } from '../types'
 
 const question = ref('')
@@ -283,6 +283,27 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+const currentFeedback = computed(() => {
+  return (
+    detail.value?.feedback ||
+    (items.value.find((i) => i.trace_id === selectedId.value)?.feedback as string | undefined) ||
+    null
+  )
+})
+
+async function handleTraceFeedback(fb: 'useful' | 'unuseful') {
+  if (!selectedId.value || selectedId.value === '(运行中)') return
+  const nextFb = currentFeedback.value === fb ? null : fb
+  if (detail.value) detail.value.feedback = nextFb
+  const item = items.value.find((i) => i.trace_id === selectedId.value)
+  if (item) item.feedback = nextFb
+  try {
+    await updateQaTraceFeedback(selectedId.value, nextFb)
+  } catch (e: any) {
+    error.value = e.message || '更新反馈失败'
+  }
+}
+
 async function removeSelected() {
   if (!selectedId.value || selectedId.value === '(运行中)') return
   if (!confirm(`确认删除追踪记录 ${selectedId.value}？`)) return
@@ -363,6 +384,8 @@ onUnmounted(() => {
               <span class="status-badge" :class="item.error ? 'badge-error' : 'badge-success'">
                 {{ item.error ? '异常' : '正常' }}
               </span>
+              <span v-if="item.feedback === 'unuseful'" class="feedback-badge badge-unuseful">无用</span>
+              <span v-else-if="item.feedback === 'useful'" class="feedback-badge badge-useful">有用</span>
               <span class="time">{{ fmtTime(item.created_at) }}</span>
               <span class="ms-tag">{{ item.elapsed_ms ?? '-' }} ms</span>
             </div>
@@ -594,6 +617,35 @@ onUnmounted(() => {
                 class="answer-text markdown-body"
                 v-html="renderMd(detail.answer?.text || liveAnswer || (loading ? '答案生成中...' : '暂无回答'))"
               ></div>
+            </div>
+
+            <!-- 反馈按钮组 -->
+            <div v-if="detail.answer?.text || liveAnswer" class="debug-feedback-toolbar">
+              <span class="feedback-label">反馈记录：</span>
+              <button
+                type="button"
+                class="feedback-btn btn-useful"
+                :class="{ active: currentFeedback === 'useful' }"
+                title="有用"
+                @click="handleTraceFeedback('useful')"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+                <span>有用</span>
+              </button>
+              <button
+                type="button"
+                class="feedback-btn btn-unuseful"
+                :class="{ active: currentFeedback === 'unuseful' }"
+                title="无用"
+                @click="handleTraceFeedback('unuseful')"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+                </svg>
+                <span>无用</span>
+              </button>
             </div>
 
             <h3 class="section-title margin-top-lg">引用参考来源</h3>
@@ -1571,6 +1623,77 @@ button:disabled {
   font-size: 14px;
   color: #64748b;
   margin: 0;
+}
+
+.feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.badge-unuseful {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.badge-useful {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.debug-feedback-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.debug-feedback-toolbar .feedback-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.debug-feedback-toolbar .feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.debug-feedback-toolbar .feedback-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+.debug-feedback-toolbar .feedback-btn.btn-useful.active {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+  font-weight: 600;
+}
+
+.debug-feedback-toolbar .feedback-btn.btn-unuseful.active {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+  font-weight: 600;
 }
 
 @media (max-width: 1024px) {

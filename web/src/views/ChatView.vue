@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
 import type { Message, SourceDoc, Stats, ClarificationOption } from '../types'
-import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, DOCUMENT_PROFILE_OPTIONS } from '../api'
+import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
@@ -313,6 +313,9 @@ async function handleSend(text: string, image?: File) {
           currentSources.value = sources
           lastAiMsg().sources = sources
         },
+        onTrace: (traceId) => {
+          lastAiMsg().trace_id = traceId
+        },
         onDone: () => {
           streamOk = true
           abortController.value = null
@@ -357,6 +360,39 @@ async function handleSend(text: string, image?: File) {
     }
     loading.value = false
     abortController.value = null
+  }
+}
+
+async function handleFeedbackChange(msg: Message, feedback: 'useful' | 'unuseful') {
+  if (msg.feedback === feedback) {
+    msg.feedback = null
+  } else {
+    msg.feedback = feedback
+  }
+  await persist()
+
+  if (msg.feedback) {
+    const chunkIds = (msg.sources || [])
+      .map((s) => s.metadata?.chunk_id)
+      .filter((id): id is string => !!id)
+
+    const msgIndex = messages.value.findIndex((m) => m.id === msg.id)
+    const userQuery = msgIndex > 0 && messages.value[msgIndex - 1].role === 'user'
+      ? messages.value[msgIndex - 1].content
+      : ''
+
+    submitUserFeedback({
+      user_id: 'chat_user',
+      query_text: userQuery,
+      answer_text: msg.content,
+      referenced_chunk_ids: chunkIds,
+      rating: msg.feedback === 'useful' ? 'up' : 'down',
+      trace_id: msg.trace_id || undefined,
+    }).catch(() => {})
+  }
+
+  if (msg.trace_id) {
+    updateQaTraceFeedback(msg.trace_id, msg.feedback).catch(() => {})
   }
 }
 
@@ -762,8 +798,11 @@ function scrollDown() {
             :thinking="msg.thinking"
             :sources="msg.sources"
             :clarification="msg.clarification"
+            :feedback="msg.feedback"
+            :trace-id="msg.trace_id"
             @citation-click="handleCitationClick(msg, $event)"
             @select-clarification-option="handleSelectClarificationOption(msg, $event)"
+            @feedback-change="handleFeedbackChange(msg, $event)"
           />
         </div>
       </div>

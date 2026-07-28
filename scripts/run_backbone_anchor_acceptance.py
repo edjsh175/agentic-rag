@@ -332,7 +332,7 @@ def main():
         "--out-dir",
         default=str(
             ROOT
-            / "docs/3_待办清单/知识图谱语义抽取/进行中-主干锚定检索与关系可答"
+            / "docs/3_待办清单/知识图谱语义抽取/已完成-主干锚定检索与关系可答"
         ),
     )
     args = parser.parse_args()

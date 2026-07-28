@@ -14,11 +14,14 @@ const props = defineProps<{
   thinking?: string
   sources?: SourceDoc[]
   clarification?: MessageClarification
+  feedback?: 'useful' | 'unuseful' | null
+  traceId?: string | null
 }>()
 
 const emit = defineEmits<{
   citationClick: [citationId: number]
   selectClarificationOption: [option: ClarificationOption]
+  feedbackChange: [feedback: 'useful' | 'unuseful']
 }>()
 
 const showThinking = ref(true)
@@ -118,6 +121,35 @@ function handleContentClick(event: MouseEvent) {
         </div>
 
         <div v-if="content" class="md" v-html="rendered" @click="handleContentClick"></div>
+
+        <!-- 反馈按钮组 -->
+        <div v-if="!isUser && !loading && content" class="feedback-toolbar">
+          <span class="feedback-label">反馈记录：</span>
+          <button
+            type="button"
+            class="feedback-btn btn-useful"
+            :class="{ active: feedback === 'useful' }"
+            title="有用"
+            @click="emit('feedbackChange', 'useful')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+            </svg>
+            <span>有用</span>
+          </button>
+          <button
+            type="button"
+            class="feedback-btn btn-unuseful"
+            :class="{ active: feedback === 'unuseful' }"
+            title="无用"
+            @click="emit('feedbackChange', 'unuseful')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+            </svg>
+            <span>无用</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -131,6 +163,54 @@ function handleContentClick(event: MouseEvent) {
 }
 .msg--user {
   flex-direction: row-reverse;
+}
+
+.feedback-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.feedback-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feedback-btn:hover {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.feedback-btn.btn-useful.active {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+  font-weight: 500;
+}
+
+.feedback-btn.btn-unuseful.active {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+  font-weight: 500;
 }
 
 .avatar {

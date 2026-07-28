@@ -39,6 +39,7 @@ from rag_knowledge.models.api import (
     BatchReviewRequest,
     ChunkStatsResponse,
     QaTraceListResponse,
+    QaTraceFeedbackRequest,
     ReviewRequest,
     ReviewResponse,
     RebuildRequest,
@@ -103,7 +104,11 @@ from rag_knowledge.models.api import (
     GraphCandidateReviewResponse,
     GraphCandidateApplyResponse,
     GraphQualityResponse,
+    UserFeedbackRequest,
+    UserFeedbackResponse,
+    QualityDashboardResponse,
 )
+from rag_knowledge.services.quality_service import QualityService
 
 logger = logging.getLogger(__name__)
 
@@ -1170,6 +1175,15 @@ def delete_qa_trace(trace_id: str):
     return {"ok": True, "trace_id": trace_id}
 
 
+@router.post("/admin/qa-traces/{trace_id}/feedback")
+def update_qa_trace_feedback(trace_id: str, req: QaTraceFeedbackRequest):
+    """Update user feedback (useful/unuseful) for a persisted QA trace."""
+    ok = QaTraceStore().update_feedback(trace_id, req.feedback)
+    if not ok:
+        raise HTTPException(404, detail="trace 不存在")
+    return {"ok": True, "trace_id": trace_id, "feedback": req.feedback}
+
+
 @router.get("/admin/knowledge_graph/product_backbone_preview", response_model=GraphDataResponse)
 def get_product_backbone_preview():
     """Return the unconfirmed product backbone preview graph without touching KG tables."""
@@ -1609,3 +1623,59 @@ def inspect_graph_candidate_batch(batch_id: str):
     except Exception as e:
         logger.error("Failed to inspect graph candidate batch: %s", e)
         raise HTTPException(500, detail=str(e))
+
+
+# ------------------------------------------------------------------
+# 质量控制仪表盘与反馈闭环 (Quality Control & Feedback Loop)
+# ------------------------------------------------------------------
+
+@router.get("/quality/dashboard", response_model=QualityDashboardResponse)
+def get_quality_dashboard():
+    """获取质量控制仪表盘汇总数据与预警列表"""
+    try:
+        service = QualityService(store=_store)
+        data = service.get_dashboard_data()
+        return QualityDashboardResponse(**data)
+    except Exception as e:
+        logger.error("获取质量仪表盘数据失败: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/feedback", response_model=UserFeedbackResponse)
+def submit_user_feedback(req: UserFeedbackRequest):
+    """提交用户有用/无用反馈并自动触发差评重审闭环"""
+    try:
+        service = QualityService(store=_store)
+        res = service.process_user_feedback(
+            user_id=req.user_id,
+            query_text=req.query_text,
+            answer_text=req.answer_text,
+            referenced_chunk_ids=req.referenced_chunk_ids,
+            rating=req.rating,
+            reason=req.reason,
+            trace_id=req.trace_id,
+        )
+        return UserFeedbackResponse(
+            feedback_id=res["feedback_id"],
+            rating=res["rating"],
+            triggered_chunks=res["triggered_chunks"],
+            message=f"已成功提交 {req.rating} 反馈",
+        )
+    except Exception as e:
+        logger.error("提交用户反馈失败: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/quality/detect-duplicates")
+def detect_duplicate_chunks():
+    """手动触发 SimHash 文本重复块检测"""
+    try:
+        service = QualityService(store=_store)
+        duplicates = service.detect_duplicate_chunks(similarity_threshold=0.95)
+        return {
+            "duplicate_count": len(duplicates),
+            "duplicates": duplicates,
+        }
+    except Exception as e:
+        logger.error("检测重复块失败: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

@@ -262,6 +262,7 @@ class QaTraceStore:
             "candidate_count": (payload.get("retrieval") or {}).get("candidate_count", 0),
             "cited_count": len(((payload.get("evidence") or {}).get("cited") or [])),
             "runtime": payload.get("runtime") or {},
+            "feedback": payload.get("feedback"),
             "file": str(path.relative_to(self._root)).replace("\\", "/"),
         }
         with self._lock:
@@ -270,6 +271,28 @@ class QaTraceStore:
                 fh.write(json.dumps(summary, ensure_ascii=False) + "\n")
             self._prune_locked()
         return path
+
+    def update_feedback(self, trace_id: str, feedback: str | None) -> bool:
+        tid = (trace_id or "").strip()
+        if not tid:
+            return False
+        with self._lock:
+            updated = False
+            for path in list(self._root.glob(f"*/{tid}.json")):
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    data["feedback"] = feedback
+                    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                    updated = True
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("qa_trace update_feedback file failed: %s", exc)
+            if self._index_path.exists():
+                rows = self._iter_index()
+                for r in rows:
+                    if r.get("trace_id") == tid:
+                        r["feedback"] = feedback
+                self._rewrite_index(rows)
+        return updated
 
     def get(self, trace_id: str) -> dict[str, Any] | None:
         tid = (trace_id or "").strip()

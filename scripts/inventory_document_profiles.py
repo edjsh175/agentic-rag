@@ -182,7 +182,7 @@ def main() -> int:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("docs/3_待办清单/切块基石治理/进行中-第0C轮-切块合并与隔离验证/文档画像盘点"),
+        default=Path("docs/3_待办清单/切块基石治理/已完成-第0C轮-切块合并与隔离验证/文档画像盘点"),
     )
     parser.add_argument("--write-map", action="store_true")
     parser.add_argument("--controlled-0g", action="store_true")

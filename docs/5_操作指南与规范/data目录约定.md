@@ -1,6 +1,7 @@
 # data/ 目录约定
 
 - **生效日期**：2026-07-20
+- **最近复核**：2026-07-28（Round 3/4 产物状态已更新，见 §4）
 - **目的**：区分 live 真源 / 运行时文件与历史生成物，避免文档把归档路径或缺失产物写成「已完成」。
 
 ## 1. 留在 `data/` 根目录
@@ -42,8 +43,9 @@
 
 新 spike 默认仍可写 `data/chunk_audit/`（见 `scripts/spike_parse_lineage.py`）；跑完后迁入 archive。
 
-## 4. Round 3 特别口径
+## 4. Round 3 / 后续口径（更新至 2026-07-28）
 
 - **不要**把「有 dry-run 归档」或「有 RebuildCoordinator before.db」当成 Round 3 完成。
-- Round 3 完成至少需要：`rebuild_safe_execute_round3.*`、执行日志、`graph_audit_post_round3.json`、填写后的验收记录与 §10 表。
-- 截至 2026-07-20，上述 execute 产物与 `data/backups/rag_relational_pre_round3*.db` **现场均不存在**。导航以 [知识图谱PRD剩余轮次总览](../3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md) §1.1 为准。
+- Round 3 规则路径完成至少需要：`rebuild_safe_execute_round3.*`、执行日志、`graph_audit_post_round3.json`、填写后的验收记录与 §10 表。
+- **现场（2026-07-22 起）**：上述 execute 产物与 `data/backups/rag_relational_pre_round3*.db` **已存在**；实 LLM 由「第 3 轮补」按类目补抽完成；第 4 轮 GraphRAG A/B 已 PASS。
+- 导航以 [知识图谱PRD剩余轮次总览](../3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md) 与 [第4轮阶段总结](../3_待办清单/知识图谱语义抽取/已完成-第4轮-GraphRAG实效验收/2026-07-27-阶段总结.md) 为准。

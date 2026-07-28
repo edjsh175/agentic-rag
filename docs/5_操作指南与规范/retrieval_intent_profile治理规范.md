@@ -141,7 +141,7 @@ Profile 同步到图谱（`sync_profiles_to_graph.py`）与运行时评分（`Gr
 ### 存在性与门禁
 
 - migration dry-run 区分 `exists_any` 与 `exists_approved`；pending 事实不算运行时满足。
-- 变更前/定期复验：`scripts/validate_task81_graph_gate.py --json`（`--skip-global-quality` 可跳过全图 104 条历史 `missing_evidence`）。
+- 变更前/定期复验：`scripts/validate_task81_graph_gate.py --json`（`--skip-global-quality` 可跳过全图质量项；历史上曾用于跳过 104 条 `missing_evidence`，该债已于 2026-07-27 清零）。
 - `NEEDS_APPLY` 时按拆分命令人工审批，**禁止** `--approve-all` 与 `--review-status approved` 直写正式库。
 
 ### 正式库验收（2026-07-10）

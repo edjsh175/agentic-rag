@@ -8,6 +8,7 @@ describe('application routes', () => {
       '/',
       '/blog',
       '/admin/chunks',
+      '/admin/quality',
       '/admin/graph-candidates',
       '/admin/graph',
       '/admin/qa-debug',
