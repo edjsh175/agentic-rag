@@ -325,7 +325,10 @@ async def query_stream(req: QueryRequest):
                                               entity_name=entity_name,
                                               thinking=req.thinking, web_search=req.web_search,
                                               allow_general_knowledge=req.allow_general_knowledge,
-                                              agent_prompt=req.agent_prompt):
+                                              agent_prompt=req.agent_prompt,
+                                              pipeline_events=bool(req.pipeline_events),
+                                              pinned_chunk_ids=req.pinned_chunk_ids,
+                                              excluded_chunk_ids=req.excluded_chunk_ids):
             if event.get("type") == "status":
                 yield "event: status\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"

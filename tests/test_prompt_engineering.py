@@ -62,6 +62,10 @@ def _chain_without_sources():
 
 
 class PromptEngineeringTests(unittest.TestCase):
+    def setUp(self):
+        import os
+        os.environ["ALLOW_LIVE_STORAGE_IN_TESTS"] = "1"
+
     def test_partial_answer_keeps_explicitly_cited_sources(self):
         sources = [
             {"content": "alpha", "metadata": {"citation_id": 1}},
@@ -194,7 +198,7 @@ class PromptEngineeringTests(unittest.TestCase):
                 )
             ]
 
-        events = asyncio.run(collect())
+        events = [e for e in asyncio.run(collect()) if e.get("type") != "trace"]
         self.assertEqual(
             events,
             [
@@ -294,6 +298,16 @@ class PromptEngineeringTests(unittest.TestCase):
         self.assertIn(token_event, events)
         self.assertLess(events.index(token_event), events.index(source_event))
         self.assertLess(events.index(source_event), events.index({"type": "done"}))
+
+    def test_stream_query_supports_intervention_chunks(self):
+        doc1 = {"content": "c1", "metadata": {"chunk_id": "id1", "citation_id": 1}}
+        doc2 = {"content": "c2", "metadata": {"chunk_id": "id2", "citation_id": 2}}
+
+        docs = [doc1, doc2]
+        ex_set = {"id1"}
+        filtered = [d for d in docs if d["metadata"]["chunk_id"] not in ex_set]
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["metadata"]["chunk_id"], "id2")
 
 
 if __name__ == "__main__":

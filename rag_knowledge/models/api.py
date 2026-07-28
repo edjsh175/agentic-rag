@@ -34,6 +34,9 @@ class QueryRequest(BaseModel):
     web_search: Optional[bool] = None
     allow_general_knowledge: Optional[bool] = None
     agent_prompt: Optional[str] = None
+    pipeline_events: Optional[bool] = True
+    pinned_chunk_ids: Optional[list[str]] = None
+    excluded_chunk_ids: Optional[list[str]] = None
 
 
 class ClarificationOptionFilter(BaseModel):

@@ -2,8 +2,9 @@
 import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role, SourceDoc, MessageClarification, ClarificationOption } from '../types'
+import type { Role, SourceDoc, MessageClarification, ClarificationOption, PipelineStep, EvidencePack, EvidenceItem } from '../types'
 import { decorateCitations } from '../utils/citations'
+import EvidencePanel from './EvidencePanel.vue'
 
 const props = defineProps<{
   role: Role
@@ -16,12 +17,16 @@ const props = defineProps<{
   clarification?: MessageClarification
   feedback?: 'useful' | 'unuseful' | null
   traceId?: string | null
+  pipelineSteps?: PipelineStep[]
+  evidencePack?: EvidencePack
 }>()
 
 const emit = defineEmits<{
   citationClick: [citationId: number]
   selectClarificationOption: [option: ClarificationOption]
   feedbackChange: [feedback: 'useful' | 'unuseful']
+  pinChunk: [chunkId: string, item: EvidenceItem]
+  excludeChunk: [chunkId: string, item: EvidenceItem]
 }>()
 
 const showThinking = ref(true)
@@ -152,6 +157,15 @@ function handleContentClick(event: MouseEvent) {
             <span>无用</span>
           </button>
         </div>
+
+        <!-- 问答过程与证据调试面板 -->
+        <EvidencePanel
+          v-if="!isUser && !loading && (pipelineSteps?.length || evidencePack)"
+          :pipeline-steps="pipelineSteps"
+          :evidence-pack="evidencePack"
+          @pin-chunk="(id, item) => emit('pinChunk', id, item)"
+          @exclude-chunk="(id, item) => emit('excludeChunk', id, item)"
+        />
       </div>
     </div>
   </div>

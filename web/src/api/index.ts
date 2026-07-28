@@ -209,6 +209,7 @@ export async function queryKnowledgeStream(
     onFinalAnswer?: (answer: string) => void
     onSources: (sources: any[]) => void
     onTrace?: (traceId: string) => void
+    onPipeline?: (pipelineData: any) => void
     onDone: () => void
     onError: (err: Error) => void
   },
@@ -221,6 +222,8 @@ export async function queryKnowledgeStream(
   allowGeneralKnowledge?: boolean,
   docCategory?: string,
   entityName?: string,
+  pinnedChunkIds?: string[],
+  excludedChunkIds?: string[],
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
@@ -236,6 +239,9 @@ export async function queryKnowledgeStream(
       web_search: webSearch,
       agent_prompt: agentPrompt,
       allow_general_knowledge: allowGeneralKnowledge,
+      pipeline_events: true,
+      pinned_chunk_ids: pinnedChunkIds,
+      excluded_chunk_ids: excludedChunkIds,
     }),
     signal,
   })
@@ -279,6 +285,8 @@ export async function queryKnowledgeStream(
             callbacks.onSources(event.data)
           } else if (event.type === 'trace') {
             callbacks.onTrace?.(event.data)
+          } else if (event.type === 'pipeline') {
+            callbacks.onPipeline?.(event.data)
           } else if (event.type === 'done') {
             callbacks.onDone()
           }

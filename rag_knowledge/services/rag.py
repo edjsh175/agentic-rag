@@ -11,6 +11,7 @@ import re
 import json
 import time
 import logging
+import httpx
 from typing import Any
 from dataclasses import replace
 
@@ -319,9 +320,10 @@ class RagChain:
             path=path,
             kb_name=kb_name,
             doc_category=doc_category,
-            llm_model=llm_model or self._llm_model,
+            llm_model=llm_model or getattr(self, "_llm_model", None),
             thinking=thinking,
             history_rounds=len(history or []) // 2,
+            cfg=getattr(self, "_cfg", None),
         )
 
     def _commit_qa_trace(
@@ -2137,6 +2139,32 @@ class RagChain:
                 out["trace_id"] = tid
             return out
 
+    def _fetch_pinned_chunks(self, pinned_ids: list[str]) -> list[dict]:
+        if not pinned_ids:
+            return []
+        try:
+            collection = self._store.get_chroma()._collection
+            payload = collection.get(ids=list(set(pinned_ids)), include=["documents", "metadatas"])
+            res = []
+            for chunk_id, content, metadata in zip(
+                payload.get("ids") or [],
+                payload.get("documents") or [],
+                payload.get("metadatas") or [],
+            ):
+                meta = dict(metadata or {})
+                meta["pinned"] = True
+                if "chunk_id" not in meta:
+                    meta["chunk_id"] = chunk_id
+                res.append({
+                    "content": content or "",
+                    "metadata": meta,
+                    "score": 1.0,
+                })
+            return res
+        except Exception as err:
+            logger.warning("获取 pinned_chunk 失败: %s", err)
+            return []
+
     async def stream_query(self, question: str, history: list | None = None,
                             llm_model: str | None = None, vision_model: str | None = None,
                             kb_name: str | None = None, doc_category: str | None = None,
@@ -2147,6 +2175,8 @@ class RagChain:
                             agent_prompt: str | None = None,
                             *,
                             pipeline_events: bool = False,
+                            pinned_chunk_ids: list[str] | None = None,
+                            excluded_chunk_ids: list[str] | None = None,
                             path: str | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
@@ -2175,7 +2205,7 @@ class RagChain:
                         "question": q,
                         "kb_name": kb_name,
                         "doc_category": doc_category,
-                        "llm_model": llm_model or self._llm_model,
+                        "llm_model": llm_model or getattr(self, "_llm_model", None),
                         "thinking": thinking,
                     },
                 },
@@ -2191,7 +2221,8 @@ class RagChain:
         source_docs: list[dict] = []
         try:
             # 各阶段用 to_thread，避免同步 Ollama 调用卡住事件循环，便于 SSE 先刷出中间态
-            yield {"type": "status", "data": "正在改写 / 构建检索查询..."}
+            if pipeline_events:
+                yield {"type": "status", "data": "正在改写 / 构建检索查询..."}
             queries = await asyncio.to_thread(self._build_retrieval_query_specs, q, history)
             trace.mark("contextualize")
             if pipeline_events:
@@ -2204,7 +2235,8 @@ class RagChain:
                     },
                 }
 
-            yield {"type": "status", "data": "正在规划检索参数..."}
+            if pipeline_events:
+                yield {"type": "status", "data": "正在规划检索参数..."}
             plan = await asyncio.to_thread(
                 self._plan_retrieval, q, queries, force_rerank=True,
             )
@@ -2219,7 +2251,8 @@ class RagChain:
                     },
                 }
 
-            yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
+            if pipeline_events:
+                yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
             plan, graph_context, graph_docs = await asyncio.to_thread(
                 self._prepare_graph_plan,
                 q,
@@ -2285,10 +2318,29 @@ class RagChain:
                 source_docs, context = await asyncio.to_thread(_sync_retrieve)
             self._record_chunk_hit_query(source_docs)
             retrieved_source_docs = list(source_docs)
+
+            # 干预 1: 排除显式指定忽略的 chunk
+            if excluded_chunk_ids:
+                ex_set = set(excluded_chunk_ids)
+                source_docs = [d for d in source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
+                retrieved_source_docs = [d for d in retrieved_source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
+
+            # 干预 2: 补充显式锁定的 chunk
+            if pinned_chunk_ids:
+                existing_ids = {(d.get("metadata") or {}).get("chunk_id") for d in source_docs if d.get("metadata")}
+                pinned_docs = self._fetch_pinned_chunks(pinned_chunk_ids)
+                for pdoc in pinned_docs:
+                    pid = (pdoc.get("metadata") or {}).get("chunk_id")
+                    if pid and pid not in existing_ids:
+                        source_docs.insert(0, pdoc)
+                        retrieved_source_docs.insert(0, pdoc)
+                        existing_ids.add(pid)
+
             trace.set_retrieval(retrieved_source_docs)
             trace.mark("retrieve")
             if pipeline_events:
                 qt = Config().qa_trace
+                evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
                 yield {
                     "type": "status",
                     "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
@@ -2306,6 +2358,7 @@ class RagChain:
                             ),
                             "candidate_count": len(retrieved_source_docs),
                         },
+                        "evidence": evidence_preview,
                         "stages": trace.stages_ms,
                     },
                 }
@@ -2373,7 +2426,7 @@ class RagChain:
             }
 
             answer_parts: list[str] = []
-            async with async_client(base_url=self._ollama_base, timeout=600) as client:
+            async with async_client(base_url=getattr(self, "_ollama_base", "http://localhost:11434"), timeout=600) as client:
                 async with client.stream("POST", "/api/chat", json=ollama_payload) as resp:
                     if resp.status_code != 200:
                         body = await resp.aread()

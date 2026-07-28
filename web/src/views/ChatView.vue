@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'ChatView' })
 import { ref, onMounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats, ClarificationOption } from '../types'
+import type { Message, SourceDoc, Stats, ClarificationOption, EvidenceItem } from '../types'
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
@@ -18,6 +18,31 @@ const showSources = ref(false)
 const sourcePanel = ref<InstanceType<typeof SourcePanel> | null>(null)
 const msgContainer = ref<HTMLElement | null>()
 const initialized = ref(false)
+
+const pinnedChunks = ref<{ id: string; doc: string }[]>([])
+const excludedChunks = ref<{ id: string; doc: string }[]>([])
+
+function handlePinChunk(chunkId: string, item: EvidenceItem) {
+  if (!pinnedChunks.value.some(c => c.id === chunkId)) {
+    pinnedChunks.value.push({ id: chunkId, doc: item.document || '未知文档' })
+    showToast('已锁定该 Chunk，将在下一轮提问中强行引入上下文')
+  }
+}
+
+function handleExcludeChunk(chunkId: string, item: EvidenceItem) {
+  if (!excludedChunks.value.some(c => c.id === chunkId)) {
+    excludedChunks.value.push({ id: chunkId, doc: item.document || '未知文档' })
+    showToast('已锁定排除该 Chunk，将在下一轮提问中忽略该段')
+  }
+}
+
+function removePinnedChunk(index: number) {
+  pinnedChunks.value.splice(index, 1)
+}
+
+function removeExcludedChunk(index: number) {
+  excludedChunks.value.splice(index, 1)
+}
 const welcomeHint = `你好！我是 RAG 知识库助手。
 
 我主要用于回答项目文档、配置、接口和业务资料相关问题。
@@ -317,17 +342,27 @@ async function handleSend(text: string, image?: File) {
         onTrace: (traceId) => {
           lastAiMsg().trace_id = traceId
         },
+        onPipeline: (pipelineData) => {
+          const msg = lastAiMsg()
+          if (!msg.pipelineSteps) msg.pipelineSteps = []
+          msg.pipelineSteps.push(pipelineData)
+          if (pipelineData.evidence) {
+            msg.evidencePack = pipelineData.evidence
+          }
+        },
         onDone: () => {
           streamOk = true
           abortController.value = null
           lastAiMsg().status = undefined
           lastAiMsg().loading = false
           loading.value = false
+          pinnedChunks.value = []
+          excludedChunks.value = []
           persist()
           scrollDown()
         },
         onError: () => { throw new Error('stream failed') },
-      }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt)
+      }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt, undefined, undefined, undefined, pinnedChunks.value.map(c => c.id), excludedChunks.value.map(c => c.id))
     } catch {
       lastAiMsg().status = undefined
       if (!streamOk && !abortController.value) {
@@ -801,11 +836,27 @@ function scrollDown() {
             :clarification="msg.clarification"
             :feedback="msg.feedback"
             :trace-id="msg.trace_id"
+            :pipeline-steps="msg.pipelineSteps"
+            :evidence-pack="msg.evidencePack"
             @citation-click="handleCitationClick(msg, $event)"
             @select-clarification-option="handleSelectClarificationOption(msg, $event)"
             @feedback-change="handleFeedbackChange(msg, $event)"
+            @pin-chunk="handlePinChunk"
+            @exclude-chunk="handleExcludeChunk"
           />
         </div>
+      </div>
+
+      <!-- 人工纠偏与锁定 Chunk 栏 -->
+      <div v-if="pinnedChunks.length || excludedChunks.length" class="intervention-bar">
+        <span v-for="(p, i) in pinnedChunks" :key="'p-' + i" class="interact-tag tag-pin">
+          📌 锁定引用: {{ p.doc }}
+          <button type="button" title="移除该锁定" @click="removePinnedChunk(i)">✕</button>
+        </span>
+        <span v-for="(e, i) in excludedChunks" :key="'e-' + i" class="interact-tag tag-exclude">
+          🚫 锁定排除: {{ e.doc }}
+          <button type="button" title="移除该排除" @click="removeExcludedChunk(i)">✕</button>
+        </span>
       </div>
 
       <ChatInput :disabled="loading" @send="handleSend" @stop="handleStop" />
@@ -1409,5 +1460,48 @@ function scrollDown() {
   .model-select {
     font-size: 10px;
   }
+}
+
+.intervention-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-bg-secondary, #f8fafc);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+}
+
+.interact-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tag-pin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.tag-exclude {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.interact-tag button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.interact-tag button:hover {
+  opacity: 1;
 }
 </style>

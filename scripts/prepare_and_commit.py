@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement graph resync coordinator, fix rebuild synchronization, and update chat API props"
+    commit_msg = "feat: implement intervention chunks support in stream query and add evidence panel"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

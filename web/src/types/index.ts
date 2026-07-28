@@ -22,6 +22,24 @@ export interface Message {
   feedback?: 'useful' | 'unuseful' | null
   /** 对应后端追踪 ID */
   trace_id?: string | null
+  /** 问答过程与证据流水线数据 */
+  pipelineSteps?: PipelineStep[]
+  evidencePack?: EvidencePack
+}
+
+export interface EvidencePack {
+  cited?: EvidenceItem[]
+  retrieved_uncited?: EvidenceItem[]
+  gaps?: any[]
+  conflicts?: any[]
+}
+
+export interface PipelineStep {
+  stage: string
+  plan?: any
+  retrieval?: any
+  evidence?: EvidencePack
+  stages_ms?: Record<string, number>
 }
 
 /** 反问选项过滤器 */
@@ -308,12 +326,12 @@ export interface GraphRelationCreate {
 
 export interface EvidenceItem {
   index?: number
-  document: string
-  source: string
-  section_id: string
-  section_path: string
-  chunk_id: string
-  snippet: string
+  document?: string
+  source?: string
+  section_id?: string
+  section_path?: string
+  chunk_id?: string
+  snippet?: string
   drop_reason?: string
 }
 
