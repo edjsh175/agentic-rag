@@ -22,13 +22,26 @@ const loadingCandidates = ref(false)
 const actionLoading = ref(false)
 const errorMsg = ref('')
 const batches = ref<GraphCandidateBatch[]>([])
-const candidates = ref<GraphCandidateItem[]>([])
+interface ProcessedCandidateItem extends GraphCandidateItem {
+  _summary: string
+  _fields: CandidateField[]
+  _preview: CandidatePreview
+}
+
+const candidates = ref<ProcessedCandidateItem[]>([])
 const selectedBatchId = ref('')
 const selectedIds = ref<string[]>([])
 const quality = ref<GraphQualityReport | null>(null)
+const page = ref(1)
+const pageSize = ref(30)
 
 const currentBatch = computed(() => batches.value.find((item) => item.id === selectedBatchId.value) || null)
 const selectableCandidates = computed(() => candidates.value.filter((item) => item.candidate_kind !== 'diagnostic'))
+const totalPages = computed(() => Math.max(1, Math.ceil(candidates.value.length / pageSize.value)))
+const displayCandidates = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return candidates.value.slice(start, start + pageSize.value)
+})
 
 type CandidateField = {
   label: string
@@ -167,11 +180,18 @@ async function loadCandidates() {
   selectedIds.value = []
   errorMsg.value = ''
   try {
-    candidates.value = await listGraphCandidateItems(
+    const rawItems = await listGraphCandidateItems(
       selectedBatchId.value,
       candidateStatus.value === 'all' ? undefined : candidateStatus.value,
     )
+    candidates.value = rawItems.map((item) => ({
+      ...item,
+      _summary: candidateSummary(item),
+      _fields: candidateFields(item),
+      _preview: candidatePreview(item),
+    }))
     quality.value = await getGraphCandidateQuality(selectedBatchId.value)
+    page.value = 1
   } catch (error: any) {
     errorMsg.value = error.message || '加载候选失败'
   } finally {
@@ -369,7 +389,7 @@ function formatCandidateStatus(status: string) {
 
       <p v-if="loadingCandidates" class="muted">加载候选中...</p>
       <ul v-else class="candidate-list">
-        <li v-for="item in candidates" :key="item.id" class="candidate-card" :data-test="`candidate-${item.id}`">
+        <li v-for="item in displayCandidates" :key="item.id" class="candidate-card" :data-test="`candidate-${item.id}`">
           <label class="candidate-check">
             <input
               v-if="item.candidate_kind !== 'diagnostic'"
@@ -383,9 +403,9 @@ function formatCandidateStatus(status: string) {
           </label>
           <div class="candidate-body">
             <div class="candidate-readable">
-              <p class="candidate-summary">{{ candidateSummary(item) }}</p>
-              <dl v-if="candidateFields(item).length" class="candidate-fields">
-                <template v-for="field in candidateFields(item)" :key="`${item.id}-${field.label}`">
+              <p class="candidate-summary">{{ item._summary }}</p>
+              <dl v-if="item._fields.length" class="candidate-fields">
+                <template v-for="field in item._fields" :key="`${item.id}-${field.label}`">
                   <dt>{{ field.label }}</dt>
                   <dd>{{ field.value }}</dd>
                 </template>
@@ -394,15 +414,15 @@ function formatCandidateStatus(status: string) {
             </div>
             <div class="mini-graph" :class="item.candidate_kind" :data-test="`preview-${item.id}`">
               <div class="mini-node source">
-                <strong>{{ candidatePreview(item).source }}</strong>
-                <span>{{ candidatePreview(item).sourceType }}</span>
+                <strong>{{ item._preview.source }}</strong>
+                <span>{{ item._preview.sourceType }}</span>
               </div>
-              <div v-if="candidatePreview(item).target" class="mini-edge">
-                <span>{{ candidatePreview(item).edge }}</span>
+              <div v-if="item._preview.target" class="mini-edge">
+                <span>{{ item._preview.edge }}</span>
               </div>
-              <div v-if="candidatePreview(item).target" class="mini-node target">
-                <strong>{{ candidatePreview(item).target }}</strong>
-                <span>{{ candidatePreview(item).targetType }}</span>
+              <div v-if="item._preview.target" class="mini-node target">
+                <strong>{{ item._preview.target }}</strong>
+                <span>{{ item._preview.targetType }}</span>
               </div>
             </div>
           </div>
@@ -427,6 +447,12 @@ function formatCandidateStatus(status: string) {
         </li>
         <li v-if="selectedBatchId && candidates.length === 0" class="empty-state">当前批次没有候选</li>
       </ul>
+
+      <div v-if="candidates.length > pageSize" class="pagination-bar">
+        <button class="page-btn" :disabled="page <= 1" @click="page--">上一页</button>
+        <span class="page-info">第 {{ page }} / {{ totalPages }} 页 (共 {{ candidates.length }} 条)</span>
+        <button class="page-btn" :disabled="page >= totalPages" @click="page++">下一页</button>
+      </div>
     </section>
   </div>
 </template>
@@ -837,6 +863,43 @@ h2 {
 .inline-btn.danger:hover {
   background: #fff0f0;
   color: #dc2626;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid #f3f4f6;
+  background: #fff;
+}
+
+.page-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #374151;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .error-box {

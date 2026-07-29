@@ -80,6 +80,7 @@ class RetrievalQualityStrategy:
             docs,
             fact_provider=fact_provider or GraphIntentFactProvider(),
         )
+        docs = self._apply_feedback_penalties(docs)
 
         if not self._cfg.enabled:
             return docs
@@ -107,6 +108,41 @@ class RetrievalQualityStrategy:
             )
 
         return docs
+
+    def _apply_feedback_penalties(self, docs: list[Document]) -> list[Document]:
+        """Apply soft penalties to retrieved documents based on accumulated user negative feedbacks."""
+        if not docs:
+            return docs
+        try:
+            from rag_knowledge.repository.relational_db import RelationalDB
+            chunk_ids = []
+            for doc in docs:
+                cid = str(doc.metadata.get("chunk_id") or doc.metadata.get("id") or "").strip()
+                if cid:
+                    chunk_ids.append(cid)
+            if not chunk_ids:
+                return docs
+
+            db = RelationalDB()
+            down_scores = db.batch_get_chunk_down_scores(chunk_ids)
+            if not down_scores:
+                return docs
+
+            for doc in docs:
+                cid = str(doc.metadata.get("chunk_id") or doc.metadata.get("id") or "").strip()
+                d_score = down_scores.get(cid, 0.0)
+                if d_score > 0.0:
+                    penalty_factor = max(0.4, 0.85 ** d_score)
+                    current_score = float(doc.metadata.get("quality_score", 0.0))
+                    penalized_score = round(current_score * penalty_factor, 4)
+                    doc.metadata["quality_score"] = penalized_score
+                    doc.metadata["down_score"] = round(d_score, 2)
+                    doc.metadata["down_penalty_factor"] = round(penalty_factor, 4)
+
+            return sorted(docs, key=lambda d: float(d.metadata.get("quality_score", 0.0)), reverse=True)
+        except Exception as exc:
+            logger.warning("Failed to apply feedback penalties on retrieved docs: %s", exc)
+            return docs
 
     def _boost_table_chunks(self, query: str, docs: list[Document]) -> list[Document]:
         """Apply a small structured-data bonus for table-oriented queries."""

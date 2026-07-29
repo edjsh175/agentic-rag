@@ -9,6 +9,8 @@
  * 流式接口 /query/stream 仍使用原生 fetch（axios 不适合 SSE）
  */
 import axios from 'axios'
+import { withDataCache, invalidateDataCache } from './cache'
+export { withDataCache, invalidateDataCache }
 import type {
   AdminChunkListResponse,
   AdminChunkUpdate,
@@ -111,12 +113,13 @@ export async function listAdminChunks(params: {
   filename?: string
   page?: number
   page_size?: number
-}, signal?: AbortSignal) {
+}, signal?: AbortSignal, forceRefresh = false) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== '') query.set(key, String(value))
   })
-  return getJSON<AdminChunkListResponse>(`/admin/chunks?${query.toString()}`, signal)
+  const url = `/admin/chunks?${query.toString()}`
+  return withDataCache(url, () => getJSON<AdminChunkListResponse>(url, signal), 300000, forceRefresh)
 }
 
 export async function updateAdminChunk(chunkId: string, changes: AdminChunkUpdate) {
@@ -124,14 +127,17 @@ export async function updateAdminChunk(chunkId: string, changes: AdminChunkUpdat
     `/admin/chunks/${encodeURIComponent(chunkId)}`,
     changes,
   )
+  invalidateDataCache('/admin/chunks')
   return data
 }
 
 export async function batchReviewChunks(chunkIds: string[], status: 'approved' | 'rejected') {
-  return postJSON<ReviewMutationResponse>('/admin/chunks/batch-review', {
+  const res = await postJSON<ReviewMutationResponse>('/admin/chunks/batch-review', {
     chunk_ids: chunkIds,
     status,
   })
+  invalidateDataCache('/admin/chunks')
+  return res
 }
 
 // ---- 接口实现 ----
@@ -537,11 +543,12 @@ export async function deleteServerChat(fingerprint: string) {
 // ============================================================
 
 /** 获取知识图谱数据 */
-export async function getGraphData(docCategory?: string) {
+export async function getGraphData(docCategory?: string, forceRefresh = false) {
   const query = docCategory && docCategory !== 'all'
     ? `?doc_category=${encodeURIComponent(docCategory)}`
     : ''
-  return getJSON<GraphData>(`/admin/knowledge_graph/data${query}`)
+  const url = `/admin/knowledge_graph/data${query}`
+  return withDataCache(url, () => getJSON<GraphData>(url), 300000, forceRefresh)
 }
 
 export async function queryAdminDebug(question: string, signal?: AbortSignal) {
@@ -647,16 +654,20 @@ export async function updateQaTraceFeedback(traceId: string, feedback: 'useful' 
   return data
 }
 
-export async function getProductBackbonePreview() {
-  return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview')
+export async function getProductBackbonePreview(forceRefresh = false) {
+  const url = '/admin/knowledge_graph/product_backbone_preview'
+  return withDataCache(url, () => getJSON<GraphData>(url), 300000, forceRefresh)
 }
 
-export async function getProductBackboneComplexPreview() {
-  return getJSON<GraphData>('/admin/knowledge_graph/product_backbone_preview_complex')
+export async function getProductBackboneComplexPreview(forceRefresh = false) {
+  const url = '/admin/knowledge_graph/product_backbone_preview_complex'
+  return withDataCache(url, () => getJSON<GraphData>(url), 300000, forceRefresh)
 }
 
 export async function createProductBackboneEntity(payload: ProductBackboneEntityPayload) {
-  return postJSON<any>('/admin/knowledge_graph/product_backbone_preview/entities', payload)
+  const res = await postJSON<any>('/admin/knowledge_graph/product_backbone_preview/entities', payload)
+  invalidateDataCache('/admin/knowledge_graph')
+  return res
 }
 
 export async function updateProductBackboneEntity(entityId: string, payload: ProductBackboneEntityUpdatePayload) {
@@ -664,20 +675,25 @@ export async function updateProductBackboneEntity(entityId: string, payload: Pro
     `/admin/knowledge_graph/product_backbone_preview/entities/${encodeURIComponent(entityId)}`,
     payload
   )
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 export async function deleteProductBackboneEntity(entityId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/product_backbone_preview/entities/${encodeURIComponent(entityId)}`)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 export async function createProductBackboneRelation(payload: ProductBackboneRelationPayload) {
-  return postJSON<any>('/admin/knowledge_graph/product_backbone_preview/relations', payload)
+  const res = await postJSON<any>('/admin/knowledge_graph/product_backbone_preview/relations', payload)
+  invalidateDataCache('/admin/knowledge_graph')
+  return res
 }
 
 export async function deleteProductBackboneRelation(relationId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/product_backbone_preview/relations/${encodeURIComponent(relationId)}`)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
@@ -737,41 +753,53 @@ export async function deleteEntityAlias(aliasId: string) {
   return data
 }
 
-export async function listGraphCandidateBatches(status?: string) {
+export async function listGraphCandidateBatches(status?: string, forceRefresh = false) {
   const query = status ? `?status=${encodeURIComponent(status)}` : ''
-  return getJSON<GraphCandidateBatch[]>(`/admin/graph-candidates/batches${query}`)
+  const url = `/admin/graph-candidates/batches${query}`
+  return withDataCache(url, () => getJSON<GraphCandidateBatch[]>(url), 300000, forceRefresh)
 }
 
-export async function listGraphCandidateItems(batchId: string, status?: string) {
+export async function listGraphCandidateItems(batchId: string, status?: string, forceRefresh = false) {
   const query = status ? `?status=${encodeURIComponent(status)}` : ''
-  return getJSON<GraphCandidateItem[]>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/candidates${query}`)
+  const url = `/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/candidates${query}`
+  return withDataCache(url, () => getJSON<GraphCandidateItem[]>(url), 300000, forceRefresh)
 }
 
 export async function reviewGraphCandidates(batchId: string, payload: GraphCandidateReviewRequest) {
-  return postJSON<GraphCandidateReviewResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/review`, payload)
+  const res = await postJSON<GraphCandidateReviewResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/review`, payload)
+  invalidateDataCache('/admin/graph-candidates')
+  return res
 }
 
 export async function applyGraphCandidateBatch(batchId: string) {
-  return postJSON<GraphCandidateApplyResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/apply`)
+  const res = await postJSON<GraphCandidateApplyResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/apply`)
+  invalidateDataCache('/admin/graph-candidates')
+  return res
 }
 
-export async function getGraphCandidateQuality(batchId: string) {
-  return getJSON<GraphQualityReport>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/quality`)
+export async function getGraphCandidateQuality(batchId: string, forceRefresh = false) {
+  const url = `/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/quality`
+  return withDataCache(url, () => getJSON<GraphQualityReport>(url), 300000, forceRefresh)
 }
 
 import type { QualityDashboardData, UserFeedbackPayload, UserFeedbackResult } from '../types'
 
 /** 获取质量控制仪表盘数据与预警列表 */
-export async function getQualityDashboard() {
-  return getJSON<QualityDashboardData>('/quality/dashboard')
+export async function getQualityDashboard(forceRefresh = false) {
+  const url = '/quality/dashboard'
+  return withDataCache(url, () => getJSON<QualityDashboardData>(url), 300000, forceRefresh)
 }
 
 /** 提交用户反馈并自动触发差评重审闭环 */
 export async function submitUserFeedback(payload: UserFeedbackPayload) {
-  return postJSON<UserFeedbackResult>('/feedback', payload)
+  const res = await postJSON<UserFeedbackResult>('/feedback', payload)
+  invalidateDataCache('/quality/dashboard')
+  return res
 }
 
 /** 手动触发 SimHash 文本重复块检测 */
 export async function triggerDuplicateCheck() {
-  return postJSON<{ duplicate_count: number; duplicates: any[] }>('/quality/detect-duplicates')
+  const res = await postJSON<{ duplicate_count: number; duplicates: any[] }>('/quality/detect-duplicates')
+  invalidateDataCache('/quality/dashboard')
+  return res
 }

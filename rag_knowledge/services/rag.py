@@ -216,6 +216,7 @@ class RagChain:
 
     def __init__(self):
         cfg = Config()
+        self._cfg = cfg
         self._llm_model = cfg.llm_model
         self._helper_llm_model = cfg.helper_llm_model
         self._ollama_base = cfg.ollama_base_url
@@ -2200,7 +2201,7 @@ class RagChain:
                 "type": "pipeline",
                 "data": {
                     "stage": "start",
-                    "runtime": runtime_fingerprint(),
+                    "runtime": runtime_fingerprint(getattr(self, "_cfg", None)),
                     "request": {
                         "question": q,
                         "kb_name": kb_name,
@@ -2339,7 +2340,9 @@ class RagChain:
             trace.set_retrieval(retrieved_source_docs)
             trace.mark("retrieve")
             if pipeline_events:
-                qt = Config().qa_trace
+                qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
+                max_candidates = int(getattr(qt, "max_candidates", 20) or 20)
+                preview_chars = int(getattr(qt, "max_content_preview", 240) or 240)
                 evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
                 yield {
                     "type": "status",
@@ -2353,8 +2356,8 @@ class RagChain:
                             "query_hits": [],
                             "candidates": serialize_candidates(
                                 retrieved_source_docs,
-                                max_candidates=qt.max_candidates,
-                                preview_chars=qt.max_content_preview,
+                                max_candidates=max_candidates,
+                                preview_chars=preview_chars,
                             ),
                             "candidate_count": len(retrieved_source_docs),
                         },

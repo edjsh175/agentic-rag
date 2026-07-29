@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement intervention chunks support in stream query and add evidence panel"
+    commit_msg = "feat: implement soft penalization for down-voted chunks and api cache layer"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

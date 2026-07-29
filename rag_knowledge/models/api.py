@@ -600,6 +600,8 @@ class UserFeedbackRequest(BaseModel):
     rating: str
     reason: str = ""
     trace_id: str = ""
+    feedback_scope: str = "answer"  # "answer" or "chunk"
+    target_chunk_id: str = ""
 
 
 class UserFeedbackResponse(BaseModel):

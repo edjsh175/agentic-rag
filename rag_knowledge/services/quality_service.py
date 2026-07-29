@@ -74,8 +74,10 @@ class QualityService:
         rating: str,
         reason: str = "",
         trace_id: str = "",
+        feedback_scope: str = "answer",
+        target_chunk_id: str = "",
     ) -> dict[str, Any]:
-        """Record user feedback and trigger automated feedback loop for negative ratings."""
+        """Record user feedback and trigger soft penalization or automated hard fallback for negative ratings."""
         feedback_id = self._db.create_feedback(
             user_id=user_id,
             query_text=query_text,
@@ -84,15 +86,26 @@ class QualityService:
             rating=rating,
             reason=reason,
             trace_id=trace_id,
+            feedback_scope=feedback_scope,
+            target_chunk_id=target_chunk_id,
         )
 
         triggered_chunks: list[dict[str, Any]] = []
 
-        if rating == "down" and referenced_chunk_ids:
-            for chunk_id in set(referenced_chunk_ids):
-                down_count = self._db.count_chunk_down_ratings(chunk_id)
-                if down_count >= 2:
-                    review_reason = f"用户反馈差评累计{down_count}次，等待重新审核"
+        if rating == "down":
+            target_ids: set[str] = set()
+            if feedback_scope == "chunk" and target_chunk_id:
+                target_ids.add(target_chunk_id)
+            elif referenced_chunk_ids:
+                target_ids.update(referenced_chunk_ids)
+
+            for chunk_id in target_ids:
+                if not chunk_id:
+                    continue
+                down_score = self._db.get_chunk_effective_down_score(chunk_id)
+                # Hard fallback threshold: >= 3.0 effective down score triggers pending state
+                if down_score >= 3.0:
+                    review_reason = f"用户差评有效得分达到{down_score:.1f}分，转入待审"
                     try:
                         self._chunk_admin.update_chunk(
                             chunk_id=chunk_id,
@@ -102,12 +115,12 @@ class QualityService:
                             },
                         )
                         logger.info(
-                            "Automated Feedback Loop: Chunk %s reset to pending due to %d down votes",
-                            chunk_id, down_count,
+                            "Automated Feedback Loop: Chunk %s reset to pending due to down_score %.2f",
+                            chunk_id, down_score,
                         )
                         triggered_chunks.append({
                             "chunk_id": chunk_id,
-                            "down_count": down_count,
+                            "down_score": down_score,
                             "reason": review_reason,
                         })
                     except Exception as e:
@@ -209,21 +222,25 @@ class QualityService:
         # Build alerts list
         alerts: list[dict[str, Any]] = []
 
-        # Negative feedback alerts (chunks with >= 2 down votes)
-        down_feedbacks = self._db.list_feedbacks(rating="down", limit=500)
-        chunk_down_counts: dict[str, int] = {}
-        for fb in down_feedbacks:
-            for cid in fb.get("referenced_chunk_ids") or []:
-                chunk_down_counts[cid] = chunk_down_counts.get(cid, 0) + 1
-
-        for cid, d_count in chunk_down_counts.items():
-            if d_count >= 2:
+        # Effective down scores from database
+        chunk_down_scores = self._db.batch_get_chunk_down_scores()
+        for cid, d_score in chunk_down_scores.items():
+            if d_score >= 3.0:
                 alerts.append({
                     "type": "negative_feedback",
                     "chunk_id": cid,
                     "source_file": chunk_file_map.get(cid) or "未知文件",
-                    "down_count": d_count,
-                    "reason": f"用户反馈差评累计{d_count}次",
+                    "down_count": int(round(d_score)),
+                    "reason": f"用户差评有效得分达到 {d_score:.1f} 分（硬下线预警）",
+                })
+            elif d_score > 0.0:
+                penalty_factor = max(0.4, round(0.85 ** d_score, 3))
+                alerts.append({
+                    "type": "soft_penalized",
+                    "chunk_id": cid,
+                    "source_file": chunk_file_map.get(cid) or "未知文件",
+                    "down_count": int(round(d_score)),
+                    "reason": f"差评软降权生效 (有效得分 {d_score:.1f}，检索打折系数 {penalty_factor})",
                 })
 
         # High duplicate alerts

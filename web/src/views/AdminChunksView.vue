@@ -83,16 +83,19 @@ async function fetchAllMatchingIds(): Promise<string[]> {
   return ids
 }
 
-async function loadChunks() {
+async function loadChunks(forceRefresh = false) {
   loading.value = true
   error.value = ''
   clearSelection()
   try {
-    const result = await listAdminChunks({
+    const params = {
       ...listFilterParams(),
       page: page.value,
       page_size: pageSize.value,
-    })
+    }
+    const result = forceRefresh
+      ? await listAdminChunks(params, undefined, true)
+      : await listAdminChunks(params)
     items.value = result.items
     total.value = result.total
     totalPages.value = result.total_pages
@@ -286,7 +289,7 @@ onBeforeUnmount(() => {
       <label class="search-label">文件名
         <input data-test="filename-search" v-model="filenameInput" placeholder="搜索文件名" @input="onFilenameInput" />
       </label>
-      <button class="button secondary" :disabled="loading" @click="loadChunks">{{ loading ? '刷新中…' : '刷新' }}</button>
+      <button class="button secondary" :disabled="loading" @click="loadChunks(true)">{{ loading ? '刷新中…' : '刷新' }}</button>
     </section>
 
     <p v-if="error" class="notice error">{{ error }}</p>

@@ -13,11 +13,11 @@ const dashboardData = ref<QualityDashboardData | null>(null)
 const metrics = computed(() => dashboardData.value?.metrics)
 const alerts = computed(() => dashboardData.value?.alerts || [])
 
-async function loadData() {
+async function loadData(forceRefresh = false) {
   loading.value = true
   errorMsg.value = ''
   try {
-    dashboardData.value = await getQualityDashboard()
+    dashboardData.value = await getQualityDashboard(forceRefresh)
   } catch (err: any) {
     errorMsg.value = err.message || '加载质量仪表盘失败'
   } finally {
@@ -87,7 +87,7 @@ onMounted(() => {
           type="button"
           class="btn btn-primary"
           :disabled="loading"
-          @click="loadData"
+          @click="loadData(true)"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>

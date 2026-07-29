@@ -432,6 +432,30 @@ async function handleFeedbackChange(msg: Message, feedback: 'useful' | 'unuseful
   }
 }
 
+async function handleCurrentChunkFeedback(chunkId: string, rating: 'down', reason?: string) {
+  const activeMsg = messages.value.find((m) => m.sources === currentSources.value) || messages.value[messages.value.length - 1]
+  const msgIndex = messages.value.findIndex((m) => m.id === activeMsg?.id)
+  const userQuery = msgIndex > 0 && messages.value[msgIndex - 1].role === 'user'
+    ? messages.value[msgIndex - 1].content
+    : ''
+
+  try {
+    await submitUserFeedback({
+      user_id: 'chat_user',
+      query_text: userQuery,
+      answer_text: activeMsg?.content || '',
+      referenced_chunk_ids: [chunkId],
+      rating: rating,
+      reason: reason || '单 Chunk 差评',
+      trace_id: activeMsg?.trace_id || undefined,
+      feedback_scope: 'chunk',
+      target_chunk_id: chunkId,
+    })
+  } catch (err) {
+    console.error('提交单 Chunk 反馈失败:', err)
+  }
+}
+
 /** 用户点击反问卡片的选项后触发 */
 async function handleSelectClarificationOption(aiMsg: Message, option: ClarificationOption) {
   if (!aiMsg.clarification || aiMsg.clarification.selectedId || loading.value) return
@@ -850,11 +874,11 @@ function scrollDown() {
       <!-- 人工纠偏与锁定 Chunk 栏 -->
       <div v-if="pinnedChunks.length || excludedChunks.length" class="intervention-bar">
         <span v-for="(p, i) in pinnedChunks" :key="'p-' + i" class="interact-tag tag-pin">
-          📌 锁定引用: {{ p.doc }}
+          [锁定引用] {{ p.doc }}
           <button type="button" title="移除该锁定" @click="removePinnedChunk(i)">✕</button>
         </span>
         <span v-for="(e, i) in excludedChunks" :key="'e-' + i" class="interact-tag tag-exclude">
-          🚫 锁定排除: {{ e.doc }}
+          [锁定排除] {{ e.doc }}
           <button type="button" title="移除该排除" @click="removeExcludedChunk(i)">✕</button>
         </span>
       </div>
@@ -877,7 +901,7 @@ function scrollDown() {
         </button>
       </div>
       <div class="sidebar-bd">
-        <SourcePanel ref="sourcePanel" :sources="currentSources" />
+        <SourcePanel ref="sourcePanel" :sources="currentSources" @chunk-feedback="handleCurrentChunkFeedback" />
       </div>
     </aside>
 

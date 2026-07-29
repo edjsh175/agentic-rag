@@ -22,6 +22,12 @@ def _reset_singletons_between_tests():
     reset_singletons()
 
 
+@pytest.fixture(autouse=True)
+def _disable_qa_trace_by_default(monkeypatch):
+    """Prevent unit-test RagChain stubs from writing into live data/qa_traces/."""
+    monkeypatch.setenv("QA_TRACE_ENABLED", "false")
+
+
 @pytest.fixture
 def isolated_storage(tmp_path, monkeypatch):
     def apply(

@@ -1152,7 +1152,7 @@ def list_qa_traces(
     limit = max(1, min(int(limit or 50), 200))
     offset = max(0, int(offset or 0))
     try:
-        return QaTraceListResponse(**QaTraceStore().list(
+        return QaTraceListResponse(**QaTraceStore(Config()).list(
             limit=limit, offset=offset, q=q, errors_only=errors_only,
         ))
     except Exception as e:
@@ -1163,7 +1163,7 @@ def list_qa_traces(
 @router.get("/admin/qa-traces/{trace_id}")
 def get_qa_trace(trace_id: str):
     """Return one full QA pipeline trace."""
-    payload = QaTraceStore().get(trace_id)
+    payload = QaTraceStore(Config()).get(trace_id)
     if not payload:
         raise HTTPException(404, detail="trace 不存在")
     return payload
@@ -1172,7 +1172,7 @@ def get_qa_trace(trace_id: str):
 @router.delete("/admin/qa-traces/{trace_id}")
 def delete_qa_trace(trace_id: str):
     """Delete one persisted QA pipeline trace."""
-    ok = QaTraceStore().delete(trace_id)
+    ok = QaTraceStore(Config()).delete(trace_id)
     if not ok:
         raise HTTPException(404, detail="trace 不存在")
     return {"ok": True, "trace_id": trace_id}
@@ -1181,7 +1181,7 @@ def delete_qa_trace(trace_id: str):
 @router.post("/admin/qa-traces/{trace_id}/feedback")
 def update_qa_trace_feedback(trace_id: str, req: QaTraceFeedbackRequest):
     """Update user feedback (useful/unuseful) for a persisted QA trace."""
-    ok = QaTraceStore().update_feedback(trace_id, req.feedback)
+    ok = QaTraceStore(Config()).update_feedback(trace_id, req.feedback)
     if not ok:
         raise HTTPException(404, detail="trace 不存在")
     return {"ok": True, "trace_id": trace_id, "feedback": req.feedback}
@@ -1657,6 +1657,8 @@ def submit_user_feedback(req: UserFeedbackRequest):
             rating=req.rating,
             reason=req.reason,
             trace_id=req.trace_id,
+            feedback_scope=req.feedback_scope,
+            target_chunk_id=req.target_chunk_id,
         )
         return UserFeedbackResponse(
             feedback_id=res["feedback_id"],

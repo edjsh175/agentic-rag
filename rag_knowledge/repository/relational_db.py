@@ -91,6 +91,7 @@ class RelationalDB:
                 2: self._migration_v2,
                 3: self._migration_v3,
                 4: self._migration_v4,
+                5: self._migration_v5,
             }
 
             for version, migration_func in sorted(migrations.items()):
@@ -208,6 +209,17 @@ class RelationalDB:
             "CREATE INDEX IF NOT EXISTS idx_user_feedbacks_rating ON user_feedbacks(rating);"
             "CREATE INDEX IF NOT EXISTS idx_user_feedbacks_created_at ON user_feedbacks(created_at);"
         )
+
+    def _migration_v5(self, conn: sqlite3.Connection):
+        """V5 Schema: feedback_scope, target_chunk_id, and indexes for fine-grained feedback."""
+        cursor = conn.execute("PRAGMA table_info(user_feedbacks)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "feedback_scope" not in columns:
+            conn.execute("ALTER TABLE user_feedbacks ADD COLUMN feedback_scope TEXT NOT NULL DEFAULT 'answer'")
+        if "target_chunk_id" not in columns:
+            conn.execute("ALTER TABLE user_feedbacks ADD COLUMN target_chunk_id TEXT DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_user_feedbacks_target_chunk_id ON user_feedbacks(target_chunk_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_user_feedbacks_scope ON user_feedbacks(feedback_scope);")
 
     @staticmethod
     def _uid() -> str:
@@ -689,15 +701,17 @@ class RelationalDB:
         rating: str,
         reason: str = "",
         trace_id: str = "",
+        feedback_scope: str = "answer",
+        target_chunk_id: str = "",
     ) -> str:
         fid = self._uid()
         now = self._now()
         chunks_json = json.dumps(referenced_chunk_ids or [], ensure_ascii=False)
         with self._get_conn() as conn:
             conn.execute(
-                "INSERT INTO user_feedbacks (id, user_id, query_text, answer_text, referenced_chunk_ids, rating, reason, trace_id, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (fid, user_id, query_text, answer_text, chunks_json, rating, reason, trace_id, now),
+                "INSERT INTO user_feedbacks (id, user_id, query_text, answer_text, referenced_chunk_ids, rating, reason, trace_id, feedback_scope, target_chunk_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (fid, user_id, query_text, answer_text, chunks_json, rating, reason, trace_id, feedback_scope, target_chunk_id, now),
             )
         return fid
 
@@ -711,6 +725,8 @@ class RelationalDB:
                 d["referenced_chunk_ids"] = json.loads(d.get("referenced_chunk_ids") or "[]")
             except Exception:
                 d["referenced_chunk_ids"] = []
+            d["feedback_scope"] = d.get("feedback_scope") or "answer"
+            d["target_chunk_id"] = d.get("target_chunk_id") or ""
             return d
 
     def list_feedbacks(self, rating: str = "", limit: int = 100) -> list[dict]:
@@ -730,24 +746,83 @@ class RelationalDB:
                     d["referenced_chunk_ids"] = json.loads(d.get("referenced_chunk_ids") or "[]")
                 except Exception:
                     d["referenced_chunk_ids"] = []
+                d["feedback_scope"] = d.get("feedback_scope") or "answer"
+                d["target_chunk_id"] = d.get("target_chunk_id") or ""
                 res.append(d)
             return res
+
+    def batch_get_chunk_down_scores(
+        self,
+        chunk_ids: list[str] | None = None,
+        half_life_days: float = 30.0,
+    ) -> dict[str, float]:
+        """Compute effective down scores for specified or all chunks with deduplication & time decay."""
+        import math
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT user_id, trace_id, referenced_chunk_ids, target_chunk_id, feedback_scope, created_at "
+                "FROM user_feedbacks WHERE rating = 'down'"
+            ).fetchall()
+
+        now_dt = datetime.now()
+        decay_factor = math.log(2) / max(half_life_days, 1.0)
+
+        # Deduplication map: (user_id, trace_id/hour, chunk_id) -> latest created_at
+        seen_down_votes: dict[tuple[str, str, str], datetime] = {}
+        target_set = set(str(cid) for cid in chunk_ids) if chunk_ids is not None else None
+
+        for r in rows:
+            u_id = str(r["user_id"] or "anonymous")
+            t_id = str(r["trace_id"] or "")
+            scope = str(r["feedback_scope"] or "answer")
+            t_chunk = str(r["target_chunk_id"] or "")
+            c_str = str(r["created_at"] or "")
+            try:
+                created_dt = datetime.fromisoformat(c_str[:19])
+            except (ValueError, TypeError):
+                created_dt = now_dt
+
+            affected_ids: set[str] = set()
+            if scope == "chunk" and t_chunk:
+                affected_ids.add(t_chunk)
+            else:
+                try:
+                    ids = json.loads(r["referenced_chunk_ids"] or "[]")
+                    if isinstance(ids, list):
+                        affected_ids.update(str(cid) for cid in ids)
+                except Exception:
+                    pass
+
+            for cid in affected_ids:
+                if not cid:
+                    continue
+                if target_set is not None and cid not in target_set:
+                    continue
+                dedup_key = (u_id, t_id or c_str[:13], cid)
+                if dedup_key not in seen_down_votes or created_dt > seen_down_votes[dedup_key]:
+                    seen_down_votes[dedup_key] = created_dt
+
+        result_scores: dict[str, float] = {}
+        for (u_id, key_id, cid), dt in seen_down_votes.items():
+            age_days = max(0.0, (now_dt - dt).total_seconds() / 86400.0)
+            weight = math.exp(-decay_factor * age_days)
+            result_scores[cid] = result_scores.get(cid, 0.0) + weight
+
+        return {cid: round(score, 3) for cid, score in result_scores.items()}
+
+    def get_chunk_effective_down_score(self, chunk_id: str, half_life_days: float = 30.0) -> float:
+        """Calculate effective down score for a single chunk_id with deduplication & time decay."""
+        if not chunk_id:
+            return 0.0
+        scores = self.batch_get_chunk_down_scores([chunk_id], half_life_days=half_life_days)
+        return scores.get(chunk_id, 0.0)
 
     def count_chunk_down_ratings(self, chunk_id: str) -> int:
         """Count total rating='down' for a specific chunk_id in user_feedbacks."""
         if not chunk_id:
             return 0
-        with self._get_conn() as conn:
-            rows = conn.execute("SELECT referenced_chunk_ids FROM user_feedbacks WHERE rating = 'down'").fetchall()
-            count = 0
-            for r in rows:
-                try:
-                    ids = json.loads(r["referenced_chunk_ids"] or "[]")
-                    if chunk_id in ids:
-                        count += 1
-                except Exception:
-                    continue
-            return count
+        scores = self.batch_get_chunk_down_scores([chunk_id])
+        return int(round(scores.get(chunk_id, 0.0)))
 
     def get_7d_feedback_stats(self) -> dict:
         """Get feedback counts (up, down, total) in the last 7 days."""

@@ -552,6 +552,8 @@ export interface UserFeedbackPayload {
   rating: 'up' | 'down'
   reason?: string
   trace_id?: string
+  feedback_scope?: 'answer' | 'chunk'
+  target_chunk_id?: string
 }
 
 export interface UserFeedbackResult {

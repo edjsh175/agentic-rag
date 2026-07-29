@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, onDeactivated, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   getGraphData,
@@ -40,6 +40,8 @@ import {
   orderEntityTypes,
   FORMAL_ENTITY_TYPES,
   relationTypeLabel,
+  getShortLabel,
+  getLabelPrefix,
 } from '../utils/graphLabels'
 import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
 
@@ -431,16 +433,16 @@ const filteredNodesList = computed(() => {
 })
 
 // 加载图谱数据
-const fetchGraph = async () => {
+const fetchGraph = async (forceRefresh = false) => {
   loading.value = true
   errorMsg.value = ''
   suppressFilterLayoutWatch = true
   try {
     const data = isProductBackboneComplexPreview.value
-      ? await getProductBackboneComplexPreview()
+      ? await getProductBackboneComplexPreview(forceRefresh)
       : isProductBackbonePreview.value
-      ? await getProductBackbonePreview()
-      : await getGraphData(selectedCategory.value)
+      ? await getProductBackbonePreview(forceRefresh)
+      : await getGraphData(selectedCategory.value, forceRefresh)
     graphData.value = data
     syncPreviewFilterTypes(data.nodes)
 
@@ -838,7 +840,7 @@ const drawNode = (
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   
-  let labelText = node.label
+  let labelText = getShortLabel(node.label)
   if (labelText.length > 10) {
     labelText = labelText.substring(0, 8) + '...'
   }
@@ -1430,6 +1432,20 @@ onMounted(() => {
   fetchGraph()
 })
 
+onDeactivated(() => {
+  graphLayout?.setPhysicsEnabled(false)
+})
+
+onActivated(() => {
+  handleResize()
+  if (graphLayout && isPhysicsEnabled.value) {
+    graphLayout.setPhysicsEnabled(true)
+    graphLayout.restartLayout()
+  } else {
+    drawGraph()
+  }
+})
+
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   graphLayout?.destroy()
@@ -1510,7 +1526,12 @@ onUnmounted(() => {
               >
                 {{ nodeListBadge(node).text }}
               </span>
-              <span class="entity-name">{{ node.label }}</span>
+              <div class="entity-info-col">
+                <span class="entity-name" :title="node.label">{{ getShortLabel(node.label) }}</span>
+                <span v-if="getLabelPrefix(node.label)" class="entity-prefix-label" :title="node.label">
+                  {{ getLabelPrefix(node.label) }}
+                </span>
+              </div>
             </li>
             <li v-if="filteredNodesList.length === 0" class="empty-list">
               无匹配的实体
@@ -1610,7 +1631,7 @@ onUnmounted(() => {
         </div>
         <div v-if="errorMsg" class="canvas-overlay error">
           <span>⚠️ 加载出错: {{ errorMsg }}</span>
-          <button @click="fetchGraph" class="retry-btn">重试</button>
+          <button @click="fetchGraph(true)" class="retry-btn">重试</button>
         </div>
       </div>
     </main>
@@ -1634,7 +1655,10 @@ onUnmounted(() => {
               <button @click="clearSelection" class="close-btn">&times;</button>
             </div>
           </div>
-          <h2>{{ selectedNode.label }}</h2>
+          <h2 :title="selectedNode.label">{{ getShortLabel(selectedNode.label) }}</h2>
+          <div v-if="getLabelPrefix(selectedNode.label)" class="entity-detail-prefix" :title="selectedNode.label">
+            路径: {{ getLabelPrefix(selectedNode.label) }}
+          </div>
           <p class="category-meta" v-if="selectedNode.doc_category">
             分类: {{ selectedNode.doc_category }}
           </p>
@@ -2155,6 +2179,22 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+.entity-info-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.entity-prefix-label {
+  font-size: 9px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
 .empty-list {
   padding: 16px 0;
   text-align: center;
@@ -2440,6 +2480,13 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #1e293b;
+  word-break: break-all;
+}
+
+.entity-detail-prefix {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
   word-break: break-all;
 }
 

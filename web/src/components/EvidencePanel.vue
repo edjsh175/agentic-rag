@@ -112,7 +112,7 @@ function handleExclude(item: EvidenceItem) {
           <div v-for="(item, idx) in uncitedItems" :key="item.chunk_id || idx" class="chunk-card chunk-card--uncited">
             <div class="card-header">
               <span class="file-name" :title="item.document">
-                📄 {{ item.document || '未知文档' }}
+                {{ item.document || '未知文档' }}
               </span>
               <span class="reason-tag">
                 {{ formatDropReason(item.drop_reason) }}
@@ -155,7 +155,7 @@ function handleExclude(item: EvidenceItem) {
           <div v-for="(item, idx) in citedItems" :key="item.chunk_id || idx" class="chunk-card chunk-card--cited">
             <div class="card-header">
               <span class="file-name" :title="item.document">
-                ✅ [引用 {{ item.index || idx + 1 }}] {{ item.document || '未知文档' }}
+                [引用 {{ item.index || idx + 1 }}] {{ item.document || '未知文档' }}
               </span>
             </div>
             <div class="card-body">
@@ -189,7 +189,7 @@ function handleExclude(item: EvidenceItem) {
             <div class="step-title">1. 问题查询改写</div>
             <div v-if="queries.length" class="query-tags">
               <span v-for="(q, idx) in queries" :key="idx" class="q-tag">
-                🔍 {{ typeof q === 'string' ? q : (q.query || q.text) }}
+                {{ typeof q === 'string' ? q : (q.query || q.text) }}
               </span>
             </div>
             <div v-else class="step-desc">未进行改写或仅使用原始问题</div>

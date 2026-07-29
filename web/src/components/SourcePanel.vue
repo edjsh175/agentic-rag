@@ -6,8 +6,13 @@ defineProps<{
   sources: SourceDoc[]
 }>()
 
+const emit = defineEmits<{
+  chunkFeedback: [chunkId: string, rating: 'down', reason?: string]
+}>()
+
 const panel = ref<HTMLElement | null>(null)
 const highlightedId = ref<number | null>(null)
+const dislikedChunkIds = ref<Set<string>>(new Set())
 let highlightTimer = 0
 
 async function focusCitation(citationId: number) {
@@ -20,6 +25,13 @@ async function focusCitation(citationId: number) {
   highlightTimer = window.setTimeout(() => {
     if (highlightedId.value === citationId) highlightedId.value = null
   }, 1800)
+}
+
+function handleChunkDislike(chunkId?: string) {
+  if (!chunkId) return
+  if (dislikedChunkIds.value.has(chunkId)) return
+  dislikedChunkIds.value.add(chunkId)
+  emit('chunkFeedback', chunkId, 'down', '片段内容不准确或不匹配')
 }
 
 defineExpose({ focusCitation })
@@ -67,6 +79,20 @@ function categoryColor(cat?: string): string {
           {{ src.metadata?.file_name || src.metadata?.source || '未知文件' }}
         </span>
         <span class="page">{{ src.metadata?.page_label || '无页码' }}</span>
+        <button
+          v-if="src.metadata?.chunk_id"
+          type="button"
+          class="chunk-feedback-btn"
+          :class="{ active: dislikedChunkIds.has(src.metadata.chunk_id) }"
+          title="对该片段点踩"
+          @click.stop="handleChunkDislike(src.metadata.chunk_id)"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 14V2"/>
+            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3 3 0 0 1-3-3.88Z"/>
+          </svg>
+          <span class="feedback-text">{{ dislikedChunkIds.has(src.metadata.chunk_id) ? '已踩' : '点踩' }}</span>
+        </button>
       </div>
       <p class="text">{{ src.content }}</p>
     </div>
@@ -98,44 +124,74 @@ function categoryColor(cat?: string): string {
 .idx {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
-  background: #f7f8fa;
-  color: #6b7280;
-  font-size: 10px;
-  font-weight: 600;
+  background: #f2f3f5;
+  color: #4e5969;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 .tag {
-  font-size: 11px;
   padding: 1px 6px;
   border-radius: 4px;
+  font-size: 11px;
   font-weight: 500;
+  flex-shrink: 0;
 }
 .file {
   font-size: 12px;
-  color: #6b7280;
+  font-weight: 600;
+  color: #1d2129;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+}
+.file.external {
+  color: #3370ff;
+  text-decoration: none;
+}
+.file.external:hover {
+  text-decoration: underline;
 }
 .page {
-  color: #8a8f99;
   font-size: 11px;
-  white-space: nowrap;
+  color: #86909c;
+  flex-shrink: 0;
 }
-.external { color: #2563eb; text-decoration: none; }
-.external:hover { text-decoration: underline; }
+.chunk-feedback-btn {
+  margin-left: 4px;
+  background: none;
+  border: 1px solid #e5e6eb;
+  cursor: pointer;
+  color: #86909c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+.chunk-feedback-btn:hover {
+  color: #ed4245;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+.chunk-feedback-btn.active {
+  color: #ed4245;
+  border-color: #f87171;
+  background: #fee2e2;
+}
 .text {
-  font-size: 13px;
-  color: #4b5563;
-  line-height: 1.6;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4e5969;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

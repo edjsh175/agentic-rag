@@ -184,3 +184,53 @@ export function linkTypeLabel(type: string | null | undefined): string {
   if (!key) return '-'
   return LINK_TYPE_LABELS[key] || key
 }
+
+/**
+ * 提取实体的精简显示名称 (例如将 "StampTools用户手册::PipelineBuilder > 数据规范 > 管线线表" 精简为 "管线线表")
+ */
+export function getShortLabel(label: string | null | undefined): string {
+  const raw = String(label || '').trim()
+  if (!raw) return '-'
+
+  // 1. 去掉文档名前缀
+  let path = raw
+  if (raw.includes('::')) {
+    const parts = raw.split('::')
+    path = parts[1] || parts[0]
+  }
+
+  // 2. 取章节路径的叶子节点
+  if (path.includes('>')) {
+    const pathParts = path.split('>')
+    return pathParts[pathParts.length - 1].trim()
+  }
+
+  return path.trim()
+}
+
+/**
+ * 提取实体的上下文路径前缀 (例如返回 "StampTools用户手册 :: PipelineBuilder > 数据规范")
+ */
+export function getLabelPrefix(label: string | null | undefined): string {
+  const raw = String(label || '').trim()
+  if (!raw || (!raw.includes('::') && !raw.includes('>'))) return ''
+
+  if (raw.includes('::')) {
+    const parts = raw.split('::')
+    const docName = parts[0].trim()
+    const path = parts[1] || ''
+    if (path.includes('>')) {
+      const pathParts = path.split('>')
+      const prefixPath = pathParts.slice(0, -1).map(p => p.trim()).join(' > ')
+      return `${docName} :: ${prefixPath}`
+    }
+    return docName
+  }
+
+  if (raw.includes('>')) {
+    const pathParts = raw.split('>')
+    return pathParts.slice(0, -1).map(p => p.trim()).join(' > ')
+  }
+
+  return ''
+}

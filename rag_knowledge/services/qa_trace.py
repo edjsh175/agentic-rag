@@ -94,7 +94,8 @@ def serialize_candidates(
 
 
 def runtime_fingerprint(cfg: Config | None = None) -> dict[str, Any]:
-    cfg = cfg or Config()
+    if cfg is None:
+        return {}
     return {
         "retrieval_method": cfg.retrieval_strategy,
         "reranker_enabled": bool(cfg.reranker_enabled),
@@ -122,8 +123,10 @@ class QaTraceBuilder:
         history_rounds: int = 0,
         cfg: Config | None = None,
     ):
-        self._cfg = cfg or Config()
-        self._enabled = bool(getattr(self._cfg, "qa_trace", None) and self._cfg.qa_trace.enabled)
+        # cfg=None means "do not fall back to live Config()" — used by RagChain test
+        # stubs that never set self._cfg. Production RagChain always passes Config.
+        self._cfg = cfg
+        self._enabled = bool(cfg is not None and getattr(cfg, "qa_trace", None) and cfg.qa_trace.enabled)
         self.trace_id = uuid.uuid4().hex
         self._t0 = time.perf_counter()
         self._stage_marks: dict[str, float] = {"start": self._t0}
@@ -234,7 +237,9 @@ class QaTraceStore:
     """JSON + jsonl index persistence under data/qa_traces/."""
 
     def __init__(self, cfg: Config | None = None):
-        self._cfg = cfg or Config()
+        if cfg is None:
+            raise ValueError("QaTraceStore requires an explicit Config; refusing live Config() fallback")
+        self._cfg = cfg
         self._root = Path(self._cfg.data_dir) / "qa_traces"
         self._root.mkdir(parents=True, exist_ok=True)
         self._index_path = self._root / "index.jsonl"

@@ -509,7 +509,8 @@ describe('KnowledgeGraphView', () => {
     await wrapper.get('input[placeholder="搜索实体名称..."]').setValue('2ca727')
     await flushPromises()
     expect(wrapper.text()).toContain('2ca727efa70847b49f0f67528544d210.pdf')
-    expect(wrapper.text()).toContain('操作系统安装 > 创建虚拟机 > 安装模式')
+    expect(wrapper.text()).toContain('安装模式')
+    expect(wrapper.text()).toContain('操作系统安装 > 创建虚拟机')
   })
   it('draws reciprocal relationship labels at separate canvas positions', async () => {
     vi.mocked(api.getGraphData).mockResolvedValue({

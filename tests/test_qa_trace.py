@@ -118,3 +118,83 @@ def test_index_jsonl_is_append_only_lines(isolated_storage, monkeypatch):
     assert len(lines) == 3
     for ln in lines:
         json.loads(ln)
+
+
+def test_builder_without_cfg_does_not_write_live_traces(tmp_path, monkeypatch):
+    """RagChain stubs pass cfg=None; must never fall back to live data/qa_traces."""
+    from pathlib import Path
+
+    live_root = Path("data") / "qa_traces"
+    before = set()
+    if live_root.exists():
+        before = {p.name for p in live_root.rglob("*.json")}
+
+    # Even if env would enable traces, missing cfg must stay disabled.
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    builder = QaTraceBuilder(question="question", path="query/stream", cfg=None)
+    assert builder.enabled is False
+    assert builder.finish(answer="trimmed answer [1]") is None
+
+    if live_root.exists():
+        after = {p.name for p in live_root.rglob("*.json")}
+        assert after == before
+
+
+def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
+    """Reproduce the original pollution path: object.__new__(RagChain) without _cfg."""
+    import asyncio
+    from pathlib import Path
+
+    from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
+
+    live_root = Path("data") / "qa_traces"
+    before = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
+
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
+
+    chain = object.__new__(RagChain)
+    chain._allow_general_knowledge = False
+    chain._build_retrieval_query_specs = lambda question, history: [question]
+    chain._query_planner = type(
+        "PlannerStub",
+        (),
+        {
+            "plan": lambda self, question, queries, force_rerank=False: type(
+                "PlanStub",
+                (),
+                {
+                    "queries": queries,
+                    "top_k": 4,
+                    "candidate_k": 12,
+                    "enable_rerank": False,
+                    "expand_neighbors": False,
+                },
+            )()
+        },
+    )()
+    chain._retrieve_multi = lambda *args, **kwargs: ([], "")
+    chain._prepare_graph_plan = lambda *a, **k: (
+        k.get("plan") or (a[1] if len(a) > 1 else None),
+        None,
+        [],
+    )
+    chain._build_graph_kwargs = lambda *a, **k: {}
+    chain._anchor_protect_names = lambda plan: ()
+    chain._record_chunk_hit_query = lambda docs: None
+
+    async def collect():
+        return [e async for e in chain.stream_query("项目部署参数是什么？", allow_general_knowledge=False)]
+
+    events = asyncio.run(collect())
+    assert any(e.get("type") == "token" and e.get("data") == NO_KNOWLEDGE_ANSWER for e in events)
+
+    after = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
+    assert after == before
+
+
+def test_store_requires_explicit_config():
+    import pytest
+
+    with pytest.raises(ValueError, match="explicit Config"):
+        QaTraceStore(None)
