@@ -3,7 +3,8 @@ defineOptions({ name: 'QaDebugView' })
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback, queryClarify } from '../api'
+import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback, queryClarify, getModels, getKnowledgeBases, getAgents } from '../api'
+import type { DebugStreamOptions } from '../api'
 import type { EvidenceChain, QaTraceDetail, QaTraceSummary, ClarificationOption, ClarifyResult } from '../types'
 
 const question = ref('')
@@ -11,6 +12,21 @@ const loading = ref(false)
 const debugClarification = ref<ClarifyResult | null>(null)
 const clarifiedQuestion = ref('')
 const selectedClarificationOptionId = ref<string | undefined>(undefined)
+
+// 丰富调试参数选择
+const availableModels = ref<{ name: string; type?: string }[]>([])
+const kbList = ref<string[]>([])
+const agents = ref<any[]>([])
+
+const debugLlmModel = ref('')
+const debugKbName = ref('')
+const debugDocCategory = ref('')
+const debugEntityName = ref('')
+const debugThinking = ref<boolean | undefined>(undefined)
+const debugWebSearch = ref<boolean | undefined>(undefined)
+const debugAllowGeneralKnowledge = ref<boolean | undefined>(undefined)
+const debugAgentPrompt = ref('')
+const showDebugConfigPanel = ref(false)
 
 const listLoading = ref(false)
 const error = ref('')
@@ -185,12 +201,35 @@ function applyPipeline(data: any) {
   if (stage === 'start') activeTab.value = 'timeline'
 }
 
+function loadTraceParamsToForm(traceDetail: QaTraceDetail | null) {
+  if (!traceDetail) return
+  const req = traceDetail.request || {}
+  question.value = String(req.question || '')
+  debugLlmModel.value = req.llm_model ? String(req.llm_model) : ''
+  debugKbName.value = req.kb_name ? String(req.kb_name) : ''
+  debugDocCategory.value = req.doc_category ? String(req.doc_category) : ''
+  debugEntityName.value = req.entity_name ? String(req.entity_name) : ''
+  debugThinking.value = req.thinking != null ? Boolean(req.thinking) : undefined
+  debugWebSearch.value = req.web_search != null ? Boolean(req.web_search) : undefined
+  debugAllowGeneralKnowledge.value = req.allow_general_knowledge != null ? Boolean(req.allow_general_knowledge) : undefined
+  debugAgentPrompt.value = req.agent_prompt ? String(req.agent_prompt) : ''
+  showDebugConfigPanel.value = true
+}
+
+function resetDebugParams() {
+  debugLlmModel.value = ''
+  debugKbName.value = ''
+  debugDocCategory.value = ''
+  debugEntityName.value = ''
+  debugThinking.value = undefined
+  debugWebSearch.value = undefined
+  debugAllowGeneralKnowledge.value = undefined
+  debugAgentPrompt.value = ''
+}
+
 async function runActualDebugStream(
   qText: string,
-  docCategory?: string,
-  entityName?: string,
-  clarificationQuestion?: string,
-  clarificationSelected?: string,
+  debugOpts?: DebugStreamOptions,
 ) {
   loading.value = true
   error.value = ''
@@ -248,10 +287,7 @@ async function runActualDebugStream(
         },
       },
       abortCtrl?.signal,
-      docCategory,
-      entityName,
-      clarificationQuestion,
-      clarificationSelected,
+      debugOpts,
     )
     if (finishedTraceId) {
       await refreshList(finishedTraceId)
@@ -288,8 +324,24 @@ async function runDebug() {
   detail.value = emptyDetail(question.value.trim())
   activeTab.value = 'timeline'
 
+  const currentOpts: DebugStreamOptions = {
+    kbName: debugKbName.value || undefined,
+    docCategory: debugDocCategory.value || undefined,
+    entityName: debugEntityName.value || undefined,
+    llmModel: debugLlmModel.value || undefined,
+    thinking: debugThinking.value,
+    webSearch: debugWebSearch.value,
+    allowGeneralKnowledge: debugAllowGeneralKnowledge.value,
+    agentPrompt: debugAgentPrompt.value || undefined,
+  }
+
   try {
-    const clarifyRes = await queryClarify(question.value.trim(), undefined, undefined, abortCtrl.signal)
+    const clarifyRes = await queryClarify(
+      question.value.trim(),
+      currentOpts.kbName,
+      currentOpts.docCategory,
+      abortCtrl.signal,
+    )
     if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
       debugClarification.value = clarifyRes
       clarifiedQuestion.value = question.value.trim()
@@ -306,7 +358,7 @@ async function runDebug() {
     // 预检服务异常时，优雅降级直接进入调试
   }
 
-  await runActualDebugStream(question.value.trim())
+  await runActualDebugStream(question.value.trim(), currentOpts)
 }
 
 async function handleSelectClarificationOption(option: ClarificationOption) {
@@ -320,12 +372,20 @@ async function handleSelectClarificationOption(option: ClarificationOption) {
   abortCtrl = new AbortController()
 
   const originalQ = clarifiedQuestion.value
-  const docCategory = option.filter.doc_category || undefined
-  const entityName = option.filter.entity_name || undefined
-  const clarQuestion = debugClarification.value.ask_question
-  const clarSelected = option.label
+  const opts: DebugStreamOptions = {
+    kbName: debugKbName.value || undefined,
+    docCategory: option.filter.doc_category || debugDocCategory.value || undefined,
+    entityName: option.filter.entity_name || debugEntityName.value || undefined,
+    llmModel: debugLlmModel.value || undefined,
+    thinking: debugThinking.value,
+    webSearch: debugWebSearch.value,
+    allowGeneralKnowledge: debugAllowGeneralKnowledge.value,
+    agentPrompt: debugAgentPrompt.value || undefined,
+    clarificationQuestion: debugClarification.value.ask_question,
+    clarificationSelected: option.label,
+  }
 
-  await runActualDebugStream(originalQ, docCategory, entityName, clarQuestion, clarSelected)
+  await runActualDebugStream(originalQ, opts)
 }
 
 function stopDebug() {
@@ -423,8 +483,18 @@ function getItemTitle(item: any): string {
   return item.document || item.source || item.chunk_id || ''
 }
 
-onMounted(() => {
+onMounted(async () => {
   refreshList()
+  try {
+    const modelsResp = await getModels()
+    availableModels.value = modelsResp.models || []
+    const kbs = await getKnowledgeBases()
+    kbList.value = kbs.bases || []
+    const ags = await getAgents()
+    agents.value = ags.agents || []
+  } catch {
+    /* ignore */
+  }
 })
 
 onUnmounted(() => {
@@ -505,10 +575,20 @@ onUnmounted(() => {
         <form class="ask-card" @submit.prevent="runDebug">
           <div class="ask-header">
             <label class="ask-label">发起问答调试请求</label>
-            <span v-if="liveStatus" class="live-status-pill">
-              <span class="dot"></span>
-              {{ liveStatus }}
-            </span>
+            <div class="header-right-tools">
+              <button
+                type="button"
+                class="btn-toggle-params"
+                :class="{ active: showDebugConfigPanel }"
+                @click="showDebugConfigPanel = !showDebugConfigPanel"
+              >
+                调试参数设置
+              </button>
+              <span v-if="liveStatus" class="live-status-pill">
+                <span class="dot"></span>
+                {{ liveStatus }}
+              </span>
+            </div>
           </div>
           <textarea
             v-model="question"
@@ -516,6 +596,57 @@ onUnmounted(() => {
             rows="3"
             @keydown="onKeydown"
           />
+
+          <!-- 调试高级参数配置面板 -->
+          <div v-if="showDebugConfigPanel" class="debug-params-panel">
+            <div class="params-panel-header">
+              <span>自定义当次调试请求参数</span>
+              <button type="button" class="btn-text-sm" @click="resetDebugParams">重置参数</button>
+            </div>
+            <div class="params-grid">
+              <div class="param-item">
+                <label>问答模型</label>
+                <select v-model="debugLlmModel" class="param-input">
+                  <option value="">(系统默认模型)</option>
+                  <option v-for="m in availableModels" :key="m.name" :value="m.name">{{ m.name }}</option>
+                </select>
+              </div>
+              <div class="param-item">
+                <label>知识库范围</label>
+                <select v-model="debugKbName" class="param-input">
+                  <option value="">(全部知识库)</option>
+                  <option v-for="kb in kbList" :key="kb" :value="kb">{{ kb }}</option>
+                </select>
+              </div>
+              <div class="param-item">
+                <label>分类领域 (doc_category)</label>
+                <input v-model="debugDocCategory" placeholder="如: 技术文档 / 论坛" class="param-input" />
+              </div>
+              <div class="param-item">
+                <label>产品/实体锚定 (entity_name)</label>
+                <input v-model="debugEntityName" placeholder="如: StampServer / UE" class="param-input" />
+              </div>
+              <div class="param-item param-checks">
+                <label class="check-inline">
+                  <input type="checkbox" v-model="debugThinking" :indeterminate="debugThinking === undefined" />
+                  深度思考
+                </label>
+                <label class="check-inline">
+                  <input type="checkbox" v-model="debugWebSearch" :indeterminate="debugWebSearch === undefined" />
+                  联网搜索
+                </label>
+                <label class="check-inline">
+                  <input type="checkbox" v-model="debugAllowGeneralKnowledge" :indeterminate="debugAllowGeneralKnowledge === undefined" />
+                  通用知识兜底
+                </label>
+              </div>
+            </div>
+            <div class="param-item full-width">
+              <label>Agent 系统提示词重载 (agent_prompt)</label>
+              <textarea v-model="debugAgentPrompt" placeholder="可选：覆盖 Agent 角色设定..." rows="2" class="param-textarea"></textarea>
+            </div>
+          </div>
+
           <div class="ask-actions">
             <button type="submit" class="btn-primary" :disabled="loading || !question.trim()">
               {{ loading ? '调试执行中...' : '发起调试' }}
@@ -575,15 +706,44 @@ onUnmounted(() => {
             <!-- 调试问题与历史反问选择展示 -->
             <div class="trace-question-panel">
               <div class="trace-q-row">
-                <span class="trace-q-lbl">调试问题：</span>
-                <span class="trace-q-val">{{ detail.request?.question || '-' }}</span>
+                <div class="trace-q-main">
+                  <span class="trace-q-lbl">调试问题：</span>
+                  <span class="trace-q-val">{{ detail.request?.question || '-' }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="btn-rerun-params"
+                  title="载入该 Trace 记录的全部参数到上方调试面板"
+                  @click="loadTraceParamsToForm(detail)"
+                >
+                  载入参数并重新调试
+                </button>
               </div>
               <div v-if="detail.request?.clarification_question" class="trace-clarify-row">
-                <span class="trace-c-icon">❔</span>
                 <span class="trace-c-lbl">歧义反问：</span>
                 <span class="trace-c-q">{{ detail.request.clarification_question }}</span>
                 <span class="trace-c-arrow">→</span>
                 <span class="trace-c-selected-badge">用户选择：{{ detail.request.clarification_selected || '未记录选择' }}</span>
+              </div>
+            </div>
+
+            <!-- 全量 Request 请求参数可视化列表 -->
+            <div class="request-params-box">
+              <div class="box-title">请求全量参数 (Request Parameters)</div>
+              <div class="params-tag-grid">
+                <div class="p-tag"><span class="p-key">模型:</span> <span class="p-val">{{ detail.request?.llm_model || '全局默认' }}</span></div>
+                <div class="p-tag"><span class="p-key">知识库:</span> <span class="p-val">{{ detail.request?.kb_name || '全部' }}</span></div>
+                <div class="p-tag"><span class="p-key">分类:</span> <span class="p-val">{{ detail.request?.doc_category || '无' }}</span></div>
+                <div class="p-tag"><span class="p-key">实体锚定:</span> <span class="p-val">{{ detail.request?.entity_name || '无' }}</span></div>
+                <div class="p-tag"><span class="p-key">深度思考:</span> <span class="p-val">{{ detail.request?.thinking == null ? '未指定' : (detail.request.thinking ? '开启' : '关闭') }}</span></div>
+                <div class="p-tag"><span class="p-key">联网搜索:</span> <span class="p-val">{{ detail.request?.web_search == null ? '未指定' : (detail.request.web_search ? '开启' : '关闭') }}</span></div>
+                <div class="p-tag"><span class="p-key">通用知识兜底:</span> <span class="p-val">{{ detail.request?.allow_general_knowledge == null ? '未指定' : (detail.request.allow_general_knowledge ? '允许' : '禁用') }}</span></div>
+                <div v-if="detail.request?.pinned_chunk_ids?.length" class="p-tag"><span class="p-key">固定 Chunk:</span> <span class="p-val">{{ detail.request.pinned_chunk_ids.length }} 个</span></div>
+                <div v-if="detail.request?.excluded_chunk_ids?.length" class="p-tag"><span class="p-key">排除 Chunk:</span> <span class="p-val">{{ detail.request.excluded_chunk_ids.length }} 个</span></div>
+              </div>
+              <div v-if="detail.request?.agent_prompt" class="p-agent-prompt">
+                <span class="p-key">Agent 系统提示词：</span>
+                <span class="p-prompt-text">{{ detail.request.agent_prompt }}</span>
               </div>
             </div>
 
@@ -673,6 +833,30 @@ onUnmounted(() => {
             <div v-else-if="loading" class="empty-hint">正在生成检索计划...</div>
             <div v-else class="empty-hint">无改写查询项</div>
 
+            <!-- 图谱实体与关系拓扑展卡 -->
+            <div v-if="(detail.plan as any)?.linked_entities?.length || (detail.plan as any)?.backbone_relation_summary" class="graph-topo-box margin-top-lg">
+              <h3 class="section-title">图谱实体链与关系拓扑 (Graph 1-Hop / Multi-Hop Context)</h3>
+
+              <!-- 关联实体列表 -->
+              <div v-if="(detail.plan as any)?.linked_entities?.length" class="topo-entity-list">
+                <div class="topo-label">关联实体 (Linked Entities)：</div>
+                <div class="entity-badges">
+                  <div v-for="(ent, eIdx) in (detail.plan as any).linked_entities" :key="eIdx" class="entity-badge-item">
+                    <span class="ent-name">{{ ent.canonical_name }}</span>
+                    <span v-if="ent.entity_type" class="ent-type">[{{ ent.entity_type }}]</span>
+                    <span v-if="ent.match_method" class="ent-method">({{ ent.match_method }})</span>
+                    <span v-if="ent.confidence != null" class="ent-conf">置信度: {{ ent.confidence }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 一跳/多跳线索网络摘要 (传给改写 LLM) -->
+              <div v-if="(detail.plan as any)?.backbone_relation_summary" class="topo-summary-box">
+                <div class="topo-label">传给改写 LLM 的拓扑与上下文摘要：</div>
+                <pre class="topo-summary-text">{{ (detail.plan as any).backbone_relation_summary }}</pre>
+              </div>
+            </div>
+
             <h3 class="section-title margin-top-lg">检索计划配置 JSON</h3>
             <pre class="code-block">{{ JSON.stringify(detail.plan || {}, null, 2) }}</pre>
           </section>
@@ -687,6 +871,30 @@ onUnmounted(() => {
               <article v-for="(c, idx) in candidates" :key="idx" class="cand-card">
                 <div class="cand-header">
                   <span class="rank-badge">#{{ idx + 1 }}</span>
+
+                  <!-- 检索来源标识：图谱独占 / 图文双重 / 文本召回 -->
+                  <span
+                    v-if="c.retrieval_source === 'graph_only'"
+                    class="source-badge source-graph-only"
+                    title="仅通过知识图谱关系拓扑一跳/多跳扩展召回"
+                  >
+                    图谱扩召
+                  </span>
+                  <span
+                    v-else-if="c.retrieval_source === 'hybrid_hit'"
+                    class="source-badge source-hybrid"
+                    title="图谱关系拓扑与文本向量/BM25双重匹配命中"
+                  >
+                    图文双重命中
+                  </span>
+                  <span
+                    v-else
+                    class="source-badge source-text"
+                    title="通过向量/BM25文本混合检索命中"
+                  >
+                    文本召回
+                  </span>
+
                   <span class="source-tag">{{ c.source || c.chunk_id || '未标识来源' }}</span>
                   <span v-if="c.score != null" class="score-badge">
                     匹配得分：{{ typeof c.score === 'number' ? c.score.toFixed(4) : c.score }}
@@ -2038,8 +2246,294 @@ button:disabled {
   background: #ecfdf5;
   color: #065f46;
   border: 1px solid #a7f3d0;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: 600;
+}
+
+.header-right-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-toggle-params {
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-params:hover, .btn-toggle-params.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.btn-rerun-params {
+  padding: 4px 10px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.btn-rerun-params:hover {
+  background: #1d4ed8;
+}
+
+.trace-q-main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.debug-params-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.params-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.btn-text-sm {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-text-sm:hover {
+  color: #ef4444;
+}
+
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.param-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.param-item.full-width {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+
+.param-item label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.param-input, .param-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.param-input:focus, .param-textarea:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+
+.param-checks {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.request-params-box {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.box-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.params-tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.p-tag {
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.p-key {
+  color: #64748b;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.p-val {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.p-agent-prompt {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 12px;
+}
+
+.p-prompt-text {
+  color: #334155;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 检索候选来源徽章 */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.source-graph-only {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.source-hybrid {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+}
+
+.source-text {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* 图谱拓扑展卡 */
+.graph-topo-box {
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.topo-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.entity-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.entity-badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.ent-name {
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.ent-type {
+  color: #2563eb;
+  font-size: 11px;
+}
+
+.ent-method {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.ent-conf {
+  color: #059669;
+  font-size: 11px;
+}
+
+.topo-summary-box {
+  margin-top: 8px;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+.topo-summary-text {
+  margin: 0;
+  font-size: 12px;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: monospace;
 }
 
 @media (max-width: 1024px) {

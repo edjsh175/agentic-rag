@@ -198,3 +198,40 @@ def test_store_requires_explicit_config():
 
     with pytest.raises(ValueError, match="explicit Config"):
         QaTraceStore(None)
+
+
+def test_qa_trace_full_request_parameters(isolated_storage, monkeypatch):
+    cfg, _db, _chroma, data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+    builder = QaTraceBuilder(
+        question="测试实体问答",
+        path="qa-debug",
+        collection_name="rag_knowledge",
+        kb_name="测试知识库",
+        doc_category="技术文档",
+        entity_name="StampServer",
+        llm_model="qwen3:7b",
+        vision_model="llava:7b",
+        thinking=True,
+        web_search=False,
+        allow_general_knowledge=True,
+        agent_prompt="你是严谨的技术专家",
+        pinned_chunk_ids=["chunk_1"],
+        excluded_chunk_ids=["chunk_9"],
+        cfg=cfg,
+    )
+    tid = builder.finish(answer="回复")
+    assert tid is not None
+    store = QaTraceStore(cfg)
+    detail = store.get(tid)
+    assert detail is not None
+    req = detail.get("request", {})
+    assert req.get("entity_name") == "StampServer"
+    assert req.get("doc_category") == "技术文档"
+    assert req.get("vision_model") == "llava:7b"
+    assert req.get("thinking") is True
+    assert req.get("web_search") is False
+    assert req.get("allow_general_knowledge") is True
+    assert req.get("agent_prompt") == "你是严谨的技术专家"
+    assert req.get("pinned_chunk_ids") == ["chunk_1"]
+    assert req.get("excluded_chunk_ids") == ["chunk_9"]

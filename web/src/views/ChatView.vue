@@ -121,6 +121,25 @@ function toggleThinking() {
 
 const kbList = ref<string[]>([])
 const currentKb = ref(localStorage.getItem('rag-kb-name') || '全部知识库')
+const docCategory = ref(localStorage.getItem('rag-doc-category') || '')
+const entityName = ref(localStorage.getItem('rag-entity-name') || '')
+const allowGeneralKnowledge = ref(localStorage.getItem('rag-allow-general') !== 'false')
+const showParamsPopover = ref(false)
+
+function setDocCategory(val: string) {
+  docCategory.value = val
+  localStorage.setItem('rag-doc-category', val)
+}
+
+function setEntityName(val: string) {
+  entityName.value = val
+  localStorage.setItem('rag-entity-name', val)
+}
+
+function toggleAllowGeneralKnowledge() {
+  allowGeneralKnowledge.value = !allowGeneralKnowledge.value
+  localStorage.setItem('rag-allow-general', String(allowGeneralKnowledge.value))
+}
 
 function selectKb(name: string) {
   currentKb.value = name
@@ -390,7 +409,7 @@ async function handleSend(text: string, image?: File) {
           scrollDown()
         },
         onError: () => { throw new Error('stream failed') },
-      }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt, undefined, undefined, undefined, pinnedChunks.value.map(c => c.id), excludedChunks.value.map(c => c.id))
+      }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt, allowGeneralKnowledge.value, docCategory.value || undefined, entityName.value || undefined, pinnedChunks.value.map(c => c.id), excludedChunks.value.map(c => c.id))
     } catch {
       lastAiMsg().status = undefined
       if (!streamOk && !abortController.value) {
@@ -403,6 +422,9 @@ async function handleSend(text: string, image?: File) {
           webSearchEnabled.value || undefined,
           undefined,
           activeAgent.value?.system_prompt,
+          allowGeneralKnowledge.value,
+          docCategory.value || undefined,
+          entityName.value || undefined,
         )
         const msg = lastAiMsg()
         msg.content = result.answer
@@ -508,8 +530,8 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
     history = chatHistory.value.slice(0, -1)
   }
 
-  const docCategory = option.filter.doc_category || undefined
-  const entityName = option.filter.entity_name || undefined
+  const docCategoryVal = option.filter.doc_category || docCategory.value || undefined
+  const entityNameVal = option.filter.entity_name || entityName.value || undefined
 
   try {
     abortController.value = new AbortController()
@@ -561,9 +583,9 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         webSearchEnabled.value || undefined,
         abortController.value?.signal,
         activeAgent.value?.system_prompt,
-        undefined,
-        docCategory,
-        entityName,
+        allowGeneralKnowledge.value,
+        docCategoryVal,
+        entityNameVal,
       )
     } catch {
       aiMsg.status = undefined
@@ -577,9 +599,9 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
           webSearchEnabled.value || undefined,
           undefined,
           activeAgent.value?.system_prompt,
-          undefined,
-          docCategory,
-          entityName,
+          allowGeneralKnowledge.value,
+          docCategoryVal,
+          entityNameVal,
         )
         aiMsg.content = result.answer
         aiMsg.loading = false
@@ -820,8 +842,32 @@ function scrollDown() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              联网搜索
+              联网
             </button>
+            <button class="think-btn" :class="{ active: showParamsPopover || !!docCategory || !!entityName }" @click="showParamsPopover = !showParamsPopover" title="设置分类领域、实体锚定与通用知识">
+              高级参数
+            </button>
+            <Teleport to="body">
+              <div v-if="showParamsPopover" class="agent-popover-overlay" @click.self="showParamsPopover = false">
+                <div class="agent-popover params-popover" @click.stop>
+                  <div class="popover-title">高级问答控制参数</div>
+                  <div class="pop-field">
+                    <label>分类领域 (doc_category)</label>
+                    <input class="pop-input" :value="docCategory" placeholder="如: 技术文档 / 论坛" @input="setDocCategory(($event.target as HTMLInputElement).value)" />
+                  </div>
+                  <div class="pop-field">
+                    <label>产品/实体锚定 (entity_name)</label>
+                    <input class="pop-input" :value="entityName" placeholder="如: StampServer / UE" @input="setEntityName(($event.target as HTMLInputElement).value)" />
+                  </div>
+                  <div class="pop-field check-field">
+                    <label class="pop-check-label">
+                      <input type="checkbox" :checked="allowGeneralKnowledge" @change="toggleAllowGeneralKnowledge()" />
+                      允许无上下文时使用通用知识回答
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
           </div>
 
           <label class="profile-picker" title="选择文档结构，系统不会根据文件名自动猜测">
@@ -1532,8 +1578,58 @@ function scrollDown() {
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.params-popover {
+  width: 280px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.popover-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.pop-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pop-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pop-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.pop-check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+  cursor: pointer;
 }
 
 .tag-pin {

@@ -49,10 +49,27 @@ def serialize_queries(queries: Any) -> list[dict[str, Any]]:
     return out
 
 
+def serialize_linked_entities(linked: Any) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for item in linked or ():
+        if hasattr(item, "canonical_name"):
+            out.append({
+                "entity_id": getattr(item, "entity_id", "") or "",
+                "canonical_name": getattr(item, "canonical_name", "") or "",
+                "entity_type": getattr(item, "entity_type", "") or "",
+                "confidence": float(getattr(item, "confidence", 0.0) or 0.0),
+                "match_method": getattr(item, "match_method", "") or "",
+            })
+        elif isinstance(item, dict):
+            out.append(item)
+    return out
+
+
 def serialize_plan(plan: Any) -> dict[str, Any]:
     if plan is None:
         return {}
     queries = serialize_queries(getattr(plan, "queries", ()) or ())
+    linked_entities = serialize_linked_entities(getattr(plan, "linked_entities", ()) or ())
     return {
         "intent": getattr(plan, "intent", "") or "",
         "confidence": float(getattr(plan, "confidence", 0.0) or 0.0),
@@ -64,7 +81,8 @@ def serialize_plan(plan: Any) -> dict[str, Any]:
         "backbone_canonical": list(getattr(plan, "backbone_canonical", ()) or ()),
         "backbone_avoid": list(getattr(plan, "backbone_avoid", ()) or ()),
         "backbone_primary_intent": getattr(plan, "backbone_primary_intent", "") or "",
-        "backbone_relation_summary": (getattr(plan, "backbone_relation_summary", "") or "")[:500],
+        "backbone_relation_summary": (getattr(plan, "backbone_relation_summary", "") or "")[:1000],
+        "linked_entities": linked_entities,
         "graph_queries": list(getattr(plan, "graph_queries", ()) or ()),
         "graph_chunk_ids": list(getattr(plan, "graph_chunk_ids", ()) or ())[:40],
         "graph_fallback_reason": getattr(plan, "graph_fallback_reason", None),
@@ -81,6 +99,15 @@ def serialize_candidates(
     for doc in (docs or [])[:max_candidates]:
         meta = doc.get("metadata") or {}
         content = str(doc.get("content") or doc.get("page_content") or "")
+        matched_kinds = list(meta.get("matched_query_kinds") or doc.get("matched_query_kinds") or [])
+
+        if "graph" in matched_kinds and "retrieval" not in matched_kinds:
+            source_type = "graph_only"
+        elif "graph" in matched_kinds and "retrieval" in matched_kinds:
+            source_type = "hybrid_hit"
+        else:
+            source_type = "text_only"
+
         out.append({
             "chunk_id": meta.get("chunk_id") or "",
             "source": meta.get("source") or meta.get("file_name") or "",
@@ -88,6 +115,8 @@ def serialize_candidates(
             "kb_name": meta.get("kb_name") or "",
             "score": meta.get("score") or meta.get("rerank_score") or doc.get("score"),
             "citation_id": meta.get("citation_id"),
+            "matched_query_kinds": matched_kinds,
+            "retrieval_source": source_type,
             "content_preview": content[:preview_chars],
         })
     return out
@@ -116,10 +145,18 @@ class QaTraceBuilder:
         question: str,
         path: str | None = None,
         request_id: str | None = None,
+        collection_name: str | None = None,
         kb_name: str | None = None,
         doc_category: str | None = None,
+        entity_name: str | None = None,
         llm_model: str | None = None,
+        vision_model: str | None = None,
         thinking: bool | None = None,
+        web_search: bool | None = None,
+        allow_general_knowledge: bool | None = None,
+        agent_prompt: str | None = None,
+        pinned_chunk_ids: list[str] | None = None,
+        excluded_chunk_ids: list[str] | None = None,
         history_rounds: int = 0,
         cfg: Config | None = None,
         clarification_question: str | None = None,
@@ -137,10 +174,18 @@ class QaTraceBuilder:
         self._retrieval: dict[str, Any] = {"query_hits": [], "candidates": []}
         self._request = {
             "question": question or "",
+            "collection_name": collection_name,
             "kb_name": kb_name,
             "doc_category": doc_category,
+            "entity_name": entity_name,
             "llm_model": llm_model,
+            "vision_model": vision_model,
             "thinking": thinking,
+            "web_search": web_search,
+            "allow_general_knowledge": allow_general_knowledge,
+            "agent_prompt": agent_prompt,
+            "pinned_chunk_ids": list(pinned_chunk_ids or []),
+            "excluded_chunk_ids": list(excluded_chunk_ids or []),
             "history_rounds": int(history_rounds or 0),
             "clarification_question": clarification_question,
             "clarification_selected": clarification_selected,

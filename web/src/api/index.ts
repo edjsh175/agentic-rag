@@ -562,6 +562,22 @@ export async function queryAdminDebug(question: string, signal?: AbortSignal) {
 }
 
 /** 问答调试流式：逐步推送 plan / 检索 / 证据等 pipeline 事件 */
+export interface DebugStreamOptions {
+  docCategory?: string
+  entityName?: string
+  kbName?: string
+  llmModel?: string
+  visionModel?: string
+  thinking?: boolean
+  webSearch?: boolean
+  allowGeneralKnowledge?: boolean
+  agentPrompt?: string
+  pinnedChunkIds?: string[]
+  excludedChunkIds?: string[]
+  clarificationQuestion?: string
+  clarificationSelected?: string
+}
+
 export async function queryAdminDebugStream(
   question: string,
   callbacks: {
@@ -575,20 +591,39 @@ export async function queryAdminDebugStream(
     onError?: (err: Error) => void
   },
   signal?: AbortSignal,
-  docCategory?: string,
-  entityName?: string,
-  clarificationQuestion?: string,
-  clarificationSelected?: string,
+  options?: DebugStreamOptions | string,
+  legacyEntityName?: string,
+  legacyClarificationQuestion?: string,
+  legacyClarificationSelected?: string,
 ) {
+  const opts: DebugStreamOptions =
+    typeof options === 'object' && options !== null
+      ? options
+      : {
+          docCategory: options,
+          entityName: legacyEntityName,
+          clarificationQuestion: legacyClarificationQuestion,
+          clarificationSelected: legacyClarificationSelected,
+        }
+
   const res = await fetch('/api/admin/qa-debug/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       question,
-      doc_category: docCategory,
-      entity_name: entityName,
-      clarification_question: clarificationQuestion,
-      clarification_selected: clarificationSelected,
+      kb_name: opts.kbName,
+      doc_category: opts.docCategory,
+      entity_name: opts.entityName,
+      llm_model: opts.llmModel,
+      vision_model: opts.visionModel,
+      thinking: opts.thinking,
+      web_search: opts.webSearch,
+      allow_general_knowledge: opts.allowGeneralKnowledge,
+      agent_prompt: opts.agentPrompt,
+      pinned_chunk_ids: opts.pinnedChunkIds,
+      excluded_chunk_ids: opts.excludedChunkIds,
+      clarification_question: opts.clarificationQuestion,
+      clarification_selected: opts.clarificationSelected,
     }),
     signal,
   })

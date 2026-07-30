@@ -373,6 +373,38 @@ export interface QaTraceListResult {
   offset: number
 }
 
+export interface QaTraceRequest {
+  question: string
+  collection_name?: string | null
+  kb_name?: string | null
+  doc_category?: string | null
+  entity_name?: string | null
+  llm_model?: string | null
+  vision_model?: string | null
+  thinking?: boolean | null
+  web_search?: boolean | null
+  allow_general_knowledge?: boolean | null
+  agent_prompt?: string | null
+  pinned_chunk_ids?: string[]
+  excluded_chunk_ids?: string[]
+  history_rounds?: number
+  clarification_question?: string | null
+  clarification_selected?: string | null
+  [key: string]: unknown
+}
+
+export interface QaTraceCandidate extends Record<string, unknown> {
+  chunk_id?: string
+  source?: string
+  section_title?: string
+  kb_name?: string
+  score?: number | string
+  citation_id?: string
+  matched_query_kinds?: string[]
+  retrieval_source?: 'graph_only' | 'hybrid_hit' | 'text_only' | string
+  content_preview?: string
+}
+
 export interface QaTraceDetail {
   meta: {
     trace_id: string
@@ -383,13 +415,13 @@ export interface QaTraceDetail {
     error?: string | null
   }
   feedback?: 'useful' | 'unuseful' | string | null
-  request: Record<string, unknown>
+  request: QaTraceRequest
   runtime: Record<string, unknown>
   stages: Record<string, number>
   plan: Record<string, unknown>
   retrieval: {
     query_hits?: unknown[]
-    candidates?: Array<Record<string, unknown>>
+    candidates?: QaTraceCandidate[]
     candidate_count?: number
   }
   evidence: EvidenceChain

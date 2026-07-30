@@ -3,7 +3,7 @@
   "source_ref": "docs/3_待办清单/知识图谱语义抽取/已完成-第2.5轮-产品关系主干/产品关系材料/2026-07-16-产品实体分层清单-待业务确认.md",
   "promoted_from": "product_relation_backbone_preview.json",
   "promoted_at": "2026-07-29",
-  "synced_from_live_at": "2026-07-30T03:07:18.950041+00:00",
+  "synced_from_live_at": "2026-07-30T09:44:16.588349+00:00",
   "entities": [
     {
       "name": "PipelineBuilder",

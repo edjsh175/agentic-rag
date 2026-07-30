@@ -1139,6 +1139,8 @@ async def admin_qa_debug_stream(req: QueryRequest):
             allow_general_knowledge=req.allow_general_knowledge,
             agent_prompt=req.agent_prompt,
             pipeline_events=True,
+            pinned_chunk_ids=req.pinned_chunk_ids,
+            excluded_chunk_ids=req.excluded_chunk_ids,
             path="qa-debug",
             clarification_question=req.clarification_question,
             clarification_selected=req.clarification_selected,
