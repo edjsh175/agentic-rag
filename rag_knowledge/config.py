@@ -133,6 +133,8 @@ class GraphLLMExtractorConfig:
     min_confidence: float = 0.60
     prompt_version: str = "v3"
     extractor_version: str = "v1"
+    rate_limit_delay: float = 0.0
+    concurrency_limit: int = 5
 
     def as_endpoint(self) -> ModelEndpoint:
         return ModelEndpoint(
@@ -141,6 +143,8 @@ class GraphLLMExtractorConfig:
             model=self.model,
             base_url=self.base_url,
             api_key_env=self.api_key_env,
+            max_retries=self.max_retries,
+            concurrency_limit=self.concurrency_limit,
         )
 
 
@@ -217,6 +221,8 @@ class Config:
             provider = (_get(sec, "provider", "ollama") or "ollama").strip().lower()
             base_url = _get(sec, "base_url", "").strip()
             api_key_env = _get(sec, "api_key_env", "").strip()
+            max_retries = int(_get(sec, "max_retries", "3"))
+            concurrency_limit = int(_get(sec, "concurrency_limit", "5"))
             # Flat aliases: model.llm_base_url / LLM_BASE_URL already covered via section keys;
             # also accept model_<role>_base_url style via env GRAPH etc.
             ep = ModelEndpoint(
@@ -225,6 +231,8 @@ class Config:
                 model=model,
                 base_url=base_url,
                 api_key_env=api_key_env,
+                max_retries=max_retries,
+                concurrency_limit=concurrency_limit,
             )
             if ep.base_url:
                 self._ensure_ollama_bypasses_system_proxy(ep.base_url)
@@ -453,6 +461,7 @@ class Config:
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
             prompt_version=_get("graph_extraction.llm", "prompt_version", "v3"),
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
+            rate_limit_delay=float(_get("graph_extraction.llm", "rate_limit_delay", "0.0")),
         )
         if self.graph_extraction_llm.base_url:
             self._ensure_ollama_bypasses_system_proxy(self.graph_extraction_llm.base_url)

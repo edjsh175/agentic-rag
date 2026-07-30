@@ -5,19 +5,97 @@ Uses httpx with trust_env=False (same proxy policy as ollama_http).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import threading
+import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
+
+import httpx
 
 from rag_knowledge.ollama_http import async_client, client as http_client
 
 logger = logging.getLogger("rag_knowledge.llm_http")
 
 SUPPORTED_PROVIDERS = frozenset({"ollama", "openai", "google"})
+
+# ---------------------------------------------------------------------------
+# 并发控制：每个 endpoint.role 对应独立的信号量，限制同时进入底层 HTTP 的并发数
+# ---------------------------------------------------------------------------
+_sync_semaphores: dict[str, threading.Semaphore] = {}
+_sync_sem_lock = threading.Lock()
+
+_async_semaphores: dict[str, asyncio.Semaphore] = {}
+_async_sem_lock = threading.Lock()
+
+
+def _get_sync_semaphore(role: str, limit: int) -> threading.Semaphore:
+    key = f"{role}:{limit}"
+    with _sync_sem_lock:
+        if key not in _sync_semaphores:
+            _sync_semaphores[key] = threading.Semaphore(limit)
+        return _sync_semaphores[key]
+
+
+def _get_async_semaphore(role: str, limit: int) -> asyncio.Semaphore:
+    """Return an asyncio.Semaphore bound to the *current* running event loop."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    key = f"{role}:{limit}:{id(loop)}"
+    with _async_sem_lock:
+        existing = _async_semaphores.get(key)
+        # Discard stale semaphores from closed loops
+        if existing is not None:
+            return existing
+        sem = asyncio.Semaphore(limit)
+        _async_semaphores[key] = sem
+        return sem
+
+
+# ---------------------------------------------------------------------------
+# 可重试异常判定
+# ---------------------------------------------------------------------------
+_RETRYABLE_NETWORK = (
+    httpx.ConnectError,
+    httpx.TimeoutException,
+    httpx.RemoteProtocolError,
+)
+
+
+def _is_retryable_status(exc: BaseException) -> bool:
+    """Return True when an httpx.HTTPStatusError has a retryable status code."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 500, 502, 503, 504)
+    return False
+
+
+def _should_retry(exc: BaseException) -> bool:
+    return isinstance(exc, _RETRYABLE_NETWORK) or _is_retryable_status(exc)
+
+
+def _sync_retry(func, *, max_retries: int, role: str):
+    """Call *func()* up to ``max_retries+1`` times with exponential back-off."""
+    delay = 1.0
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except Exception as exc:  # noqa: BLE001
+            if attempt == max_retries or not _should_retry(exc):
+                raise
+            logger.warning(
+                "llm_http [%s] attempt %d/%d failed (%s: %s); retry in %.1fs",
+                role, attempt + 1, max_retries + 1, type(exc).__name__, exc, delay,
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, 16.0)
+
 
 
 @dataclass(frozen=True)
@@ -29,6 +107,8 @@ class ModelEndpoint:
     model: str = ""
     base_url: str = ""
     api_key_env: str = ""
+    max_retries: int = 3
+    concurrency_limit: int = 5
 
     def normalized_provider(self) -> str:
         return (self.provider or "ollama").strip().lower()
@@ -74,12 +154,42 @@ def chat(
     num_predict: int | None = None,
     think: bool | None = False,
 ) -> str:
-    """Non-streaming chat; returns assistant text."""
+    """Non-streaming chat; returns assistant text.
+
+    Concurrency is throttled per ``endpoint.role`` using a threading.Semaphore
+    (``endpoint.concurrency_limit``).  Transient network/server errors are
+    automatically retried up to ``endpoint.max_retries`` times with exponential
+    back-off starting at 1 second.
+    """
     provider = endpoint.normalized_provider()
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(f"unsupported provider: {provider}")
-    if provider == "ollama":
-        return _chat_ollama(
+
+    sem = _get_sync_semaphore(endpoint.role, endpoint.concurrency_limit)
+
+    def _dispatch() -> str:
+        if provider == "ollama":
+            return _chat_ollama(
+                endpoint,
+                messages,
+                default_ollama=default_ollama,
+                temperature=temperature,
+                format_json=format_json,
+                timeout=timeout,
+                num_predict=num_predict,
+                think=False if think is None else think,
+            )
+        if provider == "openai":
+            return _chat_openai(
+                endpoint,
+                messages,
+                default_ollama=default_ollama,
+                temperature=temperature,
+                format_json=format_json,
+                timeout=timeout,
+                num_predict=num_predict,
+            )
+        return _chat_google(
             endpoint,
             messages,
             default_ollama=default_ollama,
@@ -87,27 +197,10 @@ def chat(
             format_json=format_json,
             timeout=timeout,
             num_predict=num_predict,
-            think=False if think is None else think,
         )
-    if provider == "openai":
-        return _chat_openai(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            format_json=format_json,
-            timeout=timeout,
-            num_predict=num_predict,
-        )
-    return _chat_google(
-        endpoint,
-        messages,
-        default_ollama=default_ollama,
-        temperature=temperature,
-        format_json=format_json,
-        timeout=timeout,
-        num_predict=num_predict,
-    )
+
+    with sem:
+        return _sync_retry(_dispatch, max_retries=endpoint.max_retries, role=endpoint.role)
 
 
 async def achat_stream(
@@ -120,40 +213,63 @@ async def achat_stream(
     num_predict: int | None = 2048,
     think: bool = False,
 ) -> AsyncIterator[str]:
-    """Yield assistant text deltas."""
+    """Yield assistant text deltas.
+
+    The *connection + first byte* phase is protected by an asyncio.Semaphore
+    (``endpoint.concurrency_limit``) and retried up to ``endpoint.max_retries``
+    times on transient errors.  Token streaming itself is not retried mid-stream
+    to avoid duplicate output.
+    """
     provider = endpoint.normalized_provider()
-    if provider == "ollama":
-        async for part in _astream_ollama(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-            think=think,
-        ):
-            yield part
-        return
-    if provider == "openai":
-        async for part in _astream_openai(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-        ):
-            yield part
-        return
-    async for part in _astream_google(
-        endpoint,
-        messages,
-        default_ollama=default_ollama,
-        temperature=temperature,
-        timeout=timeout,
-        num_predict=num_predict,
-    ):
-        yield part
+    sem = _get_async_semaphore(endpoint.role, endpoint.concurrency_limit)
+
+    delay = 1.0
+    for attempt in range(endpoint.max_retries + 1):
+        try:
+            async with sem:
+                if provider == "ollama":
+                    async for part in _astream_ollama(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                        think=think,
+                    ):
+                        yield part
+                    return
+                if provider == "openai":
+                    async for part in _astream_openai(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                    ):
+                        yield part
+                    return
+                async for part in _astream_google(
+                    endpoint,
+                    messages,
+                    default_ollama=default_ollama,
+                    temperature=temperature,
+                    timeout=timeout,
+                    num_predict=num_predict,
+                ):
+                    yield part
+                return
+        except Exception as exc:  # noqa: BLE001
+            if attempt == endpoint.max_retries or not _should_retry(exc):
+                raise
+            logger.warning(
+                "llm_http [%s] stream attempt %d/%d failed (%s: %s); retry in %.1fs",
+                endpoint.role, attempt + 1, endpoint.max_retries + 1,
+                type(exc).__name__, exc, delay,
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 16.0)
 
 
 def _chat_ollama(
@@ -465,57 +581,67 @@ def chat_vision(
     timeout: float = 180.0,
     num_predict: int | None = None,
 ) -> str:
-    """Non-streaming vision chat (text prompt + one base64 image)."""
+    """Non-streaming vision chat (text prompt + one base64 image).
+
+    Concurrency is throttled per ``endpoint.role`` and retried up to
+    ``endpoint.max_retries`` times on transient network/server errors.
+    """
     provider = endpoint.normalized_provider()
     mime = _guess_mime(image_b64, mime_type)
-    if provider == "ollama":
-        messages = [{
-            "role": "user",
-            "content": prompt,
-            "images": [image_b64],
-        }]
-        return _chat_ollama(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            format_json=False,
-            timeout=timeout,
-            num_predict=num_predict,
-            think=False,
-        )
-    if provider == "openai":
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime};base64,{image_b64}"},
-                },
-            ],
-        }]
-        return _chat_openai(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            format_json=False,
-            timeout=timeout,
-            num_predict=num_predict,
-        )
-    if provider == "google":
-        return _chat_google_vision(
-            endpoint,
-            prompt,
-            image_b64,
-            mime=mime,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-        )
-    raise ValueError(f"unsupported provider: {provider}")
+    sem = _get_sync_semaphore(endpoint.role, endpoint.concurrency_limit)
+
+    def _dispatch() -> str:
+        if provider == "ollama":
+            messages = [{
+                "role": "user",
+                "content": prompt,
+                "images": [image_b64],
+            }]
+            return _chat_ollama(
+                endpoint,
+                messages,
+                default_ollama=default_ollama,
+                temperature=temperature,
+                format_json=False,
+                timeout=timeout,
+                num_predict=num_predict,
+                think=False,
+            )
+        if provider == "openai":
+            messages = [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{image_b64}"},
+                    },
+                ],
+            }]
+            return _chat_openai(
+                endpoint,
+                messages,
+                default_ollama=default_ollama,
+                temperature=temperature,
+                format_json=False,
+                timeout=timeout,
+                num_predict=num_predict,
+            )
+        if provider == "google":
+            return _chat_google_vision(
+                endpoint,
+                prompt,
+                image_b64,
+                mime=mime,
+                default_ollama=default_ollama,
+                temperature=temperature,
+                timeout=timeout,
+                num_predict=num_predict,
+            )
+        raise ValueError(f"unsupported provider: {provider}")
+
+    with sem:
+        return _sync_retry(_dispatch, max_retries=endpoint.max_retries, role=endpoint.role)
 
 
 def _chat_google_vision(
@@ -572,61 +698,81 @@ async def achat_vision_stream(
     timeout: float = 120.0,
     num_predict: int | None = None,
 ) -> AsyncIterator[str]:
-    """Streaming vision chat."""
+    """Streaming vision chat.
+
+    Connection phase retried up to ``endpoint.max_retries`` times with exponential
+    back-off.  Concurrent calls are throttled by ``endpoint.concurrency_limit``.
+    """
     provider = endpoint.normalized_provider()
     mime = _guess_mime(image_b64, mime_type)
-    if provider == "ollama":
-        messages = [{
-            "role": "user",
-            "content": prompt,
-            "images": [image_b64],
-        }]
-        async for piece in _astream_ollama(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-            think=False,
-        ):
-            yield piece
-        return
-    if provider == "openai":
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime};base64,{image_b64}"},
-                },
-            ],
-        }]
-        async for piece in _astream_openai(
-            endpoint,
-            messages,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-        ):
-            yield piece
-        return
-    if provider == "google":
-        async for piece in _astream_google_vision(
-            endpoint,
-            prompt,
-            image_b64,
-            mime=mime,
-            default_ollama=default_ollama,
-            temperature=temperature,
-            timeout=timeout,
-            num_predict=num_predict,
-        ):
-            yield piece
-        return
-    raise ValueError(f"unsupported provider: {provider}")
+    sem = _get_async_semaphore(endpoint.role, endpoint.concurrency_limit)
+
+    delay = 1.0
+    for attempt in range(endpoint.max_retries + 1):
+        try:
+            async with sem:
+                if provider == "ollama":
+                    messages = [{
+                        "role": "user",
+                        "content": prompt,
+                        "images": [image_b64],
+                    }]
+                    async for piece in _astream_ollama(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                        think=False,
+                    ):
+                        yield piece
+                    return
+                if provider == "openai":
+                    messages = [{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime};base64,{image_b64}"},
+                            },
+                        ],
+                    }]
+                    async for piece in _astream_openai(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                    ):
+                        yield piece
+                    return
+                if provider == "google":
+                    async for piece in _astream_google_vision(
+                        endpoint,
+                        prompt,
+                        image_b64,
+                        mime=mime,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                    ):
+                        yield piece
+                    return
+                raise ValueError(f"unsupported provider: {provider}")
+        except Exception as exc:  # noqa: BLE001
+            if attempt == endpoint.max_retries or not _should_retry(exc):
+                raise
+            logger.warning(
+                "llm_http [%s] vision stream attempt %d/%d failed (%s: %s); retry in %.1fs",
+                endpoint.role, attempt + 1, endpoint.max_retries + 1,
+                type(exc).__name__, exc, delay,
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 16.0)
 
 
 async def _astream_google_vision(

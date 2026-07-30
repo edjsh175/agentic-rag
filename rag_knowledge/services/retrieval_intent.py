@@ -323,9 +323,16 @@ def _validate_policy(policy: RetrievalIntentPolicy) -> None:
 
 
 def _validate_legacy_profile(profile: RetrievalIntentProfile) -> None:
-    if not profile.entity_aliases and not profile.intent_terms:
+    has_content = (
+        profile.entity_aliases
+        or profile.intent_terms
+        or profile.recall_terms
+        or profile.section_families
+    )
+    if not has_content:
         raise ValueError(
-            f"legacy retrieval intent profile '{profile.id}' requires entity_aliases or intent_terms"
+            f"legacy retrieval intent profile '{profile.id}' requires at least one of: "
+            "entity_aliases, intent_terms, recall_terms, section_families"
         )
     if profile.candidate_min_k is not None and profile.candidate_min_k <= 0:
         raise ValueError(

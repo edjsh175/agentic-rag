@@ -169,3 +169,173 @@ def test_config_per_role_endpoints(tmp_path: Path, monkeypatch, isolated_storage
     assert cfg.helper_llm_endpoint.resolved_base_url(cfg.ollama_base_url).endswith("/v1")
     assert cfg.embedding_endpoint.model == "remote-embed"
     assert cfg.graph_llm_endpoint() == "http://127.0.0.1:11434"
+
+
+# ---------------------------------------------------------------------------
+# Retry boundary tests
+# ---------------------------------------------------------------------------
+
+class _FailingThenSucceedingClient:
+    """Simulate a client that raises ConnectError on first N calls then succeeds."""
+
+    def __init__(self, fail_times: int, payload: dict):
+        self._fail_times = fail_times
+        self._calls = 0
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def post(self, url: str, json=None, headers=None, **kwargs):
+        self._calls += 1
+        if self._calls <= self._fail_times:
+            import httpx
+            raise httpx.ConnectError("simulated connection failure")
+        return _FakeResp(self._payload)
+
+
+def test_chat_retry_on_transient_network_failure(monkeypatch):
+    """chat() should transparently retry on ConnectError and eventually succeed."""
+    failing_client = _FailingThenSucceedingClient(
+        fail_times=2,
+        payload={"message": {"content": "retry-success"}},
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.http_client",
+        lambda **kw: failing_client,
+    )
+    # Patch time.sleep to avoid actual delays during the test
+    monkeypatch.setattr("rag_knowledge.llm_http.time.sleep", lambda s: None)
+
+    ep = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen3:30b",
+        base_url="http://x:1",
+        max_retries=3,
+        concurrency_limit=5,
+    )
+    result = chat(ep, [{"role": "user", "content": "hi"}])
+    assert result == "retry-success"
+    assert failing_client._calls == 3  # 2 failures + 1 success
+
+
+def test_chat_raises_after_max_retries_exhausted(monkeypatch):
+    """chat() should re-raise the original exception when all retries are exhausted."""
+    import httpx
+
+    def _always_fail(**kw):
+        class _AlwaysFailClient:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def post(self, *a, **kw):
+                raise httpx.ConnectError("permanent failure")
+        return _AlwaysFailClient()
+
+    monkeypatch.setattr("rag_knowledge.llm_http.http_client", _always_fail)
+    monkeypatch.setattr("rag_knowledge.llm_http.time.sleep", lambda s: None)
+
+    ep = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen3:30b",
+        base_url="http://x:1",
+        max_retries=2,
+        concurrency_limit=5,
+    )
+    with pytest.raises(httpx.ConnectError, match="permanent failure"):
+        chat(ep, [{"role": "user", "content": "hi"}])
+
+
+def test_chat_does_not_retry_non_retryable_error(monkeypatch):
+    """chat() should NOT retry on ValueError (non-network errors)."""
+    call_count = 0
+
+    def _value_error_client(**kw):
+        class _BadClient:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def post(self, *a, **kw):
+                nonlocal call_count
+                call_count += 1
+                raise ValueError("bad payload")
+        return _BadClient()
+
+    monkeypatch.setattr("rag_knowledge.llm_http.http_client", _value_error_client)
+    monkeypatch.setattr("rag_knowledge.llm_http.time.sleep", lambda s: None)
+
+    ep = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen3:30b",
+        base_url="http://x:1",
+        max_retries=3,
+        concurrency_limit=5,
+    )
+    with pytest.raises(ValueError, match="bad payload"):
+        chat(ep, [{"role": "user", "content": "hi"}])
+    # Should have given up immediately without retrying
+    assert call_count == 1
+
+
+def test_concurrency_limit_respected(monkeypatch):
+    """Concurrent requests beyond concurrency_limit must queue (semaphore enforced)."""
+    import threading
+
+    entered: list[int] = []
+    max_concurrent = [0]
+    current = [0]
+    lock = threading.Lock()
+
+    def _counting_client(**kw):
+        class _CountingClient:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def post(self, *a, **kw):
+                with lock:
+                    current[0] += 1
+                    if current[0] > max_concurrent[0]:
+                        max_concurrent[0] = current[0]
+                    entered.append(current[0])
+                import time; time.sleep(0.01)  # hold the slot briefly
+                with lock:
+                    current[0] -= 1
+                return _FakeResp({"message": {"content": "ok"}})
+        return _CountingClient()
+
+    monkeypatch.setattr("rag_knowledge.llm_http.http_client", _counting_client)
+
+    limit = 2
+    ep = ModelEndpoint(
+        role="concurrency_test_role",
+        provider="ollama",
+        model="m",
+        base_url="http://x:1",
+        max_retries=0,
+        concurrency_limit=limit,
+    )
+
+    results: list = []
+    errors: list = []
+
+    def _call():
+        try:
+            results.append(chat(ep, [{"role": "user", "content": "hi"}]))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=_call) for _ in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"unexpected errors: {errors}"
+    assert all(r == "ok" for r in results)
+    # Peak concurrency must never exceed the configured limit
+    assert max_concurrent[0] <= limit, (
+        f"concurrency exceeded limit: peak={max_concurrent[0]} limit={limit}"
+    )

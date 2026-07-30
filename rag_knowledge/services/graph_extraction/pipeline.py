@@ -359,6 +359,9 @@ class GraphBuilder:
                         ) + 1
                     counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
                     llm_result = llm_extractor.extract(chunk)
+                    if cfg.graph_extraction_llm.rate_limit_delay > 0:
+                        import time
+                        time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
                     for kind, items in (
                         ("entity", llm_result.entities),
                         ("relation", llm_result.relations),
