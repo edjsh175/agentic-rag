@@ -23,7 +23,7 @@ from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS, client as ollama_client
+from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS
 from rag_knowledge.models.document import FileCategory
 from rag_knowledge.models.structured_document import (
     build_searchable_text,
@@ -83,6 +83,7 @@ class FileLoader:
         self._chunk_overlap = cfg.chunk_overlap
         self._semantic_chunking_enabled = cfg.semantic_chunking_enabled
         self._ollama_base = cfg.ollama_base_url
+        self._vision_endpoint = cfg.vision_endpoint
         self._vision_model = cfg.vision_model
         self._extract_images = cfg.extract_embedded_images
         # 按自然语言段落边界切分，避免切断语义
@@ -91,14 +92,20 @@ class FileLoader:
             chunk_overlap=self._chunk_overlap,
             separators=["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
         )
-        self._http: httpx.Client | None = None
         self._semantic_chunker: SemanticChunker | None = None
         if self._semantic_chunking_enabled:
             try:
+                embed_base = cfg.embedding_endpoint.resolved_base_url(cfg.ollama_base_url)
+                if cfg.embedding_endpoint.normalized_provider() != "ollama":
+                    logger.warning(
+                        "embedding provider=%s 当前仅实现 OllamaEmbeddings；仍按 Ollama 协议访问 %s",
+                        cfg.embedding_endpoint.provider,
+                        embed_base,
+                    )
                 self._semantic_chunker = SemanticChunker(
                     embeddings=OllamaEmbeddings(
                         model=cfg.embedding_model,
-                        base_url=cfg.ollama_base_url,
+                        base_url=embed_base,
                         client_kwargs=OLLAMA_CLIENT_KWARGS,
                     ),
                     fallback_splitter=self._splitter,
@@ -828,10 +835,7 @@ class FileLoader:
     # ------------------------------------------------------------------
 
     def _call_vision(self, image_path: str) -> str:
-        """调用 Ollama 视觉模型描述图片，失败时返回空字符串"""
-        if self._http is None:
-            self._http = ollama_client(base_url=self._ollama_base, timeout=180)
-
+        """调用视觉模型描述图片（ollama / openai / google），失败时返回空字符串"""
         try:
             with open(image_path, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -839,19 +843,33 @@ class FileLoader:
             logger.warning("读取图片失败 %s: %s", image_path, e)
             return ""
 
-        payload = {
-            "model": self._vision_model,
-            "messages": [{
-                "role": "user",
-                "content": "请详细描述这张图片的内容，包括文字、物体、人物、场景、颜色等所有可见信息",
-                "images": [b64],
-            }],
-            "stream": False,
-        }
+        from rag_knowledge.llm_http import ModelEndpoint, chat_vision
+
+        ep = self._vision_endpoint
+        if self._vision_model and self._vision_model != ep.model:
+            ep = ModelEndpoint(
+                role=ep.role,
+                provider=ep.provider,
+                model=self._vision_model,
+                base_url=ep.base_url,
+                api_key_env=ep.api_key_env,
+            )
+        suffix = Path(image_path).suffix.lower()
+        mime = {
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".bmp": "image/bmp",
+        }.get(suffix, "image/jpeg")
         try:
-            resp = self._http.post("/api/chat", json=payload)
-            resp.raise_for_status()
-            return resp.json()["message"]["content"]
+            return chat_vision(
+                ep,
+                "请详细描述这张图片的内容，包括文字、物体、人物、场景、颜色等所有可见信息",
+                b64,
+                default_ollama=self._ollama_base,
+                mime_type=mime,
+                timeout=180.0,
+            )
         except httpx.TimeoutException:
             logger.warning("视觉模型超时: %s（图片可能过大）", Path(image_path).name)
             return ""
@@ -860,8 +878,6 @@ class FileLoader:
             return ""
         except Exception as e:
             logger.warning("视觉模型调用失败 %s: %s", Path(image_path).name, e)
-            self._http.close()
-            self._http = None
             return ""
 
     # ------------------------------------------------------------------
@@ -1285,6 +1301,4 @@ class FileLoader:
         return chunks
 
     def close(self):
-        if self._http:
-            self._http.close()
-            self._http = None
+        return

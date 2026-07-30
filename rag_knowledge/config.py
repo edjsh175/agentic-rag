@@ -116,17 +116,32 @@ class GraphRetrievalConfig:
     protect_text_top1: bool = True
 
 
+from rag_knowledge.llm_http import ModelEndpoint
+
+
 @dataclass
 class GraphLLMExtractorConfig:
     """LLM semantic graph extraction config (MVP-4)."""
     enabled: bool = False
     provider: str = "ollama"
     model: str = "qwen3:30b"
+    # Optional Ollama/OpenAI/Google endpoint; empty → Config.ollama_base_url (ollama only)
+    base_url: str = ""
+    api_key_env: str = ""
     temperature: float = 0.0
     max_retries: int = 2
     min_confidence: float = 0.60
     prompt_version: str = "v3"
     extractor_version: str = "v1"
+
+    def as_endpoint(self) -> ModelEndpoint:
+        return ModelEndpoint(
+            role="graph_extraction",
+            provider=self.provider,
+            model=self.model,
+            base_url=self.base_url,
+            api_key_env=self.api_key_env,
+        )
 
 
 @dataclass
@@ -162,15 +177,22 @@ class Config:
 
     def _load(self):
         root = Path.cwd().resolve()
+        # Load local .env before reading other settings (does not override existing env).
+        self._load_dotenv(root / ".env")
+        self._load_dotenv(root / ".env.local")
 
-        # ---- 读取 config.ini ----
+        # ---- 读取配置文件（RAG_CONFIG / CONFIG_FILE 可指向临时混用配置）----
         ini = ConfigParser()
-        ini_path = root / "config.ini"
+        config_name = (os.getenv("RAG_CONFIG") or os.getenv("CONFIG_FILE") or "config.ini").strip()
+        ini_path = Path(config_name)
+        if not ini_path.is_absolute():
+            ini_path = root / ini_path
+        self.config_file = str(ini_path)
         if ini_path.exists():
             ini.read(str(ini_path), encoding="utf-8")
 
         def _get(section: str, key: str, default: str = "") -> str:
-            env_key = f"{section}_{key}".upper()
+            env_key = f"{section}_{key}".upper().replace(".", "_")
             return os.getenv(env_key) or ini.get(section, key, fallback=default)
 
         def _dir(value: str, default: str) -> Path:
@@ -178,15 +200,60 @@ class Config:
             p = Path(value)
             return p if p.is_absolute() else (root / p)
 
-        # ---- Ollama ----
+        # ---- Ollama 默认地址（各角色 base_url 为空时回退）----
         self.ollama_base_url = _get("ollama", "base_url", "http://localhost:11434")
         self._ensure_ollama_bypasses_system_proxy(self.ollama_base_url)
 
-        # ---- 模型 ----
-        self.embedding_model = _get("model", "embedding", "qwen3-embedding:4b")
-        self.llm_model = _get("model", "llm", "deepseek-r1:7b")
-        self.helper_llm_model = _get("model", "helper_llm", "gemma3:4b")
-        self.vision_model = _get("model", "vision", "qwen3-vl:8b")
+        def _load_endpoint(
+            role: str,
+            *,
+            legacy_model_key: str,
+            default_model: str,
+            section: str | None = None,
+        ) -> ModelEndpoint:
+            """Load [model.<role>] (or custom section) with fallback to [model] <legacy_model_key>."""
+            sec = section or f"model.{role}"
+            model = (_get(sec, "model", "") or _get("model", legacy_model_key, default_model)).strip()
+            provider = (_get(sec, "provider", "ollama") or "ollama").strip().lower()
+            base_url = _get(sec, "base_url", "").strip()
+            api_key_env = _get(sec, "api_key_env", "").strip()
+            # Flat aliases: model.llm_base_url / LLM_BASE_URL already covered via section keys;
+            # also accept model_<role>_base_url style via env GRAPH etc.
+            ep = ModelEndpoint(
+                role=role,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                api_key_env=api_key_env,
+            )
+            if ep.base_url:
+                self._ensure_ollama_bypasses_system_proxy(ep.base_url)
+            return ep
+
+        # ---- 各角色独立 endpoint（provider + model + base_url + api_key_env）----
+        self.embedding_endpoint = _load_endpoint(
+            "embedding", legacy_model_key="embedding", default_model="qwen3-embedding:4b"
+        )
+        self.llm_endpoint = _load_endpoint(
+            "llm", legacy_model_key="llm", default_model="deepseek-r1:7b"
+        )
+        self.helper_llm_endpoint = _load_endpoint(
+            "helper_llm", legacy_model_key="helper_llm", default_model="gemma3:4b"
+        )
+        self.vision_endpoint = _load_endpoint(
+            "vision", legacy_model_key="vision", default_model="qwen3-vl:8b"
+        )
+        self.compression_endpoint = _load_endpoint(
+            "compression",
+            legacy_model_key="compression",
+            default_model=_get("retrieval_quality", "compression_model", "qwen2.5:7b"),
+        )
+
+        # 向后兼容：旧字段仍可用
+        self.embedding_model = self.embedding_endpoint.model
+        self.llm_model = self.llm_endpoint.model
+        self.helper_llm_model = self.helper_llm_endpoint.model
+        self.vision_model = self.vision_endpoint.model
 
         # ---- 问答策略 ----
         self.allow_general_knowledge = _get(
@@ -310,7 +377,7 @@ class Config:
             min_top_k=int(_get("retrieval_quality", "min_top_k", "3")),
             max_top_k=int(_get("retrieval_quality", "max_top_k", "8")),
             contextual_compression_enabled=_get("retrieval_quality", "contextual_compression_enabled", "false").lower() == "true",
-            compression_model=_get("retrieval_quality", "compression_model", "qwen2.5:7b"),
+            compression_model=self.compression_endpoint.model,
             max_compressed_chunk_chars=int(_get("retrieval_quality", "max_compressed_chunk_chars", "800")),
             debug_log_enabled=_get("retrieval_quality", "debug_log_enabled", "true").lower() == "true",
         )
@@ -379,12 +446,17 @@ class Config:
             enabled=_get("graph_extraction.llm", "enabled", "false").lower() == "true",
             provider=_get("graph_extraction.llm", "provider", "ollama"),
             model=_get("graph_extraction.llm", "model", "qwen3:30b"),
+            base_url=_get("graph_extraction.llm", "base_url", "").strip(),
+            api_key_env=_get("graph_extraction.llm", "api_key_env", "").strip(),
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
             max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
             prompt_version=_get("graph_extraction.llm", "prompt_version", "v3"),
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
         )
+        if self.graph_extraction_llm.base_url:
+            self._ensure_ollama_bypasses_system_proxy(self.graph_extraction_llm.base_url)
+        self.graph_extraction_endpoint = self.graph_extraction_llm.as_endpoint()
 
         # ---- QA 全流程 trace（问答证据调试 / 监控）----
         self.qa_trace = QaTraceConfig(
@@ -409,6 +481,46 @@ class Config:
         for d in [self.chroma_dir, self.data_dir, self.log_dir, self.blog_posts_dir, self.blog_crawl_dir, self.blog_publish_dir, self.crawl_image_dir]:
             d.mkdir(parents=True, exist_ok=True)
         self.watch_dir.mkdir(parents=True, exist_ok=True)
+
+    def graph_llm_endpoint(self) -> str:
+        """Base URL for graph LLM extract (backward-compat string helper)."""
+        return self.graph_extraction_endpoint.resolved_base_url(self.ollama_base_url)
+
+    def endpoint_for(self, role: str) -> ModelEndpoint:
+        """Lookup a model endpoint by role name."""
+        mapping = {
+            "embedding": self.embedding_endpoint,
+            "llm": self.llm_endpoint,
+            "helper_llm": self.helper_llm_endpoint,
+            "vision": self.vision_endpoint,
+            "compression": self.compression_endpoint,
+            "graph_extraction": self.graph_extraction_endpoint,
+        }
+        if role not in mapping:
+            raise KeyError(f"unknown model role: {role}")
+        return mapping[role]
+
+    @staticmethod
+    def _load_dotenv(path: Path) -> None:
+        """Load KEY=VALUE from a local file; never overrides existing process env."""
+        if not path.is_file():
+            return
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if not key or key in os.environ:
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            os.environ[key] = value
 
     @staticmethod
     def _ensure_ollama_bypasses_system_proxy(base_url: str) -> None:

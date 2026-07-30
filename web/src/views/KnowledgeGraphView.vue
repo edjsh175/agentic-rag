@@ -119,6 +119,43 @@ const searchQuery = ref('')
 const selectedCategory = ref<string>('all')
 const selectedTypes = ref<Record<string, boolean>>({ ...DEFAULT_TYPE_SELECTION })
 
+// 链路层级正交过滤状态（默认全选）
+const selectedLinkClasses = ref<Record<string, boolean>>({
+  Backbone: true,
+  Extraction: true,
+  Context: true
+})
+
+const EXTRACTION_ENTITY_TYPES = new Set([
+  'ConfigItem',
+  'EnvironmentComponent',
+  'Procedure',
+  'Command',
+  'Step',
+  'Error',
+  'Solution',
+  'DataTable',
+  'Field',
+])
+
+const CONTEXT_ENTITY_TYPES = new Set([
+  'Document',
+  'Section',
+])
+
+const getLinkClassForNode = (node: GraphNode): string => {
+  // 1. 来源 (Context): 文档与章节物理节点
+  if (CONTEXT_ENTITY_TYPES.has(node.type)) {
+    return 'Context'
+  }
+  // 2. 抽取 (Extraction): 灰色(ConfigItem)、橘橙/浅橙(Procedure/Step)、红色(Error)、翠绿(Solution)、数据表(DataTable)、字段(Field)
+  if (!isProductBackbonePreviewAny.value && EXTRACTION_ENTITY_TYPES.has(node.type)) {
+    return 'Extraction'
+  }
+  // 3. 主干 (Backbone): 产品(Product)、模块(Module)、工具(Tool)、服务(Service)、格式(Format)等主干架构节点
+  return 'Backbone'
+}
+
 // 可选的实体类型：正式版固定枚举；主干预览=正式类型顺序 ∩ 数据中出现的类型 + 扩展类型
 const availableTypes = computed(() => {
   if (!isProductBackbonePreviewAny.value) {
@@ -427,7 +464,15 @@ const filteredNodesList = computed(() => {
   return visualNodes.value.filter(node => {
     const matchSearch = !query || searchNeighborIds.has(node.id)
     const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
-    const matchType = query ? matchSearch : selectedTypes.value[nodeFilterType(node)] !== false
+
+    // 子类型匹配条件
+    const subTypeMatch = selectedTypes.value[nodeFilterType(node)] !== false
+
+    // 链路级大类正交匹配条件 (仅在非预览常规模式下生效)
+    const linkClassMatch = isProductBackbonePreviewAny.value ||
+                           selectedLinkClasses.value[getLinkClassForNode(node)] !== false
+
+    const matchType = query ? matchSearch : (subTypeMatch && linkClassMatch)
     return matchSearch && matchCategory && matchType
   })
 })
@@ -1483,6 +1528,40 @@ onUnmounted(() => {
             </option>
           </select>
         </div>
+
+        <!-- 链路过滤 (正交) -->
+        <div v-if="!isProductBackbonePreviewAny" class="filter-group">
+          <label>链路过滤 (正交)</label>
+          <div class="checkbox-row-flat">
+            <div class="checkbox-item inline-flex">
+              <input
+                type="checkbox"
+                id="class-Backbone"
+                v-model="selectedLinkClasses.Backbone"
+                data-test="link-class-backbone"
+              />
+              <label for="class-Backbone" class="checkbox-label">主干</label>
+            </div>
+            <div class="checkbox-item inline-flex">
+              <input
+                type="checkbox"
+                id="class-Extraction"
+                v-model="selectedLinkClasses.Extraction"
+                data-test="link-class-extraction"
+              />
+              <label for="class-Extraction" class="checkbox-label">抽取</label>
+            </div>
+            <div class="checkbox-item inline-flex">
+              <input
+                type="checkbox"
+                id="class-Context"
+                v-model="selectedLinkClasses.Context"
+                data-test="link-class-context"
+              />
+              <label for="class-Context" class="checkbox-label">来源</label>
+            </div>
+          </div>
+        </div>
         
         <!-- 实体类型多选 -->
         <div class="filter-group">
@@ -2098,6 +2177,23 @@ onUnmounted(() => {
 
 .checkbox-item {
   display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-row-flat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 8px;
+}
+
+.inline-flex {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }

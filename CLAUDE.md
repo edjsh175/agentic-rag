@@ -77,6 +77,7 @@
 - ✅ Task 8.2 Profile Migration 与 Graph Schema 兼容 — scoped Field（`管线点表.管点编号`）、alias / `different_from` / `has_field` 等经分拆审批写入正式 Graph；`scripts/validate_task81_graph_gate.py` 输出 PASS / NEEDS_APPLY / BLOCKED
 - ✅ Docker 生产部署骨架 — 双容器（`rag-service` FastAPI + `rag-web` Nginx/dist）；生产 CPU 默认 `INSTALL_RERANKER=false`、不将模型打入镜像；`reranker.enabled=false` 三层门控（QueryPlanner / `_get_reranker` / postprocess 降级）；详见 [`deploy/README.md`](deploy/README.md)
 - ✅ 图辅助改写 + 扩召回融合（代码已实现，**默认关闭**）— `graph_query_rewrite.py` 中量图摘要 → helper LLM 改写检索 query；与 `graph_retrieval` 扩召回 chunk 融合共用 `_prepare_graph_plan`；须同时 `enabled=true` 且 `query_rewrite_enabled=true` 才生效
+- ✅ 模型多 provider 适配与同步 — 已支持在 config 中为每个模型角色（llm, helper_llm, compression 等）配置独立的 provider (google / openai / ollama)。后端 `_build_llm` 和 `stream_query` 已完成适配（支持自动按模型解析并匹配 provider 继承），前端 `ChatView.vue` 下拉框可同步显示并正常切换外部模型（标注 `(外部)` 标记，不再显示空白），且测试 `test_contextual_compression.py` 已同步通过
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办；**第 4 轮 GraphRAG 检索 A/B 已 PASS，生产默认开图仍未批准**
 
 ### 核心功能
@@ -525,8 +526,11 @@ App.vue (导航栏: 知识库问答 | 博客管理)
 
 # 修改 config.ini（Ollama 地址等）
 
-# 启动
+# 启动（默认使用 config.ini）
 .\venv\Scripts\python.exe run.py
+
+# 启动（以 mix 混合配置启动，外接 Google/OpenAI 等外部模型）
+$env:RAG_CONFIG="config-mix.ini"; .\venv\Scripts\python.exe run.py
 
 # 生成新评测集并运行四种检索策略
 .\venv\Scripts\python.exe run_eval_full.py
@@ -568,7 +572,7 @@ docker compose up -d
 
 - **添加文档**：放入 watch_directory/已发布文章/ 或 watch_directory/upload/，等待定时扫描，或手动调用 POST /scan
 - **重建知识库**：替换向量模型后，调用 `POST /rebuild`（须 `confirmation=REBUILD_KNOWLEDGE_BASE`）
-- **切换模型**：前端下拉框选择，嵌入模型切换后需重建知识库
+- **切换模型**：支持多模型角色独立配置（llm, helper_llm, compression, vision 等）。前端下拉框同步显示并支持外部模型名（非 Ollama 本地模型标注为 `(外部)`），且后端已因应切换不同 provider 自动匹配对应的 API 调用端点；嵌入模型切换后需重建知识库
 - **清空对话**：前端垃圾桶按钮，只清除前端缓存，不影响向量库
 - **查看日志**：`logs/rag.log`（全部）、`logs/rag_error.log`（WARNING+，保留 30 天）
 - **评估命令**：始终使用 `.\venv\Scripts\python.exe run_eval_full.py`，不要使用 `python run_eval_full.py`

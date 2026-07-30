@@ -68,8 +68,20 @@ function modelType(name: string, type?: string): string {
   return 'llm'
 }
 
-const llmModels = computed(() => availableModels.value.filter(m => modelType(m.name, m.type) === 'llm').map(m => m.name))
-const visionModels = computed(() => availableModels.value.filter(m => modelType(m.name, m.type) === 'vision').map(m => m.name))
+const llmModels = computed(() => {
+  const list = availableModels.value.filter(m => modelType(m.name, m.type) === 'llm').map(m => m.name)
+  if (currentModel.value && !list.includes(currentModel.value)) {
+    list.unshift(currentModel.value)
+  }
+  return list
+})
+const visionModels = computed(() => {
+  const list = availableModels.value.filter(m => modelType(m.name, m.type) === 'vision').map(m => m.name)
+  if (visionModel.value && !list.includes(visionModel.value)) {
+    list.unshift(visionModel.value)
+  }
+  return list
+})
 const currentModel = ref(localStorage.getItem('rag-llm-model') || '')
 const visionModel = ref(localStorage.getItem('rag-vision-model') || '')
 const embeddingModel = ref(localStorage.getItem('rag-embedding-model') || '')
@@ -162,8 +174,24 @@ onMounted(async () => {
     const modelsResp = await getModels()
     availableModels.value = modelsResp.models
     embeddingModel.value = modelsResp.current.embedding
-    if (!currentModel.value) currentModel.value = modelsResp.current.llm
-    if (!visionModel.value) visionModel.value = modelsResp.current.vision
+
+    const lastDefaultLlm = localStorage.getItem('rag-llm-default-model')
+    if (lastDefaultLlm !== modelsResp.current.llm) {
+      currentModel.value = modelsResp.current.llm || ''
+      localStorage.setItem('rag-llm-default-model', modelsResp.current.llm || '')
+      localStorage.setItem('rag-llm-model', modelsResp.current.llm || '')
+    } else {
+      currentModel.value = localStorage.getItem('rag-llm-model') || modelsResp.current.llm || ''
+    }
+
+    const lastDefaultVision = localStorage.getItem('rag-vision-default-model')
+    if (lastDefaultVision !== modelsResp.current.vision) {
+      visionModel.value = modelsResp.current.vision || ''
+      localStorage.setItem('rag-vision-default-model', modelsResp.current.vision || '')
+      localStorage.setItem('rag-vision-model', modelsResp.current.vision || '')
+    } else {
+      visionModel.value = localStorage.getItem('rag-vision-model') || modelsResp.current.vision || ''
+    }
   } catch { /* 静默 */ }
   try {
     const kbResp = await getKnowledgeBases()
@@ -766,14 +794,18 @@ function scrollDown() {
             <span class="model-pill">
               问答
               <select v-if="llmModels.length > 0" class="model-select" v-model="currentModel" @change="selectModel(currentModel)">
-                <option v-for="m in llmModels" :key="m" :value="m">{{ m.replace(':latest', '') }}</option>
+                <option v-for="m in llmModels" :key="m" :value="m">
+                  {{ m.replace(':latest', '') }}
+                </option>
               </select>
               <span v-else class="model-tag">{{ currentModel.replace(':latest','') || '…' }}</span>
             </span>
             <span class="model-pill">
               视觉
               <select v-if="visionModels.length > 0" class="model-select" v-model="visionModel" @change="selectVision(visionModel)">
-                <option v-for="m in visionModels" :key="m" :value="m">{{ m.replace(':latest', '') }}</option>
+                <option v-for="m in visionModels" :key="m" :value="m">
+                  {{ m.replace(':latest', '') }}
+                </option>
               </select>
               <span v-else class="model-tag">{{ visionModel.replace(':latest','') || '…' }}</span>
             </span>

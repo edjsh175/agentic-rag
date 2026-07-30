@@ -273,6 +273,7 @@ export interface GraphNode {
   properties_json?: string | null
   confidence?: number | null
   review_status?: string | null
+  created_by?: string | null
 }
 
 export interface GraphEdge {

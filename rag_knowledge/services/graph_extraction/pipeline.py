@@ -238,7 +238,21 @@ class GraphBuilder:
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
         backbone_constraints = load_backbone_constraints()
         if actual_include_llm:
-            assert_ollama_reachable()
+            provider = (cfg.graph_extraction_llm.provider or "ollama").lower()
+            if provider == "ollama":
+                assert_ollama_reachable(base_url=cfg.graph_llm_endpoint())
+            elif provider in ("openai", "google"):
+                # External APIs: require API key; do not probe Ollama /api/tags.
+                if not cfg.graph_extraction_endpoint.resolved_api_key():
+                    env_hint = (
+                        cfg.graph_extraction_llm.api_key_env
+                        or ("GOOGLE_API_KEY" if provider == "google" else "OPENAI_API_KEY")
+                    )
+                    raise ValueError(
+                        f"graph_extraction.llm provider={provider} 需要设置环境变量 {env_hint}"
+                    )
+            else:
+                raise ValueError(f"unsupported graph_extraction.llm provider: {provider}")
         llm_extractor = (
             LLMGraphExtractor(backbone_constraints=backbone_constraints) if actual_include_llm else None
         )

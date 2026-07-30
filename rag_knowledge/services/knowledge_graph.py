@@ -54,23 +54,30 @@ class KnowledgeGraphService:
         entities = self.db.list_entities()
         relations = self.db.list_relations()
 
+        backbone_names = self._backbone_live_sync.backbone_entity_names()
+
         if doc_category:
             entities = [e for e in entities if e["doc_category"] == doc_category]
 
-        nodes = [
-            GraphNode(
-                id=e["id"],
-                label=e["name"],
-                type=e["entity_type"],
-                doc_category=e.get("doc_category") or None,
-                canonical_name=e.get("canonical_name") or None,
-                description=e.get("description") or None,
-                properties_json=e.get("properties_json") or None,
-                confidence=e.get("confidence"),
-                review_status=e.get("review_status") or None,
+        nodes = []
+        for e in entities:
+            created_by = e.get("created_by") or None
+            if e.get("name") in backbone_names and not (created_by and created_by.startswith("seed:product_backbone")):
+                created_by = "seed:product_backbone"
+            nodes.append(
+                GraphNode(
+                    id=e["id"],
+                    label=e["name"],
+                    type=e["entity_type"],
+                    doc_category=e.get("doc_category") or None,
+                    canonical_name=e.get("canonical_name") or None,
+                    description=e.get("description") or None,
+                    properties_json=e.get("properties_json") or None,
+                    confidence=e.get("confidence"),
+                    review_status=e.get("review_status") or None,
+                    created_by=created_by,
+                )
             )
-            for e in entities
-        ]
 
         allowed_ids = {n.id for n in nodes}
         edges = []

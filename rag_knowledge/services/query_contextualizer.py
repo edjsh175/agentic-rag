@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import post as ollama_post
 
 logger = logging.getLogger(__name__)
 
@@ -467,23 +466,17 @@ class QueryContextualizer:
             question=question,
         )
 
-        resp = ollama_post(
-            f"{self._ollama_base}/api/chat",
-            json={
-                "model": self._llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 256,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            },
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("message", {}).get("content", "").strip()
+        from rag_knowledge.llm_http import chat_role
+
+        raw = chat_role(
+            self._cfg,
+            "helper_llm",
+            [{"role": "user", "content": prompt}],
+            temperature=0.0,
+            num_predict=256,
+            timeout=float(self._timeout),
+            think=False,
+        ).strip()
 
         # 清洗可能的 markdown 代码块包装
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)

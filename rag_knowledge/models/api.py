@@ -37,6 +37,9 @@ class QueryRequest(BaseModel):
     pipeline_events: Optional[bool] = True
     pinned_chunk_ids: Optional[list[str]] = None
     excluded_chunk_ids: Optional[list[str]] = None
+    clarification_question: Optional[str] = None
+    clarification_selected: Optional[str] = None
+
 
 
 class ClarificationOptionFilter(BaseModel):
@@ -462,6 +465,7 @@ class GraphNode(BaseModel):
     properties_json: Optional[str] = None
     confidence: Optional[float] = None
     review_status: Optional[str] = None
+    created_by: Optional[str] = None
 
 
 class GraphEdge(BaseModel):

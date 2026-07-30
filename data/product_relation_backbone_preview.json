@@ -1364,6 +1364,24 @@
       "source": "",
       "status": "待确认",
       "description": ""
+    },
+    {
+      "name": "StampTools",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "Product",
+      "source": "Manual",
+      "status": "确认",
+      "description": "StampTools 实体（满足金边关系）"
+    },
+    {
+      "name": "StampServer",
+      "graph_type": "Product",
+      "layer": "产品体系层",
+      "subtype": "Product",
+      "source": "Manual",
+      "status": "确认",
+      "description": "StampServer 实体（满足金边关系）"
     }
   ],
   "relations": [
@@ -2241,8 +2259,18 @@
       "source": "CentOS 7.8/7.9",
       "relation_type": "belongs_to",
       "target": "运行与部署基础设施层"
+    },
+    {
+      "source": "PipelineBuilder",
+      "relation_type": "belongs_to",
+      "target": "StampTools"
+    },
+    {
+      "source": "管线发布服务",
+      "relation_type": "belongs_to",
+      "target": "StampServer"
     }
   ],
   "pending_confirmation": true,
-  "confirmed_at": "2026-07-22"
+  "confirmed_at": "2026-07-29"
 }

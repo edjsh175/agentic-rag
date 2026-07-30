@@ -221,6 +221,7 @@ class ProductBackbonePreviewService:
             properties_json=json.dumps(properties, ensure_ascii=False, sort_keys=True),
             confidence=1.0,
             review_status="pending",
+            created_by=PREVIEW_CREATED_BY,
         )
 
     def _edge(self, item: dict) -> GraphEdge:

@@ -27,7 +27,6 @@ from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException, Re
 from fastapi.responses import StreamingResponse
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import async_client as ollama_async_client
 from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.services.qa_trace import QaTraceStore, set_request_context
@@ -197,6 +196,15 @@ def list_models():
             "llm": _cfg.llm_model,
             "embedding": _cfg.embedding_model,
             "vision": _cfg.vision_model,
+            "helper_llm": _cfg.helper_llm_model,
+            "providers": {
+                "llm": _cfg.llm_endpoint.provider,
+                "embedding": _cfg.embedding_endpoint.provider,
+                "vision": _cfg.vision_endpoint.provider,
+                "helper_llm": _cfg.helper_llm_endpoint.provider,
+                "compression": _cfg.compression_endpoint.provider,
+                "graph_extraction": _cfg.graph_extraction_endpoint.provider,
+            },
         },
     }
 
@@ -255,7 +263,10 @@ async def query(req: QueryRequest):
                                    entity_name=entity_name,
                                    thinking=req.thinking, web_search=req.web_search,
                                    allow_general_knowledge=req.allow_general_knowledge,
-                                   agent_prompt=req.agent_prompt)
+                                   agent_prompt=req.agent_prompt,
+                                   clarification_question=req.clarification_question,
+                                   clarification_selected=req.clarification_selected)
+
         return QueryResponse(answer=result["answer"], source_documents=result["source_documents"])
     except Exception as e:
         logger.error("查询失败: %s", e)
@@ -328,7 +339,10 @@ async def query_stream(req: QueryRequest):
                                               agent_prompt=req.agent_prompt,
                                               pipeline_events=bool(req.pipeline_events),
                                               pinned_chunk_ids=req.pinned_chunk_ids,
-                                              excluded_chunk_ids=req.excluded_chunk_ids):
+                                              excluded_chunk_ids=req.excluded_chunk_ids,
+                                              clarification_question=req.clarification_question,
+                                              clarification_selected=req.clarification_selected):
+
             if event.get("type") == "status":
                 yield "event: status\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
@@ -351,43 +365,41 @@ async def query_with_image(
     content = await image.read()
     b64 = base64.b64encode(content).decode("utf-8")
     model = vision_model or _cfg.vision_model
+    mime = image.content_type or "image/jpeg"
 
     async def event_stream():
         try:
-            async with ollama_async_client(base_url=_cfg.ollama_base_url, timeout=120) as client:
-                async with client.stream("POST", "/api/chat", json={
-                    "model": model,
-                    "messages": [{
-                        "role": "user",
-                        "content": question,
-                        "images": [b64],
-                    }],
-                    "stream": True,
-                }) as resp:
-                    if resp.status_code == 500:
-                        yield f"data: {json.dumps({'type': 'token', 'data': '图片处理失败：视觉模型暂时无法处理这张图片，请检查图片格式或大小。'}, ensure_ascii=False)}\n\n"
-                        yield "data: {\"type\": \"done\"}\n\n"
-                        return
-                    resp.raise_for_status()
+            from rag_knowledge.llm_http import ModelEndpoint, achat_vision_stream
 
-                    async for line in resp.aiter_lines():
-                        if not line.strip():
-                            continue
-                        try:
-                            chunk = json.loads(line)
-                            token = chunk.get("message", {}).get("content", "")
-                            if token:
-                                yield f"data: {json.dumps({'type': 'token', 'data': token}, ensure_ascii=False)}\n\n"
-                            if chunk.get("done"):
-                                yield "data: {\"type\": \"done\"}\n\n"
-                        except json.JSONDecodeError:
-                            continue
+            ep = _cfg.vision_endpoint
+            if model != ep.model:
+                ep = ModelEndpoint(
+                    role=ep.role,
+                    provider=ep.provider,
+                    model=model,
+                    base_url=ep.base_url,
+                    api_key_env=ep.api_key_env,
+                )
+            async for token in achat_vision_stream(
+                ep,
+                question,
+                b64,
+                default_ollama=_cfg.ollama_base_url,
+                mime_type=mime,
+                timeout=120.0,
+            ):
+                if token:
+                    yield f"data: {json.dumps({'type': 'token', 'data': token}, ensure_ascii=False)}\n\n"
+            yield "data: {\"type\": \"done\"}\n\n"
         except httpx.TimeoutException:
             yield f"data: {json.dumps({'type': 'token', 'data': '处理超时，图片可能过大，请压缩后重试。'}, ensure_ascii=False)}\n\n"
             yield "data: {\"type\": \"done\"}\n\n"
         except Exception as e:
             logger.error("图片问答失败: %s", e)
-            yield f"data: {json.dumps({'type': 'token', 'data': f'处理失败：{str(e)}'}, ensure_ascii=False)}\n\n"
+            msg = "图片处理失败：视觉模型暂时无法处理这张图片，请检查图片格式或大小。"
+            if "api key" in str(e).lower() or "GOOGLE_API_KEY" in str(e) or "OPENAI_API_KEY" in str(e):
+                msg = f"图片处理失败：{e}"
+            yield f"data: {json.dumps({'type': 'token', 'data': msg}, ensure_ascii=False)}\n\n"
             yield "data: {\"type\": \"done\"}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -1087,7 +1099,10 @@ async def admin_qa_debug(req: QueryRequest):
             thinking=req.thinking,
             web_search=req.web_search, allow_general_knowledge=req.allow_general_knowledge,
             agent_prompt=req.agent_prompt, include_evidence=True,
+            clarification_question=req.clarification_question,
+            clarification_selected=req.clarification_selected,
         )
+
         return AdminQaDebugResponse(
             answer=result["answer"], source_documents=result["source_documents"],
             evidence_chain=result.get("evidence_chain") or {},
@@ -1125,7 +1140,10 @@ async def admin_qa_debug_stream(req: QueryRequest):
             agent_prompt=req.agent_prompt,
             pipeline_events=True,
             path="qa-debug",
+            clarification_question=req.clarification_question,
+            clarification_selected=req.clarification_selected,
         ):
+
             if event.get("type") == "status":
                 yield "event: status\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"

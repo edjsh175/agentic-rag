@@ -187,6 +187,38 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         )
         ids = review_summary["ids_to_update"]
         updated = db.review_extraction_candidates(args.batch, ids, status, args.reason)
+
+        # === Auto-cascade relation rejection logic ===
+        with db._get_conn() as conn:
+            all_candidates = db.list_extraction_candidates(args.batch)
+            approved_entities = {
+                c["payload"].get("name") for c in all_candidates
+                if c["candidate_kind"] == "entity" and c["status"] == "approved"
+            }
+            existing_entities = {
+                row["name"] for row in conn.execute("SELECT name FROM entities").fetchall()
+            }
+            all_valid_entities = approved_entities | existing_entities
+
+            invalid_relation_ids = []
+            for c in all_candidates:
+                if c["candidate_kind"] == "relation" and c["status"] == "approved":
+                    payload = c["payload"] or {}
+                    src = payload.get("source_name")
+                    tgt = payload.get("target_name")
+                    if src not in all_valid_entities or tgt not in all_valid_entities:
+                        invalid_relation_ids.append(c["id"])
+
+            if invalid_relation_ids:
+                placeholders = ", ".join("?" for _ in invalid_relation_ids)
+                conn.execute(
+                    f"UPDATE extraction_candidates SET status = 'rejected', "
+                    f"rejection_reason = 'missing relation endpoint (auto-cascade)', "
+                    f"reviewed_at = ? WHERE batch_id = ? AND id IN ({placeholders})",
+                    [db._now(), args.batch] + invalid_relation_ids
+                )
+                print(f"Auto-cascade: Rejected {len(invalid_relation_ids)} relation candidates due to missing endpoints.", file=sys.stderr)
+
         remaining = db.list_extraction_candidates(args.batch, "pending")
         if not remaining:
             approved = db.list_extraction_candidates(args.batch, "approved")
@@ -258,8 +290,6 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         return 0
 
     if args.command == "recover-relations":
-        from pathlib import Path
-
         from rag_knowledge.services.relation_recovery import RelationRecoveryService
 
         service = RelationRecoveryService(db)
@@ -376,4 +406,10 @@ def _review_summary(pending: list[dict]) -> dict:
 
 
 if __name__ == "__main__":
+    import sys
+    if sys.platform.startswith("win"):
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
     raise SystemExit(main())

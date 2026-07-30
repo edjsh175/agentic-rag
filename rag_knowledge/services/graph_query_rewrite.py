@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import post as ollama_post
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.backbone_guard import (
     avoid_names_for_anchors,
@@ -319,23 +318,17 @@ class GraphQueryRewriter:
             soft_hits_json=json.dumps(soft_hits, ensure_ascii=False),
             lexicon_json=json.dumps(lexicon, ensure_ascii=False),
         )
-        resp = ollama_post(
-            f"{self._ollama_base}/api/chat",
-            json={
-                "model": self._llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 384,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            },
-            timeout=self._anchor_timeout,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("message", {}).get("content", "").strip()
+        from rag_knowledge.llm_http import chat_role
+
+        raw = chat_role(
+            self._cfg,
+            "helper_llm",
+            [{"role": "user", "content": prompt}],
+            temperature=0.0,
+            num_predict=384,
+            timeout=float(self._anchor_timeout),
+            think=False,
+        ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()
         payload = json.loads(cleaned)
@@ -504,23 +497,17 @@ class GraphQueryRewriter:
             question=question,
             summary_json=json.dumps(summary.to_dict(), ensure_ascii=False),
         )
-        resp = ollama_post(
-            f"{self._ollama_base}/api/chat",
-            json={
-                "model": self._llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 256,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            },
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("message", {}).get("content", "").strip()
+        from rag_knowledge.llm_http import chat_role
+
+        raw = chat_role(
+            self._cfg,
+            "helper_llm",
+            [{"role": "user", "content": prompt}],
+            temperature=0.0,
+            num_predict=256,
+            timeout=float(self._timeout),
+            think=False,
+        ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()
         payload = json.loads(cleaned)

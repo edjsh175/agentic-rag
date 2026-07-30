@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from rag_knowledge.runtime_guard import validate_chroma_runtime
@@ -24,6 +25,8 @@ from langchain_core.documents import Document
 from rag_knowledge.config import Config
 from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS
 from rag_knowledge.services.embedding_cache import get_embedding_cache
+
+logger = logging.getLogger(__name__)
 
 
 class CachedOllamaEmbeddings(OllamaEmbeddings):
@@ -115,9 +118,15 @@ class VectorStore:
         self._embeddings = CachedOllamaEmbeddings(
             cache=self._embedding_cache,
             model=cfg.embedding_model,
-            base_url=cfg.ollama_base_url,
+            base_url=cfg.embedding_endpoint.resolved_base_url(cfg.ollama_base_url),
             client_kwargs=OLLAMA_CLIENT_KWARGS,
         )
+        if cfg.embedding_endpoint.normalized_provider() != "ollama":
+            logger.warning(
+                "embedding provider=%s 当前仅实现 OllamaEmbeddings；仍使用 Ollama 协议访问 %s",
+                cfg.embedding_endpoint.provider,
+                cfg.embedding_endpoint.resolved_base_url(cfg.ollama_base_url),
+            )
         self._store: Chroma | None = None
         self._persist_dir = self._safe_persist_path(cfg.chroma_dir)
         self._collection_name = cfg.collection_name
@@ -336,7 +345,7 @@ class VectorStore:
         self._embeddings = CachedOllamaEmbeddings(
             cache=self._embedding_cache,
             model=model,
-            base_url=cfg.ollama_base_url,
+            base_url=cfg.embedding_endpoint.resolved_base_url(cfg.ollama_base_url),
             client_kwargs=OLLAMA_CLIENT_KWARGS,
         )
         self._store = None

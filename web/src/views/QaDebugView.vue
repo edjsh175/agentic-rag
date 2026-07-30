@@ -3,11 +3,15 @@ defineOptions({ name: 'QaDebugView' })
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback } from '../api'
-import type { EvidenceChain, QaTraceDetail, QaTraceSummary } from '../types'
+import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback, queryClarify } from '../api'
+import type { EvidenceChain, QaTraceDetail, QaTraceSummary, ClarificationOption, ClarifyResult } from '../types'
 
 const question = ref('')
 const loading = ref(false)
+const debugClarification = ref<ClarifyResult | null>(null)
+const clarifiedQuestion = ref('')
+const selectedClarificationOptionId = ref<string | undefined>(undefined)
+
 const listLoading = ref(false)
 const error = ref('')
 const liveStatus = ref('')
@@ -181,22 +185,25 @@ function applyPipeline(data: any) {
   if (stage === 'start') activeTab.value = 'timeline'
 }
 
-async function runDebug() {
-  if (!question.value.trim()) return
-  abortCtrl?.abort()
-  abortCtrl = new AbortController()
+async function runActualDebugStream(
+  qText: string,
+  docCategory?: string,
+  entityName?: string,
+  clarificationQuestion?: string,
+  clarificationSelected?: string,
+) {
   loading.value = true
   error.value = ''
   liveStatus.value = '发起调试中...'
   liveAnswer.value = ''
   selectedId.value = '(运行中)'
-  detail.value = emptyDetail(question.value.trim())
+  detail.value = emptyDetail(qText)
   activeTab.value = 'timeline'
 
   let finishedTraceId = ''
   try {
     await queryAdminDebugStream(
-      question.value.trim(),
+      qText,
       {
         onStatus: (status) => {
           liveStatus.value = status
@@ -240,7 +247,11 @@ async function runDebug() {
           liveStatus.value = '执行完成'
         },
       },
-      abortCtrl.signal,
+      abortCtrl?.signal,
+      docCategory,
+      entityName,
+      clarificationQuestion,
+      clarificationSelected,
     )
     if (finishedTraceId) {
       await refreshList(finishedTraceId)
@@ -260,9 +271,68 @@ async function runDebug() {
   }
 }
 
+async function runDebug() {
+  if (!question.value.trim()) return
+
+  debugClarification.value = null
+  clarifiedQuestion.value = ''
+  selectedClarificationOptionId.value = undefined
+
+  abortCtrl?.abort()
+  abortCtrl = new AbortController()
+  loading.value = true
+  error.value = ''
+  liveStatus.value = '歧义预检中...'
+  liveAnswer.value = ''
+  selectedId.value = '(运行中)'
+  detail.value = emptyDetail(question.value.trim())
+  activeTab.value = 'timeline'
+
+  try {
+    const clarifyRes = await queryClarify(question.value.trim(), undefined, undefined, abortCtrl.signal)
+    if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
+      debugClarification.value = clarifyRes
+      clarifiedQuestion.value = question.value.trim()
+      loading.value = false
+      liveStatus.value = '检测到潜在歧义，请选择确认...'
+      return
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      liveStatus.value = '已终止调试'
+      loading.value = false
+      return
+    }
+    // 预检服务异常时，优雅降级直接进入调试
+  }
+
+  await runActualDebugStream(question.value.trim())
+}
+
+async function handleSelectClarificationOption(option: ClarificationOption) {
+  if (!debugClarification.value || loading.value) return
+
+  selectedClarificationOptionId.value = option.id
+  loading.value = true
+  liveStatus.value = `已选择「${option.label}」，正在检索回答...`
+
+  abortCtrl?.abort()
+  abortCtrl = new AbortController()
+
+  const originalQ = clarifiedQuestion.value
+  const docCategory = option.filter.doc_category || undefined
+  const entityName = option.filter.entity_name || undefined
+  const clarQuestion = debugClarification.value.ask_question
+  const clarSelected = option.label
+
+  await runActualDebugStream(originalQ, docCategory, entityName, clarQuestion, clarSelected)
+}
+
 function stopDebug() {
   abortCtrl?.abort()
+  debugClarification.value = null
 }
+
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.isComposing) {
@@ -457,6 +527,44 @@ onUnmounted(() => {
           </div>
         </form>
 
+        <!-- 歧义确认卡片 (只在发起新调试触发歧义时显示) -->
+        <div v-if="debugClarification" class="clarification-card">
+          <div class="clarification-header">
+            <svg class="clarification-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="clarification-title">调试歧义确认</span>
+            <span v-if="debugClarification.trigger" class="clarification-trigger-badge">
+              包含「{{ debugClarification.trigger }}」
+            </span>
+          </div>
+          <div class="clarification-question">
+            {{ debugClarification.ask_question }}
+          </div>
+          <div class="clarification-options">
+            <button
+              v-for="opt in debugClarification.options"
+              :key="opt.id"
+              type="button"
+              class="clarification-option-btn"
+              :class="{
+                'is-selected': selectedClarificationOptionId === opt.id,
+                'is-disabled': selectedClarificationOptionId && selectedClarificationOptionId !== opt.id
+              }"
+              :disabled="!!selectedClarificationOptionId"
+              @click="handleSelectClarificationOption(opt)"
+            >
+              <span class="option-badge">{{ opt.id.toUpperCase() }}</span>
+              <span class="option-label">{{ opt.label }}</span>
+              <svg v-if="selectedClarificationOptionId === opt.id" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <div v-if="error" class="error-banner">
           <span class="banner-title">系统提示：</span>
           <span>{{ error }}</span>
@@ -464,11 +572,27 @@ onUnmounted(() => {
 
         <template v-if="detail">
           <div class="summary-card">
+            <!-- 调试问题与历史反问选择展示 -->
+            <div class="trace-question-panel">
+              <div class="trace-q-row">
+                <span class="trace-q-lbl">调试问题：</span>
+                <span class="trace-q-val">{{ detail.request?.question || '-' }}</span>
+              </div>
+              <div v-if="detail.request?.clarification_question" class="trace-clarify-row">
+                <span class="trace-c-icon">❔</span>
+                <span class="trace-c-lbl">歧义反问：</span>
+                <span class="trace-c-q">{{ detail.request.clarification_question }}</span>
+                <span class="trace-c-arrow">→</span>
+                <span class="trace-c-selected-badge">用户选择：{{ detail.request.clarification_selected || '未记录选择' }}</span>
+              </div>
+            </div>
+
             <div class="summary-grid">
               <div class="summary-item">
                 <span class="lbl">追踪 ID</span>
                 <span class="val font-mono">{{ detail.meta.trace_id }}</span>
               </div>
+
               <div class="summary-item">
                 <span class="lbl">响应耗时</span>
                 <span class="val highlight-val" :title="detail.meta.elapsed_ms != null ? `${detail.meta.elapsed_ms} ms` : ''">
@@ -1729,6 +1853,192 @@ button:disabled {
   background: #fef2f2;
   color: #dc2626;
   border-color: #fecaca;
+  font-weight: 600;
+}
+
+/* 歧义确认卡片 (调试页版) */
+.clarification-card {
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.clarification-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.clarification-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.clarification-title {
+  flex: 1;
+}
+
+.clarification-trigger-badge {
+  font-size: 11px;
+  font-weight: normal;
+  padding: 2px 8px;
+  background: #eff6ff;
+  color: #3b82f6;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+}
+
+.clarification-question {
+  font-size: 14px;
+  color: #334155;
+  font-weight: 500;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.clarification-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clarification-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: #334155;
+}
+
+.clarification-option-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
+}
+
+.clarification-option-btn.is-selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.clarification-option-btn.is-disabled:not(.is-selected) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #fafbfc;
+}
+
+.option-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #cbd5e1;
+  color: #475569;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.clarification-option-btn.is-selected .option-badge {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.option-label {
+  flex: 1;
+}
+
+.check-icon {
+  color: #3b82f6;
+}
+
+/* 调试问题与历史反问展示区域 */
+.trace-question-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.trace-q-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.trace-q-lbl {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.trace-q-val {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  word-break: break-all;
+}
+
+.trace-clarify-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 13px;
+}
+
+.trace-c-icon {
+  font-size: 14px;
+}
+
+.trace-c-lbl {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.trace-c-q {
+  color: #475569;
+}
+
+.trace-c-arrow {
+  color: #94a3b8;
+  font-weight: bold;
+}
+
+.trace-c-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
   font-weight: 600;
 }
 

@@ -574,4 +574,51 @@ describe('KnowledgeGraphView', () => {
     expect(labelPositionsFor(['依赖'])).toHaveLength(1)
     expect(canvasOps.some(op => op.op === 'quadraticCurveTo')).toBe(false)
   })
+
+  it('filters nodes orthogonally using link classes (Backbone / Extraction / Context)', async () => {
+    vi.mocked(api.getGraphData).mockResolvedValue({
+      nodes: [
+        { id: 'n1', label: 'CoreProduct', type: 'Product', review_status: 'approved', created_by: 'seed:product_backbone' },
+        { id: 'n2', label: 'DataTableA', type: 'DataTable', review_status: 'approved' },
+        { id: 'n3', label: 'DocSource', type: 'Document', review_status: 'approved' },
+      ],
+      edges: [],
+    })
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    // Backbone (Product), Extraction (DataTable), Context (Document) are checked by default
+    expect(wrapper.text()).toContain('CoreProduct')
+    expect(wrapper.text()).toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
+
+    // 1. Uncheck "抽取" (Extraction) filter
+    const extractionCheckbox = wrapper.get('input[data-test="link-class-extraction"]')
+    await extractionCheckbox.setValue(false)
+    await flushPromises()
+
+    // DataTableA (Extraction) is hidden, others stay visible
+    expect(wrapper.text()).toContain('CoreProduct')
+    expect(wrapper.text()).not.toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
+
+    // 2. Uncheck "主干" (Backbone) filter
+    const backboneCheckbox = wrapper.get('input[data-test="link-class-backbone"]')
+    await backboneCheckbox.setValue(false)
+    await flushPromises()
+
+    // CoreProduct (Backbone) is also hidden
+    expect(wrapper.text()).not.toContain('CoreProduct')
+    expect(wrapper.text()).not.toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
+
+    // 3. Re-check "抽取" (Extraction) filter
+    await extractionCheckbox.setValue(true)
+    await flushPromises()
+
+    // DataTableA is back, CoreProduct remains hidden
+    expect(wrapper.text()).not.toContain('CoreProduct')
+    expect(wrapper.text()).toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
+  })
 })

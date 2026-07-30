@@ -348,6 +348,7 @@ class QueryClarificationService:
         )
         self._ollama_base = cfg.ollama_base_url
         self._llm_model = cfg.helper_llm_model
+        self._cfg = cfg
 
     def _catalog_loader(self) -> DomainCatalogLoader:
         if self._catalog is None:
@@ -608,25 +609,17 @@ class QueryClarificationService:
                 raise ValueError("clarify llm_caller must return a dict")
             return payload
 
-        from rag_knowledge.ollama_http import post as ollama_post
+        from rag_knowledge.llm_http import chat_role
 
-        resp = ollama_post(
-            f"{self._ollama_base}/api/chat",
-            json={
-                "model": self._llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 256,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            },
-            timeout=self.llm_timeout_seconds,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("message", {}).get("content", "").strip()
+        raw = chat_role(
+            self._cfg,
+            "helper_llm",
+            [{"role": "user", "content": prompt}],
+            temperature=0.0,
+            num_predict=256,
+            timeout=float(self.llm_timeout_seconds),
+            think=False,
+        ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()
         payload = json.loads(cleaned)

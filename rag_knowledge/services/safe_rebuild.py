@@ -187,9 +187,24 @@ class SafeRebuildService:
             require_backup=False,
         )
 
-        # Fail before superseding automatic facts if LLM is required but Ollama is down.
+        # Fail before superseding automatic facts if LLM is required but endpoint is down.
         if include_llm:
-            assert_ollama_reachable()
+            from rag_knowledge.config import Config
+            cfg = Config()
+            provider = (cfg.graph_extraction_llm.provider or "ollama").lower()
+            if provider == "ollama":
+                assert_ollama_reachable(base_url=cfg.graph_llm_endpoint())
+            elif provider in ("openai", "google"):
+                if not cfg.graph_extraction_endpoint.resolved_api_key():
+                    env_hint = (
+                        cfg.graph_extraction_llm.api_key_env
+                        or ("GOOGLE_API_KEY" if provider == "google" else "OPENAI_API_KEY")
+                    )
+                    raise ValueError(
+                        f"graph_extraction.llm provider={provider} 需要设置环境变量 {env_hint}"
+                    )
+            else:
+                raise ValueError(f"unsupported graph_extraction.llm provider: {provider}")
 
         # Phase A — backup
         backup_path = self._backup_db(backup_dir)

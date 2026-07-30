@@ -122,6 +122,8 @@ class QaTraceBuilder:
         thinking: bool | None = None,
         history_rounds: int = 0,
         cfg: Config | None = None,
+        clarification_question: str | None = None,
+        clarification_selected: str | None = None,
     ):
         # cfg=None means "do not fall back to live Config()" — used by RagChain test
         # stubs that never set self._cfg. Production RagChain always passes Config.
@@ -140,9 +142,12 @@ class QaTraceBuilder:
             "llm_model": llm_model,
             "thinking": thinking,
             "history_rounds": int(history_rounds or 0),
+            "clarification_question": clarification_question,
+            "clarification_selected": clarification_selected,
         }
         self._meta_path = path or get_trace_path()
         self._request_id = request_id or get_request_id()
+
 
     @property
     def enabled(self) -> bool:

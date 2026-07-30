@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import post as ollama_post
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 
 logger = logging.getLogger(__name__)
@@ -285,23 +284,17 @@ class QueryPlanner:
         return self._classify_heuristic(question)
 
     def _classify_via_llm(self, question: str) -> tuple[str, float]:
-        resp = ollama_post(
-            f"{self._ollama_base}/api/chat",
-            json={
-                "model": self._llm_model,
-                "messages": [{"role": "user", "content": _INTENT_PROMPT.format(question=question)}],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 96,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            },
-            timeout=self._planner_cfg.llm_timeout,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("message", {}).get("content", "").strip()
+        from rag_knowledge.llm_http import chat_role
+
+        raw = chat_role(
+            self._cfg,
+            "helper_llm",
+            [{"role": "user", "content": _INTENT_PROMPT.format(question=question)}],
+            temperature=0.0,
+            num_predict=96,
+            timeout=float(self._planner_cfg.llm_timeout),
+            think=False,
+        ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()
         data: dict[str, Any] = json.loads(cleaned)

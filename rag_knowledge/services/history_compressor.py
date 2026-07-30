@@ -15,7 +15,6 @@ from collections import OrderedDict
 from typing import Any, Optional
 
 from rag_knowledge.config import Config, HistoryCompressionConfig
-from rag_knowledge.ollama_http import post as ollama_post
 
 logger = logging.getLogger(__name__)
 
@@ -81,37 +80,27 @@ class HistoryCompressor:
         return "\n".join(lines)
 
     def _call_llm_summarize(self, prompt: str) -> str:
-        """调用本地 Ollama LLM 进行摘要生成"""
+        """调用配置的 helper_llm 进行摘要生成"""
         try:
-            url = f"{self._main_cfg.ollama_base_url}/api/chat"
-            payload = {
-                "model": self._main_cfg.helper_llm_model,
-                "messages": [
+            from rag_knowledge.llm_http import chat_role
+
+            logger.debug("开始调用 helper_llm 压缩对话历史...")
+            content = chat_role(
+                self._main_cfg,
+                "helper_llm",
+                [
                     {
                         "role": "system",
                         "content": "你是一个严谨且精炼的历史对话摘要助手。你的任务是清晰、扼要地概括对话的历史背景，去掉冗余闲聊，提炼核心结论和需求，仅返回总结后的中文摘要文本，严禁加入任何解释、推理（如 <think></think> 标签）或多余话术。",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,
-                    "num_predict": 256,
-                    "top_k": 10,
-                    "thinking": False,
-                },
-            }
-            logger.debug("开始调用本地 LLM 压缩对话历史...")
-            response = ollama_post(url, json=payload, timeout=45)
-            response.raise_for_status()
-
-            result = response.json()
-            content = result.get("message", {}).get("content", "").strip()
-
-            # 清洗 DeepSeek-R1 等模型的思考过程内容（如果有的话）
-            import re
-            cleaned_content = re.sub(r"(?is)<think>.*?</think>", "", content).strip()
-            return cleaned_content
+                temperature=0.0,
+                num_predict=256,
+                timeout=45.0,
+                think=False,
+            )
+            return (content or "").strip()
         except Exception as e:
             logger.error("历史记录总结调用 LLM 失败: %s", e)
             return ""

@@ -20,7 +20,7 @@ from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS, async_client, post as ollama_post
+from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.chunk_hit_telemetry import ChunkHitTelemetry
 from rag_knowledge.services.query_cache import QueryCache, get_query_cache
@@ -315,6 +315,8 @@ class RagChain:
         llm_model: str | None = None,
         thinking: bool | None = None,
         path: str | None = None,
+        clarification_question: str | None = None,
+        clarification_selected: str | None = None,
     ) -> QaTraceBuilder:
         return QaTraceBuilder(
             question=question,
@@ -325,7 +327,10 @@ class RagChain:
             thinking=thinking,
             history_rounds=len(history or []) // 2,
             cfg=getattr(self, "_cfg", None),
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
         )
+
 
     def _commit_qa_trace(
         self,
@@ -761,17 +766,73 @@ class RagChain:
     # 检索 + 上下文构建（同步，流式/非流式共用）
     # ------------------------------------------------------------------
 
-    def _build_llm(self, model: str | None = None) -> ChatOllama:
-        """创建 LLM 实例，支持模型覆盖（前端选择）"""
-        return ChatOllama(
-            model=model or self._llm_model,
-            base_url=self._ollama_base,
-            temperature=0.1,
-            top_p=0.9,
-            top_k=40,
-            num_predict=2048,
-            client_kwargs=OLLAMA_CLIENT_KWARGS,
+    def _resolve_llm_endpoint(self, model: str | None = None):
+        from rag_knowledge.llm_http import ModelEndpoint
+        ep = self._cfg.llm_endpoint
+        if not model or model == ep.model:
+            return ep
+        for other_role in ["llm", "helper_llm", "embedding", "vision", "compression", "graph_extraction"]:
+            try:
+                other_ep = self._cfg.endpoint_for(other_role)
+                if other_ep.model == model:
+                    return ModelEndpoint(
+                        role=ep.role,
+                        provider=other_ep.provider,
+                        model=model,
+                        base_url=other_ep.base_url,
+                        api_key_env=other_ep.api_key_env,
+                    )
+            except Exception:
+                continue
+        return ModelEndpoint(
+            role=ep.role,
+            provider="ollama",
+            model=model,
+            base_url="",
+            api_key_env="",
         )
+
+    def _build_llm(self, model: str | None = None):
+        """创建 LLM 实例，支持模型覆盖（前端选择）及多 provider。"""
+        from types import SimpleNamespace
+
+        from rag_knowledge.llm_http import chat
+
+        ep = self._resolve_llm_endpoint(model)
+        if ep.normalized_provider() == "ollama":
+            return ChatOllama(
+                model=ep.model,
+                base_url=ep.resolved_base_url(self._ollama_base),
+                temperature=0.1,
+                top_p=0.9,
+                top_k=40,
+                num_predict=2048,
+                client_kwargs=OLLAMA_CLIENT_KWARGS,
+            )
+
+        class _HttpChatAdapter:
+            def invoke(self_inner, lc_msgs):
+                messages = []
+                for m in lc_msgs:
+                    mtype = getattr(m, "type", "") or ""
+                    if mtype == "system":
+                        role = "system"
+                    elif mtype in {"ai", "assistant"}:
+                        role = "assistant"
+                    else:
+                        role = "user"
+                    messages.append({"role": role, "content": getattr(m, "content", "") or ""})
+                text = chat(
+                    ep,
+                    messages,
+                    default_ollama=self._ollama_base,
+                    temperature=0.1,
+                    num_predict=2048,
+                    timeout=180.0,
+                )
+                return SimpleNamespace(content=text)
+
+        return _HttpChatAdapter()
 
     async def _aretrieve_with_cache(
         self,
@@ -1207,27 +1268,22 @@ class RagChain:
 
     def _request_compressed_snippet(self, query: str, content: str, cfg) -> str:
         try:
+            from rag_knowledge.llm_http import chat_role
+
             prompt = _CONTEXTUAL_COMPRESSION_PROMPT.format(
                 question=query,
                 content=content,
                 max_chars=cfg.max_compressed_chunk_chars,
             )
-            resp = ollama_post(
-                f"{self._ollama_base}/api/chat",
-                json={
-                    "model": cfg.compression_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.1,
-                        "num_predict": max(64, cfg.max_compressed_chunk_chars),
-                        "top_k": 20,
-                    },
-                },
-                timeout=45,
+            response_content = chat_role(
+                self._cfg,
+                "compression",
+                [{"role": "user", "content": prompt}],
+                temperature=0.1,
+                num_predict=max(64, cfg.max_compressed_chunk_chars),
+                timeout=45.0,
+                think=False,
             )
-            resp.raise_for_status()
-            response_content = resp.json().get("message", {}).get("content", "")
             cleaned = re.sub(r"(?is)<think>.*?</think>", "", response_content or "")
             cleaned = cleaned.strip().strip('"')
             if len(cleaned) < _MIN_COMPRESSED_SNIPPET_CHARS or cleaned not in content:
@@ -1280,18 +1336,17 @@ class RagChain:
     def _simple_rewrite(self, question: str) -> str:
         """简单查询改写（无历史时的兜底方案）。"""
         try:
-            resp = ollama_post(
-                f"{self._ollama_base}/api/chat",
-                json={
-                    "model": self._helper_llm_model,
-                    "messages": [{"role": "user", "content": _QUERY_REWRITE_PROMPT.format(question=question)}],
-                    "stream": False,
-                    "options": _HELPER_OPTIONS,
-                },
-                timeout=30,
-            )
-            resp.raise_for_status()
-            rewritten = resp.json().get("message", {}).get("content", "").strip().strip('"')
+            from rag_knowledge.llm_http import chat_role
+
+            rewritten = chat_role(
+                self._cfg,
+                "helper_llm",
+                [{"role": "user", "content": _QUERY_REWRITE_PROMPT.format(question=question)}],
+                temperature=0.0,
+                num_predict=64,
+                timeout=30.0,
+                think=False,
+            ).strip().strip('"')
             if rewritten and len(rewritten) > 3:
                 logger.info("Query 简单改写: %s → %s", question[:50], rewritten[:60])
                 return rewritten
@@ -1732,19 +1787,17 @@ class RagChain:
                 return "文章附件"
 
         try:
-            route_options = dict(_HELPER_OPTIONS, num_predict=16)
-            resp = ollama_post(
-                f"{self._ollama_base}/api/chat",
-                json={
-                    "model": self._helper_llm_model,
-                    "messages": [{"role": "user", "content": _ROUTE_PROMPT.format(question=question)}],
-                    "stream": False,
-                    "options": route_options,
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            result = resp.json().get("message", {}).get("content", "").strip().strip('"')
+            from rag_knowledge.llm_http import chat_role
+
+            result = chat_role(
+                self._cfg,
+                "helper_llm",
+                [{"role": "user", "content": _ROUTE_PROMPT.format(question=question)}],
+                temperature=0.0,
+                num_predict=16,
+                timeout=15.0,
+                think=False,
+            ).strip().strip('"')
             if result in ("文章附件", "已发布文章"):
                 logger.info("Query 路由: %s → %s", question[:40], result)
                 return result
@@ -1995,13 +2048,18 @@ class RagChain:
                      web_search: bool | None = None,
                      allow_general_knowledge: bool | None = None,
                      agent_prompt: str | None = None,
-                     include_evidence: bool = False) -> dict:
+                     include_evidence: bool = False,
+                     clarification_question: str | None = None,
+                     clarification_selected: str | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
         trace = self._new_qa_trace(
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking,
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
         )
+
 
         if not q:
             return {"answer": "请输入有效的问题", "source_documents": []}
@@ -2178,13 +2236,18 @@ class RagChain:
                             pipeline_events: bool = False,
                             pinned_chunk_ids: list[str] | None = None,
                             excluded_chunk_ids: list[str] | None = None,
-                            path: str | None = None):
+                            path: str | None = None,
+                            clarification_question: str | None = None,
+                            clarification_selected: str | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
         trace = self._new_qa_trace(
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking, path=path or "query/stream",
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
         )
+
 
         if not q:
             yield {"type": "token", "data": "请输入有效的问题"}
@@ -2412,55 +2475,38 @@ class RagChain:
 
             model = llm_model or self._llm_model
             enable_model_thinking = deep_mode and self._need_ollama_thinking(model)
-            options = {
-                "temperature": 0.1,
-                "top_p": 0.9,
-                "top_k": 40,
-                "num_predict": 2048,
-            }
-            if enable_model_thinking:
-                options["thinking"] = True
 
-            ollama_payload = {
-                "model": model,
-                "messages": msgs,
-                "stream": True,
-                "options": options,
-            }
+            from rag_knowledge.llm_http import achat_stream
+
+            ep = self._resolve_llm_endpoint(model)
 
             answer_parts: list[str] = []
-            async with async_client(base_url=getattr(self, "_ollama_base", "http://localhost:11434"), timeout=600) as client:
-                async with client.stream("POST", "/api/chat", json=ollama_payload) as resp:
-                    if resp.status_code != 200:
-                        body = await resp.aread()
-                        logger.error("Ollama /api/chat 返回 %d: %s", resp.status_code, body[:500])
-                        fail_msg = f"模型调用失败 (HTTP {resp.status_code})，请检查模型是否可用"
-                        tid = self._commit_qa_trace(
-                            trace, answer=fail_msg,
-                            retrieved_docs=retrieved_source_docs, context_docs=source_docs,
-                            cited_docs=[], error=fail_msg,
-                        )
-                        yield {"type": "token", "data": fail_msg}
-                        if tid:
-                            yield {"type": "trace", "data": {"trace_id": tid}}
-                        yield {"type": "done"}
-                        return
-                    async for line in resp.aiter_lines():
-                        if not line:
-                            continue
-                        try:
-                            chunk = json.loads(line)
-                            msg = chunk.get("message", {})
-                            thinking_text = msg.get("thinking", "")
-                            if thinking and thinking_text:
-                                yield {"type": "thinking", "data": thinking_text}
-                            content = msg.get("content", "")
-                            if content:
-                                answer_parts.append(content)
-                                yield {"type": "token", "data": content}
-
-                        except json.JSONDecodeError:
-                            continue
+            try:
+                async for content in achat_stream(
+                    ep,
+                    msgs,
+                    default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                    temperature=0.1,
+                    timeout=600.0,
+                    num_predict=2048,
+                    think=bool(enable_model_thinking),
+                ):
+                    if content:
+                        answer_parts.append(content)
+                        yield {"type": "token", "data": content}
+            except Exception as stream_exc:
+                logger.error("模型流式调用失败: %s", stream_exc)
+                fail_msg = f"模型调用失败：{stream_exc}"
+                tid = self._commit_qa_trace(
+                    trace, answer=fail_msg,
+                    retrieved_docs=retrieved_source_docs, context_docs=source_docs,
+                    cited_docs=[], error=fail_msg,
+                )
+                yield {"type": "token", "data": fail_msg}
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
+                yield {"type": "done"}
+                return
 
             trace.mark("generate")
             answer_text = "".join(answer_parts)

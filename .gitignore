@@ -81,4 +81,9 @@ Thumbs.db
 # Compressed archives
 *.tar.gz
 
+# Local secrets (API keys); never commit
+.env
+.env.local
+.env.*.local
+
 

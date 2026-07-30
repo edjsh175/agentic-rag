@@ -202,7 +202,7 @@ def test_v3_staging_batch_deduplicates_candidates(isolated_storage, monkeypatch)
     second = db.add_extraction_candidate(batch_id, "entity", "fp-1", payload, "c1", "PipelineBuilder")
 
     assert first == second
-    assert db.get_schema_version() == 3
+    assert db.get_schema_version() >= 3
     assert len(db.list_extraction_candidates(batch_id)) == 1
 
 

@@ -575,13 +575,24 @@ export async function queryAdminDebugStream(
     onError?: (err: Error) => void
   },
   signal?: AbortSignal,
+  docCategory?: string,
+  entityName?: string,
+  clarificationQuestion?: string,
+  clarificationSelected?: string,
 ) {
   const res = await fetch('/api/admin/qa-debug/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({
+      question,
+      doc_category: docCategory,
+      entity_name: entityName,
+      clarification_question: clarificationQuestion,
+      clarification_selected: clarificationSelected,
+    }),
     signal,
   })
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || `请求失败 (${res.status})`)

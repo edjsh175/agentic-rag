@@ -84,10 +84,30 @@ def main():
     logger.info("=" * 54)
     logger.info("  RAG 本地知识库问答系统  v2.0")
     logger.info("=" * 54)
-    logger.info("  Ollama:        %s", cfg.ollama_base_url)
-    logger.info("  向量模型:      %s", cfg.embedding_model)
-    logger.info("  问答模型:      %s", cfg.llm_model)
-    logger.info("  视觉模型:      %s", cfg.vision_model)
+    logger.info("  配置文件:    %s", cfg.config_file)
+    logger.info("  Ollama默认:    %s", cfg.ollama_base_url)
+    logger.info(
+        "  向量模型:      %s (%s @ %s)",
+        cfg.embedding_model,
+        cfg.embedding_endpoint.provider,
+        cfg.embedding_endpoint.resolved_base_url(cfg.ollama_base_url),
+    )
+    logger.info(
+        "  问答模型:      %s (%s @ %s)",
+        cfg.llm_model,
+        cfg.llm_endpoint.provider,
+        cfg.llm_endpoint.resolved_base_url(cfg.ollama_base_url),
+    )
+    logger.info(
+        "  辅助模型:      %s (%s)",
+        cfg.helper_llm_model,
+        cfg.helper_llm_endpoint.provider,
+    )
+    logger.info(
+        "  视觉模型:      %s (%s)",
+        cfg.vision_model,
+        cfg.vision_endpoint.provider,
+    )
     logger.info("  监视目录:      %s", cfg.watch_dir)
     logger.info("  向量数据库:    %s", cfg.chroma_dir)
     logger.info("  关系数据库:    %s", cfg.relational_db_path)

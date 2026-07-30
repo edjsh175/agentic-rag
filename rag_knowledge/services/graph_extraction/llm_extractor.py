@@ -3,13 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-import os
 from pathlib import Path
 from typing import Any
-import httpx
 
 from rag_knowledge.config import Config
-from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
 from rag_knowledge.services.backbone_guard import format_backbone_context, load_backbone_constraints
 from rag_knowledge.services.relation_recovery import is_generic_entity_name
@@ -233,61 +230,23 @@ class LLMGraphExtractor:
 
     def _call_llm_with_retries(self, prompt: str) -> str:
         """Call LLM with retries on HTTP errors."""
+        from rag_knowledge.llm_http import chat
+
         llm_cfg = self.cfg.graph_extraction_llm
         max_retries = max(1, llm_cfg.max_retries)
-        
-        provider = llm_cfg.provider.lower()
-        model = llm_cfg.model
-        temp = llm_cfg.temperature
-
+        endpoint = self.cfg.graph_extraction_endpoint
         last_error = None
         for attempt in range(max_retries):
             try:
-                if provider == "openai":
-                    api_key = os.getenv("OPENAI_API_KEY")
-                    if not api_key:
-                        raise ValueError("OPENAI_API_KEY env variable is required for provider=openai")
-                    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-                    
-                    headers = {
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    }
-                    payload = {
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": temp,
-                        "response_format": {"type": "json_object"}
-                    }
-                    
-                    with httpx.Client(timeout=60.0) as client:
-                        resp = client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
-                        resp.raise_for_status()
-                        return resp.json()["choices"][0]["message"]["content"]
-                
-                else:  # Default/ollama
-                    payload = {
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "stream": False,
-                        # qwen3 thinking mode often returns empty content under format=json
-                        "think": False,
-                        "options": {
-                            "temperature": temp,
-                        },
-                        "format": "json"
-                    }
-                    
-                    # qwen3:30b graph prompts often exceed 60s; 180s keeps Round-2 pilot reliable
-                    with ollama_client(timeout=180.0) as client:
-                        resp = client.post(f"{self.cfg.ollama_base_url}/api/chat", json=payload)
-                        resp.raise_for_status()
-                        message = resp.json().get("message") or {}
-                        content = (message.get("content") or "").strip()
-                        if not content:
-                            # Fallback if server ignored think=false
-                            content = (message.get("thinking") or "").strip()
-                        return content
+                return chat(
+                    endpoint,
+                    [{"role": "user", "content": prompt}],
+                    default_ollama=self.cfg.ollama_base_url,
+                    temperature=llm_cfg.temperature,
+                    format_json=True,
+                    timeout=180.0,
+                    think=False,
+                )
             except Exception as e:
                 last_error = e
                 logger.warning("LLM extraction call attempt %d failed: %s", attempt + 1, e)

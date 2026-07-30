@@ -22,6 +22,7 @@ class ContextualCompressionTests(unittest.TestCase):
     def _build_chain(self, enabled: bool = True, max_chars: int = 80) -> RagChain:
         chain = object.__new__(RagChain)
         chain._ollama_base = "http://localhost:11434"
+        chain._cfg = None
         chain._retrieval_quality_cfg = RetrievalQualityConfig(
             contextual_compression_enabled=enabled,
             compression_model="compress-model",
@@ -50,8 +51,8 @@ class ContextualCompressionTests(unittest.TestCase):
         ]
 
         with patch(
-            "rag_knowledge.services.rag.ollama_post",
-            return_value=_ResponseStub("chunk with a lot of useful details"),
+            "rag_knowledge.llm_http.chat_role",
+            return_value="chunk with a lot of useful details",
         ):
             result = chain._compress_retrieved_docs("question", docs)
 
@@ -73,7 +74,7 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.ollama_post",
+            "rag_knowledge.llm_http.chat_role",
             side_effect=RuntimeError("compression failed"),
         ):
             result = chain._compress_retrieved_docs("question", docs)
@@ -87,8 +88,8 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.ollama_post",
-            return_value=_ResponseStub("   "),
+            "rag_knowledge.llm_http.chat_role",
+            return_value="   ",
         ):
             result = chain._compress_retrieved_docs("question", docs)
 
@@ -100,8 +101,8 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="the original factual passage", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.ollama_post",
-            return_value=_ResponseStub("a model-written summary"),
+            "rag_knowledge.llm_http.chat_role",
+            return_value="a model-written summary",
         ):
             result = chain._compress_retrieved_docs("question", docs)
 
@@ -113,8 +114,8 @@ class ContextualCompressionTests(unittest.TestCase):
         docs = [Document(page_content="original chunk", metadata={"chunk_id": "c1"})]
 
         with patch(
-            "rag_knowledge.services.rag.ollama_post",
-            return_value=_ResponseStub("o"),
+            "rag_knowledge.llm_http.chat_role",
+            return_value="o",
         ):
             result = chain._compress_retrieved_docs("question", docs)
 

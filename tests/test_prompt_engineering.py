@@ -38,6 +38,8 @@ class _AsyncClientStub:
 
 def _chain_without_sources():
     chain = object.__new__(RagChain)
+    from rag_knowledge.config import Config
+    chain._cfg = Config()
     chain._allow_general_knowledge = True
     chain._build_retrieval_query_specs = lambda question, history: [question]
     chain._query_planner = type(
@@ -216,6 +218,8 @@ class PromptEngineeringTests(unittest.TestCase):
 
         with patch("rag_knowledge.services.rag.ChatOllama", fail_if_called):
             chain = object.__new__(RagChain)
+            from rag_knowledge.config import Config
+            chain._cfg = Config()
             result = chain.query("你好")
 
         self.assertEqual(
@@ -232,6 +236,8 @@ class PromptEngineeringTests(unittest.TestCase):
 
         with patch("rag_knowledge.services.rag.ChatOllama", fail_if_called):
             chain = object.__new__(RagChain)
+            from rag_knowledge.config import Config
+            chain._cfg = Config()
 
             async def collect():
                 return [event async for event in chain.stream_query("你好")]
@@ -256,6 +262,8 @@ class PromptEngineeringTests(unittest.TestCase):
         trimmed_docs = [original_docs[0]]
 
         chain = object.__new__(RagChain)
+        from rag_knowledge.config import Config
+        chain._cfg = Config()
         chain._allow_general_knowledge = True
         chain._ollama_base = "http://localhost:11434"
         chain._llm_model = "test-model"
