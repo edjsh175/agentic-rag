@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement QA trace page with debug view and trace logging"
+    commit_msg = "feat: optimize retrieve function and update backbone database"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

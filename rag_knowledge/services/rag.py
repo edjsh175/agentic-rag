@@ -144,7 +144,7 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 8. 保证回答严格基于事实，禁止无中生有的凭空捏造，或将模型通用知识伪装成知识库内容。在不偏离且不违背 <context> 事实范围的前提下，可以进行合理的上下文衔接与步骤梳理，使回答逻辑连贯。
 9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
-11. 若存在产品主干锚定提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用），禁止在主体已命中时直接输出固定未命中提示或规则4空壳句。产品关系类问题可使用锚定提示中的主干边作为关系骨架，但仍须引用相关 context 并先写实质内容；若 context 无归属原文，说明缺口并引用相关片段，可将主干边标注为“关系骨架（非知识库原文）”；不得把 avoid/易混实体当作回答主体。
+11. 若存在产品主干锚定或已审核知识图谱关系提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用），禁止在主体已命中时直接输出固定未命中提示或规则4空壳句。产品关系类问题可直接使用提示中的已审核知识图谱关系或主干边作为权威关系依据进行回答与梳理；即使 <context> 文本片段中无对应详细描述，也可直接依据该图谱关系作出明确回答并标注“（依据已审核知识图谱关系）”，不得因文本未检索到而盲目拒绝回答；不得把 avoid/易混实体当作回答主体。
 
 ## 输出规则
 
@@ -1843,11 +1843,13 @@ class RagChain:
             history_summary_section = f"## 历史对话摘要\n{history_summary}\n"
 
         entity_hint_section = ""
+        approved_graph_relations = []
         if linked_entities:
             from rag_knowledge.repository.relational_db import RelationalDB
             try:
                 db = RelationalDB()
                 entity_hints = []
+                seen_rel_ids = set()
                 for linked in linked_entities:
                     entity = db.get_entity(linked.entity_id)
                     if not entity:
@@ -1860,14 +1862,23 @@ class RagChain:
                     alias_str = f"（中文别名：{', '.join(aliases)}）" if aliases else ""
 
                     different_from_names = []
-                    for rel in db.list_relations(entity_id=linked.entity_id, relation_type="different_from", review_status="approved"):
-                        other_id = rel["target_entity_id"] if rel["source_entity_id"] == linked.entity_id else rel["source_entity_id"]
-                        other_node = db.get_entity(other_id)
-                        if other_node:
-                            other_name = other_node.get("canonical_name") or other_node.get("name")
-                            other_cat = other_node.get("doc_category")
-                            other_type = other_node.get("entity_type")
-                            different_from_names.append(f"{other_name}，类型 {other_type}，分类 {other_cat}" if (other_cat or other_type) else f"{other_name}")
+                    for rel in db.list_relations(entity_id=linked.entity_id, review_status="approved"):
+                        rel_id = rel.get("id")
+                        if rel.get("relation_type") == "different_from":
+                            other_id = rel["target_entity_id"] if rel["source_entity_id"] == linked.entity_id else rel["source_entity_id"]
+                            other_node = db.get_entity(other_id)
+                            if other_node:
+                                other_name = other_node.get("canonical_name") or other_node.get("name")
+                                other_cat = other_node.get("doc_category")
+                                other_type = other_node.get("entity_type")
+                                different_from_names.append(f"{other_name}，类型 {other_type}，分类 {other_cat}" if (other_cat or other_type) else f"{other_name}")
+                        else:
+                            if rel_id and rel_id not in seen_rel_ids:
+                                seen_rel_ids.add(rel_id)
+                                src_name = rel.get("source_name") or "未知"
+                                tgt_name = rel.get("target_name") or "未知"
+                                rtype = rel.get("relation_type") or "related_to"
+                                approved_graph_relations.append(f"  - {src_name} -[{rtype}]-> {tgt_name}")
 
                     hint = f"- {name}{alias_str}\n  - 类型：{etype}"
                     if category:
@@ -1884,7 +1895,7 @@ class RagChain:
                 logger.warning("Failed to construct entity hint section: %s", e)
 
         backbone_anchor_section = ""
-        if backbone_relation_summary or backbone_canonical:
+        if backbone_relation_summary or backbone_canonical or approved_graph_relations:
             parts = []
             if backbone_relation_summary:
                 parts.append(backbone_relation_summary)
@@ -1892,8 +1903,11 @@ class RagChain:
                 parts.append("产品主干锚定实体：" + "、".join(backbone_canonical))
                 if backbone_avoid:
                     parts.append("勿与以下易混实体混同：" + "、".join(backbone_avoid))
+            if approved_graph_relations:
+                parts.append("- 已审核知识图谱结构关系：\n" + "\n".join(approved_graph_relations))
+
             backbone_anchor_section = (
-                "## 产品主干锚定与关系摘要（消歧与关系骨架；事实以 context 为准）\n"
+                "## 知识图谱锚定与已审核关系（权威结构事实；若 context 无原文可据此直接作答并标注）\n"
                 + "\n".join(parts)
                 + "\n\n"
             )
