@@ -1291,7 +1291,7 @@ const saveRelation = async () => {
         evidence_text: relationForm.value.evidence_text || null,
       })
       isRelationModalOpen.value = false
-      await fetchGraph()
+      await fetchGraph(true)
       return
     }
 
@@ -1303,7 +1303,7 @@ const saveRelation = async () => {
       evidence_text: relationForm.value.evidence_text || null,
     })
     isRelationModalOpen.value = false
-    await fetchGraph()
+    await fetchGraph(true)
   } catch (err: any) {
     alert('保存关系失败：' + err.message)
   } finally {

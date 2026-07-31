@@ -1,0 +1,51 @@
+[
+  {
+    "trigger_entity": "管线发布",
+    "ask_question": "您提到的「管线发布」可能指客户端发布工具或服务端发布服务，请选择：",
+    "priority": 200,
+    "context_options": [
+      {
+        "label": "管线发布工具 PipelineBuilder（StampTools 客户端）",
+        "filter": { "doc_category": "StampTools", "entity_name": "PipelineBuilder" }
+      },
+      {
+        "label": "管线发布服务（StampServer 服务端）",
+        "filter": { "doc_category": "StampServer", "entity_name": "管线发布服务" }
+      }
+    ]
+  },
+  {
+    "triggers": ["pipeline", "Pipeline", "管线工具"],
+    "ask_question": "您提到的「pipeline / 管线工具」可能对应客户端工具或服务端能力，请选择：",
+    "priority": 190,
+    "context_options": [
+      {
+        "label": "PipelineBuilder 管线发布工具（StampTools）",
+        "filter": { "doc_category": "StampTools", "entity_name": "PipelineBuilder" }
+      },
+      {
+        "label": "管线发布服务（StampServer）",
+        "filter": { "doc_category": "StampServer", "entity_name": "管线发布服务" }
+      },
+      {
+        "label": "管线更新服务（StampServer）",
+        "filter": { "doc_category": "StampServer", "entity_name": "管线更新服务" }
+      }
+    ]
+  },
+  {
+    "trigger_entity": "飞行物体",
+    "ask_question": "「飞行物体」在不同手册中含义不同，请选择您要查询的方向：",
+    "priority": 150,
+    "context_options": [
+      {
+        "label": "运维/部署侧的动态对象配置（StampServer）",
+        "filter": { "doc_category": "StampServer" }
+      },
+      {
+        "label": "前端/WebGL 开发侧能力（StampTools / 实景三维）",
+        "filter": { "doc_category": "StampTools" }
+      }
+    ]
+  }
+]

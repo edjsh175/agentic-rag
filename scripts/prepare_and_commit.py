@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: optimize node interactive link mode and coordinate detection in KnowledgeGraphView"
+    commit_msg = "feat: optimize graph views, invalidate data cache on modifications, and include key relationship files in version control"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

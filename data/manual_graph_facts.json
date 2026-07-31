@@ -1,0 +1,47 @@
+{
+  "exported_at": "2026-07-09T17:06:47.756335",
+  "schema_version": "v1",
+  "entities": [],
+  "relations": [
+    {
+      "source_canonical_name": "PipelineBuilder",
+      "target_canonical_name": "管线发布服务",
+      "relation_type": "different_from",
+      "properties_json": "{}",
+      "confidence": 1.0,
+      "evidence_text": "special_rule:PipelineBuilder:different_from:管线发布服务",
+      "source_chunk_id": "",
+      "review_status": "approved",
+      "created_by": "rule:special_relations"
+    },
+    {
+      "source_canonical_name": "PipelineBuilder",
+      "target_canonical_name": "PipelinePublishConfig",
+      "relation_type": "different_from",
+      "properties_json": "{}",
+      "confidence": 1.0,
+      "evidence_text": "special_rule:PipelineBuilder:different_from:PipelinePublishConfig",
+      "source_chunk_id": "",
+      "review_status": "approved",
+      "created_by": "rule:special_relations"
+    }
+  ],
+  "aliases": [
+    {
+      "entity_canonical_name": "PipelineBuilder",
+      "alias": "管线发布工具",
+      "confidence": 1.0,
+      "source_chunk_id": "",
+      "evidence_text": "special_rule:PipelineBuilder:alias",
+      "review_status": "approved"
+    }
+  ],
+  "entity_chunk_links": [],
+  "summary": {
+    "entities": 0,
+    "relations": 2,
+    "aliases": 1,
+    "entity_chunk_links": 0,
+    "skipped_stale_links": 0
+  }
+}

@@ -50,6 +50,9 @@ scrape_article/
 !/data/domain_catalog.json
 !/data/product_relation_backbone.json
 !/data/product_relation_backbone_preview.json
+!/data/ingestion_decisions.json
+!/data/manual_graph_facts.json
+!/data/disambiguation_rules.json
 
 # Generated / historical artifacts (also covered by /data/*; kept explicit)
 /data/archive/

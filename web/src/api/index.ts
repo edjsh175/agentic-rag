@@ -751,32 +751,40 @@ export async function getEntityChunks(entityId: string) {
 /** 删除实体（级联删除关系和链接） */
 export async function deleteEntity(entityId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}`)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 /** 删除特定关系边 */
 export async function deleteRelation(relationId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/relations/${encodeURIComponent(relationId)}`)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 /** 解除实体与 Chunks 的证据关联 */
 export async function deleteEntityChunkLink(entityId: string, chunkId: string) {
   const { data } = await http.delete(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}/chunks/${encodeURIComponent(chunkId)}`)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 export async function createGraphEntity(payload: GraphEntityUpsert) {
-  return postJSON<any>('/admin/knowledge_graph/entities', payload)
+  const res = await postJSON<any>('/admin/knowledge_graph/entities', payload)
+  invalidateDataCache('/admin/knowledge_graph')
+  return res
 }
 
 export async function updateGraphEntity(entityId: string, payload: GraphEntityUpdate) {
   const { data } = await http.patch(`/admin/knowledge_graph/entities/${encodeURIComponent(entityId)}`, payload)
+  invalidateDataCache('/admin/knowledge_graph')
   return data
 }
 
 export async function createGraphRelation(payload: GraphRelationCreate) {
-  return postJSON<any>('/admin/knowledge_graph/relations', payload)
+  const res = await postJSON<any>('/admin/knowledge_graph/relations', payload)
+  invalidateDataCache('/admin/knowledge_graph')
+  return res
 }
 
 export async function linkEntityChunk(entityId: string, chunkId: string, linkType: string) {
