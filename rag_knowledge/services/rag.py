@@ -485,16 +485,7 @@ class RagChain:
         graph_cfg = getattr(self, "_graph_cfg", None)
         if graph_cfg is None or not getattr(graph_cfg, "anchor_graph_chunk_enabled", False):
             return plan, None, []
-        allowlist = {
-            part.strip()
-            for part in str(getattr(graph_cfg, "graph_chunk_entity_allowlist", "") or "").split(",")
-            if part.strip()
-        }
-        canonicals = [
-            name
-            for name in (getattr(plan, "backbone_canonical", ()) or ())
-            if name in allowlist
-        ]
+        canonicals = list(getattr(plan, "backbone_canonical", ()) or ())
         if not canonicals:
             return plan, None, []
 

@@ -654,8 +654,6 @@ const drawGraph = () => {
         isSelected = true
       } else if (linkTargetId && node.id === linkTargetId) {
         isLinkTarget = true
-      } else {
-        isFaded = true
       }
     } else if (hasSelection) {
       if (node.id === selectedId) {
@@ -964,12 +962,24 @@ const handleMouseDown = (e: MouseEvent) => {
 
   if (isLinkMode.value) {
     if (clickedNode) {
-      linkStartNodeId.value = clickedNode.id
-      linkHoverNodeId.value = null
-      linkCursorPos.value = { x: coords.x, y: coords.y }
-      selectedNodeId.value = clickedNode.id
-      isRightSidebarOpen.value = true
-      detailsTab.value = 'relations'
+      if (!linkStartNodeId.value) {
+        linkStartNodeId.value = clickedNode.id
+        linkHoverNodeId.value = null
+        linkCursorPos.value = { x: coords.x, y: coords.y }
+        selectedNodeId.value = clickedNode.id
+      } else if (linkStartNodeId.value !== clickedNode.id) {
+        const sourceId = linkStartNodeId.value
+        const targetId = clickedNode.id
+        clearLinkDraft()
+        relationForm.value = {
+          source_id: sourceId,
+          target_id: targetId,
+          relation_type: 'belongs_to',
+          confidence: '1',
+          evidence_text: '',
+        }
+        isRelationModalOpen.value = true
+      }
     } else {
       clearLinkDraft()
     }
@@ -999,7 +1009,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
   if (isLinkMode.value && linkStartNodeId.value) {
     linkCursorPos.value = { x: coords.x, y: coords.y }
-    const hoverNode = findNodeAt(coords.x, coords.y)
+    const hoverNode = findNodeAt(coords.x, coords.y, 12)
     linkHoverNodeId.value = hoverNode && hoverNode.id !== linkStartNodeId.value
       ? hoverNode.id
       : null
@@ -1027,9 +1037,9 @@ const handleMouseMove = (e: MouseEvent) => {
 const handleMouseUp = (e?: MouseEvent) => {
   if (isLinkMode.value && linkStartNodeId.value) {
     const sourceId = linkStartNodeId.value
-    const targetNode = e ? findNodeAt(getGraphCoords(e).x, getGraphCoords(e).y) : null
-    clearLinkDraft()
+    const targetNode = e ? findNodeAt(getGraphCoords(e).x, getGraphCoords(e).y, 12) : null
     if (targetNode && targetNode.id !== sourceId) {
+      clearLinkDraft()
       relationForm.value = {
         source_id: sourceId,
         target_id: targetNode.id,
@@ -1073,10 +1083,10 @@ const handleWheel = (e: WheelEvent) => {
 }
 
 // 寻找特定坐标下的节点
-const findNodeAt = (x: number, y: number) => {
+const findNodeAt = (x: number, y: number, extraTolerance = 0) => {
   const nodes = filteredNodesList.value
   return nodes.find(n => {
-    const nodeRadius = getNodeStyle(n).radius
+    const nodeRadius = getNodeStyle(n).radius + extraTolerance
     const dx = n.x - x
     const dy = n.y - y
     return dx * dx + dy * dy < nodeRadius * nodeRadius
