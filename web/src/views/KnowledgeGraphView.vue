@@ -30,6 +30,7 @@ import {
   createGraphLayout,
   type GraphLayoutController,
   type LayoutNode,
+  type GraphChangeMode,
 } from '../utils/graphLayout'
 import {
   entitySubtypeLabel,
@@ -442,6 +443,39 @@ const linkModeHint = computed(() => {
 const chunkLinkInput = ref('')
 const chunkLinkSaving = ref(false)
 
+// 搜索/筛选模式下的编辑产物暂态保活集合（仅在当前编辑操作生命周期内有效）
+const pinnedEditNodeIds = ref<Set<string>>(new Set())
+
+const resetAllFiltersOnSearch = () => {
+  selectedCategory.value = 'all'
+  if (!isProductBackbonePreviewAny.value) {
+    const fullTypes: Record<string, boolean> = {}
+    FORMAL_ENTITY_TYPES.forEach(t => { fullTypes[t] = true })
+    selectedTypes.value = fullTypes
+  } else {
+    syncPreviewFilterTypes(graphData.value.nodes)
+  }
+  selectedLinkClasses.value = {
+    Backbone: true,
+    Extraction: true,
+    Context: true,
+  }
+}
+
+watch(searchQuery, (newQuery, oldQuery) => {
+  pinnedEditNodeIds.value.clear()
+  const newTrim = newQuery.trim()
+  const oldTrim = (oldQuery || '').trim()
+  // 触发搜索时，自动恢复显示全分类、全实体类型及全链路大类
+  if (newTrim && !oldTrim) {
+    resetAllFiltersOnSearch()
+  }
+})
+
+watch(selectedCategory, () => {
+  pinnedEditNodeIds.value.clear()
+})
+
 // 过滤后的节点（左侧列表展示）
 const filteredNodesList = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -462,23 +496,27 @@ const filteredNodesList = computed(() => {
   }
 
   return visualNodes.value.filter(node => {
+    // 治理保活：若节点属于当前操作生命周期的编辑产物，不受搜索筛选屏蔽
+    if (pinnedEditNodeIds.value.has(node.id)) {
+      return true
+    }
+
     const matchSearch = !query || searchNeighborIds.has(node.id)
     const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
 
-    // 子类型匹配条件
+    // 子类型复选框匹配条件
     const subTypeMatch = selectedTypes.value[nodeFilterType(node)] !== false
 
     // 链路级大类正交匹配条件 (仅在非预览常规模式下生效)
     const linkClassMatch = isProductBackbonePreviewAny.value ||
                            selectedLinkClasses.value[getLinkClassForNode(node)] !== false
 
-    const matchType = query ? matchSearch : (subTypeMatch && linkClassMatch)
-    return matchSearch && matchCategory && matchType
+    return matchSearch && matchCategory && subTypeMatch && linkClassMatch
   })
 })
 
 // 加载图谱数据
-const fetchGraph = async (forceRefresh = false) => {
+const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'initial') => {
   loading.value = true
   errorMsg.value = ''
   suppressFilterLayoutWatch = true
@@ -491,14 +529,18 @@ const fetchGraph = async (forceRefresh = false) => {
     graphData.value = data
     syncPreviewFilterTypes(data.nodes)
 
-    // 初始化物理仿真节点（已有节点保留坐标，仅新节点播种）
+    // 初始化物理仿真节点（已有节点保留坐标，增量新节点播种于当前选中节点/视图中心附近）
     const existingNodeMap = new Map(visualNodes.value.map(n => [n.id, n]))
-    const cx = canvasWidth.value / 2
-    const cy = canvasHeight.value / 2
+    const selectedNodeObj = selectedNodeId.value ? existingNodeMap.get(selectedNodeId.value) : null
+    const cx = (canvasWidth.value || 800) / 2
+    const cy = (canvasHeight.value || 600) / 2
+    const viewCenterX = (cx - panX.value) / (scale.value || 1)
+    const viewCenterY = (cy - panY.value) / (scale.value || 1)
+    const isIncremental = changeMode === 'incremental' || existingNodeMap.size > 0
 
     visualNodes.value = data.nodes.map((node, idx) => {
       const existing = existingNodeMap.get(node.id)
-      if (existing) {
+      if (existing && Number.isFinite(existing.x) && Number.isFinite(existing.y)) {
         return {
           ...node,
           x: existing.x,
@@ -507,7 +549,24 @@ const fetchGraph = async (forceRefresh = false) => {
           vy: existing.vy,
         }
       }
-      // 圆形发散初始位置
+
+      if (isIncremental) {
+        // 增量治理新建节点：播种在当前选中实体附近或当前视口中心，便于直接连线
+        const offsetAngle = (idx * 1.37) % (Math.PI * 2)
+        const offsetRadius = selectedNodeObj ? 80 + (idx % 3) * 30 : 60 + (idx % 4) * 25
+        const baseX = selectedNodeObj ? selectedNodeObj.x : viewCenterX
+        const baseY = selectedNodeObj ? selectedNodeObj.y : viewCenterY
+
+        return {
+          ...node,
+          x: baseX + Math.cos(offsetAngle) * offsetRadius,
+          y: baseY + Math.sin(offsetAngle) * offsetRadius,
+          vx: 0,
+          vy: 0,
+        }
+      }
+
+      // 初始全图播种：圆形发散分布
       const angle = (idx / (data.nodes.length || 1)) * Math.PI * 2
       const radius = 180 + Math.random() * 250
       return {
@@ -521,7 +580,7 @@ const fetchGraph = async (forceRefresh = false) => {
 
     // 根据过滤显示节点确定需要可视化的边，避免孤立边
     updateVisualSubGraph()
-    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'initial')
+    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, changeMode)
   } catch (err: any) {
     errorMsg.value = err.message || '加载图谱数据失败'
   } finally {
@@ -1175,15 +1234,19 @@ const loadAliases = async (entityId: string) => {
 
 const openCreateEntityModal = () => {
   entityModalMode.value = 'create'
+  // 继承上下文分类：优先当前选中实体的分类 > 当前视图分类 > 第一个已知分类
+  const defaultCategory = selectedNode.value?.doc_category ||
+    (selectedCategory.value !== 'all' ? selectedCategory.value : (DOC_CATEGORIES[0] || ''))
+
   entityForm.value = {
     name: '',
     entity_type: 'Tool',
-    doc_category: selectedCategory.value === 'all' ? '' : selectedCategory.value,
+    doc_category: defaultCategory,
     canonical_name: '',
     description: '',
     confidence: '1',
     review_status: 'approved',
-    layer: isProductBackbonePreviewAny.value ? '' : '',
+    layer: isProductBackbonePreviewAny.value ? (selectedNodeProperties.value?.layer || '') : '',
     subtype: '',
     source: '',
     status: isProductBackbonePreviewAny.value ? '待确认' : '',
@@ -1235,9 +1298,13 @@ const saveEntity = async () => {
       if (saved?.id) {
         selectedNodeId.value = saved.id
         isRightSidebarOpen.value = true
+        pinnedEditNodeIds.value.add(saved.id)
       }
       isEntityModalOpen.value = false
-      await fetchGraph()
+      await fetchGraph(true, 'incremental')
+      if (selectedNodeId.value) {
+        selectAndFocusNode(selectedNodeId.value)
+      }
       return
     }
 
@@ -1257,9 +1324,13 @@ const saveEntity = async () => {
     } else if (selectedNodeId.value) {
       await updateGraphEntity(selectedNodeId.value, payload)
     }
-    isEntityModalOpen.value = false
-    await fetchGraph()
     if (selectedNodeId.value) {
+      pinnedEditNodeIds.value.add(selectedNodeId.value)
+    }
+    isEntityModalOpen.value = false
+    await fetchGraph(true, 'incremental')
+    if (selectedNodeId.value) {
+      selectAndFocusNode(selectedNodeId.value)
       await loadAliases(selectedNodeId.value)
     }
   } catch (err: any) {
@@ -1283,6 +1354,9 @@ const openRelationModal = () => {
 const saveRelation = async () => {
   relationSaving.value = true
   try {
+    if (relationForm.value.source_id) pinnedEditNodeIds.value.add(relationForm.value.source_id)
+    if (relationForm.value.target_id) pinnedEditNodeIds.value.add(relationForm.value.target_id)
+
     if (isProductBackbonePreviewAny.value) {
       await createProductBackboneRelation({
         source_id: relationForm.value.source_id,
@@ -1291,7 +1365,7 @@ const saveRelation = async () => {
         evidence_text: relationForm.value.evidence_text || null,
       })
       isRelationModalOpen.value = false
-      await fetchGraph(true)
+      await fetchGraph(true, 'incremental')
       return
     }
 
@@ -1303,7 +1377,7 @@ const saveRelation = async () => {
       evidence_text: relationForm.value.evidence_text || null,
     })
     isRelationModalOpen.value = false
-    await fetchGraph(true)
+    await fetchGraph(true, 'incremental')
   } catch (err: any) {
     alert('保存关系失败：' + err.message)
   } finally {

@@ -72,9 +72,9 @@ const isFinitePosition = (node: LayoutNode) => Number.isFinite(node.x) && Number
 export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutController => {
   const idleAlpha = 0.004
   const autoStart = options.autoStart !== false
-  const linkDistance = options.linkDistance ?? 220
-  const chargeStrength = options.chargeStrength ?? -420
-  const collideRadius = options.collideRadius ?? 40
+  const linkDistance = options.linkDistance ?? 180
+  const chargeStrength = options.chargeStrength ?? -550
+  const collideRadius = options.collideRadius ?? 42
   const seenNodeIds = new Set<string>()
   const activeNodeIds = new Set<string>()
   const anchorX = new Map<string, number>()
@@ -88,20 +88,34 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
   const linkForce = forceLink<LayoutNode, InternalLink>()
     .id(node => node.id)
     .distance(linkDistance)
-    .strength(0.08)
+    .strength(0.28)
 
   const simulation: Simulation<LayoutNode, InternalLink> = forceSimulation<LayoutNode>()
     .alphaMin(0.0001)
     .alphaDecay(0.022)
     .alphaTarget(idleAlpha)
-    .velocityDecay(0.55)
-    .force('charge', forceManyBody<LayoutNode>().strength(chargeStrength).distanceMax(Math.max(560, linkDistance * 2.5)))
+    .velocityDecay(0.40)
+    .force('charge', forceManyBody<LayoutNode>().strength(chargeStrength).distanceMax(2200))
     .force('link', linkForce)
     .force('collision', forceCollide<LayoutNode>(collideRadius).strength(0.95).iterations(3))
-    .force('center', forceCenter(options.width / 2, options.height / 2).strength(0.015))
+    .force('center', forceCenter(options.width / 2, options.height / 2).strength(0.012))
     .force('anchor-x', forceX<LayoutNode>(node => anchorX.get(node.id) ?? node.x).strength(node => anchorX.has(node.id) ? 0.02 : 0))
     .force('anchor-y', forceY<LayoutNode>(node => anchorY.get(node.id) ?? node.y).strength(node => anchorY.has(node.id) ? 0.02 : 0))
-    .on('tick', () => options.onTick?.())
+    .on('tick', () => {
+      // 速度截断 (Velocity Clamping)，防止突变力导致节点暴冲飞出画布
+      const maxSpeed = 25
+      for (const node of nodes) {
+        if (Number.isFinite(node.vx) && Number.isFinite(node.vy)) {
+          const speed = Math.hypot(node.vx, node.vy)
+          if (speed > maxSpeed) {
+            const scale = maxSpeed / speed
+            node.vx *= scale
+            node.vy *= scale
+          }
+        }
+      }
+      options.onTick?.()
+    })
 
   simulation.stop()
 
@@ -112,6 +126,79 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       if (ids.has(edge.target)) result.add(edge.source)
     }
     return result
+  }
+
+  // 基于连通分量与拓扑度的四向均匀播种 (O(V+E) 高性能算法)
+  const seedNodesTopology = (targetNodes: LayoutNode[]) => {
+    if (targetNodes.length === 0) return
+    const nodeMap = new Map<string, LayoutNode>()
+    const adj = new Map<string, Set<string>>()
+    targetNodes.forEach(n => {
+      nodeMap.set(n.id, n)
+      adj.set(n.id, new Set())
+    })
+    edges.forEach(e => {
+      if (adj.has(e.source) && adj.has(e.target)) {
+        adj.get(e.source)!.add(e.target)
+        adj.get(e.target)!.add(e.source)
+      }
+    })
+
+    const visited = new Set<string>()
+    const components: LayoutNode[][] = []
+
+    targetNodes.forEach(node => {
+      if (visited.has(node.id)) return
+      const comp: LayoutNode[] = []
+      const queue = [node.id]
+      visited.add(node.id)
+      while (queue.length > 0) {
+        const currId = queue.shift()!
+        const currNode = nodeMap.get(currId)
+        if (currNode) comp.push(currNode)
+        adj.get(currId)?.forEach(neighborId => {
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId)
+            queue.push(neighborId)
+          }
+        })
+      }
+      components.push(comp)
+    })
+
+    // 按组件大小降序排列，主连通分量居中，小组件均匀环绕四周
+    components.sort((a, b) => b.length - a.length)
+    const cx = options.width / 2
+    const cy = options.height / 2
+    const numComp = components.length
+
+    components.forEach((comp, compIdx) => {
+      let compCx = cx
+      let compCy = cy
+      if (compIdx > 0) {
+        const compAngle = (compIdx / Math.max(numComp - 1, 1)) * Math.PI * 2
+        const compDist = Math.max(260, Math.min(options.width, options.height) * 0.32)
+        compCx = cx + Math.cos(compAngle) * compDist
+        compCy = cy + Math.sin(compAngle) * compDist
+      }
+
+      // 组件内部按度数降序，高度数中心节点靠近分量中央
+      comp.sort((a, b) => (adj.get(b.id)?.size || 0) - (adj.get(a.id)?.size || 0))
+      const count = comp.length
+      comp.forEach((node, nodeIdx) => {
+        if (nodeIdx === 0 && count > 1) {
+          node.x = compCx
+          node.y = compCy
+        } else {
+          const angle = (nodeIdx / Math.max(count, 1)) * Math.PI * 2 + hashAngle(node.id) * 0.5
+          const radius = count === 1 ? 0 : 70 + (nodeIdx / count) * linkDistance * 1.4
+          node.x = compCx + Math.cos(angle) * radius
+          node.y = compCy + Math.sin(angle) * radius
+        }
+        node.vx = 0
+        node.vy = 0
+      })
+    })
   }
 
   const seedNode = (node: LayoutNode, index: number) => {
@@ -208,13 +295,17 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     const isBulkRemoval = removedIds.size >= bulkRemovalThreshold
     const shouldReleaseWholeGraph = isBulkExpansion || removedIds.size > 0 || relationshipsOnlyChanged
 
-    nodes.forEach((node, index) => {
-      if (!isFinitePosition(node) || (changeMode === 'incremental' && firstSeenIds.has(node.id))) {
-        seedNode(node, index)
-      }
-      node.vx = Number.isFinite(node.vx) ? node.vx : 0
-      node.vy = Number.isFinite(node.vy) ? node.vy : 0
-    })
+    if (changeMode === 'initial') {
+      seedNodesTopology(nodes)
+    } else {
+      nodes.forEach((node, index) => {
+        if (!isFinitePosition(node)) {
+          seedNode(node, index)
+        }
+        node.vx = 0
+        node.vy = 0
+      })
+    }
 
     simulation.nodes(nodes)
     linkForce.links(edges.map(edge => ({ source: edge.source, target: edge.target })))
@@ -249,7 +340,7 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
         node.fx = null
         node.fy = null
       })
-      start(0.8)
+      start(0.6)
     }
 
     nodes.forEach(node => seenNodeIds.add(node.id))
@@ -304,8 +395,11 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       options.onTick?.()
       return
     }
-    node.fx = null
-    node.fy = null
+    // 关键修正：拖拽结束时解除全图非显式固定的临时锁定坐标，防止连线或碰撞产生突变反弹推飞
+    nodes.forEach(n => {
+      n.fx = null
+      n.fy = null
+    })
     start(0.14)
   }
 
@@ -319,7 +413,9 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       node.vx = 0
       node.vy = 0
     })
-    start(0.9)
+    seedNodesTopology(nodes)
+    simulation.nodes(nodes)
+    start(0.65)
   }
 
   return {
