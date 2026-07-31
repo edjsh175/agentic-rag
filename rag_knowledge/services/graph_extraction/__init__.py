@@ -9,6 +9,7 @@ from typing import Any
 
 from rag_knowledge.models.graph_schema import DATA_SPEC_KEYWORDS, make_section_entity_name
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
+from rag_knowledge.services.function_area_classifier import ClassifyContext, FunctionAreaClassifier
 
 
 @dataclass(frozen=True)
@@ -103,18 +104,17 @@ def _parts(chunk: dict) -> tuple[str, str, str, str, str, dict]:
 
 
 class SectionPathExtractor:
-    """Extract Document / Section hierarchy and catalog-backed business entities.
+    """Extract Document / Section hierarchy, FunctionAreas, and catalog-backed business entities.
 
-    Section hierarchy policy (Round-1):
-    - Create one Section node for every prefix of section_path (">"-separated).
-    - Document --has_section--> only the first-level Section.
-    - Parent Section --has_section--> child Section for deeper levels.
-    - evidence links attach to every Section prefix (same chunk), so graph
-      expansion can resolve intermediate nodes; defined_in still targets the leaf.
+    Section hierarchy policy (Round-1 & v2 Architecture):
+    - Create Document and Section nodes (Document Graph).
+    - Classify intermediate section_path segments into FunctionAreas (Product Graph).
+    - FunctionArea nodes belong to their owner Tool/Service or parent FunctionArea.
     """
 
     def __init__(self, catalog: DomainCatalogLoader | None = None):
         self.catalog = catalog or DomainCatalogLoader()
+        self.fa_classifier = FunctionAreaClassifier()
 
     def extract(self, chunk: dict) -> ExtractionResult:
         chunk_id, content, source, category, path, metadata = _parts(chunk)
@@ -161,14 +161,49 @@ class SectionPathExtractor:
             result.entities.append(EntityCandidate(product, "Product", category, source_chunk_id=chunk_id, evidence_text=evidence))
 
         owners: list[tuple[str, str]] = []
-        for part in parts:
+        owner_part_indexes: set[int] = set()
+        for idx, part in enumerate(parts):
             resolved = self.catalog.resolve(part)
             if resolved and resolved[1] in {"Tool", "Service"}:
                 owners.append(resolved)
+                owner_part_indexes.add(idx)
         for name, entity_type in owners:
             result.entities.append(EntityCandidate(name, entity_type, category, source_chunk_id=chunk_id, evidence_text=evidence))
             if product:
                 result.relations.append(RelationCandidate(name, "belongs_to", product, chunk_id, evidence))
+
+        # Extract FunctionAreas from intermediate non-owner parts
+        primary_owner = owners[-1][0] if owners else None
+        current_parent_name = primary_owner
+
+        if primary_owner and parts:
+            for idx, part in enumerate(parts):
+                if idx in owner_part_indexes:
+                    continue
+                # Skip leaf part if there are multiple parts (leaves are for LLM entities or DataTables)
+                if idx == len(parts) - 1 and len(parts) > 1:
+                    continue
+                c_type = self.fa_classifier.classify(part, ClassifyContext(category, source, parts, idx))
+                if c_type == "function_area":
+                    fa_scoped_name = f"{primary_owner}::{part}"
+                    result.entities.append(
+                        EntityCandidate(
+                            fa_scoped_name,
+                            "FunctionArea",
+                            category,
+                            {"display_name": part, "owner": primary_owner},
+                            source_chunk_id=chunk_id,
+                            evidence_text=evidence,
+                        )
+                    )
+                    if current_parent_name:
+                        result.relations.append(
+                            RelationCandidate(fa_scoped_name, "belongs_to", current_parent_name, chunk_id, evidence)
+                        )
+                    result.links.append(
+                        ChunkLinkCandidate(fa_scoped_name, chunk_id, section_path=path, source=source, evidence_text=evidence)
+                    )
+                    current_parent_name = fa_scoped_name
 
         table_name = None
         for index, part in enumerate(parts[:-1]):
@@ -180,8 +215,10 @@ class SectionPathExtractor:
                 break
         if table_name and metadata.get("content_type") == "table":
             result.entities.append(EntityCandidate(table_name, "DataTable", category, source_chunk_id=chunk_id, evidence_text=evidence))
-            if owners:
-                result.relations.append(RelationCandidate(owners[-1][0], "has_table", table_name, chunk_id, evidence))
+            if primary_owner:
+                result.relations.append(RelationCandidate(primary_owner, "has_table", table_name, chunk_id, evidence))
+            if current_parent_name and current_parent_name != primary_owner:
+                result.relations.append(RelationCandidate(table_name, "belongs_to", current_parent_name, chunk_id, evidence))
 
         business_names = [product] if product else []
         business_names += [name for name, _ in owners]

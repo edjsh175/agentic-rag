@@ -186,17 +186,25 @@ class LLMGraphExtractor:
             backbone_constraints if backbone_constraints is not None else load_backbone_constraints()
         )
 
-    def build_prompt(self, *, doc_category: str, section_path: str, content: str) -> str:
+    def build_prompt(
+        self,
+        *,
+        doc_category: str,
+        section_path: str,
+        content: str,
+        function_area_context: str = "None available",
+    ) -> str:
         """Assemble extraction prompt (exposed for unit tests)."""
         return (
             self.prompt_template
             .replace("{backbone_context}", self._backbone_context)
+            .replace("{function_area_context}", function_area_context or "None available")
             .replace("{doc_category}", doc_category)
             .replace("{section_path}", section_path)
             .replace("{content}", content)
         )
 
-    def extract(self, chunk: dict) -> ExtractionResult:
+    def extract(self, chunk: dict, function_areas: list[str] | None = None) -> ExtractionResult:
         """Extract entities and relations from a chunk using LLM."""
         chunk_id = str(chunk.get("chunk_id") or "")
         content = str(chunk.get("content") or "")
@@ -206,10 +214,17 @@ class LLMGraphExtractor:
 
         result = ExtractionResult()
 
+        fa_ctx = (
+            "\n".join(f"- {fa}" for fa in function_areas)
+            if function_areas
+            else "None available"
+        )
+
         prompt = self.build_prompt(
             doc_category=doc_category,
             section_path=section_path,
             content=content,
+            function_area_context=fa_ctx,
         )
 
         try:
@@ -277,6 +292,16 @@ class LLMGraphExtractor:
                 continue
 
             etype = item.get("entity_type", "")
+            if etype == "FunctionArea":
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="function_area_readonly",
+                        message=f"Rejected LLM-created FunctionArea entity '{name}'. FunctionArea nodes are read-only.",
+                        chunk_id=chunk_id
+                    )
+                )
+                continue
+
             if etype not in ALLOWED_ENTITY_TYPES:
                 result.diagnostics.append(
                     ExtractionDiagnostic(

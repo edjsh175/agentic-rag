@@ -27,7 +27,7 @@ _LEAF_ENTITY_TYPES = frozenset(
         "Solution",
     }
 )
-_WIDE_ENTITY_TYPES = frozenset({"Product", "Tool", "Document", "Section", "Module"})
+_WIDE_ENTITY_TYPES = frozenset({"Product", "Tool", "Document", "Section", "Module", "FunctionArea"})
 
 
 @dataclass(frozen=True)

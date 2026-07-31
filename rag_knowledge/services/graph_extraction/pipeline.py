@@ -340,6 +340,11 @@ class GraphBuilder:
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
+            # Collect FunctionAreas from rule extractors for this chunk
+            fa_list = [
+                e.name for e in combined.entities if e.entity_type == "FunctionArea"
+            ]
+
             # 2. LLM semantic extractor
             # Gate: backbone neighborhood OR rule hit OR command-rich
             # OR explicit --doc-category filter (category-scoped full LLM on that slice)
@@ -358,7 +363,10 @@ class GraphBuilder:
                             counts.get("llm_chunks_category_scoped") or 0
                         ) + 1
                     counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
-                    llm_result = llm_extractor.extract(chunk)
+                    if fa_list:
+                        llm_result = llm_extractor.extract(chunk, function_areas=fa_list)
+                    else:
+                        llm_result = llm_extractor.extract(chunk)
                     if cfg.graph_extraction_llm.rate_limit_delay > 0:
                         import time
                         time.sleep(cfg.graph_extraction_llm.rate_limit_delay)

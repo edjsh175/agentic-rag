@@ -32,6 +32,7 @@ class EntityType(str, Enum):
     tool = "Tool"
     service = "Service"
     module = "Module"
+    function_area = "FunctionArea"
     data_table = "DataTable"
     field = "Field"
     config_item = "ConfigItem"
@@ -58,6 +59,7 @@ class RelationType(str, Enum):
     has_section = "has_section"       # Document/Section/DataTable -> Section
     has_chunk = "has_chunk"           # Section -> Chunk
     defined_in = "defined_in"        # Entity -> Document/Section
+    derived_from = "derived_from"      # Entity -> Chunk (知识实体的证据来源)
 
     # 领域概念关系
     alias_of = "alias_of"            # Entity -> Entity (同一事物不同叫法)
@@ -123,7 +125,7 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (entity_type, target_type)
         for entity_type in EntityType
         if entity_type is not EntityType.document
-        for target_type in (EntityType.document, EntityType.section)
+        for target_type in (EntityType.document, EntityType.section, EntityType.function_area)
     ],
     # 领域概念
     RelationType.belongs_to: [
@@ -134,15 +136,24 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.module, EntityType.product),
         (EntityType.module, EntityType.module),
         (EntityType.module, EntityType.tool),
+        (EntityType.function_area, EntityType.tool),
+        (EntityType.function_area, EntityType.service),
+        (EntityType.function_area, EntityType.function_area),
         (EntityType.data_table, EntityType.tool),
+        (EntityType.data_table, EntityType.function_area),
         (EntityType.config_item, EntityType.service),
         (EntityType.config_item, EntityType.tool),
+        (EntityType.config_item, EntityType.function_area),
+        (EntityType.procedure, EntityType.tool),
+        (EntityType.procedure, EntityType.service),
+        (EntityType.procedure, EntityType.function_area),
         (EntityType.environment_component, EntityType.product),
         (EntityType.environment_component, EntityType.tool),
     ],
     RelationType.has_table: [
         (EntityType.tool, EntityType.data_table),
         (EntityType.service, EntityType.data_table),
+        (EntityType.function_area, EntityType.data_table),
     ],
     RelationType.has_field: [
         (EntityType.data_table, EntityType.field),
@@ -150,6 +161,7 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
     RelationType.uses_config: [
         (EntityType.service, EntityType.config_item),
         (EntityType.tool, EntityType.config_item),
+        (EntityType.function_area, EntityType.config_item),
     ],
     RelationType.supports_format: [
         (EntityType.tool, EntityType.format),
@@ -179,6 +191,7 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.tool, EntityType.procedure),
         (EntityType.service, EntityType.procedure),
         (EntityType.product, EntityType.procedure),
+        (EntityType.function_area, EntityType.procedure),
     ],
     RelationType.runs_command: [
         (EntityType.step, EntityType.command),

@@ -131,7 +131,7 @@ class GraphLLMExtractorConfig:
     temperature: float = 0.0
     max_retries: int = 2
     min_confidence: float = 0.60
-    prompt_version: str = "v3"
+    prompt_version: str = "v4"
     extractor_version: str = "v1"
     rate_limit_delay: float = 0.0
     concurrency_limit: int = 5
@@ -459,7 +459,7 @@ class Config:
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
             max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
-            prompt_version=_get("graph_extraction.llm", "prompt_version", "v3"),
+            prompt_version=_get("graph_extraction.llm", "prompt_version", "v4"),
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
             rate_limit_delay=float(_get("graph_extraction.llm", "rate_limit_delay", "0.0")),
         )
