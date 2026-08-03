@@ -51,25 +51,41 @@ class KnowledgeGraphService:
 
     def list_graph_data(self, doc_category: Optional[str] = None) -> GraphDataResponse:
         """Fetch all entities and relations, filter orphans if doc_category is applied."""
-        entities = self.db.list_entities()
-        relations = self.db.list_relations()
+        all_entities = self.db.list_entities()
+        all_relations = self.db.list_relations()
 
         backbone_names = self._backbone_live_sync.backbone_entity_names()
 
         if doc_category:
-            entities = [e for e in entities if e["doc_category"] == doc_category]
+            direct_ids = {e["id"] for e in all_entities if e["doc_category"] == doc_category}
+            # Expand to include FunctionArea nodes and directly connected child/parent entities
+            connected_ids = set(direct_ids)
+            for r in all_relations:
+                src, tgt = r["source_entity_id"], r["target_entity_id"]
+                if src in direct_ids or tgt in direct_ids:
+                    connected_ids.add(src)
+                    connected_ids.add(tgt)
+            entities = [e for e in all_entities if e["id"] in connected_ids]
+        else:
+            entities = all_entities
 
         nodes = []
         for e in entities:
             created_by = e.get("created_by") or None
             if e.get("name") in backbone_names and not (created_by and created_by.startswith("seed:product_backbone")):
                 created_by = "seed:product_backbone"
+
+            # Fallback doc_category if missing so Vue frontend filter matches
+            node_cat = e.get("doc_category") or ""
+            if doc_category and not node_cat:
+                node_cat = doc_category
+
             nodes.append(
                 GraphNode(
                     id=e["id"],
                     label=e["name"],
                     type=e["entity_type"],
-                    doc_category=e.get("doc_category") or None,
+                    doc_category=node_cat or None,
                     canonical_name=e.get("canonical_name") or None,
                     description=e.get("description") or None,
                     properties_json=e.get("properties_json") or None,
@@ -81,7 +97,7 @@ class KnowledgeGraphService:
 
         allowed_ids = {n.id for n in nodes}
         edges = []
-        for r in relations:
+        for r in all_relations:
             # Prevent orphan edges
             if r["source_entity_id"] in allowed_ids and r["target_entity_id"] in allowed_ids:
                 edges.append(

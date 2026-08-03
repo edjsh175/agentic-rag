@@ -43,6 +43,7 @@ import {
   relationTypeLabel,
   getShortLabel,
   getLabelPrefix,
+  docCategoryLabel,
 } from '../utils/graphLabels'
 import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
 
@@ -57,6 +58,7 @@ const colors: Record<string, string> = {
   Tool: '#3b82f6',         // 蓝色
   Service: '#10b981',      // 绿色
   Module: '#14b8a6',       // 青色
+  FunctionArea: '#0284c7', // 亮青天蓝色
   DataTable: '#f59e0b',    // 橙黄色
   Field: '#06b6d4',        // 浅蓝色
   ConfigItem: '#64748b',   // 灰色
@@ -1558,7 +1560,7 @@ onMounted(() => {
   })
   graphLayout.setPhysicsEnabled(isPhysicsEnabled.value)
   window.addEventListener('resize', handleResize)
-  fetchGraph()
+  fetchGraph(true)
 })
 
 onDeactivated(() => {
@@ -1608,7 +1610,7 @@ onUnmounted(() => {
           <select v-model="selectedCategory" class="filter-select">
             <option value="all">全部分类</option>
             <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">
-              {{ cat }}
+              {{ docCategoryLabel(cat) }}
             </option>
           </select>
         </div>
@@ -2112,7 +2114,7 @@ onUnmounted(() => {
             <label class="form-label">分类</label>
             <select v-model="entityForm.doc_category" class="filter-select">
               <option value="">未设置</option>
-              <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+              <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">{{ docCategoryLabel(cat) }}</option>
             </select>
             <label class="form-label">规范名</label>
             <input v-model="entityForm.canonical_name" class="modal-input" />

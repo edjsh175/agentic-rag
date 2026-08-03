@@ -828,6 +828,7 @@ export async function reviewGraphCandidates(batchId: string, payload: GraphCandi
 export async function applyGraphCandidateBatch(batchId: string) {
   const res = await postJSON<GraphCandidateApplyResponse>(`/admin/graph-candidates/batches/${encodeURIComponent(batchId)}/apply`)
   invalidateDataCache('/admin/graph-candidates')
+  invalidateDataCache('/admin/knowledge_graph')
   return res
 }
 

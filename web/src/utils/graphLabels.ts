@@ -5,6 +5,9 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   Tool: '工具',
   Service: '服务',
   Module: '模块',
+  FunctionArea: '功能区',
+  Feature: '功能特性',
+  Constraint: '约束条件',
   DataTable: '数据表',
   Field: '字段',
   ConfigItem: '配置项',
@@ -31,6 +34,9 @@ export const ENTITY_TYPE_BADGES: Record<string, string> = {
   Tool: '工具',
   Service: '服务',
   Module: '模块',
+  FunctionArea: '功能',
+  Feature: '特性',
+  Constraint: '约束',
   DataTable: '表',
   Field: '字段',
   ConfigItem: '配置',
@@ -61,6 +67,9 @@ export const FORMAL_ENTITY_TYPES = [
   'Tool',
   'Service',
   'Module',
+  'FunctionArea',
+  'Feature',
+  'Constraint',
   'DataTable',
   'Field',
   'ConfigItem',
@@ -105,6 +114,48 @@ export const RELATION_TYPE_LABELS: Record<string, string> = {
   solved_by: '解决于',
   has_section: '包含章节',
   has_chunk: '关联知识块',
+  depends_on: '依赖于',
+  has_procedure: '包含流程',
+  runs_command: '运行命令',
+  configured_by: '配置于',
+  derived_from: '来源于',
+  alias_of: '别名于',
+}
+
+export const DOC_CATEGORY_LABELS: Record<string, string> = {
+  StampTools: 'StampTools 工具包',
+  StampServer: 'StampServer 服务端',
+  StampWebRTC: 'StampWebRTC 实时通信',
+  ModelBuilderDoc: 'ModelBuilder 文档',
+  ObliqueModelBuilderDoc: 'ObliqueModelBuilder 文档',
+  UEModelBuilderDoc: 'UEModelBuilder 文档',
+  '实景三维': '实景三维',
+  '耕地保护': '耕地保护',
+  '矢量瓦片': '矢量瓦片',
+  '基础环境': '基础环境',
+  '博客': '博客',
+  '其他': '其他',
+}
+
+export const CANDIDATE_KIND_LABELS: Record<string, string> = {
+  entity: '实体',
+  relation: '关系',
+  field: '字段',
+  link: '证据关联',
+  alias: '别名',
+  diagnostic: '诊断',
+}
+
+export function docCategoryLabel(category: string | null | undefined): string {
+  const key = String(category || '').trim()
+  if (!key) return '未指定'
+  return DOC_CATEGORY_LABELS[key] || key
+}
+
+export function candidateKindLabel(kind: string | null | undefined): string {
+  const key = String(kind || '').trim()
+  if (!key) return '-'
+  return CANDIDATE_KIND_LABELS[key] || key
 }
 
 export const ENTITY_SUBTYPE_LABELS: Record<string, string> = {

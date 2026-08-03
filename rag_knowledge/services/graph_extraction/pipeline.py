@@ -28,6 +28,7 @@ from rag_knowledge.services.backbone_guard import (
 )
 from rag_knowledge.services.ollama_health import assert_ollama_reachable
 
+from .chunk_mentions_extractor import ChunkMentionsExtractor
 from . import (
     CandidateNormalizer,
     ConfigBlockExtractor,
@@ -485,6 +486,33 @@ class GraphBuilder:
                         )
                         candidate_ids["alias"].add(candidate_id)
                         llm_candidate_ids.add(candidate_id)
+
+            # Generate 'mentions' links for this chunk with guardrails
+            if chunk_id:
+                chunk_content = str(chunk.get("content") or "")
+                is_table = bool("<table>" in chunk_content.lower() or "|" in chunk_content)
+                existing_entities = self.db.list_entities()
+                mentions_extractor = ChunkMentionsExtractor()
+                mentions = mentions_extractor.extract_mentions(chunk_id, chunk_content, existing_entities, is_table=is_table)
+                for m in mentions:
+                    link_payload = {
+                        "entity_id": m["entity_id"],
+                        "entity_name": m["entity_name"],
+                        "entity_type": m["entity_type"],
+                        "chunk_id": chunk_id,
+                        "link_type": "mentions",
+                        "evidence_text": m["evidence_text"],
+                        "created_by": "rule:mentions_extractor",
+                    }
+                    identity_payload = self._identity_payload("link", link_payload)
+                    fingerprint = hashlib.sha256(
+                        json.dumps(["link", identity_payload], ensure_ascii=False, sort_keys=True).encode()
+                    ).hexdigest()
+                    link_cand_id = self.db.add_extraction_candidate(
+                        batch_id, "link", fingerprint, link_payload, chunk_id, m["evidence_text"]
+                    )
+                    candidate_ids["link"].add(link_cand_id)
+                    rule_candidate_ids.add(link_cand_id)
 
             if chunk_id:
                 processed_chunk_ids.append(chunk_id)

@@ -13,6 +13,8 @@ import {
   entityTypeLabel,
   linkTypeLabel,
   relationTypeLabel,
+  candidateKindLabel,
+  docCategoryLabel,
 } from '../utils/graphLabels'
 
 const batchStatus = ref('all')
@@ -263,15 +265,7 @@ function formatBatchMode(mode: string) {
 }
 
 function formatCandidateKind(kind: string) {
-  const mapping: Record<string, string> = {
-    entity: '实体',
-    alias: '别名',
-    relation: '关系',
-    field: '字段',
-    link: '证据关联',
-    diagnostic: '诊断',
-  }
-  return mapping[kind] || kind
+  return candidateKindLabel(kind)
 }
 
 function formatCandidateStatus(status: string) {

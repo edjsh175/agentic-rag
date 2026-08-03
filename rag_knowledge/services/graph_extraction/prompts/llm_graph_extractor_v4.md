@@ -27,7 +27,9 @@ You CAN reference these pre-created FunctionArea names as targets or sources in 
 - Service: A backend service process or module (e.g., 管线发布服务, 影像发布服务).
 - Module: A component module of a product or service.
 - EnvironmentComponent: Installable environment/runtime dependencies (e.g., PostgreSQL, Redis, Nginx, Tomcat, Apache, JDK, Node.js).
-- Procedure: A multi-step installation, configuration, execution, deployment, or troubleshooting process.
+- Feature: A core product capability or function concept (e.g., 材质映射, 矢量切片, 坐标转换). Represents "what capability the product has".
+- Constraint: A system, parameter, coordinate, port, or environment restriction (e.g., EPSG:4490, 端口6379, 内存限制). Represents "what rules or limits apply".
+- Procedure: A multi-step installation, configuration, execution, deployment, or troubleshooting process. Represents "how to do it".
 - Step: An ordered step inside a Procedure.
 - Command: A concrete shell/CLI invocation or executable call line.
 - ConfigItem: A named configuration artifact or setting key.
@@ -128,7 +130,7 @@ GOOD Extraction:
   "entities": [
     {
       "name": "Entity Name",
-      "entity_type": "Product|Tool|Service|Module|EnvironmentComponent|Procedure|Step|Command|ConfigItem|Error|Solution",
+      "entity_type": "Product|Tool|Service|Module|EnvironmentComponent|Feature|Constraint|Procedure|Step|Command|ConfigItem|Error|Solution",
       "confidence": 0.0 to 1.0,
       "evidence_text": "Direct quote from input text or section path"
     }

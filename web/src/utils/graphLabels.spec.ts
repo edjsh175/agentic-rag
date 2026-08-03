@@ -19,6 +19,8 @@ describe('graphLabels', () => {
     expect(entityTypeBadge('Document')).toBe('文档')
     expect(relationTypeLabel('belongs_to')).toBe('属于')
     expect(relationTypeLabel('has_section')).toBe('包含章节')
+    expect(relationTypeLabel('depends_on')).toBe('依赖于')
+    expect(relationTypeLabel('has_procedure')).toBe('包含流程')
     expect(entitySubtypeLabel('ProductFamily')).toBe('产品族')
     expect(filterTypeLabel('Module')).toBe('模块')
     expect(filterTypeLabel('EnvironmentComponent')).toBe('环境组件')

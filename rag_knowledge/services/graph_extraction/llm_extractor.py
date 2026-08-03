@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_ENTITY_TYPES = {
     "Product", "Tool", "Service", "Module", "EnvironmentComponent",
+    "Feature", "Constraint",
     "Procedure", "Step", "Command", "ConfigItem", "Error", "Solution"
 }
 

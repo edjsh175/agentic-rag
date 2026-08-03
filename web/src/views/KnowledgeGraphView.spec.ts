@@ -528,7 +528,7 @@ describe('KnowledgeGraphView', () => {
 
     await wrapper.get('.entity-li').trigger('click')
 
-    const labelPositions = labelPositionsFor(['依赖', 'depends_on'])
+    const labelPositions = labelPositionsFor(['依赖', '依赖于'])
 
     expect(labelPositions).toHaveLength(2)
     expect(new Set(labelPositions.map(item => `${item.x},${item.y}`)).size).toBe(2)

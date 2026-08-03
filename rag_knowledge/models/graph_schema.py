@@ -33,6 +33,8 @@ class EntityType(str, Enum):
     service = "Service"
     module = "Module"
     function_area = "FunctionArea"
+    feature = "Feature"              # 能力概念 (如 材质映射、矢量切片)
+    constraint = "Constraint"        # 限制/参数 (如 EPSG:4490、端口 6379)
     data_table = "DataTable"
     field = "Field"
     config_item = "ConfigItem"
@@ -139,11 +141,20 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.function_area, EntityType.tool),
         (EntityType.function_area, EntityType.service),
         (EntityType.function_area, EntityType.function_area),
+        (EntityType.feature, EntityType.function_area),
+        (EntityType.feature, EntityType.tool),
+        (EntityType.feature, EntityType.service),
+        (EntityType.constraint, EntityType.feature),
+        (EntityType.constraint, EntityType.procedure),
+        (EntityType.constraint, EntityType.tool),
+        (EntityType.constraint, EntityType.service),
+        (EntityType.constraint, EntityType.function_area),
         (EntityType.data_table, EntityType.tool),
         (EntityType.data_table, EntityType.function_area),
         (EntityType.config_item, EntityType.service),
         (EntityType.config_item, EntityType.tool),
         (EntityType.config_item, EntityType.function_area),
+        (EntityType.procedure, EntityType.feature),
         (EntityType.procedure, EntityType.tool),
         (EntityType.procedure, EntityType.service),
         (EntityType.procedure, EntityType.function_area),
@@ -154,6 +165,7 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.tool, EntityType.data_table),
         (EntityType.service, EntityType.data_table),
         (EntityType.function_area, EntityType.data_table),
+        (EntityType.feature, EntityType.data_table),
     ],
     RelationType.has_field: [
         (EntityType.data_table, EntityType.field),
@@ -162,10 +174,13 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.service, EntityType.config_item),
         (EntityType.tool, EntityType.config_item),
         (EntityType.function_area, EntityType.config_item),
+        (EntityType.feature, EntityType.constraint),
+        (EntityType.procedure, EntityType.constraint),
     ],
     RelationType.supports_format: [
         (EntityType.tool, EntityType.format),
         (EntityType.service, EntityType.format),
+        (EntityType.feature, EntityType.format),
     ],
     RelationType.has_step: [
         (EntityType.procedure, EntityType.step),
@@ -174,6 +189,7 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.error, EntityType.error),
         (EntityType.error, EntityType.solution),
         (EntityType.config_item, EntityType.error),
+        (EntityType.constraint, EntityType.error),
     ],
     RelationType.solved_by: [
         (EntityType.error, EntityType.solution),
@@ -186,12 +202,14 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.service, EntityType.tool),
         (EntityType.service, EntityType.service),
         (EntityType.environment_component, EntityType.environment_component),
+        (EntityType.feature, EntityType.feature),
     ],
     RelationType.has_procedure: [
         (EntityType.tool, EntityType.procedure),
         (EntityType.service, EntityType.procedure),
         (EntityType.product, EntityType.procedure),
         (EntityType.function_area, EntityType.procedure),
+        (EntityType.feature, EntityType.procedure),
     ],
     RelationType.runs_command: [
         (EntityType.step, EntityType.command),
@@ -204,6 +222,9 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         (EntityType.tool, EntityType.config_item),
         (EntityType.service, EntityType.config_item),
         (EntityType.environment_component, EntityType.config_item),
+        (EntityType.feature, EntityType.constraint),
+        (EntityType.tool, EntityType.constraint),
+        (EntityType.service, EntityType.constraint),
     ],
 }
 

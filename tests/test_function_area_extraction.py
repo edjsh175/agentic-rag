@@ -1,6 +1,6 @@
 import pytest
 from rag_knowledge.models.graph_schema import EntityType
-from rag_knowledge.services.function_area_classifier import FunctionAreaClassifier
+from rag_knowledge.services.function_area_classifier import ClassifyContext, FunctionAreaClassifier
 from rag_knowledge.services.graph_extraction import SectionPathExtractor, EntityCandidate, ExtractionResult
 from rag_knowledge.services.graph_extraction.llm_extractor import LLMGraphExtractor
 
@@ -15,6 +15,15 @@ def test_function_area_classifier():
     assert classifier.classify("附录") == "section"
     assert classifier.classify("一些随机后缀指南") == "section"
     assert classifier.classify("未命名节点") == "ambiguous"
+
+
+def test_function_area_catalog_seed_matching():
+    classifier = FunctionAreaClassifier()
+    # PipelineBuilder has "高级设置" in data/function_area_catalog.json
+    assert classifier.is_in_catalog("高级设置", "PipelineBuilder") is True
+    assert classifier.classify("高级设置", ClassifyContext(owner_name="PipelineBuilder")) == "function_area"
+    # Non-existent area in catalog
+    assert classifier.is_in_catalog("不存在的随机节点", "PipelineBuilder") is False
 
 
 def test_section_path_extractor_creates_function_area():
@@ -74,3 +83,22 @@ def test_llm_extractor_rejects_llm_created_function_area(isolated_storage):
     assert any(d.code == "function_area_readonly" for d in res.diagnostics)
     # Valid procedure should be accepted
     assert res.entity("合法流程") is not None
+
+
+def test_feature_and_constraint_relations():
+    from rag_knowledge.models.graph_schema import validate_relation
+    # Feature belongs_to FunctionArea
+    ok, err = validate_relation("Feature", "belongs_to", "FunctionArea")
+    assert ok is True
+
+    # Procedure belongs_to Feature
+    ok, err = validate_relation("Procedure", "belongs_to", "Feature")
+    assert ok is True
+
+    # Constraint belongs_to Feature
+    ok, err = validate_relation("Constraint", "belongs_to", "Feature")
+    assert ok is True
+
+    # Feature uses_config Constraint
+    ok, err = validate_relation("Feature", "uses_config", "Constraint")
+    assert ok is True
