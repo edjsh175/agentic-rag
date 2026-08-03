@@ -287,7 +287,7 @@ _CLARIFY_LLM_PROMPT = """你是 RAG 知识库的歧义预检助手。根据用�
 1. 仅当问题意图模糊、主体不明确、或可能对应多个不同产品/模块时，needs_clarification=true。
 2. 若问题已明确指向单一实体（即使候选列表有相近项），needs_clarification=false。
 3. 比较题（A和B的区别）且两边都已写出时，needs_clarification=false。
-4. 若需要反问：只从候选里选 2~{max_options} 个 option_id；ask_question 用简洁中文；禁止编造候选之外的 id。
+4. 若需要反问：从候选列表中全面挑选 2~{max_options} 个存在相关混淆的 option_id（不要盲目只选前两个）；ask_question 用简洁中文说明涵盖的方向；禁止编造候选之外的 id。
 5. 只输出 JSON，不要 markdown，不要解释。
 
 用户问题：
@@ -299,7 +299,7 @@ _CLARIFY_LLM_PROMPT = """你是 RAG 知识库的歧义预检助手。根据用�
 输出格式：
 {{"needs_clarification": false, "ask_question": "", "trigger": "", "option_ids": []}}
 或
-{{"needs_clarification": true, "ask_question": "请选择…", "trigger": "pipeline", "option_ids": ["a", "b"]}}
+{{"needs_clarification": true, "ask_question": "您指的是以下哪一个产品/服务？", "trigger": "pipeline", "option_ids": ["a", "b", "d"]}}
 """
 
 
@@ -423,17 +423,10 @@ class QueryClarificationService:
         seen: set[str] = set()
         for batch in batches:
             for opt in batch:
-                key = "|".join(
-                    [
-                        (opt.filter.entity_name or "").casefold(),
-                        (opt.filter.doc_category or "").casefold(),
-                        (opt.filter.kb_name or "").casefold(),
-                        opt.label.casefold(),
-                    ]
-                )
-                if key in seen:
+                ent_key = (opt.filter.entity_name or opt.label).casefold()
+                if ent_key in seen:
                     continue
-                seen.add(key)
+                seen.add(ent_key)
                 merged.append(ClarificationOption(id="", label=opt.label, filter=opt.filter))
         return merged
 

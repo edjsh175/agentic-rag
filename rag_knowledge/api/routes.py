@@ -1089,7 +1089,8 @@ async def admin_qa_debug(req: QueryRequest):
         raise HTTPException(400, detail="问题不能为空")
     try:
         set_request_context(path="qa-debug")
-        history = [h.dict() for h in req.history] if req.history else None
+        # 调试接口隔离对话历史上下文，强制进行单轮独立调试
+        history = None
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
         entity_name = (req.entity_name or "").strip() or None
@@ -1120,7 +1121,8 @@ async def admin_qa_debug_stream(req: QueryRequest):
         raise HTTPException(400, detail="问题不能为空")
 
     set_request_context(path="qa-debug")
-    history = [h.dict() for h in req.history] if req.history else None
+    # 调试接口隔离对话历史上下文，强制进行单轮独立调试
+    history = None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     entity_name = (req.entity_name or "").strip() or None

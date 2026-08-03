@@ -338,8 +338,8 @@ async function runDebug() {
   try {
     const clarifyRes = await queryClarify(
       question.value.trim(),
-      currentOpts.kbName,
       currentOpts.docCategory,
+      currentOpts.kbName,
       abortCtrl.signal,
     )
     if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {

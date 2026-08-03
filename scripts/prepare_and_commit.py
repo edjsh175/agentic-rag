@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement backbone catalog guard lock and update query clarification"
+    commit_msg = "feat: expose clarification options via API and update QADebugView UI"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
