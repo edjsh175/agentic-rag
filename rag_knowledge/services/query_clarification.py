@@ -478,21 +478,11 @@ class QueryClarificationService:
                 continue
             if term == "管线" and not _question_is_underspecified(question):
                 continue
-            seed_names: list[str] = []
             resolved = catalog.resolve(term)
-            if resolved:
-                seed_names.append(resolved[0])
-            if term.casefold() in {"pipeline", "管线工具", "管线发布工具", "管线"}:
-                seed_names.extend(["PipelineBuilder", "管线发布服务"])
-            expanded: list[str] = []
-            for seed_name in seed_names:
-                expanded.append(seed_name)
-                for seed in catalog.seeds():
-                    seed_canonical = (catalog.resolve(seed.name) or (seed.name, ""))[0]
-                    if seed_canonical != seed_name and seed.name != seed_name:
-                        continue
-                    expanded.extend(list(seed.different_from or []))
-                    break
+            related = catalog.related_entities_for(term, top_k=self.max_options + 2)
+            expanded: list[str] = [r["name"] for r in related]
+            if resolved and resolved[0] not in expanded:
+                expanded.insert(0, resolved[0])
             batches.append(self._options_for_names(expanded))
             if trigger is None:
                 trigger = term
@@ -538,22 +528,11 @@ class QueryClarificationService:
             if term == "管线" and not _question_is_underspecified(question):
                 continue
 
-            seed_names: list[str] = []
             resolved = catalog.resolve(term)
-            if resolved:
-                seed_names.append(resolved[0])
-            if term.casefold() in {"pipeline", "管线工具", "管线发布工具", "管线"}:
-                seed_names.extend(["PipelineBuilder", "管线发布服务"])
-
-            expanded: list[str] = []
-            for seed_name in seed_names:
-                expanded.append(seed_name)
-                for seed in catalog.seeds():
-                    seed_canonical = (catalog.resolve(seed.name) or (seed.name, ""))[0]
-                    if seed_canonical != seed_name and seed.name != seed_name:
-                        continue
-                    expanded.extend(list(seed.different_from or []))
-                    break
+            related = catalog.related_entities_for(term, top_k=self.max_options + 2)
+            expanded: list[str] = [r["name"] for r in related]
+            if resolved and resolved[0] not in expanded:
+                expanded.insert(0, resolved[0])
 
             names: list[str] = []
             seen: set[str] = set()

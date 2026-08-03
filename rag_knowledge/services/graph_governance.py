@@ -158,6 +158,10 @@ def is_safe_review_candidate(
         return False
     if payload.get("resolution_action") == "diagnostic":
         return False
+    from rag_knowledge.services.backbone_guard import describe_conflict, load_backbone_constraints
+    bb_constraints = load_backbone_constraints()
+    if describe_conflict(item["candidate_kind"], payload, bb_constraints):
+        return False
     return True
 
 

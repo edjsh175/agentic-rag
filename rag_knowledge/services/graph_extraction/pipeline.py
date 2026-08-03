@@ -901,6 +901,9 @@ class GraphCandidateApplier:
         return row
 
     def _relation(self, conn: sqlite3.Connection, payload: dict) -> str:
+        conflict_reason = describe_conflict("relation", payload, load_backbone_constraints())
+        if conflict_reason:
+            raise ValueError(f"backbone relation lock: {conflict_reason}")
         source = self._lookup_entity(conn, payload["source_name"])
         target = self._lookup_entity(conn, payload["target_name"])
         relation_type = payload["relation_type"]

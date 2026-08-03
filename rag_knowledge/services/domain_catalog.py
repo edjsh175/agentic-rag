@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+from typing import Any
+
+
 _CATEGORY_TYPES = {
     "products": "Product",
     "tools": "Tool",
@@ -107,3 +110,75 @@ class DomainCatalogLoader:
 
     def seeds(self) -> list[CatalogSeedEntity]:
         return list(self._seeds)
+
+    def related_entities_for(self, name: str, top_k: int = 6) -> list[dict[str, Any]]:
+        """Return multi-source scored related entities with structural decision reasons."""
+        raw_name = (name or "").strip()
+        if not raw_name:
+            return []
+
+        resolved = self.resolve(raw_name)
+        canonical = resolved[0] if resolved else raw_name
+        norm_input = self.normalize_key(raw_name)
+
+        seed_map = {s.name.casefold(): s for s in self._seeds}
+        target_seed = seed_map.get(canonical.casefold())
+
+        explicit_set = set()
+        if target_seed and target_seed.different_from:
+            explicit_set = {v.casefold() for v in target_seed.different_from}
+
+        scored: list[dict[str, Any]] = []
+
+        for seed in self._seeds:
+            cand_name = seed.name
+            cand_norm = self.normalize_key(cand_name)
+            if cand_norm == self.normalize_key(canonical):
+                continue
+
+            score = 0.0
+            reasons: list[str] = []
+
+            # 1. Explicit hand-crafted relation (1.0)
+            if cand_norm in explicit_set:
+                score += 1.0
+                reasons.append("explicit_different_from")
+
+            # 2. Name / Prefix similarity (0.7 max)
+            aliases_norm = [self.normalize_key(a) for a in seed.aliases]
+            all_keys = [cand_norm] + aliases_norm
+
+            sim_val = 0.0
+            for k in all_keys:
+                if norm_input and (norm_input == k or norm_input in k or k in norm_input):
+                    match_ratio = len(norm_input) / max(len(k), 1) if norm_input in k else len(k) / max(len(norm_input), 1)
+                    sim_val = max(sim_val, 0.5 + 0.5 * match_ratio)
+            if sim_val > 0.0:
+                score += 0.7 * sim_val
+                reasons.append("name_similarity")
+
+            # 3. BelongsTo topology match (0.35)
+            if target_seed and target_seed.belongs_to and seed.belongs_to:
+                if target_seed.belongs_to.casefold() == seed.belongs_to.casefold():
+                    score += 0.35
+                    reasons.append("belongs_to_match")
+
+            # 4. Category mismatch penalty (-0.15)
+            if target_seed and target_seed.category and seed.category:
+                if (
+                    target_seed.category != seed.category
+                    and target_seed.category in {"products", "tools", "services"}
+                    and seed.category in {"environment_components"}
+                ):
+                    score -= 0.15
+                    reasons.append("category_mismatch_penalty")
+
+            if score > 0.1:
+                scored.append({
+                    "name": cand_name,
+                    "score": round(score, 3),
+                    "reasons": reasons,
+                })
+
+        scored.sort(key=lambda x: (-x["score"], x["name"]))
+        return scored[:top_k]

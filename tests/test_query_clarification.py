@@ -216,3 +216,12 @@ def test_clarify_route(monkeypatch):
     assert body["needs_clarification"] is True
     assert len(body["options"]) == 2
     assert body["options"][0]["filter"]["doc_category"] == "StampTools"
+
+
+def test_query_clarification_includes_pipelinewebgl(isolated_storage):
+    isolated_storage()
+    svc = QueryClarificationService(enabled=True, llm_enabled=False)
+    res = svc.analyze("如何使用pipeline发布服务？")
+    assert res.needs_clarification is True
+    labels = [opt.label for opt in res.options]
+    assert any("PipelineWebGL" in label for label in labels)

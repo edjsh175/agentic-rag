@@ -45,3 +45,30 @@ def test_catalog_invalid_json_reports_path(tmp_path):
     path.write_text("{", encoding="utf-8")
     with pytest.raises(ValueError, match="domain_catalog.json"):
         DomainCatalogLoader(path)
+
+
+def test_related_entities_for_scoring_and_reasons(tmp_path):
+    catalog_path = tmp_path / "domain_catalog.json"
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "products": [],
+                "tools": [
+                    {"name": "PipelineBuilder", "aliases": ["pipeline"], "belongs_to": "StampTools", "different_from": ["PipelineWebGL"]},
+                    {"name": "PipelineWebGL", "aliases": ["pipelinewebgl"], "belongs_to": "StampTools"},
+                    {"name": "OtherTool", "aliases": [], "belongs_to": "StampTools"},
+                ],
+                "services": [{"name": "管线发布服务", "aliases": [], "belongs_to": "StampServer"}],
+                "environment_components": [{"name": "Apache", "aliases": []}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    catalog = DomainCatalogLoader(catalog_path)
+    res = catalog.related_entities_for("PipelineBuilder")
+    assert len(res) > 0
+    top = res[0]
+    assert top["name"] == "PipelineWebGL"
+    assert top["score"] >= 1.0
+    assert "explicit_different_from" in top["reasons"]

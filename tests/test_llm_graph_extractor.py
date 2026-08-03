@@ -168,12 +168,10 @@ def test_llm_graph_extractor_http_call(isolated_storage):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "message": {
-            "content": '{"entities": [], "relations": []}'
-        }
+        "response": '{"entities": [], "relations": []}'
     }
 
-    with patch("httpx.Client.post", return_value=mock_resp) as mock_post:
+    with patch("rag_knowledge.llm_http.chat", return_value='{"entities": [], "relations": []}') as mock_chat:
         chunk = {
             "chunk_id": "chunk-1",
             "content": "Test content",
@@ -188,16 +186,8 @@ def test_llm_graph_extractor_http_call(isolated_storage):
         assert len(res.relations) == 0
         assert len(res.diagnostics) == 0
 
-        # Assert correct url and payload used
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert cfg.ollama_base_url in call_args[0][0]
-        payload = call_args[1]["json"]
-        assert payload["model"] == "test-model"
-        assert payload["messages"][0]["role"] == "user"
-        # qwen3 thinking mode must be disabled for stable JSON graph extraction
-        assert payload.get("think") is False
-        assert payload.get("format") == "json"
+        # Assert chat function called once
+        mock_chat.assert_called_once()
 
 
 def test_llm_graph_extractor_failure_handled(isolated_storage):

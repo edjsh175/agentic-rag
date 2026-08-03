@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement chunk mentions extractor, upgrade layout rendering, and publish PRD docs"
+    commit_msg = "feat: implement backbone catalog guard lock and update query clarification"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

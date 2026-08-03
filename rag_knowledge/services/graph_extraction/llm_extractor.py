@@ -8,7 +8,11 @@ from typing import Any
 
 from rag_knowledge.config import Config
 from rag_knowledge.models.graph_schema import normalize_entity_name, validate_relation
-from rag_knowledge.services.backbone_guard import format_backbone_context, load_backbone_constraints
+from rag_knowledge.services.backbone_guard import (
+    describe_conflict,
+    format_backbone_context,
+    load_backbone_constraints,
+)
 from rag_knowledge.services.relation_recovery import is_generic_entity_name
 from . import (
     EntityCandidate,
@@ -177,6 +181,11 @@ class LLMGraphExtractor:
 
     def __init__(self, *, backbone_constraints: dict | None = None):
         self.cfg = Config()
+        self.backbone_constraints = (
+            backbone_constraints
+            if backbone_constraints is not None
+            else load_backbone_constraints()
+        )
         prompt_dir = Path(__file__).parent / "prompts"
         prompt_file = prompt_dir / f"llm_graph_extractor_{self.cfg.graph_extraction_llm.prompt_version}.md"
         if not prompt_file.exists():
@@ -337,6 +346,18 @@ class LLMGraphExtractor:
                     ExtractionDiagnostic(
                         code="noisy_config_item",
                         message=f"Rejected ConfigItem '{name}' as format/CRS/UI-label noise",
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
+            bb_constraints = self.backbone_constraints
+            conflict_msg = describe_conflict("entity", {"name": name, "entity_type": etype}, bb_constraints)
+            if conflict_msg:
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="conflicts_product_backbone",
+                        message=f"Rejected entity '{name}' due to product backbone lock: {conflict_msg}",
                         chunk_id=chunk_id,
                     )
                 )
@@ -528,6 +549,21 @@ class LLMGraphExtractor:
                             f"Rejected relation '{src} ->[{rtype}]-> {tgt}' "
                             f"as illegal endpoint types: {reject_reason}"
                         ),
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
+            rel_conflict = describe_conflict(
+                "relation",
+                {"source_name": src, "relation_type": rtype, "target_name": tgt},
+                self.backbone_constraints,
+            )
+            if rel_conflict:
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="conflicts_product_backbone",
+                        message=f"Rejected relation '{src} ->[{rtype}]-> {tgt}' due to product backbone lock: {rel_conflict}",
                         chunk_id=chunk_id,
                     )
                 )
