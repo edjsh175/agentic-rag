@@ -48,6 +48,19 @@ vi.mock('../utils/graphLayout', () => ({
     getAlphaMin: vi.fn(() => 0),
     destroy: vi.fn(),
   })),
+  createDagreLayout: vi.fn(() => ({
+    setGraph: vi.fn(),
+    beginNodeDrag: vi.fn(),
+    moveNode: vi.fn(),
+    endNodeDrag: vi.fn(),
+    restartLayout: vi.fn(),
+    setPhysicsEnabled: vi.fn(),
+    isPhysicsEnabled: vi.fn(() => false),
+    tick: vi.fn(),
+    getAlpha: vi.fn(() => 0),
+    getAlphaMin: vi.fn(() => 0),
+    destroy: vi.fn(),
+  })),
 }))
 
 const graphData = {
@@ -234,12 +247,12 @@ describe('KnowledgeGraphView', () => {
 
   it('keeps initial layout mode after preview filter sync (does not pin via incremental)', async () => {
     routeState.query = { source: 'product_backbone_preview' }
-    const { createGraphLayout } = await import('../utils/graphLayout')
+    const { createDagreLayout } = await import('../utils/graphLayout')
 
     mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
 
-    const results = vi.mocked(createGraphLayout).mock.results
+    const results = vi.mocked(createDagreLayout).mock.results
     const layout = results[results.length - 1]?.value as {
       setGraph: ReturnType<typeof vi.fn>
     }
@@ -484,6 +497,10 @@ describe('KnowledgeGraphView', () => {
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
 
+    // 切换到 Force 模式以测试物理引擎动静态状态
+    await wrapper.get('[data-test="toggle-layout-mode"]').trigger('click')
+    await flushPromises()
+
     const toggle = wrapper.get('[data-test="toggle-physics-mode"]')
     expect(toggle.text()).toBe('动态布局')
     expect(toggle.classes()).toContain('active')
@@ -491,7 +508,7 @@ describe('KnowledgeGraphView', () => {
     await toggle.trigger('click')
     expect(toggle.text()).toBe('静态布局')
     expect(toggle.classes()).not.toContain('active')
-    expect(wrapper.get('button[title="重新计算整张图的布局（仅动态模式下生效）"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="restart-layout"]').attributes('disabled')).toBeDefined()
 
     await toggle.trigger('click')
     expect(toggle.text()).toBe('动态布局')

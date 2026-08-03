@@ -25,6 +25,7 @@ export interface LayoutNode extends SimulationNodeDatum {
 export interface LayoutEdge {
   source: string
   target: string
+  type?: string
 }
 
 interface InternalLink extends SimulationLinkDatum<LayoutNode> {
@@ -426,10 +427,7 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     restartLayout,
     setPhysicsEnabled,
     isPhysicsEnabled: () => physicsEnabled,
-    tick(iterations = 1) {
-      simulation.tick(iterations)
-      options.onTick?.()
-    },
+    tick: (iterations) => { if (physicsEnabled) simulation.tick(iterations) },
     getAlpha: () => simulation.alpha(),
     getAlphaMin: () => simulation.alphaMin(),
     destroy() {
@@ -439,5 +437,141 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       nodes = []
       edges = []
     },
+  }
+}
+
+import dagre from '@dagrejs/dagre'
+
+export const createDagreLayout = (options: GraphLayoutOptions): GraphLayoutController => {
+  let nodes: LayoutNode[] = []
+  let edges: LayoutEdge[] = []
+
+  const BOTTOM_UP_RELS = ['belongs_to', 'defined_in']
+
+  return {
+    setGraph(newNodes: LayoutNode[], newEdges: LayoutEdge[], changeMode: GraphChangeMode) {
+      nodes = newNodes
+      edges = newEdges
+
+      const g = new dagre.graphlib.Graph()
+      g.setGraph({
+        rankdir: 'TB', // Top-to-Bottom
+        nodesep: 60,
+        edgesep: 20,
+        ranksep: 120
+      })
+      g.setDefaultEdgeLabel(() => ({}))
+
+      nodes.forEach(node => {
+        g.setNode(node.id, { width: 80, height: 80, originalNode: node })
+      })
+
+      edges.forEach(edge => {
+        // Reverse bottom-up edges so Dagre layouts parents above children
+        if (edge.type && BOTTOM_UP_RELS.includes(edge.type)) {
+          g.setEdge(edge.target, edge.source)
+        } else {
+          g.setEdge(edge.source, edge.target)
+        }
+      })
+
+      try {
+        dagre.layout(g)
+      } catch (e) {
+        console.warn('Dagre layout error:', e)
+      }
+
+      // Find main root product node to center horizontally and place near top
+      let rootNode: { x: number; y: number } | null = null
+
+      for (const v of g.nodes()) {
+        const n = g.node(v)
+        if (n && n.originalNode) {
+          const type = (n.originalNode as any).type
+          const label = String((n.originalNode as any).label || '')
+          if (type === 'Product' && label.toLowerCase().includes('stampgis')) {
+            rootNode = n
+            break
+          }
+        }
+      }
+
+      if (!rootNode) {
+        for (const v of g.nodes()) {
+          const n = g.node(v)
+          if (n && n.originalNode && (n.originalNode as any).type === 'Product') {
+            rootNode = n
+            break
+          }
+        }
+      }
+
+      if (!rootNode) {
+        let minYVal = Infinity
+        g.nodes().forEach(v => {
+          const n = g.node(v)
+          if (n && n.y < minYVal) {
+            minYVal = n.y
+            rootNode = n
+          }
+        })
+      }
+
+      const cx = options.width / 2
+      const targetRootY = 120
+
+      let offsetX = 0
+      let offsetY = 0
+
+      if (rootNode) {
+        offsetX = cx - rootNode.x
+        offsetY = targetRootY - rootNode.y
+      } else {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        g.nodes().forEach(v => {
+          const n = g.node(v)
+          if (n && Number.isFinite(n.x) && Number.isFinite(n.y)) {
+            minX = Math.min(minX, n.x)
+            minY = Math.min(minY, n.y)
+            maxX = Math.max(maxX, n.x)
+            maxY = Math.max(maxY, n.y)
+          }
+        })
+        const gCx = (minX + maxX) / 2 || 0
+        offsetX = cx - gCx
+        offsetY = 100 - (minY || 0)
+      }
+
+      g.nodes().forEach(v => {
+        const n = g.node(v)
+        if (n && n.originalNode) {
+          n.originalNode.x = n.x + offsetX
+          n.originalNode.y = n.y + offsetY
+          n.originalNode.vx = 0
+          n.originalNode.vy = 0
+        }
+      })
+
+      options.onTick?.()
+    },
+    beginNodeDrag(nodeId: string) {},
+    moveNode(nodeId: string, x: number, y: number) {
+      const node = nodes.find(n => n.id === nodeId)
+      if (node) {
+        node.x = x
+        node.y = y
+        options.onTick?.()
+      }
+    },
+    endNodeDrag(nodeId: string) {},
+    restartLayout() {
+      this.setGraph(nodes, edges, 'initial')
+    },
+    setPhysicsEnabled(enabled: boolean) {},
+    isPhysicsEnabled() { return false },
+    tick(iterations?: number) {},
+    getAlpha() { return 0 },
+    getAlphaMin() { return 0 },
+    destroy() {}
   }
 }

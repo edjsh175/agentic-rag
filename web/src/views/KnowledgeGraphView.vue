@@ -28,6 +28,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import {
   createGraphLayout,
+  createDagreLayout,
   type GraphLayoutController,
   type LayoutNode,
   type GraphChangeMode,
@@ -237,6 +238,7 @@ const scale = ref(1.0)
 const visualNodes = ref<VisualNode[]>([])
 const visualEdges = ref<VisualEdge[]>([])
 let graphLayout: GraphLayoutController | null = null
+const layoutMode = ref<'dagre' | 'force'>('dagre')
 const parallelEdgeGap = 26
 /** 全量加载期间禁止过滤 watch 触发 incremental，否则会钉死节点导致无法散开 */
 let suppressFilterLayoutWatch = false
@@ -538,7 +540,7 @@ const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'i
     const cy = (canvasHeight.value || 600) / 2
     const viewCenterX = (cx - panX.value) / (scale.value || 1)
     const viewCenterY = (cy - panY.value) / (scale.value || 1)
-    const isIncremental = changeMode === 'incremental' || existingNodeMap.size > 0
+    const isIncremental = changeMode === 'incremental'
 
     visualNodes.value = data.nodes.map((node, idx) => {
       const existing = existingNodeMap.get(node.id)
@@ -602,8 +604,8 @@ const updateVisualSubGraph = () => {
   })
 }
 
-// 类型与搜索过滤只增量调整当前子图，避免扰动原有布局
-watch([selectedTypes, searchQuery], () => {
+// 类型、搜索及链路大类过滤只增量调整当前子图，避免扰动原有布局
+watch([selectedTypes, searchQuery, selectedLinkClasses], () => {
   if (suppressFilterLayoutWatch) return
   updateVisualSubGraph()
   graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
@@ -619,6 +621,9 @@ watch(isProductBackbonePreviewAny, () => {
   isLinkMode.value = false
   clearLinkDraft()
   clearSelection()
+  scale.value = 1.0
+  panX.value = 0
+  panY.value = 0
   fetchGraph()
 })
 
@@ -1179,7 +1184,9 @@ const resetView = () => {
   drawGraph()
 }
 
-const restartLayout = () => graphLayout?.restartLayout()
+const restartLayout = () => {
+  graphLayout?.restartLayout()
+}
 
 const togglePhysicsMode = () => {
   isPhysicsEnabled.value = !isPhysicsEnabled.value
@@ -1510,11 +1517,6 @@ const confirmDeleteEntity = async () => {
     clearSelection()
     isDeleteEntityModalOpen.value = false
     
-    // 重置缩放和平移，使视口回归中心
-    panX.value = 0
-    panY.value = 0
-    scale.value = 1.0
-    
     updateVisualSubGraph()
     graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
     alert('实体删除成功')
@@ -1547,18 +1549,34 @@ const handleResize = () => {
   }
 }
 
-onMounted(() => {
-  handleResize()
-  graphLayout = createGraphLayout({
+const initGraphLayout = () => {
+  if (graphLayout) {
+    graphLayout.destroy()
+  }
+  const options = {
     width: canvasWidth.value,
     height: canvasHeight.value,
     onTick: drawGraph,
-    // Product backbone is denser; give edges more room so clusters separate.
     ...(isProductBackbonePreviewAny.value
       ? { linkDistance: 260, chargeStrength: -560, collideRadius: 48 }
       : { linkDistance: 220, chargeStrength: -420, collideRadius: 40 }),
-  })
-  graphLayout.setPhysicsEnabled(isPhysicsEnabled.value)
+  }
+  graphLayout = layoutMode.value === 'dagre' ? createDagreLayout(options) : createGraphLayout(options)
+  graphLayout.setPhysicsEnabled(isPhysicsEnabled.value && layoutMode.value === 'force')
+}
+
+const toggleLayoutMode = () => {
+  layoutMode.value = layoutMode.value === 'dagre' ? 'force' : 'dagre'
+  scale.value = 1.0
+  panX.value = 0
+  panY.value = 0
+  initGraphLayout()
+  fetchGraph(false, 'initial')
+}
+
+onMounted(() => {
+  handleResize()
+  initGraphLayout()
   window.addEventListener('resize', handleResize)
   fetchGraph(true)
 })
@@ -1731,6 +1749,9 @@ onUnmounted(() => {
         </div>
         
         <div class="kg-controls">
+          <button @click="toggleLayoutMode" class="icon-btn" data-test="toggle-layout-mode" style="background-color: #f1f5f9; color: #334155; font-weight: 500; border-color: #cbd5e1;">
+            切换: {{ layoutMode === 'dagre' ? '分层组织图 (Dagre)' : '力导向图 (Force)' }}
+          </button>
           <button @click="openCreateEntityModal" class="icon-btn" data-test="open-create-entity">
             新建实体
           </button>
@@ -1754,14 +1775,15 @@ onUnmounted(() => {
           >
             {{ isPhysicsEnabled ? '动态布局' : '静态布局' }}
           </button>
-          <button @click="resetView" class="icon-btn" title="复位视图">
-            复位布局
+          <button @click="resetView" class="icon-btn" title="重置画布平移与缩放视角">
+            复位视角
           </button>
           <button 
             @click="restartLayout" 
             class="icon-btn"
-            title="重新计算整张图的布局（仅动态模式下生效）"
-            :disabled="!isPhysicsEnabled"
+            data-test="restart-layout"
+            title="重置被拖拽实体的坐标，使其恢复到初始计算布局位置"
+            :disabled="layoutMode === 'force' && !isPhysicsEnabled"
           >
             重新布局
           </button>
