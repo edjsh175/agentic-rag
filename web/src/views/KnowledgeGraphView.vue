@@ -283,6 +283,66 @@ const nodeDegreeMap = computed(() => {
   return degrees
 })
 
+const HIERARCHY_RELATION_TYPES = new Set(['belongs_to', 'defined_in'])
+
+/**
+ * 在“连线越多越大”基础上，给父实体叠加层级补偿：
+ * - 常规父子：父至少比子高 1 个连线等级
+ * - 核心层级父节点（Product/Layer）：父至少比子高 2 个连线等级
+ */
+const nodeHierarchyDegreeBonusMap = computed(() => {
+  const effective = new Map<string, number>()
+  const nodeById = new Map(visualNodes.value.map(node => [node.id, node]))
+  nodeDegreeMap.value.forEach((degree, nodeId) => {
+    effective.set(nodeId, degree)
+  })
+  visualNodes.value.forEach(node => {
+    if (!effective.has(node.id)) effective.set(node.id, 0)
+  })
+
+  const hierarchyEdges = visualEdges.value
+    .map(edge => ({
+      source: edge.source,
+      target: edge.target,
+      relationType: String((edge as { label?: string; type?: string }).label
+        ?? (edge as { label?: string; type?: string }).type
+        ?? ''),
+    }))
+    .filter(edge => HIERARCHY_RELATION_TYPES.has(edge.relationType))
+
+  if (hierarchyEdges.length === 0) return new Map<string, number>()
+
+  const parentStepOf = (parentId: string) => {
+    const parentType = nodeById.get(parentId)?.type
+    return (parentType === 'Product' || parentType === 'Layer') ? 2 : 1
+  }
+
+  // 迭代松弛：处理多层父子链，直到稳定或达到上限轮次
+  const maxPass = Math.max(1, visualNodes.value.length)
+  for (let pass = 0; pass < maxPass; pass += 1) {
+    let changed = false
+    for (const edge of hierarchyEdges) {
+      // belongs_to/defined_in: source 是子，target 是父
+      const childDegree = effective.get(edge.source) ?? 0
+      const parentDegree = effective.get(edge.target) ?? 0
+      const desiredParentDegree = childDegree + parentStepOf(edge.target)
+      if (parentDegree < desiredParentDegree) {
+        effective.set(edge.target, desiredParentDegree)
+        changed = true
+      }
+    }
+    if (!changed) break
+  }
+
+  const bonus = new Map<string, number>()
+  effective.forEach((degree, nodeId) => {
+    const base = nodeDegreeMap.value.get(nodeId) ?? 0
+    const extra = degree - base
+    if (extra > 0) bonus.set(nodeId, extra)
+  })
+  return bonus
+})
+
 const getNodeStyle = (node: GraphNode): NodeStyle => {
   const properties = parseNodeProperties(node)
   const subtype = typeof properties.subtype === 'string' ? properties.subtype : ''
@@ -321,7 +381,7 @@ const getNodeStyle = (node: GraphNode): NodeStyle => {
     style = { ...style, fill: '#6366f1' }
   }
 
-  const degree = nodeDegreeMap.value.get(node.id) || 0
+  const degree = (nodeDegreeMap.value.get(node.id) || 0) + (nodeHierarchyDegreeBonusMap.value.get(node.id) || 0)
   style.radius += degreeRadiusBoost(degree)
   return style
 }

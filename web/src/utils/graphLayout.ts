@@ -108,8 +108,8 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
   const idleAlpha = 0.004
   const autoStart = options.autoStart !== false
   const linkDistance = options.linkDistance ?? 180
-  const chargeStrength = options.chargeStrength ?? -550
-  const collideRadius = options.collideRadius ?? 42
+  const chargeStrength = options.chargeStrength ?? -680
+  const collideRadius = options.collideRadius ?? 46
   const seenNodeIds = new Set<string>()
   const activeNodeIds = new Set<string>()
   const anchorX = new Map<string, number>()
@@ -127,7 +127,7 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
 
   const simulation: Simulation<LayoutNode, InternalLink> = forceSimulation<LayoutNode>()
     .alphaMin(0.0001)
-    .alphaDecay(0.022)
+    .alphaDecay(0.017)
     .alphaTarget(idleAlpha)
     .velocityDecay(0.40)
     .force('charge', forceManyBody<LayoutNode>().strength(chargeStrength).distanceMax(2200))
@@ -365,8 +365,8 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
       })
       start(
         isBulkExpansion || isBulkRemoval
-          ? 0.85
-          : (removedIds.size > 0 || relationshipsOnlyChanged ? 0.32 : (addedIds.size > 0 ? 0.38 : 0.12)),
+          ? 0.95
+          : (removedIds.size > 0 || relationshipsOnlyChanged ? 0.46 : (addedIds.size > 0 ? 0.56 : 0.18)),
       )
     } else {
       anchorX.clear()
@@ -450,7 +450,7 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     })
     seedNodesTopology(nodes)
     simulation.nodes(nodes)
-    start(0.65)
+    start(0.95)
   }
 
   return {

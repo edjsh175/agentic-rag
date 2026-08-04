@@ -200,6 +200,19 @@ describe('graphLayout', () => {
     layout.destroy()
   })
 
+  it('restarts with stronger energy for wider redistribution', () => {
+    const nodes = [node('a', 100, 100), node('b', 220, 100), node('c', 340, 100)]
+    const layout = createGraphLayout({ width: 800, height: 600, autoStart: false })
+    layout.setGraph(nodes, [edge('a', 'b'), edge('b', 'c')], 'initial')
+    layout.tick(200)
+
+    layout.restartLayout()
+
+    expect(layout.getAlpha()).toBeGreaterThan(0.9)
+    expect(nodes.every(item => item.fx === null && item.fy === null)).toBe(true)
+    layout.destroy()
+  })
+
   it('settles linked nodes farther apart when linkDistance is larger', () => {
     const distanceOf = (left: LayoutNode, right: LayoutNode) => (
       Math.hypot(left.x - right.x, left.y - right.y)

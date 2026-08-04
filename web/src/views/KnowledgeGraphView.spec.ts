@@ -325,6 +325,39 @@ describe('KnowledgeGraphView', () => {
     expect(maxRadius).toBeGreaterThanOrEqual(22 + 6)
   })
 
+  it('keeps hierarchy parent radius above child-focused hub radius', async () => {
+    vi.mocked(api.getGraphData).mockResolvedValue({
+      nodes: [
+        { id: 'parent', label: 'Parent Tool', type: 'Tool', review_status: 'approved' },
+        { id: 'child', label: 'Child Tool', type: 'Tool', review_status: 'approved' },
+        { id: 'c1', label: 'Child Link 1', type: 'Tool', review_status: 'approved' },
+        { id: 'c2', label: 'Child Link 2', type: 'Tool', review_status: 'approved' },
+      ],
+      edges: [
+        { id: 'h1', source: 'child', target: 'parent', label: 'belongs_to', review_status: 'approved' },
+        { id: 'd1', source: 'child', target: 'c1', label: 'requires', review_status: 'approved' },
+        { id: 'd2', source: 'child', target: 'c2', label: 'requires', review_status: 'approved' },
+      ],
+    })
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+    await wrapper.get('.entity-li').trigger('click')
+
+    const uniqueRadii = Array.from(new Set(
+      canvasOps
+        .filter(op => op.op === 'arc')
+        .map(op => Number(op.args[2]))
+        .filter(radius => Number.isFinite(radius) && radius >= 22),
+    )).sort((a, b) => b - a)
+
+    expect(uniqueRadii.length).toBeGreaterThanOrEqual(3)
+    // parent effective degree=4 (child degree=3 + hierarchy bonus 1) should be the largest
+    expect(uniqueRadii[0]).toBeGreaterThan(uniqueRadii[1])
+    // child hub (degree=3) should still be above leaf nodes
+    expect(uniqueRadii[1]).toBeGreaterThan(uniqueRadii[2])
+  })
+
   it('saves product backbone preview entities through preview API', async () => {
     routeState.query = { source: 'product_backbone_preview' }
 
