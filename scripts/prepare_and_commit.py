@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: add KnowledgeGraph Dagre layout mode, sync product backbone, and update PRD docs"
+    commit_msg = "feat: unify entity identity resolution and restore product backbone JSON from live seed"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

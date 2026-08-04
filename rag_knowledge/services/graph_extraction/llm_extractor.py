@@ -139,16 +139,6 @@ def chunk_has_command_signal(content: str) -> bool:
     return bool(_COMMAND_SIGNAL_RE.search(content or ""))
 
 
-_DIRECTION_FLIP_RELATIONS = frozenset({
-    "runs_command",
-    "configured_by",
-    "uses_config",
-    "has_procedure",
-    "has_step",
-    "solved_by",
-})
-
-
 def early_check_relation_endpoints(
     source_name: str,
     relation_type: str,
@@ -158,22 +148,38 @@ def early_check_relation_endpoints(
     """Validate relation against known endpoint types in the same extract.
 
     Returns (source_name, target_name, flipped, reject_reason).
-    If either endpoint type is unknown, accept without flip (staging may catch later).
+    Deterministic schema-only (no LLM). Unknown endpoint types defer.
     """
+    from rag_knowledge.services.relation_direction import (
+        DirectionAction,
+        RelationDirectionService,
+    )
+
     src = normalize_entity_name(source_name)
     tgt = normalize_entity_name(target_name)
     st = type_index.get(src)
     tt = type_index.get(tgt)
     if not st or not tt or not relation_type:
         return source_name, target_name, False, None
-    ok, reason = validate_relation(st, relation_type, tt)
-    if ok:
-        return source_name, target_name, False, None
-    if relation_type in _DIRECTION_FLIP_RELATIONS:
-        ok_rev, _ = validate_relation(tt, relation_type, st)
-        if ok_rev:
-            return target_name, source_name, True, None
-    return source_name, target_name, False, reason or f"{st}-[{relation_type}]->{tt}"
+
+    decision = RelationDirectionService(arbiter=None).decide(
+        source_name,
+        relation_type,
+        target_name,
+        source_type=st,
+        target_type=tt,
+    )
+    if decision.action == DirectionAction.ILLEGAL:
+        ok, reason = validate_relation(st, relation_type, tt)
+        return (
+            source_name,
+            target_name,
+            False,
+            reason or f"{st}-[{relation_type}]->{tt}",
+        )
+    if decision.action == DirectionAction.FLIP:
+        return decision.source_name, decision.target_name, True, None
+    return source_name, target_name, False, None
 
 
 class LLMGraphExtractor:
@@ -203,9 +209,10 @@ class LLMGraphExtractor:
         section_path: str,
         content: str,
         function_area_context: str = "None available",
+        salvage_note: str = "",
     ) -> str:
         """Assemble extraction prompt (exposed for unit tests)."""
-        return (
+        prompt = (
             self.prompt_template
             .replace("{backbone_context}", self._backbone_context)
             .replace("{function_area_context}", function_area_context or "None available")
@@ -213,8 +220,17 @@ class LLMGraphExtractor:
             .replace("{section_path}", section_path)
             .replace("{content}", content)
         )
+        if salvage_note:
+            prompt = f"{prompt.rstrip()}\n{salvage_note}"
+        return prompt
 
-    def extract(self, chunk: dict, function_areas: list[str] | None = None) -> ExtractionResult:
+    def extract(
+        self,
+        chunk: dict,
+        function_areas: list[str] | None = None,
+        *,
+        salvage_note: str = "",
+    ) -> ExtractionResult:
         """Extract entities and relations from a chunk using LLM."""
         chunk_id = str(chunk.get("chunk_id") or "")
         content = str(chunk.get("content") or "")
@@ -235,6 +251,7 @@ class LLMGraphExtractor:
             section_path=section_path,
             content=content,
             function_area_context=fa_ctx,
+            salvage_note=salvage_note,
         )
 
         try:

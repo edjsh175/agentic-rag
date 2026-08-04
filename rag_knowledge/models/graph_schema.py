@@ -372,7 +372,7 @@ CREATE TABLE IF NOT EXISTS aliases (
     created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_aliases_entity ON aliases(entity_id);
-CREATE INDEX IF NOT EXISTS idx_aliases_alias ON aliases(alias);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_aliases_alias_unique ON aliases(alias);
 
 -- 关系表 (扩展)
 CREATE TABLE IF NOT EXISTS relations (
@@ -491,7 +491,7 @@ CREATE TABLE IF NOT EXISTS aliases (
     created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_aliases_entity ON aliases(entity_id);
-CREATE INDEX IF NOT EXISTS idx_aliases_alias ON aliases(alias);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_aliases_alias_unique ON aliases(alias);
 
 -- 关系表 (扩展)
 CREATE TABLE IF NOT EXISTS relations (

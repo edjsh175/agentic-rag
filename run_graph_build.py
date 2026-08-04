@@ -27,6 +27,36 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("--chunk-id", action="append", dest="chunk_ids")
     extract.add_argument("--force-rebuild", action="store_true")
     extract.add_argument("--include-llm", action="store_true")
+    extract.add_argument(
+        "--include-entity-resolve",
+        action="store_true",
+        help="Enable LLM identity arbiter for near-variant entity dedup (independent of --include-llm)",
+    )
+    extract.add_argument(
+        "--include-relation-direction-resolve",
+        action="store_true",
+        help="Enable LLM semantic relation-direction arbiter (who depends on whom; independent of --include-llm)",
+    )
+    extract.add_argument(
+        "--include-entity-type-resolve",
+        action="store_true",
+        help="Enable LLM entity-type conflict arbiter (e.g. Step vs Procedure; independent of --include-llm)",
+    )
+    extract.add_argument(
+        "--include-relation-type-resolve",
+        action="store_true",
+        help="Enable LLM relation-type label arbiter (e.g. requires vs depends_on; independent of --include-llm)",
+    )
+    extract.add_argument(
+        "--include-relation-belonging-resolve",
+        action="store_true",
+        help="Enable belongs_to parent-attachment arbiter in backbone neighborhood (independent of --include-llm)",
+    )
+    extract.add_argument(
+        "--include-leak-salvage",
+        action="store_true",
+        help="Second LLM pass when first extract misses business leaves (requires --include-llm)",
+    )
     extract.add_argument("--resume-batch", dest="resume_batch")
 
     listing = sub.add_parser("list")
@@ -130,12 +160,44 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
             result = builder.resume_batch(
                 args.resume_batch,
                 include_llm=True if args.include_llm else None,
+                include_entity_resolve=True if args.include_entity_resolve else None,
+                include_relation_direction_resolve=(
+                    True if args.include_relation_direction_resolve else None
+                ),
+                include_entity_type_resolve=(
+                    True if args.include_entity_type_resolve else None
+                ),
+                include_relation_type_resolve=(
+                    True if args.include_relation_type_resolve else None
+                ),
+                include_relation_belonging_resolve=(
+                    True if args.include_relation_belonging_resolve else None
+                ),
+                include_leak_salvage=True if args.include_leak_salvage else None,
             )
         elif args.chunk_ids:
-            result = builder.build_incremental(args.chunk_ids, include_llm=args.include_llm)
+            result = builder.build_incremental(
+                args.chunk_ids,
+                include_llm=args.include_llm,
+                include_entity_resolve=args.include_entity_resolve,
+                include_relation_direction_resolve=args.include_relation_direction_resolve,
+                include_entity_type_resolve=args.include_entity_type_resolve,
+                include_relation_type_resolve=args.include_relation_type_resolve,
+                include_relation_belonging_resolve=args.include_relation_belonging_resolve,
+                include_leak_salvage=args.include_leak_salvage,
+            )
         else:
             result = builder.build_full(
-                args.force_rebuild, args.limit, args.doc_categories, include_llm=args.include_llm
+                args.force_rebuild,
+                args.limit,
+                args.doc_categories,
+                include_llm=args.include_llm,
+                include_entity_resolve=args.include_entity_resolve,
+                include_relation_direction_resolve=args.include_relation_direction_resolve,
+                include_entity_type_resolve=args.include_entity_type_resolve,
+                include_relation_type_resolve=args.include_relation_type_resolve,
+                include_relation_belonging_resolve=args.include_relation_belonging_resolve,
+                include_leak_salvage=args.include_leak_salvage,
             )
         _print({"batch_id": result.batch_id, "stats": result.stats})
         return 0
@@ -189,35 +251,10 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         updated = db.review_extraction_candidates(args.batch, ids, status, args.reason)
 
         # === Auto-cascade relation rejection logic ===
-        with db._get_conn() as conn:
-            all_candidates = db.list_extraction_candidates(args.batch)
-            approved_entities = {
-                c["payload"].get("name") for c in all_candidates
-                if c["candidate_kind"] == "entity" and c["status"] == "approved"
-            }
-            existing_entities = {
-                row["name"] for row in conn.execute("SELECT name FROM entities").fetchall()
-            }
-            all_valid_entities = approved_entities | existing_entities
-
-            invalid_relation_ids = []
-            for c in all_candidates:
-                if c["candidate_kind"] == "relation" and c["status"] == "approved":
-                    payload = c["payload"] or {}
-                    src = payload.get("source_name")
-                    tgt = payload.get("target_name")
-                    if src not in all_valid_entities or tgt not in all_valid_entities:
-                        invalid_relation_ids.append(c["id"])
-
-            if invalid_relation_ids:
-                placeholders = ", ".join("?" for _ in invalid_relation_ids)
-                conn.execute(
-                    f"UPDATE extraction_candidates SET status = 'rejected', "
-                    f"rejection_reason = 'missing relation endpoint (auto-cascade)', "
-                    f"reviewed_at = ? WHERE batch_id = ? AND id IN ({placeholders})",
-                    [db._now(), args.batch] + invalid_relation_ids
-                )
-                print(f"Auto-cascade: Rejected {len(invalid_relation_ids)} relation candidates due to missing endpoints.", file=sys.stderr)
+        from rag_knowledge.services.graph_governance import cascade_rejected_endpoint_relations
+        cascaded_cnt = cascade_rejected_endpoint_relations(db, args.batch)
+        if cascaded_cnt > 0:
+            print(f"Auto-cascade: Rejected {cascaded_cnt} relation candidates due to missing endpoints.", file=sys.stderr)
 
         remaining = db.list_extraction_candidates(args.batch, "pending")
         if not remaining:

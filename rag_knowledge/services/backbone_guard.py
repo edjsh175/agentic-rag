@@ -247,29 +247,6 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
             belongs_to.setdefault(source, set()).add(target)
         elif relation_type == "different_from":
             different_from.add(frozenset({source, target}))
-        elif relation_type == "requires":
-            requires.add((source, target))
-
-    catalog_path = root / "data" / "domain_catalog.json"
-    if catalog_path.is_file():
-        try:
-            from rag_knowledge.services.domain_catalog import DomainCatalogLoader
-            catalog = DomainCatalogLoader(catalog_path)
-            for seed in catalog._seeds:
-                if seed.name not in entity_type_by_name:
-                    entity_type_by_name[seed.name] = seed.entity_type
-                canonical_by_alias[seed.name] = seed.name
-                for alias in seed.aliases:
-                    canonical_by_alias[alias] = seed.name
-                if seed.belongs_to:
-                    belongs_to.setdefault(seed.name, set()).add(seed.belongs_to)
-                    relations.append({"source": seed.name, "relation_type": "belongs_to", "target": seed.belongs_to})
-                for diff in seed.different_from:
-                    different_from.add(frozenset({seed.name, diff}))
-                    relations.append({"source": seed.name, "relation_type": "different_from", "target": diff})
-        except Exception:
-            pass
-
     return {
         "belongs_to": belongs_to,
         "different_from": different_from,

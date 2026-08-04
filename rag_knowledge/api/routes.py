@@ -1586,6 +1586,9 @@ def review_graph_candidates(batch_id: str, req: GraphCandidateReviewRequest):
                 raise HTTPException(400, detail=f"approve-all rejected unsafe candidates: {len(unsafe_ids)}")
             updated += db.review_extraction_candidates(batch_id, safe_ids, "approved", "")
 
+        from rag_knowledge.services.graph_governance import cascade_rejected_endpoint_relations
+        cascade_rejected_endpoint_relations(db, batch_id)
+
         batch_status = _sync_batch_status_after_review(db, batch_id)
         return GraphCandidateReviewResponse(
             batch_id=batch_id,

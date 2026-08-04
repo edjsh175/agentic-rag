@@ -3,7 +3,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from rag_knowledge.models.graph_schema import normalize_entity_name
+from rag_knowledge.services.entity_identity import (
+    EntityIdentityService,
+    IdentityArbiterProtocol,
+    IdentityOutcome,
+    TypeArbiterProtocol,
+)
 
 
 @dataclass(frozen=True)
@@ -16,42 +21,62 @@ class ResolutionDiagnostic:
 class ResolutionResult:
     action: str
     target_id: str = ""
+    canonical_name: str = ""
+    outcome: str = ""
+    resolved_type: str = ""
     diagnostics: list[ResolutionDiagnostic] = field(default_factory=list)
 
 
 class EntityResolutionService:
-    def __init__(self, db):
+    def __init__(
+        self,
+        db,
+        *,
+        identity_service: EntityIdentityService | None = None,
+        arbiter: IdentityArbiterProtocol | None = None,
+        type_arbiter: TypeArbiterProtocol | None = None,
+    ):
         self.db = db
+        self.identity_service = identity_service or EntityIdentityService(
+            db=db, arbiter=arbiter, type_arbiter=type_arbiter
+        )
 
-    def resolve(self, candidate) -> ResolutionResult:
-        name = normalize_entity_name(candidate.name)
-        entities = self.db.list_entities()
-        for entity in entities:
-            if normalize_entity_name(entity.get("name", "")) != name:
-                continue
-            if entity.get("entity_type") == candidate.entity_type:
-                return ResolutionResult("reuse", str(entity.get("id") or ""))
-            return ResolutionResult(
-                "diagnostic",
-                diagnostics=[ResolutionDiagnostic("type_conflict", f"{name}: {entity.get('entity_type')} != {candidate.entity_type}")],
-            )
+    def resolve(
+        self,
+        candidate,
+        *,
+        batch_type_index: dict[str, str] | None = None,
+        batch_entity_ids: dict[str, str] | None = None,
+        batch_display_names: dict[str, str] | None = None,
+    ) -> ResolutionResult:
+        name = getattr(candidate, "name", "")
+        entity_type = getattr(candidate, "entity_type", "")
+        evidence_text = getattr(candidate, "evidence_text", "") or ""
+        decision = self.identity_service.resolve(
+            name,
+            entity_type,
+            batch_type_index=batch_type_index,
+            batch_entity_ids=batch_entity_ids,
+            batch_display_names=batch_display_names,
+            evidence_text=evidence_text,
+        )
 
-        for alias in self.db.list_aliases():
-            if normalize_entity_name(alias.get("alias", "")) == name:
-                return ResolutionResult("alias", str(alias.get("entity_id") or ""))
+        diagnostics = [ResolutionDiagnostic(d.code, d.message) for d in decision.diagnostics]
 
-        # Section hierarchy creates path prefixes of existing leaf Sections
-        # (e.g. ``Doc::A`` vs ``Doc::A > B``). Treat these as new Section nodes,
-        # not possible_duplicate substring collisions.
-        if candidate.entity_type == "Section":
-            return ResolutionResult("new")
+        action_map = {
+            IdentityOutcome.BIND: "reuse",
+            IdentityOutcome.ALIAS_OF: "alias",
+            IdentityOutcome.NEW: "new",
+            IdentityOutcome.CONFLICT: "diagnostic",
+            IdentityOutcome.UNCERTAIN: "diagnostic" if diagnostics else "new",
+        }
+        action = action_map.get(decision.outcome, "new")
 
-        folded = name.casefold()
-        for entity in entities:
-            existing = normalize_entity_name(entity.get("name", ""))
-            if folded in existing.casefold() or existing.casefold() in folded:
-                return ResolutionResult(
-                    "diagnostic",
-                    diagnostics=[ResolutionDiagnostic("possible_duplicate", f"{name} may duplicate {existing}")],
-                )
-        return ResolutionResult("new")
+        return ResolutionResult(
+            action=action,
+            target_id=decision.target_entity_id,
+            canonical_name=decision.canonical_name,
+            outcome=decision.outcome,
+            resolved_type=decision.resolved_type,
+            diagnostics=diagnostics,
+        )

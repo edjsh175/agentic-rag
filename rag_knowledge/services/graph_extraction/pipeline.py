@@ -19,6 +19,23 @@ from rag_knowledge.services.graph_governance import (
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsistencyService
 from rag_knowledge.services.entity_resolution import EntityResolutionService
+from rag_knowledge.services.entity_identity import EntityIdentityService, normalize_identity_key
+from rag_knowledge.services.relation_direction import (
+    DirectionAction,
+    LLMRelationDirectionArbiter,
+    RelationDirectionService,
+)
+from rag_knowledge.services.relation_type import (
+    LLMRelationTypeArbiter,
+    RelationTypeService,
+    TypeLabelAction,
+)
+from rag_knowledge.services.relation_belonging import (
+    BelongingAction,
+    LLMBelongingArbiter,
+    RelationBelongingService,
+    collect_candidate_parents,
+)
 from rag_knowledge.services.backbone_guard import (
     CONFLICT_REASON,
     chunk_in_backbone_neighborhood,
@@ -76,6 +93,12 @@ class GraphBuilder:
 
     def build_full(self, force_rebuild: bool = False, limit: int | None = None,
                    doc_categories: list[str] | None = None, include_llm: bool = False,
+                   include_entity_resolve: bool = False,
+                   include_relation_direction_resolve: bool = False,
+                   include_entity_type_resolve: bool = False,
+                   include_relation_type_resolve: bool = False,
+                   include_relation_belonging_resolve: bool = False,
+                   include_leak_salvage: bool = False,
                    resume_batch_id: str | None = None) -> BuildBatchResult:
         chunks = self._chunk_source()
         if doc_categories:
@@ -86,12 +109,35 @@ class GraphBuilder:
         return self._build(
             "full",
             chunks,
-            {"limit": limit, "doc_categories": doc_categories or [], "force_rebuild": force_rebuild, "include_llm": include_llm},
+            {
+                "limit": limit,
+                "doc_categories": doc_categories or [],
+                "force_rebuild": force_rebuild,
+                "include_llm": include_llm,
+                "include_entity_resolve": include_entity_resolve,
+                "include_relation_direction_resolve": include_relation_direction_resolve,
+                "include_entity_type_resolve": include_entity_type_resolve,
+                "include_relation_type_resolve": include_relation_type_resolve,
+                "include_relation_belonging_resolve": include_relation_belonging_resolve,
+                "include_leak_salvage": include_leak_salvage,
+            },
             include_llm=include_llm,
+            include_entity_resolve=include_entity_resolve,
+            include_relation_direction_resolve=include_relation_direction_resolve,
+            include_entity_type_resolve=include_entity_type_resolve,
+            include_relation_type_resolve=include_relation_type_resolve,
+            include_relation_belonging_resolve=include_relation_belonging_resolve,
+            include_leak_salvage=include_leak_salvage,
             resume_batch_id=resume_batch_id,
         )
 
     def build_incremental(self, chunk_ids: list[str], include_llm: bool = False,
+                          include_entity_resolve: bool = False,
+                          include_relation_direction_resolve: bool = False,
+                          include_entity_type_resolve: bool = False,
+                          include_relation_type_resolve: bool = False,
+                          include_relation_belonging_resolve: bool = False,
+                          include_leak_salvage: bool = False,
                           resume_batch_id: str | None = None) -> BuildBatchResult:
         wanted = set(chunk_ids)
         chunks = [item for item in self._chunk_source() if str(item.get("chunk_id") or "") in wanted]
@@ -100,7 +146,16 @@ class GraphBuilder:
         return self._build(
             "incremental",
             chunks,
-            {"chunk_ids": sorted(wanted), "include_llm": include_llm},
+            {
+                "chunk_ids": sorted(wanted),
+                "include_llm": include_llm,
+                "include_entity_resolve": include_entity_resolve,
+                "include_relation_direction_resolve": include_relation_direction_resolve,
+                "include_entity_type_resolve": include_entity_type_resolve,
+                "include_relation_type_resolve": include_relation_type_resolve,
+                "include_relation_belonging_resolve": include_relation_belonging_resolve,
+                "include_leak_salvage": include_leak_salvage,
+            },
             extra_stats={
                 "requested_chunks": len(wanted),
                 "matched_chunks": len(matched),
@@ -108,10 +163,27 @@ class GraphBuilder:
             },
             missing_chunk_ids=missing,
             include_llm=include_llm,
+            include_entity_resolve=include_entity_resolve,
+            include_relation_direction_resolve=include_relation_direction_resolve,
+            include_entity_type_resolve=include_entity_type_resolve,
+            include_relation_type_resolve=include_relation_type_resolve,
+            include_relation_belonging_resolve=include_relation_belonging_resolve,
+            include_leak_salvage=include_leak_salvage,
             resume_batch_id=resume_batch_id,
         )
 
-    def resume_batch(self, batch_id: str, *, include_llm: bool | None = None) -> BuildBatchResult:
+    def resume_batch(
+        self,
+        batch_id: str,
+        *,
+        include_llm: bool | None = None,
+        include_entity_resolve: bool | None = None,
+        include_relation_direction_resolve: bool | None = None,
+        include_entity_type_resolve: bool | None = None,
+        include_relation_type_resolve: bool | None = None,
+        include_relation_belonging_resolve: bool | None = None,
+        include_leak_salvage: bool | None = None,
+    ) -> BuildBatchResult:
         """Continue an interrupted extract batch; skips processed_chunk_ids."""
         batch = self.db.get_extraction_batch(batch_id)
         if not batch:
@@ -123,10 +195,50 @@ class GraphBuilder:
         filters = json.loads(batch.get("filters_json") or "{}")
         mode = str(batch.get("mode") or "full")
         want_llm = bool(filters.get("include_llm")) if include_llm is None else bool(include_llm)
+        want_resolve = (
+            bool(filters.get("include_entity_resolve"))
+            if include_entity_resolve is None
+            else bool(include_entity_resolve)
+        )
+        want_dir = (
+            bool(filters.get("include_relation_direction_resolve"))
+            if include_relation_direction_resolve is None
+            else bool(include_relation_direction_resolve)
+        )
+        want_type = (
+            bool(filters.get("include_entity_type_resolve"))
+            if include_entity_type_resolve is None
+            else bool(include_entity_type_resolve)
+        )
+        want_rtype = (
+            bool(filters.get("include_relation_type_resolve"))
+            if include_relation_type_resolve is None
+            else bool(include_relation_type_resolve)
+        )
+        want_belong = (
+            bool(filters.get("include_relation_belonging_resolve"))
+            if include_relation_belonging_resolve is None
+            else bool(include_relation_belonging_resolve)
+        )
+        want_salvage = (
+            bool(filters.get("include_leak_salvage"))
+            if include_leak_salvage is None
+            else bool(include_leak_salvage)
+        )
 
         if mode == "incremental":
             chunk_ids = list(filters.get("chunk_ids") or [])
-            return self.build_incremental(chunk_ids, include_llm=want_llm, resume_batch_id=batch_id)
+            return self.build_incremental(
+                chunk_ids,
+                include_llm=want_llm,
+                include_entity_resolve=want_resolve,
+                include_relation_direction_resolve=want_dir,
+                include_entity_type_resolve=want_type,
+                include_relation_type_resolve=want_rtype,
+                include_relation_belonging_resolve=want_belong,
+                include_leak_salvage=want_salvage,
+                resume_batch_id=batch_id,
+            )
 
         limit = filters.get("limit")
         return self.build_full(
@@ -134,6 +246,12 @@ class GraphBuilder:
             limit=int(limit) if limit is not None else None,
             doc_categories=list(filters.get("doc_categories") or []) or None,
             include_llm=want_llm,
+            include_entity_resolve=want_resolve,
+            include_relation_direction_resolve=want_dir,
+            include_entity_type_resolve=want_type,
+            include_relation_type_resolve=want_rtype,
+            include_relation_belonging_resolve=want_belong,
+            include_leak_salvage=want_salvage,
             resume_batch_id=batch_id,
         )
 
@@ -141,6 +259,12 @@ class GraphBuilder:
                extra_stats: dict | None = None,
                missing_chunk_ids: list[str] | None = None,
                include_llm: bool = False,
+               include_entity_resolve: bool = False,
+               include_relation_direction_resolve: bool = False,
+               include_entity_type_resolve: bool = False,
+               include_relation_type_resolve: bool = False,
+               include_relation_belonging_resolve: bool = False,
+               include_leak_salvage: bool = False,
                resume_batch_id: str | None = None) -> BuildBatchResult:
         snapshot = hashlib.sha256(json.dumps(chunks, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
         force_rebuild = bool(filters.get("force_rebuild"))
@@ -235,10 +359,39 @@ class GraphBuilder:
 
         from .llm_extractor import LLMGraphExtractor, chunk_has_command_signal
         from rag_knowledge.config import Config
+        from rag_knowledge.services.entity_identity import LLMEntityTypeArbiter, LLMIdentityArbiter
         cfg = Config()
         actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
+        actual_include_entity_resolve = (
+            include_entity_resolve or cfg.graph_extraction_llm.entity_resolve_enabled
+        )
+        actual_include_relation_direction = (
+            include_relation_direction_resolve
+            or cfg.graph_extraction_llm.relation_direction_resolve_enabled
+        )
+        actual_include_entity_type = (
+            include_entity_type_resolve or cfg.graph_extraction_llm.entity_type_resolve_enabled
+        )
+        actual_include_relation_type = (
+            include_relation_type_resolve or cfg.graph_extraction_llm.relation_type_resolve_enabled
+        )
+        actual_include_relation_belonging = (
+            include_relation_belonging_resolve
+            or cfg.graph_extraction_llm.relation_belonging_resolve_enabled
+        )
+        actual_include_leak_salvage = bool(
+            actual_include_llm
+            and (include_leak_salvage or cfg.graph_extraction_llm.leak_salvage_enabled)
+        )
         backbone_constraints = load_backbone_constraints()
-        if actual_include_llm:
+        if (
+            actual_include_llm
+            or actual_include_entity_resolve
+            or actual_include_relation_direction
+            or actual_include_entity_type
+            or actual_include_relation_type
+            or actual_include_relation_belonging
+        ):
             provider = (cfg.graph_extraction_llm.provider or "ollama").lower()
             if provider == "ollama":
                 assert_ollama_reachable(base_url=cfg.graph_llm_endpoint())
@@ -257,10 +410,80 @@ class GraphBuilder:
         llm_extractor = (
             LLMGraphExtractor(backbone_constraints=backbone_constraints) if actual_include_llm else None
         )
+        identity_arbiter = (
+            LLMIdentityArbiter(use_graph_endpoint=True) if actual_include_entity_resolve else None
+        )
+        type_arbiter = (
+            LLMEntityTypeArbiter(use_graph_endpoint=True) if actual_include_entity_type else None
+        )
+        direction_arbiter = (
+            LLMRelationDirectionArbiter(use_graph_endpoint=True)
+            if actual_include_relation_direction
+            else None
+        )
+        relation_type_arbiter = (
+            LLMRelationTypeArbiter(use_graph_endpoint=True)
+            if actual_include_relation_type
+            else None
+        )
+        belonging_arbiter = (
+            LLMBelongingArbiter(use_graph_endpoint=True)
+            if actual_include_relation_belonging
+            else None
+        )
+        direction_service = RelationDirectionService(arbiter=direction_arbiter)
+        relation_type_service = RelationTypeService(arbiter=relation_type_arbiter)
         catalog = DomainCatalogLoader()
+        belonging_service = (
+            RelationBelongingService(
+                arbiter=belonging_arbiter,
+                catalog=catalog,
+                backbone_constraints=backbone_constraints,
+            )
+            if actual_include_relation_belonging
+            else None
+        )
         section_extractor = SectionPathExtractor(catalog=catalog)
         candidate_normalizer = CandidateNormalizer(catalog=catalog)
-        entity_resolver = EntityResolutionService(self.db)
+        entity_resolver = EntityResolutionService(
+            self.db, arbiter=identity_arbiter, type_arbiter=type_arbiter
+        )
+        batch_type_index: dict[str, str] = {}
+        batch_entity_ids: dict[str, str] = {}
+        batch_display_names: dict[str, str] = {}
+        if batch_id:
+            for item in self.db.list_extraction_candidates(batch_id):
+                if item.get("candidate_kind") != "entity" or item.get("status") == "rejected":
+                    continue
+                payload = item.get("payload") or {}
+                if str(payload.get("resolution_action") or "new") != "new":
+                    continue
+                self._remember_batch_identity(
+                    batch_type_index,
+                    batch_entity_ids,
+                    batch_display_names,
+                    payload,
+                    str(item.get("id") or ""),
+                )
+        counts["entity_resolve_enabled"] = bool(actual_include_entity_resolve)
+        counts["entity_resolve_alias_staged"] = int(counts.get("entity_resolve_alias_staged") or 0)
+        counts["entity_type_resolve_enabled"] = bool(actual_include_entity_type)
+        counts["entity_type_arbiter_resolved"] = int(counts.get("entity_type_arbiter_resolved") or 0)
+        counts["relation_direction_resolve_enabled"] = bool(actual_include_relation_direction)
+        counts["relation_direction_llm_flipped"] = int(counts.get("relation_direction_llm_flipped") or 0)
+        counts["relation_direction_uncertain"] = int(counts.get("relation_direction_uncertain") or 0)
+        counts["relation_type_resolve_enabled"] = bool(actual_include_relation_type)
+        counts["relation_type_replaced"] = int(counts.get("relation_type_replaced") or 0)
+        counts["relation_type_uncertain"] = int(counts.get("relation_type_uncertain") or 0)
+        counts["relation_type_rejected"] = int(counts.get("relation_type_rejected") or 0)
+        counts["relation_belonging_resolve_enabled"] = bool(actual_include_relation_belonging)
+        counts["relation_belonging_replaced"] = int(counts.get("relation_belonging_replaced") or 0)
+        counts["relation_belonging_uncertain"] = int(counts.get("relation_belonging_uncertain") or 0)
+        counts["relation_belonging_rejected"] = int(counts.get("relation_belonging_rejected") or 0)
+        counts["leak_salvage_enabled"] = bool(actual_include_leak_salvage)
+        counts["leak_salvage_triggered"] = 0
+        counts["leak_salvage_entities_added"] = 0
+        counts["leak_salvage_relations_added"] = 0
 
         if batch_id is None:
             batch_id = self.db.create_extraction_batch(mode, filters, snapshot)
@@ -270,6 +493,9 @@ class GraphBuilder:
             chunk_id = str(chunk.get("chunk_id") or "")
             if chunk_id in done_set:
                 continue
+            chunk_meta = chunk.get("metadata") or {}
+            chunk_section_path = str(chunk_meta.get("section_path") or "")
+            chunk_in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
 
             # 1. Rules extractors
             context = section_extractor.extract(chunk)
@@ -288,9 +514,15 @@ class GraphBuilder:
                 for item in items:
                     payload = asdict(item)
                     if kind == "entity":
-                        resolution = entity_resolver.resolve(item)
-                        payload["resolution_action"] = resolution.action
-                        payload["resolved_entity_id"] = resolution.target_id
+                        resolution = entity_resolver.resolve(
+                            item,
+                            batch_type_index=batch_type_index,
+                            batch_entity_ids=batch_entity_ids,
+                            batch_display_names=batch_display_names,
+                        )
+                        self._apply_identity_resolution(
+                            payload, resolution, batch_type_index, counts
+                        )
                         for diagnostic in resolution.diagnostics:
                             diagnostic_payload = {
                                 "code": diagnostic.code,
@@ -310,9 +542,17 @@ class GraphBuilder:
                     if kind in {"entity", "relation", "field"}:
                         payload["evidences"] = [{"source_chunk_id": source_chunk_id, "evidence_text": evidence}]
                     if kind == "relation":
-                        payload, flipped = self._canonicalize_relation_direction(payload, type_index)
-                        if flipped:
-                            counts["relation_direction_flipped"] = int(counts.get("relation_direction_flipped") or 0) + 1
+                        payload = self._prepare_relation_payload(
+                            payload,
+                            type_index,
+                            relation_type_service,
+                            direction_service,
+                            counts,
+                            belonging_service=belonging_service,
+                            in_neighborhood=chunk_in_neighborhood,
+                            section_path=chunk_section_path,
+                            backbone_constraints=backbone_constraints,
+                        )
                     identity_payload = self._identity_payload(kind, payload)
                     fingerprint = hashlib.sha256(
                         json.dumps([kind, identity_payload], ensure_ascii=False, sort_keys=True).encode()
@@ -327,17 +567,60 @@ class GraphBuilder:
                         self._reject_backbone_conflict(
                             batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
                         )
+                        res_act = payload.get("resolution_action")
+                        if res_act in {"reuse", "alias", "diagnostic", "bind", "alias_of", "conflict"}:
+                            reason = f"resolution:{res_act}"
+                            if payload.get("resolved_entity_id"):
+                                reason += f":{payload['resolved_entity_id']}"
+                            self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
+                            if res_act == "alias" and payload.get("identity_canonical"):
+                                staged = self._stage_identity_alias_candidate(
+                                    batch_id,
+                                    payload,
+                                    backbone_constraints,
+                                    candidate_ids,
+                                    created_by=(
+                                        "llm:entity_resolver"
+                                        if actual_include_entity_resolve
+                                        else "rule:identity"
+                                    ),
+                                )
+                                if staged:
+                                    rule_candidate_ids.add(staged)
+                                    counts["entity_resolve_alias_staged"] = (
+                                        int(counts.get("entity_resolve_alias_staged") or 0) + 1
+                                    )
+                        elif res_act == "new":
+                            self._remember_batch_identity(
+                                batch_type_index,
+                                batch_entity_ids,
+                                batch_display_names,
+                                payload,
+                                candidate_id,
+                            )
                     elif kind == "relation":
                         if (payload.get("properties") or {}).get("direction_flipped"):
                             self._record_direction_flip_diagnostic(
                                 batch_id, payload, candidate_ids
                             )
-                        self._reject_backbone_conflict(
-                            batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
-                        )
-                        self._reject_illegal_relation(
-                            batch_id, candidate_id, payload, type_index, candidate_ids
-                        )
+                        if (payload.get("properties") or {}).get("relation_type_rejected") or (
+                            payload.get("properties") or {}
+                        ).get("belonging_rejected"):
+                            reason = str(
+                                (payload.get("properties") or {}).get("relation_type_decision_reason")
+                                or (payload.get("properties") or {}).get("belonging_decision_reason")
+                                or "relation_semantic_rejected"
+                            )
+                            self.db.review_extraction_candidates(
+                                batch_id, [candidate_id], "rejected", reason
+                            )
+                        else:
+                            self._reject_backbone_conflict(
+                                batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                            )
+                            self._reject_illegal_relation(
+                                batch_id, candidate_id, payload, type_index, candidate_ids
+                            )
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
@@ -368,6 +651,40 @@ class GraphBuilder:
                         llm_result = llm_extractor.extract(chunk, function_areas=fa_list)
                     else:
                         llm_result = llm_extractor.extract(chunk)
+                    if actual_include_leak_salvage:
+                        from .leak_salvage import (
+                            assess_leak_risk,
+                            build_salvage_note,
+                            merge_salvage_result,
+                        )
+                        leak_reason = assess_leak_risk(
+                            chunk, llm_result, rule_result=combined
+                        )
+                        if leak_reason:
+                            counts["leak_salvage_triggered"] = (
+                                int(counts.get("leak_salvage_triggered") or 0) + 1
+                            )
+                            note = build_salvage_note(leak_reason, chunk)
+                            if fa_list:
+                                salvage_result = llm_extractor.extract(
+                                    chunk, function_areas=fa_list, salvage_note=note
+                                )
+                            else:
+                                salvage_result = llm_extractor.extract(
+                                    chunk, salvage_note=note
+                                )
+                            llm_result, e_add, r_add = merge_salvage_result(
+                                llm_result, salvage_result
+                            )
+                            counts["leak_salvage_entities_added"] = (
+                                int(counts.get("leak_salvage_entities_added") or 0) + e_add
+                            )
+                            counts["leak_salvage_relations_added"] = (
+                                int(counts.get("leak_salvage_relations_added") or 0) + r_add
+                            )
+                            if cfg.graph_extraction_llm.rate_limit_delay > 0:
+                                import time
+                                time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
                     if cfg.graph_extraction_llm.rate_limit_delay > 0:
                         import time
                         time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
@@ -381,9 +698,15 @@ class GraphBuilder:
                         for item in items:
                             payload = asdict(item)
                             if kind == "entity":
-                                resolution = entity_resolver.resolve(item)
-                                payload["resolution_action"] = resolution.action
-                                payload["resolved_entity_id"] = resolution.target_id
+                                resolution = entity_resolver.resolve(
+                                    item,
+                                    batch_type_index=batch_type_index,
+                                    batch_entity_ids=batch_entity_ids,
+                                    batch_display_names=batch_display_names,
+                                )
+                                self._apply_identity_resolution(
+                                    payload, resolution, batch_type_index, counts
+                                )
                                 for diagnostic in resolution.diagnostics:
                                     diagnostic_payload = {
                                         "code": diagnostic.code,
@@ -434,9 +757,17 @@ class GraphBuilder:
                                 if meta.get("direction_flipped"):
                                     props["direction_flipped"] = True
                                 payload["properties"] = props
-                                payload, flipped = self._canonicalize_relation_direction(payload, type_index)
-                                if flipped:
-                                    counts["relation_direction_flipped"] = int(counts.get("relation_direction_flipped") or 0) + 1
+                                payload = self._prepare_relation_payload(
+                                    payload,
+                                    type_index,
+                                    relation_type_service,
+                                    direction_service,
+                                    counts,
+                                    belonging_service=belonging_service,
+                                    in_neighborhood=chunk_in_neighborhood,
+                                    section_path=chunk_section_path,
+                                    backbone_constraints=backbone_constraints,
+                                )
 
                             identity_payload = self._identity_payload(kind, payload)
                             fingerprint = hashlib.sha256(
@@ -452,17 +783,64 @@ class GraphBuilder:
                                 self._reject_backbone_conflict(
                                     batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
                                 )
+                                res_act = payload.get("resolution_action")
+                                if res_act in {"reuse", "alias", "diagnostic", "bind", "alias_of", "conflict"}:
+                                    reason = f"resolution:{res_act}"
+                                    if payload.get("resolved_entity_id"):
+                                        reason += f":{payload['resolved_entity_id']}"
+                                    self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
+                                    if res_act == "alias" and payload.get("identity_canonical"):
+                                        staged = self._stage_identity_alias_candidate(
+                                            batch_id,
+                                            payload,
+                                            backbone_constraints,
+                                            candidate_ids,
+                                            created_by=(
+                                                "llm:entity_resolver"
+                                                if actual_include_entity_resolve
+                                                else "llm:schema_extractor"
+                                            ),
+                                        )
+                                        if staged:
+                                            llm_candidate_ids.add(staged)
+                                            counts["entity_resolve_alias_staged"] = (
+                                                int(counts.get("entity_resolve_alias_staged") or 0) + 1
+                                            )
+                                elif res_act == "new":
+                                    self._remember_batch_identity(
+                                        batch_type_index,
+                                        batch_entity_ids,
+                                        batch_display_names,
+                                        payload,
+                                        candidate_id,
+                                    )
                             elif kind == "relation":
                                 if (payload.get("properties") or {}).get("direction_flipped"):
                                     self._record_direction_flip_diagnostic(
                                         batch_id, payload, candidate_ids
                                     )
-                                self._reject_backbone_conflict(
-                                    batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
-                                )
-                                self._reject_illegal_relation(
-                                    batch_id, candidate_id, payload, type_index, candidate_ids
-                                )
+                                if (payload.get("properties") or {}).get("relation_type_rejected") or (
+                                    payload.get("properties") or {}
+                                ).get("belonging_rejected"):
+                                    reason = str(
+                                        (payload.get("properties") or {}).get(
+                                            "relation_type_decision_reason"
+                                        )
+                                        or (payload.get("properties") or {}).get(
+                                            "belonging_decision_reason"
+                                        )
+                                        or "relation_semantic_rejected"
+                                    )
+                                    self.db.review_extraction_candidates(
+                                        batch_id, [candidate_id], "rejected", reason
+                                    )
+                                else:
+                                    self._reject_backbone_conflict(
+                                        batch_id, kind, candidate_id, payload, backbone_constraints, candidate_ids
+                                    )
+                                    self._reject_illegal_relation(
+                                        batch_id, candidate_id, payload, type_index, candidate_ids
+                                    )
                             candidate_ids[kind].add(candidate_id)
                             llm_candidate_ids.add(candidate_id)
 
@@ -630,6 +1008,30 @@ class GraphBuilder:
         return type_index
 
     @staticmethod
+    def _apply_identity_resolution(
+        payload: dict,
+        resolution,
+        batch_type_index: dict[str, str],
+        counts: dict,
+    ) -> None:
+        payload["resolution_action"] = resolution.action
+        payload["resolved_entity_id"] = resolution.target_id
+        payload["identity_outcome"] = resolution.outcome
+        payload["identity_canonical"] = resolution.canonical_name
+        if resolution.resolved_type:
+            payload["entity_type"] = resolution.resolved_type
+            key = normalize_identity_key(str(payload.get("name") or ""))
+            if key and key in batch_type_index:
+                batch_type_index[key] = resolution.resolved_type
+        if any(
+            d.code in {"type_arbiter_prefer_existing", "type_arbiter_prefer_candidate"}
+            for d in resolution.diagnostics
+        ):
+            counts["entity_type_arbiter_resolved"] = (
+                int(counts.get("entity_type_arbiter_resolved") or 0) + 1
+            )
+
+    @staticmethod
     def _note_entity_type(type_index: dict[str, str], payload: dict) -> None:
         name = normalize_entity_name(str(payload.get("name") or ""))
         entity_type = str(payload.get("entity_type") or "").strip()
@@ -650,40 +1052,218 @@ class GraphBuilder:
                 return entity_type
         return None
 
-    _DIRECTION_FLIP_RELATIONS = frozenset({
-        "runs_command",
-        "configured_by",
-        "uses_config",
-        "has_procedure",
-        "has_step",
-        "solved_by",
-    })
+    def _prepare_relation_payload(
+        self,
+        payload: dict,
+        type_index: dict[str, str],
+        relation_type_service: RelationTypeService | None,
+        direction_service: RelationDirectionService | None,
+        counts: dict,
+        *,
+        belonging_service: RelationBelongingService | None = None,
+        in_neighborhood: bool = False,
+        section_path: str = "",
+        backbone_constraints: dict | None = None,
+    ) -> dict:
+        """Type-label → direction → belongs_to parent attachment (neighborhood)."""
+        payload = self._canonicalize_relation_type(
+            payload, type_index, relation_type_service, counts
+        )
+        payload, flipped = self._canonicalize_relation_direction(
+            payload, type_index, direction_service
+        )
+        if flipped:
+            counts["relation_direction_flipped"] = int(counts.get("relation_direction_flipped") or 0) + 1
+            if (payload.get("properties") or {}).get("direction_flipped_by") == "llm":
+                counts["relation_direction_llm_flipped"] = (
+                    int(counts.get("relation_direction_llm_flipped") or 0) + 1
+                )
+        if (payload.get("properties") or {}).get("direction_uncertain"):
+            counts["relation_direction_uncertain"] = (
+                int(counts.get("relation_direction_uncertain") or 0) + 1
+            )
+        payload = self._canonicalize_relation_belonging(
+            payload,
+            type_index,
+            belonging_service,
+            counts,
+            in_neighborhood=in_neighborhood,
+            section_path=section_path,
+            backbone_constraints=backbone_constraints or {},
+        )
+        return payload
 
-    def _canonicalize_relation_direction(
-        self, payload: dict, type_index: dict[str, str]
-    ) -> tuple[dict, bool]:
-        """If direction is illegal but reverse is legal, swap endpoints (audited)."""
+    def _canonicalize_relation_belonging(
+        self,
+        payload: dict,
+        type_index: dict[str, str],
+        belonging_service: RelationBelongingService | None,
+        counts: dict,
+        *,
+        in_neighborhood: bool,
+        section_path: str,
+        backbone_constraints: dict,
+    ) -> dict:
+        if belonging_service is None:
+            return payload
+        if str(payload.get("relation_type") or "") != "belongs_to":
+            return payload
+        source_name = str(payload.get("source_name") or "")
+        target_name = str(payload.get("target_name") or "")
+        source_type = self._lookup_entity_type(type_index, source_name) or ""
+        target_type = self._lookup_entity_type(type_index, target_name) or ""
+        parents = collect_candidate_parents(
+            source_type,
+            type_index=type_index,
+            backbone_types=backbone_constraints.get("entity_type_by_name") or {},
+            extra=[target_name],
+        )
+        decision = belonging_service.decide(
+            source_name,
+            target_name,
+            child_type=source_type,
+            parent_type=target_type,
+            evidence_text=str(payload.get("evidence_text") or ""),
+            section_path=section_path,
+            in_neighborhood=in_neighborhood,
+            candidate_parents=parents,
+        )
+        if decision.action == BelongingAction.KEEP and decision.reason in {
+            "out_of_neighborhood",
+            "missing_endpoint",
+            "default_keep",
+        }:
+            return payload
+        annotated = dict(payload)
+        props = dict(annotated.get("properties") or {})
+        props["belonging_decision_reason"] = decision.reason
+        props["belonging_decision_confidence"] = decision.confidence
+        if decision.candidates:
+            props["belonging_candidates"] = list(decision.candidates)
+        if decision.used_llm:
+            props["belonging_decided_by"] = "llm"
+        elif decision.action == BelongingAction.REPLACE:
+            props["belonging_decided_by"] = "catalog_or_path"
+        if decision.action == BelongingAction.REPLACE and decision.target_name:
+            props["belonging_replaced_from"] = target_name
+            annotated["target_name"] = decision.target_name
+            annotated["properties"] = props
+            counts["relation_belonging_replaced"] = int(counts.get("relation_belonging_replaced") or 0) + 1
+            return annotated
+        if decision.action == BelongingAction.REJECT:
+            props["belonging_rejected"] = True
+            annotated["properties"] = props
+            counts["relation_belonging_rejected"] = int(counts.get("relation_belonging_rejected") or 0) + 1
+            return annotated
+        if decision.action == BelongingAction.UNSURE:
+            props["belonging_uncertain"] = True
+            annotated["properties"] = props
+            counts["relation_belonging_uncertain"] = int(counts.get("relation_belonging_uncertain") or 0) + 1
+            return annotated
+        annotated["properties"] = props
+        return annotated
+
+    def _canonicalize_relation_type(
+        self,
+        payload: dict,
+        type_index: dict[str, str],
+        relation_type_service: RelationTypeService | None = None,
+        counts: dict | None = None,
+    ) -> dict:
+        """Schema-filtered type label fix; optional LLM among confusable alternatives."""
         source_name = str(payload.get("source_name") or "")
         target_name = str(payload.get("target_name") or "")
         relation_type = str(payload.get("relation_type") or "")
-        if relation_type not in self._DIRECTION_FLIP_RELATIONS:
-            return payload, False
-        source_type = self._lookup_entity_type(type_index, source_name)
-        target_type = self._lookup_entity_type(type_index, target_name)
-        if not source_type or not target_type:
-            return payload, False
-        ok, _ = validate_relation(source_type, relation_type, target_type)
-        if ok:
-            return payload, False
-        ok_rev, _ = validate_relation(target_type, relation_type, source_type)
-        if not ok_rev:
+        source_type = self._lookup_entity_type(type_index, source_name) or ""
+        target_type = self._lookup_entity_type(type_index, target_name) or ""
+        service = relation_type_service or RelationTypeService(arbiter=None)
+        evidence = str(payload.get("evidence_text") or "")
+        decision = service.decide(
+            source_name,
+            relation_type,
+            target_name,
+            source_type=source_type,
+            target_type=target_type,
+            evidence_text=evidence,
+        )
+        counts = counts if counts is not None else {}
+        if decision.action == TypeLabelAction.KEEP and not (
+            decision.reason.startswith("llm_") or decision.reason.startswith("schema_")
+        ):
+            return payload
+        annotated = dict(payload)
+        props = dict(annotated.get("properties") or {})
+        props["relation_type_decision_reason"] = decision.reason
+        props["relation_type_decision_confidence"] = decision.confidence
+        if decision.alternatives:
+            props["relation_type_alternatives"] = list(decision.alternatives)
+        if decision.used_llm:
+            props["relation_type_decided_by"] = "llm"
+        elif decision.action in {TypeLabelAction.REPLACE, TypeLabelAction.KEEP}:
+            props["relation_type_decided_by"] = "schema"
+        if decision.action == TypeLabelAction.REPLACE and decision.relation_type:
+            props["relation_type_replaced_from"] = relation_type
+            annotated["relation_type"] = decision.relation_type
+            annotated["properties"] = props
+            counts["relation_type_replaced"] = int(counts.get("relation_type_replaced") or 0) + 1
+            return annotated
+        if decision.action == TypeLabelAction.REJECT:
+            props["relation_type_rejected"] = True
+            annotated["properties"] = props
+            counts["relation_type_rejected"] = int(counts.get("relation_type_rejected") or 0) + 1
+            return annotated
+        if decision.action == TypeLabelAction.UNSURE:
+            props["relation_type_uncertain"] = True
+            annotated["properties"] = props
+            counts["relation_type_uncertain"] = int(counts.get("relation_type_uncertain") or 0) + 1
+            return annotated
+        annotated["properties"] = props
+        return annotated
+
+    def _canonicalize_relation_direction(
+        self,
+        payload: dict,
+        type_index: dict[str, str],
+        direction_service: RelationDirectionService | None = None,
+    ) -> tuple[dict, bool]:
+        """Schema-first direction fix; optional LLM semantic flip via RelationDirectionService."""
+        source_name = str(payload.get("source_name") or "")
+        target_name = str(payload.get("target_name") or "")
+        relation_type = str(payload.get("relation_type") or "")
+        source_type = self._lookup_entity_type(type_index, source_name) or ""
+        target_type = self._lookup_entity_type(type_index, target_name) or ""
+        service = direction_service or RelationDirectionService(arbiter=None)
+        evidence = str(payload.get("evidence_text") or "")
+        decision = service.decide(
+            source_name,
+            relation_type,
+            target_name,
+            source_type=source_type,
+            target_type=target_type,
+            evidence_text=evidence,
+        )
+        if decision.action == DirectionAction.UNSURE:
+            annotated = dict(payload)
+            props = dict(annotated.get("properties") or {})
+            props["direction_uncertain"] = True
+            props["direction_decision_reason"] = decision.reason
+            props["direction_decision_confidence"] = decision.confidence
+            annotated["properties"] = props
+            return annotated, False
+        if decision.action != DirectionAction.FLIP:
             return payload, False
         flipped = dict(payload)
-        flipped["source_name"] = target_name
-        flipped["target_name"] = source_name
+        flipped["source_name"] = decision.source_name or target_name
+        flipped["target_name"] = decision.target_name or source_name
         props = dict(flipped.get("properties") or {})
         props["direction_flipped"] = True
         props["direction_flipped_from"] = f"{source_name}-[{relation_type}]->{target_name}"
+        props["direction_decision_reason"] = decision.reason
+        props["direction_decision_confidence"] = decision.confidence
+        if decision.used_llm:
+            props["direction_flipped_by"] = "llm"
+        else:
+            props["direction_flipped_by"] = "schema"
         flipped["properties"] = props
         return flipped, True
 
@@ -750,6 +1330,63 @@ class GraphBuilder:
         )
         self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", reason)
         candidate_ids["diagnostic"].add(diagnostic_id)
+
+    @staticmethod
+    def _remember_batch_identity(
+        batch_type_index: dict[str, str],
+        batch_entity_ids: dict[str, str],
+        batch_display_names: dict[str, str],
+        payload: dict,
+        candidate_id: str,
+    ) -> None:
+        name = str(payload.get("name") or "")
+        entity_type = str(payload.get("entity_type") or "")
+        key = normalize_identity_key(name)
+        if not key or not entity_type:
+            return
+        batch_type_index[key] = entity_type
+        batch_entity_ids[key] = candidate_id
+        batch_display_names[key] = name
+
+    def _stage_identity_alias_candidate(
+        self,
+        batch_id: str,
+        entity_payload: dict,
+        backbone_constraints: dict,
+        candidate_ids: dict[str, set[str]],
+        *,
+        created_by: str,
+    ) -> str:
+        """When identity folds a surface name to canonical, stage an alias candidate."""
+        canonical = str(entity_payload.get("identity_canonical") or "").strip()
+        alias = str(entity_payload.get("name") or "").strip()
+        if not canonical or not alias:
+            return ""
+        if normalize_identity_key(canonical) == normalize_identity_key(alias):
+            return ""
+        source_chunk_id = str(entity_payload.get("source_chunk_id") or entity_payload.get("chunk_id") or "")
+        evidence = str(entity_payload.get("evidence_text") or "")
+        alias_payload = {
+            "entity_name": canonical,
+            "alias": alias,
+            "confidence": float(entity_payload.get("confidence") or 1.0),
+            "evidence_text": evidence,
+            "source_chunk_id": source_chunk_id,
+            "created_by": created_by,
+            "from_identity_fold": True,
+        }
+        identity_payload = self._identity_payload("alias", alias_payload)
+        fingerprint = hashlib.sha256(
+            json.dumps(["alias", identity_payload], ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
+        alias_id = self.db.add_extraction_candidate(
+            batch_id, "alias", fingerprint, alias_payload, source_chunk_id, evidence
+        )
+        self._reject_backbone_conflict(
+            batch_id, "alias", alias_id, alias_payload, backbone_constraints, candidate_ids
+        )
+        candidate_ids["alias"].add(alias_id)
+        return alias_id
 
     @staticmethod
     def _identity_payload(kind: str, payload: dict) -> dict:
@@ -836,14 +1473,14 @@ class GraphCandidateApplier:
 
     def _entity(self, conn: sqlite3.Connection, payload: dict) -> str:
         name = normalize_entity_name(payload["name"])
-        row = conn.execute("SELECT id, entity_type FROM entities WHERE name = ?", (name,)).fetchone()
+        row = self._lookup_entity_or_none(conn, name)
         if row:
             if row["entity_type"] != payload["entity_type"]:
                 raise ValueError(f"entity type conflict: {name}")
             entity_id = str(row["id"])
             if payload.get("source_chunk_id"):
                 self._link(conn, {
-                    "entity_name": name,
+                    "entity_name": str(row["name"]),
                     "chunk_id": payload["source_chunk_id"],
                     "link_type": "evidence",
                     "evidence_text": payload.get("evidence_text") or "",
@@ -893,9 +1530,47 @@ class GraphCandidateApplier:
         )
         return alias_id
 
-    @staticmethod
-    def _lookup_entity(conn: sqlite3.Connection, name: str) -> sqlite3.Row:
-        row = conn.execute("SELECT id, entity_type, doc_category FROM entities WHERE name = ?", (normalize_entity_name(name),)).fetchone()
+    @classmethod
+    def _lookup_entity_or_none(cls, conn: sqlite3.Connection, name: str) -> sqlite3.Row | None:
+        norm_key = normalize_identity_key(name)
+        clean_name = normalize_entity_name(name)
+        if not norm_key:
+            return None
+
+        # 1. Direct entities name match (case-insensitive / normalized)
+        all_entities = conn.execute("SELECT id, name, entity_type, doc_category FROM entities").fetchall()
+        for row in all_entities:
+            if normalize_identity_key(row["name"]) == norm_key:
+                return row
+
+        # 2. Match aliases table
+        all_aliases = conn.execute("SELECT entity_id, alias FROM aliases").fetchall()
+        for alias_row in all_aliases:
+            if normalize_identity_key(alias_row["alias"]) == norm_key:
+                e_row = conn.execute("SELECT id, name, entity_type, doc_category FROM entities WHERE id = ?", (alias_row["entity_id"],)).fetchone()
+                if e_row:
+                    return e_row
+
+        # 3. Match DomainCatalog
+        catalog = DomainCatalogLoader()
+        resolved = catalog.resolve(clean_name)
+        if resolved:
+            canonical_name = resolved[0]
+            canonical_norm = normalize_identity_key(canonical_name)
+            for row in all_entities:
+                if normalize_identity_key(row["name"]) == canonical_norm:
+                    return row
+            for alias_row in all_aliases:
+                if normalize_identity_key(alias_row["alias"]) == canonical_norm:
+                    e_row = conn.execute("SELECT id, name, entity_type, doc_category FROM entities WHERE id = ?", (alias_row["entity_id"],)).fetchone()
+                    if e_row:
+                        return e_row
+
+        return None
+
+    @classmethod
+    def _lookup_entity(cls, conn: sqlite3.Connection, name: str) -> sqlite3.Row:
+        row = cls._lookup_entity_or_none(conn, name)
         if not row:
             raise ValueError(f"missing relation endpoint: {name}")
         return row
@@ -907,6 +1582,14 @@ class GraphCandidateApplier:
         source = self._lookup_entity(conn, payload["source_name"])
         target = self._lookup_entity(conn, payload["target_name"])
         relation_type = payload["relation_type"]
+        if relation_type == "alias_of":
+            return self._alias(conn, {
+                "entity_name": str(target["name"]),
+                "alias": str(payload.get("source_name") or source["name"]),
+                "source_chunk_id": payload.get("source_chunk_id") or "",
+                "evidence_text": payload.get("evidence_text") or "",
+                "confidence": payload.get("confidence", 1.0),
+            })
         ok, reason = validate_relation(source["entity_type"], relation_type, target["entity_type"])
         if not ok:
             raise ValueError(reason)

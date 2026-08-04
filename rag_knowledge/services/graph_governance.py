@@ -156,7 +156,7 @@ def is_safe_review_candidate(
     evidence_text = str(payload.get("evidence_text") or item.get("evidence_text") or "")
     if not evidence_text and not payload.get("evidences"):
         return False
-    if payload.get("resolution_action") == "diagnostic":
+    if payload.get("resolution_action") in {"alias", "reuse", "diagnostic", "bind", "alias_of", "conflict", "uncertain"}:
         return False
     from rag_knowledge.services.backbone_guard import describe_conflict, load_backbone_constraints
     bb_constraints = load_backbone_constraints()
@@ -289,3 +289,36 @@ def assert_production_apply_allowed() -> None:
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def cascade_rejected_endpoint_relations(db, batch_id: str) -> int:
+    """Cascade reject relation candidates whose endpoints are missing from approved entities and DB."""
+    with db._get_conn() as conn:
+        all_candidates = db.list_extraction_candidates(batch_id)
+        approved_entities = {
+            c["payload"].get("name") for c in all_candidates
+            if c["candidate_kind"] == "entity" and c["status"] == "approved"
+        }
+        existing_entities = {
+            row["name"] for row in conn.execute("SELECT name FROM entities").fetchall()
+        }
+        all_valid_entities = approved_entities | existing_entities
+
+        invalid_relation_ids = []
+        for c in all_candidates:
+            if c["candidate_kind"] == "relation" and c["status"] == "approved":
+                payload = c["payload"] or {}
+                src = payload.get("source_name")
+                tgt = payload.get("target_name")
+                if src not in all_valid_entities or tgt not in all_valid_entities:
+                    invalid_relation_ids.append(c["id"])
+
+        if invalid_relation_ids:
+            placeholders = ", ".join("?" for _ in invalid_relation_ids)
+            conn.execute(
+                f"UPDATE extraction_candidates SET status = 'rejected', "
+                f"rejection_reason = 'missing relation endpoint (auto-cascade)', "
+                f"reviewed_at = ? WHERE batch_id = ? AND id IN ({placeholders})",
+                [db._now(), batch_id] + invalid_relation_ids
+            )
+        return len(invalid_relation_ids)

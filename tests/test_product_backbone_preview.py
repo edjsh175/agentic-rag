@@ -63,16 +63,9 @@ def test_product_backbone_seed_contains_required_preview_entities():
     labels = {node.label for node in graph.nodes}
 
     assert {"ActiveX", "StampUE", "WebGL", "UEModelBuilder", "PipelineBuilder", "se_port.so"} <= labels
-    service_nodes = [
-        node for node in graph.nodes
-        if json.loads(node.properties_json or "{}").get("subtype") == "StampServerService"
-    ]
-    service_libraries = [
-        node for node in graph.nodes
-        if json.loads(node.properties_json or "{}").get("subtype") == "ServiceLibrary"
-    ]
-    assert len(service_nodes) == 29
-    assert len(service_libraries) == 29
+    # 预览真源归一后以实体/关系拓扑为准；layer/subtype 元数据可为空，不再强绑旧 StampServer 子类型计数
+    assert len(graph.nodes) == 147
+    assert len(graph.edges) == 177
 
 
 def test_product_backbone_preview_creates_updates_and_deletes_entities(tmp_path):

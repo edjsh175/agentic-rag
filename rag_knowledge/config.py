@@ -123,6 +123,18 @@ from rag_knowledge.llm_http import ModelEndpoint
 class GraphLLMExtractorConfig:
     """LLM semantic graph extraction config (MVP-4)."""
     enabled: bool = False
+    # Entity identity arbiter (secondary dedup); independent of extract --include-llm
+    entity_resolve_enabled: bool = False
+    # Relation direction arbiter (who-depends-on-whom); independent of --include-llm
+    relation_direction_resolve_enabled: bool = False
+    # Entity type conflict arbiter (Step vs Procedure, etc.); independent of --include-llm
+    entity_type_resolve_enabled: bool = False
+    # Relation type label arbiter (requires vs depends_on, etc.); independent of --include-llm
+    relation_type_resolve_enabled: bool = False
+    # belongs_to parent attachment (neighborhood only); independent of --include-llm
+    relation_belonging_resolve_enabled: bool = False
+    # Second LLM pass when first yield misses business leaves (requires include-llm)
+    leak_salvage_enabled: bool = False
     provider: str = "ollama"
     model: str = "qwen3:30b"
     # Optional Ollama/OpenAI/Google endpoint; empty → Config.ollama_base_url (ollama only)
@@ -131,6 +143,11 @@ class GraphLLMExtractorConfig:
     temperature: float = 0.0
     max_retries: int = 2
     min_confidence: float = 0.60
+    entity_resolve_min_confidence: float = 0.80
+    relation_direction_min_confidence: float = 0.80
+    entity_type_resolve_min_confidence: float = 0.80
+    relation_type_min_confidence: float = 0.80
+    relation_belonging_min_confidence: float = 0.80
     prompt_version: str = "v4"
     extractor_version: str = "v1"
     rate_limit_delay: float = 0.0
@@ -452,6 +469,30 @@ class Config:
         # ---- LLM 语义图谱抽取 (MVP-4) ----
         self.graph_extraction_llm = GraphLLMExtractorConfig(
             enabled=_get("graph_extraction.llm", "enabled", "false").lower() == "true",
+            entity_resolve_enabled=_get(
+                "graph_extraction.llm", "entity_resolve_enabled", "false"
+            ).lower()
+            == "true",
+            relation_direction_resolve_enabled=_get(
+                "graph_extraction.llm", "relation_direction_resolve_enabled", "false"
+            ).lower()
+            == "true",
+            entity_type_resolve_enabled=_get(
+                "graph_extraction.llm", "entity_type_resolve_enabled", "false"
+            ).lower()
+            == "true",
+            relation_type_resolve_enabled=_get(
+                "graph_extraction.llm", "relation_type_resolve_enabled", "false"
+            ).lower()
+            == "true",
+            relation_belonging_resolve_enabled=_get(
+                "graph_extraction.llm", "relation_belonging_resolve_enabled", "false"
+            ).lower()
+            == "true",
+            leak_salvage_enabled=_get(
+                "graph_extraction.llm", "leak_salvage_enabled", "false"
+            ).lower()
+            == "true",
             provider=_get("graph_extraction.llm", "provider", "ollama"),
             model=_get("graph_extraction.llm", "model", "qwen3:30b"),
             base_url=_get("graph_extraction.llm", "base_url", "").strip(),
@@ -459,6 +500,21 @@ class Config:
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
             max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
+            entity_resolve_min_confidence=float(
+                _get("graph_extraction.llm", "entity_resolve_min_confidence", "0.80")
+            ),
+            relation_direction_min_confidence=float(
+                _get("graph_extraction.llm", "relation_direction_min_confidence", "0.80")
+            ),
+            entity_type_resolve_min_confidence=float(
+                _get("graph_extraction.llm", "entity_type_resolve_min_confidence", "0.80")
+            ),
+            relation_type_min_confidence=float(
+                _get("graph_extraction.llm", "relation_type_min_confidence", "0.80")
+            ),
+            relation_belonging_min_confidence=float(
+                _get("graph_extraction.llm", "relation_belonging_min_confidence", "0.80")
+            ),
             prompt_version=_get("graph_extraction.llm", "prompt_version", "v4"),
             extractor_version=_get("graph_extraction.llm", "extractor_version", "v1"),
             rate_limit_delay=float(_get("graph_extraction.llm", "rate_limit_delay", "0.0")),

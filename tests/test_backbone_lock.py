@@ -13,14 +13,14 @@ def test_llm_extractor_rejects_backbone_conflicts():
     """Verify LLMGraphExtractor drops entities/relations conflicting with official backbone."""
     constraints = load_backbone_constraints()
 
-    # Entity type conflict: PipelineBuilder is a Tool in domain_catalog/backbone
-    conflict_ent = describe_conflict("entity", {"name": "PipelineBuilder", "entity_type": "Procedure"}, constraints)
+    # Entity type conflict: ActiveX is a Module in official product_relation_backbone.json
+    conflict_ent = describe_conflict("entity", {"name": "ActiveX", "entity_type": "Procedure"}, constraints)
     assert conflict_ent != ""
     assert "entity type conflict" in conflict_ent
 
-    # Conflict belongs_to relation: PipelineBuilder belongs_to StampTools in domain_catalog, attempt to attach to StampServer
+    # Conflict belongs_to relation: ActiveX belongs_to StampGIS Client in official backbone, attempt to attach to StampServer
     conflict_rel = describe_conflict("relation", {
-        "source_name": "PipelineBuilder",
+        "source_name": "ActiveX",
         "relation_type": "belongs_to",
         "target_name": "StampServer"
     }, constraints)
@@ -33,9 +33,9 @@ def test_governance_review_blocks_backbone_conflicts():
     candidate_entity = {
         "candidate_kind": "entity",
         "payload": {
-            "name": "PipelineBuilder",
+            "name": "ActiveX",
             "entity_type": "Procedure",
-            "evidence_text": "PipelineBuilder"
+            "evidence_text": "ActiveX"
         }
     }
     assert not is_safe_review_candidate(candidate_entity)
@@ -43,10 +43,10 @@ def test_governance_review_blocks_backbone_conflicts():
     candidate_relation = {
         "candidate_kind": "relation",
         "payload": {
-            "source_name": "PipelineBuilder",
+            "source_name": "ActiveX",
             "relation_type": "belongs_to",
             "target_name": "StampServer",
-            "evidence_text": "PipelineBuilder"
+            "evidence_text": "ActiveX"
         }
     }
     assert not is_safe_review_candidate(candidate_relation)
@@ -58,7 +58,7 @@ def test_candidate_applier_prevents_backbone_relation_tampering():
     applier = GraphCandidateApplier(db)
 
     conflict_payload = {
-        "source_name": "PipelineBuilder",
+        "source_name": "ActiveX",
         "relation_type": "belongs_to",
         "target_name": "StampServer"
     }
