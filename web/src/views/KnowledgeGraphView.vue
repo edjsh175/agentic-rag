@@ -56,6 +56,7 @@ const isProductBackbonePreviewAny = computed(() => isProductBackbonePreview.valu
 // 颜色映射系统
 const colors: Record<string, string> = {
   Product: '#a855f7',      // 紫色
+  Layer: '#0891b2',        // 亮青色（架构层）
   Tool: '#3b82f6',         // 蓝色
   Service: '#10b981',      // 绿色
   Module: '#14b8a6',       // 青色
@@ -121,6 +122,7 @@ const graphData = ref<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], e
 // 过滤状态
 const searchQuery = ref('')
 const selectedCategory = ref<string>('all')
+const graphMode = ref<'product' | 'document'>('product')
 const selectedTypes = ref<Record<string, boolean>>({ ...DEFAULT_TYPE_SELECTION })
 
 // 链路层级正交过滤状态（默认全选）
@@ -173,6 +175,17 @@ const nodeFilterType = (node: GraphNode): string => {
     const props = parseNodeProperties(node) as Record<string, any>
     return (props.layer || node.doc_category || '其他') as string
   }
+  const props = parseNodeProperties(node) as Record<string, any>
+  const label = String(node.label || (node as any).name || '').trim()
+  if (
+    node.type === 'Layer' ||
+    props.subtype === 'CoreLayer' ||
+    props.subtype === 'SupportLayer' ||
+    props.subtype === 'CrossCuttingDimension' ||
+    label.endsWith('层')
+  ) {
+    return 'Layer'
+  }
   return node.type
 }
 
@@ -215,10 +228,13 @@ const filterTypeDotColor = (type: string) => {
   return colors[type] || colors.Default
 }
 
-const nodeListBadge = (node: GraphNode) => ({
-  text: entityTypeBadge(node.type),
-  color: colors[node.type] || colors.Default,
-})
+const nodeListBadge = (node: GraphNode) => {
+  const fType = nodeFilterType(node)
+  return {
+    text: entityTypeBadge(fType),
+    color: colors[fType] || colors.Default,
+  }
+}
 const relationTypes = [
   'belongs_to', 'has_table', 'has_field', 'defined_in', 'different_from',
   'uses_config', 'supports_format', 'produces', 'consumes', 'requires',
@@ -284,25 +300,24 @@ const getNodeStyle = (node: GraphNode): NodeStyle => {
     style = { ...style, radius: 20 }
   }
 
-  if (subtype === 'ServiceLibrary') {
+  if (node.type === 'Product' || subtype === 'Product' || subtype === 'ManagementProduct' || subtype === 'ProductFamily') {
+    const fill = subtype === 'ProductFamily' ? '#7c3aed' : (colors.Product || '#a855f7')
+    style = { ...style, radius: subtype === 'ProductFamily' ? 34 : 27, fill, labelFont: 'bold 11px sans-serif', badgeText: '产品' }
+  } else if (subtype === 'ServiceLibrary') {
     style = { ...style, radius: 20, fill: '#475569', labelFont: '9px sans-serif', badgeText: '库' }
-  } else if (subtype === 'ProductFamily') {
-    style = { ...style, radius: 34, fill: '#7c3aed', labelFont: 'bold 12px sans-serif', badgeText: '产品' }
   } else if (subtype === 'CoreLayer') {
     style = { ...style, radius: 30, fill: '#0891b2', labelFont: 'bold 11px sans-serif', badgeText: '层' }
   } else if (subtype === 'SupportLayer') {
     style = { ...style, radius: 30, fill: '#0f766e', labelFont: 'bold 11px sans-serif', badgeText: '层' }
   } else if (subtype === 'CrossCuttingDimension') {
     style = { ...style, radius: 30, fill: '#0e7490', labelFont: 'bold 11px sans-serif', badgeText: '横切' }
-  } else if (subtype === 'Product' || subtype === 'ManagementProduct') {
-    style = { ...style, radius: 27, fill: '#9333ea', labelFont: 'bold 11px sans-serif', badgeText: '产品' }
   } else if (subtype === 'MainTool') {
     style = { ...style, radius: 25, fill: '#2563eb', labelFont: 'bold 10px sans-serif', badgeText: '工具' }
   } else if (subtype === 'RenderingSystem') {
     style = { ...style, radius: 25, fill: '#4f46e5', labelFont: 'bold 10px sans-serif', badgeText: '渲染' }
   } else if (subtype === 'StampServerService') {
     style = { ...style, radius: 25, fill: '#059669', labelFont: 'bold 10px sans-serif', badgeText: '服务' }
-  } else if (layer === '客户端与渲染层') {
+  } else if (layer === '客户端与渲染层' && node.type !== 'Tool' && node.type !== 'Service') {
     style = { ...style, fill: '#6366f1' }
   }
 
@@ -529,7 +544,7 @@ const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'i
       ? await getProductBackboneComplexPreview(forceRefresh)
       : isProductBackbonePreview.value
       ? await getProductBackbonePreview(forceRefresh)
-      : await getGraphData(selectedCategory.value, forceRefresh)
+      : await getGraphData(selectedCategory.value, forceRefresh, graphMode.value)
     graphData.value = data
     syncPreviewFilterTypes(data.nodes)
 
@@ -608,12 +623,26 @@ const updateVisualSubGraph = () => {
 watch([selectedTypes, searchQuery, selectedLinkClasses], () => {
   if (suppressFilterLayoutWatch) return
   updateVisualSubGraph()
-  graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
+  drawGraph()
 }, { deep: true })
 
 watch(selectedCategory, () => {
   if (isProductBackbonePreviewAny.value) return
-  fetchGraph()
+  updateVisualSubGraph()
+  drawGraph()
+})
+
+watch(graphMode, (newMode) => {
+  if (isProductBackbonePreviewAny.value) return
+  if (newMode === 'document') {
+    selectedTypes.value['Section'] = true
+    selectedTypes.value['Document'] = true
+    selectedLinkClasses.value['Context'] = true
+  } else {
+    selectedTypes.value['Section'] = false
+    selectedTypes.value['Document'] = true
+  }
+  fetchGraph(true, 'initial')
 })
 
 watch(isProductBackbonePreviewAny, () => {
@@ -637,6 +666,7 @@ watch(filteredNodesList, (nodes) => {
   const stillVisible = nodes.some(node => node.id === selectedNodeId.value)
   if (!stillVisible) {
     clearSelection()
+    drawGraph()
   }
 })
 
@@ -1021,6 +1051,9 @@ const getGraphCoords = (e: MouseEvent) => {
 let isPanning = false
 let startPanX = 0
 let startPanY = 0
+let hasMovedCanvas = false
+let initialPanMouseX = 0
+let initialPanMouseY = 0
 
 const handleMouseDown = (e: MouseEvent) => {
   const coords = getGraphCoords(e)
@@ -1062,8 +1095,10 @@ const handleMouseDown = (e: MouseEvent) => {
     expandedChunkId.value = null
     evidenceChunks.value = []
   } else {
-    clearSelection()
     isPanning = true
+    hasMovedCanvas = false
+    initialPanMouseX = e.clientX
+    initialPanMouseY = e.clientY
     startPanX = e.clientX - panX.value
     startPanY = e.clientY - panY.value
   }
@@ -1090,6 +1125,11 @@ const handleMouseMove = (e: MouseEvent) => {
       graphLayout?.moveNode(node.id, coords.x, coords.y)
     }
   } else if (isPanning) {
+    const dx = e.clientX - initialPanMouseX
+    const dy = e.clientY - initialPanMouseY
+    if (dx * dx + dy * dy > 16) {
+      hasMovedCanvas = true
+    }
     panX.value = e.clientX - startPanX
     panY.value = e.clientY - startPanY
   } else {
@@ -1120,7 +1160,15 @@ const handleMouseUp = (e?: MouseEvent) => {
   }
   if (draggedNodeId.value) graphLayout?.endNodeDrag(draggedNodeId.value)
   draggedNodeId.value = null
+
+  if (isPanning) {
+    // 只有单纯点击空白处（未移动画布）时才清除选中
+    if (!hasMovedCanvas) {
+      clearSelection()
+    }
+  }
   isPanning = false
+  hasMovedCanvas = false
   drawGraph()
 }
 
@@ -1243,9 +1291,11 @@ const loadAliases = async (entityId: string) => {
 
 const openCreateEntityModal = () => {
   entityModalMode.value = 'create'
-  // 继承上下文分类：优先当前选中实体的分类 > 当前视图分类 > 第一个已知分类
-  const defaultCategory = selectedNode.value?.doc_category ||
-    (selectedCategory.value !== 'all' ? selectedCategory.value : (DOC_CATEGORIES[0] || ''))
+  // 继承上下文分类：优先当前选中实体的分类 > 当前视图分类 > 空
+  const rawCat = selectedNode.value?.doc_category || ''
+  const contextCat = selectedCategory.value !== 'all' ? selectedCategory.value : ''
+  const candidateCat = rawCat || contextCat
+  const defaultCategory = DOC_CATEGORIES.includes(candidateCat as any) ? candidateCat : ''
 
   entityForm.value = {
     name: '',
@@ -1267,11 +1317,13 @@ const openCreateEntityModal = () => {
 const openEditEntityModal = () => {
   if (!selectedNode.value) return
   const properties = selectedNodeProperties.value
+  const rawCat = selectedNode.value.doc_category || ''
+  const validCat = DOC_CATEGORIES.includes(rawCat as any) ? rawCat : ''
   entityModalMode.value = 'edit'
   entityForm.value = {
     name: selectedNode.value.label,
     entity_type: selectedNode.value.type,
-    doc_category: selectedNode.value.doc_category || '',
+    doc_category: validCat,
     canonical_name: selectedNode.value.canonical_name || '',
     description: selectedNode.value.description || '',
     confidence: String(selectedNode.value.confidence ?? 1),
@@ -1283,6 +1335,85 @@ const openEditEntityModal = () => {
     alias_candidates: aliasCandidatesText(properties.alias_candidates),
   }
   isEntityModalOpen.value = true
+}
+
+/** 将后端实体响应当前化为画布 GraphNode（不触发布局） */
+const entityResponseToGraphNode = (entity: Record<string, any>, fallbackId?: string): GraphNode => ({
+  id: String(entity.id || fallbackId || ''),
+  label: String(entity.label || entity.name || ''),
+  type: String(entity.type || entity.entity_type || entity.graph_type || 'Default'),
+  doc_category: entity.doc_category ?? null,
+  canonical_name: entity.canonical_name ?? null,
+  description: entity.description ?? null,
+  properties_json: entity.properties_json ?? null,
+  confidence: entity.confidence ?? null,
+  review_status: entity.review_status ?? null,
+  created_by: entity.created_by ?? null,
+})
+
+/** 在当前视口/选中节点附近播种坐标，保持既有节点与 pan/scale 不动 */
+const seedVisualPosition = (): { x: number; y: number } => {
+  const selected = selectedNodeId.value
+    ? visualNodes.value.find(n => n.id === selectedNodeId.value)
+    : null
+  const cx = (canvasWidth.value || 800) / 2
+  const cy = (canvasHeight.value || 600) / 2
+  const viewCenterX = (cx - panX.value) / (scale.value || 1)
+  const viewCenterY = (cy - panY.value) / (scale.value || 1)
+  const baseX = selected ? selected.x : viewCenterX
+  const baseY = selected ? selected.y : viewCenterY
+  const angle = Math.random() * Math.PI * 2
+  const radius = selected ? 90 : 60
+  return {
+    x: baseX + Math.cos(angle) * radius,
+    y: baseY + Math.sin(angle) * radius,
+  }
+}
+
+/** 本地增量创建/更新实体节点，禁止 fetchGraph / setGraph 重排 */
+const applyLocalEntityUpsert = async (node: GraphNode) => {
+  if (!node.id) return
+  suppressFilterLayoutWatch = true
+  try {
+    const dataIdx = graphData.value.nodes.findIndex(n => n.id === node.id)
+    if (dataIdx >= 0) {
+      graphData.value.nodes[dataIdx] = { ...graphData.value.nodes[dataIdx], ...node }
+    } else {
+      graphData.value.nodes.push(node)
+    }
+
+    const visualIdx = visualNodes.value.findIndex(n => n.id === node.id)
+    if (visualIdx >= 0) {
+      const prev = visualNodes.value[visualIdx]
+      visualNodes.value[visualIdx] = {
+        ...prev,
+        ...node,
+        x: prev.x,
+        y: prev.y,
+        vx: prev.vx ?? 0,
+        vy: prev.vy ?? 0,
+      }
+    } else {
+      const pos = seedVisualPosition()
+      visualNodes.value.push({
+        ...node,
+        x: pos.x,
+        y: pos.y,
+        vx: 0,
+        vy: 0,
+      })
+    }
+
+    if (isProductBackbonePreviewAny.value) {
+      syncPreviewFilterTypes(graphData.value.nodes)
+    }
+
+    updateVisualSubGraph()
+    drawGraph()
+  } finally {
+    await nextTick()
+    suppressFilterLayoutWatch = false
+  }
 }
 
 const saveEntity = async () => {
@@ -1308,38 +1439,39 @@ const saveEntity = async () => {
         selectedNodeId.value = saved.id
         isRightSidebarOpen.value = true
         pinnedEditNodeIds.value.add(saved.id)
+        await applyLocalEntityUpsert(entityResponseToGraphNode(saved))
       }
       isEntityModalOpen.value = false
-      await fetchGraph(true, 'incremental')
-      if (selectedNodeId.value) {
-        selectAndFocusNode(selectedNodeId.value)
-      }
       return
     }
 
+    const rawCat = entityForm.value.doc_category || null
+    const cleanCat = rawCat && DOC_CATEGORIES.includes(rawCat as any) ? rawCat : null
     const payload = {
       name: entityForm.value.name,
       entity_type: entityForm.value.entity_type,
-      doc_category: entityForm.value.doc_category || null,
+      doc_category: cleanCat,
       canonical_name: entityForm.value.canonical_name || null,
       description: entityForm.value.description || null,
       confidence: Number(entityForm.value.confidence || 1),
       review_status: entityForm.value.review_status || null,
     }
+    let savedEntity: Record<string, any> | null = null
     if (entityModalMode.value === 'create') {
-      const created = await createGraphEntity(payload)
-      selectedNodeId.value = created.id
+      savedEntity = await createGraphEntity(payload)
+      selectedNodeId.value = savedEntity!.id
       isRightSidebarOpen.value = true
     } else if (selectedNodeId.value) {
-      await updateGraphEntity(selectedNodeId.value, payload)
+      savedEntity = await updateGraphEntity(selectedNodeId.value, payload)
     }
     if (selectedNodeId.value) {
       pinnedEditNodeIds.value.add(selectedNodeId.value)
     }
     isEntityModalOpen.value = false
-    await fetchGraph(true, 'incremental')
+    if (savedEntity) {
+      await applyLocalEntityUpsert(entityResponseToGraphNode(savedEntity, selectedNodeId.value || undefined))
+    }
     if (selectedNodeId.value) {
-      selectAndFocusNode(selectedNodeId.value)
       await loadAliases(selectedNodeId.value)
     }
   } catch (err: any) {
@@ -1363,30 +1495,48 @@ const openRelationModal = () => {
 const saveRelation = async () => {
   relationSaving.value = true
   try {
-    if (relationForm.value.source_id) pinnedEditNodeIds.value.add(relationForm.value.source_id)
-    if (relationForm.value.target_id) pinnedEditNodeIds.value.add(relationForm.value.target_id)
+    const srcId = relationForm.value.source_id
+    const tgtId = relationForm.value.target_id
+    const relType = relationForm.value.relation_type
+
+    if (srcId) pinnedEditNodeIds.value.add(srcId)
+    if (tgtId) pinnedEditNodeIds.value.add(tgtId)
+
+    let created: any = null
 
     if (isProductBackbonePreviewAny.value) {
-      await createProductBackboneRelation({
-        source_id: relationForm.value.source_id,
-        target_id: relationForm.value.target_id,
-        relation_type: relationForm.value.relation_type,
+      created = await createProductBackboneRelation({
+        source_id: srcId,
+        target_id: tgtId,
+        relation_type: relType,
         evidence_text: relationForm.value.evidence_text || null,
       })
-      isRelationModalOpen.value = false
-      await fetchGraph(true, 'incremental')
-      return
+    } else {
+      created = await createGraphRelation({
+        source_id: srcId,
+        target_id: tgtId,
+        relation_type: relType,
+        confidence: Number(relationForm.value.confidence || 1),
+        evidence_text: relationForm.value.evidence_text || null,
+      })
     }
 
-    await createGraphRelation({
-      source_id: relationForm.value.source_id,
-      target_id: relationForm.value.target_id,
-      relation_type: relationForm.value.relation_type,
-      confidence: Number(relationForm.value.confidence || 1),
-      evidence_text: relationForm.value.evidence_text || null,
-    })
     isRelationModalOpen.value = false
-    await fetchGraph(true, 'incremental')
+
+    const newEdge: GraphEdge = {
+      id: created?.id || created?.relation_id || `edge-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      source: srcId,
+      target: tgtId,
+      label: relType,
+    }
+
+    // 增量将新边添加到内存关联图谱中，保持现有节点位置与视口完全静止
+    if (!graphData.value.edges.some(e => e.id === newEdge.id || (e.source === srcId && e.target === tgtId && e.label === relType))) {
+      graphData.value.edges.push(newEdge)
+    }
+
+    updateVisualSubGraph()
+    drawGraph()
   } catch (err: any) {
     alert('保存关系失败：' + err.message)
   } finally {
@@ -1464,10 +1614,11 @@ const handleDeleteRelation = async (relationId: string) => {
     } else {
       await deleteRelation(relationId)
     }
-    // 本地移除边，同步刷新画面
+    // 本地移除边并重绘，不触发布局重排
     graphData.value.edges = graphData.value.edges.filter(edge => edge.id !== relationId)
     visualEdges.value = visualEdges.value.filter(edge => edge.id !== relationId)
     updateVisualSubGraph()
+    drawGraph()
   } catch (err: any) {
     alert('删除关系失败：' + err.message)
   }
@@ -1507,18 +1658,26 @@ const confirmDeleteEntity = async () => {
       await deleteEntity(selectedNode.value.id)
     }
     
-    // 移除本地数据中的实体及所有关联边
+    // 本地移除实体与关联边并重绘，不触发 Dagre/Force 重排
     const deletedId = selectedNode.value.id
-    graphData.value.nodes = graphData.value.nodes.filter(n => n.id !== deletedId)
-    graphData.value.edges = graphData.value.edges.filter(e => e.source !== deletedId && e.target !== deletedId)
-    
-    visualNodes.value = visualNodes.value.filter(n => n.id !== deletedId)
-    
-    clearSelection()
-    isDeleteEntityModalOpen.value = false
-    
-    updateVisualSubGraph()
-    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, 'incremental')
+    suppressFilterLayoutWatch = true
+    try {
+      graphData.value.nodes = graphData.value.nodes.filter(n => n.id !== deletedId)
+      graphData.value.edges = graphData.value.edges.filter(e => e.source !== deletedId && e.target !== deletedId)
+      visualNodes.value = visualNodes.value.filter(n => n.id !== deletedId)
+
+      clearSelection()
+      isDeleteEntityModalOpen.value = false
+
+      if (isProductBackbonePreviewAny.value) {
+        syncPreviewFilterTypes(graphData.value.nodes)
+      }
+      updateVisualSubGraph()
+      drawGraph()
+    } finally {
+      await nextTick()
+      suppressFilterLayoutWatch = false
+    }
     alert('实体删除成功')
   } catch (err: any) {
     alert('删除实体失败：' + err.message)
@@ -1553,10 +1712,17 @@ const initGraphLayout = () => {
   if (graphLayout) {
     graphLayout.destroy()
   }
+  const backboneRootMatcher = (node: LayoutNode) => {
+    const label = String((node as { label?: string }).label || '').toLowerCase()
+    return node.type === 'Product' && /stampgis.*三维产品/i.test(label)
+  }
   const options = {
     width: canvasWidth.value,
     height: canvasHeight.value,
     onTick: drawGraph,
+    ...(isProductBackbonePreviewAny.value
+      ? { rootNodeMatcher: backboneRootMatcher }
+      : {}),
     ...(isProductBackbonePreviewAny.value
       ? { linkDistance: 260, chargeStrength: -560, collideRadius: 48 }
       : { linkDistance: 220, chargeStrength: -420, collideRadius: 40 }),
@@ -1749,6 +1915,24 @@ onUnmounted(() => {
         </div>
         
         <div class="kg-controls">
+          <div v-if="!isProductBackbonePreviewAny" class="mode-segmented-control">
+            <button
+              :class="['mode-btn', { active: graphMode === 'product' }]"
+              @click="graphMode = 'product'"
+              type="button"
+              data-test="mode-product-top"
+            >
+              产品能力图谱
+            </button>
+            <button
+              :class="['mode-btn', { active: graphMode === 'document' }]"
+              @click="graphMode = 'document'"
+              type="button"
+              data-test="mode-document-top"
+            >
+              文档结构树
+            </button>
+          </div>
           <button @click="toggleLayoutMode" class="icon-btn" data-test="toggle-layout-mode" style="background-color: #f1f5f9; color: #334155; font-weight: 500; border-color: #cbd5e1;">
             切换: {{ layoutMode === 'dagre' ? '分层组织图 (Dagre)' : '力导向图 (Force)' }}
           </button>
@@ -2189,6 +2373,37 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* 图谱模式切段控件 */
+.mode-segmented-control {
+  display: flex;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mode-btn:hover {
+  color: #0f172a;
+}
+.mode-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
 /* 全局页面三栏结构 */
 .kg-container {
   display: flex;

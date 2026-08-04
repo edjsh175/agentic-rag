@@ -54,11 +54,20 @@ const http = axios.create({
 http.interceptors.response.use(
   (res) => res,
   (err) => {
-    const msg =
-      err.response?.data?.detail     // FastAPI 错误格式
-      || err.response?.data?.message
-      || err.message
-      || '请求失败'
+    let msg = ''
+    const detail = err.response?.data?.detail
+    if (detail) {
+      if (typeof detail === 'string') {
+        msg = detail
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((item: any) => item?.msg || JSON.stringify(item)).join('; ')
+      } else if (typeof detail === 'object') {
+        msg = detail.msg || detail.message || JSON.stringify(detail)
+      }
+    }
+    if (!msg) {
+      msg = err.response?.data?.message || err.message || '请求失败'
+    }
     return Promise.reject(new Error(msg))
   },
 )
@@ -543,10 +552,19 @@ export async function deleteServerChat(fingerprint: string) {
 // ============================================================
 
 /** 获取知识图谱数据 */
-export async function getGraphData(docCategory?: string, forceRefresh = false) {
-  const query = docCategory && docCategory !== 'all'
-    ? `?doc_category=${encodeURIComponent(docCategory)}`
-    : ''
+export async function getGraphData(
+  docCategory?: string,
+  forceRefresh = false,
+  graphType: 'product' | 'document' = 'product',
+) {
+  const params = new URLSearchParams()
+  if (docCategory && docCategory !== 'all') {
+    params.set('doc_category', docCategory)
+  }
+  if (graphType) {
+    params.set('graph_type', graphType)
+  }
+  const query = params.toString() ? `?${params.toString()}` : ''
   const url = `/admin/knowledge_graph/data${query}`
   return withDataCache(url, () => getJSON<GraphData>(url), 300000, forceRefresh)
 }

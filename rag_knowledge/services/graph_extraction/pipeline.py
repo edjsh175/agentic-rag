@@ -1576,12 +1576,18 @@ class GraphCandidateApplier:
         return row
 
     def _relation(self, conn: sqlite3.Connection, payload: dict) -> str:
+        relation_type = payload.get("relation_type") or ""
+        if relation_type in {"has_section", "defined_in"}:
+            return ""
         conflict_reason = describe_conflict("relation", payload, load_backbone_constraints())
         if conflict_reason:
             raise ValueError(f"backbone relation lock: {conflict_reason}")
-        source = self._lookup_entity(conn, payload["source_name"])
-        target = self._lookup_entity(conn, payload["target_name"])
-        relation_type = payload["relation_type"]
+        source = self._lookup_entity_or_none(conn, payload["source_name"])
+        target = self._lookup_entity_or_none(conn, payload["target_name"])
+        if not source or not target:
+            return ""
+        if relation_type == "belongs_to" and (source["entity_type"] in {"Document", "Section"} or target["entity_type"] in {"Document", "Section"}):
+            return ""
         if relation_type == "alias_of":
             return self._alias(conn, {
                 "entity_name": str(target["name"]),
@@ -1643,7 +1649,9 @@ class GraphCandidateApplier:
         return field_id
 
     def _link(self, conn: sqlite3.Connection, payload: dict) -> str:
-        entity = self._lookup_entity(conn, payload["entity_name"])
+        entity = self._lookup_entity_or_none(conn, payload["entity_name"])
+        if not entity:
+            return ""
         existing = conn.execute(
             "SELECT id FROM entity_chunk_links WHERE entity_id = ? AND chunk_id = ?",
             (entity["id"], payload["chunk_id"]),

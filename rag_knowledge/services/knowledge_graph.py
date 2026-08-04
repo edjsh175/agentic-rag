@@ -49,23 +49,18 @@ class KnowledgeGraphService:
             self._vector_store = VectorStore()
         return self._vector_store
 
-    def list_graph_data(self, doc_category: Optional[str] = None) -> GraphDataResponse:
-        """Fetch all entities and relations, filter orphans if doc_category is applied."""
+    def list_graph_data(self, doc_category: Optional[str] = None, graph_type: str = "product") -> GraphDataResponse:
+        """Fetch graph nodes and edges. Supports product graph (default) and document tree."""
+        if graph_type == "document":
+            return self._build_document_graph_data(doc_category=doc_category)
+
         all_entities = self.db.list_entities()
         all_relations = self.db.list_relations()
 
         backbone_names = self._backbone_live_sync.backbone_entity_names()
 
         if doc_category:
-            direct_ids = {e["id"] for e in all_entities if e["doc_category"] == doc_category}
-            # Expand to include FunctionArea nodes and directly connected child/parent entities
-            connected_ids = set(direct_ids)
-            for r in all_relations:
-                src, tgt = r["source_entity_id"], r["target_entity_id"]
-                if src in direct_ids or tgt in direct_ids:
-                    connected_ids.add(src)
-                    connected_ids.add(tgt)
-            entities = [e for e in all_entities if e["id"] in connected_ids]
+            entities = [e for e in all_entities if e["doc_category"] == doc_category]
         else:
             entities = all_entities
 
@@ -114,6 +109,72 @@ class KnowledgeGraphService:
                 )
 
         return GraphDataResponse(nodes=nodes, edges=edges)
+
+    def _build_document_graph_data(self, doc_category: Optional[str] = None) -> GraphDataResponse:
+        """Dynamically construct Document -> Section topology tree from VectorStore chunk metadatas."""
+        import hashlib
+        import json
+        from rag_knowledge.models.graph_schema import make_section_entity_name
+
+        data = self.vector_store.get_chunk_stats_source()
+        ids = data.get("ids") or []
+        metadatas = data.get("metadatas") or []
+
+        nodes_map: dict[str, GraphNode] = {}
+        edges_map: dict[str, GraphEdge] = {}
+
+        for chunk_id, meta in zip(ids, metadatas):
+            if not meta:
+                continue
+            cat = str(meta.get("doc_category") or "")
+            if doc_category and cat != doc_category:
+                continue
+            source = str(meta.get("source") or meta.get("file_name") or "").strip()
+            path = str(meta.get("section_path") or "").strip()
+
+            if not source:
+                continue
+
+            doc_node_id = hashlib.sha256(f"Document:{source}".encode()).hexdigest()[:16]
+            if doc_node_id not in nodes_map:
+                nodes_map[doc_node_id] = GraphNode(
+                    id=doc_node_id,
+                    label=source,
+                    type="Document",
+                    doc_category=cat or None,
+                    review_status="approved",
+                )
+
+            if path:
+                parts = [p.strip() for p in path.split(">") if p.strip()]
+                prev_node_id = doc_node_id
+                for depth in range(1, len(parts) + 1):
+                    prefix = " > ".join(parts[:depth])
+                    sec_name = make_section_entity_name(source, prefix)
+                    sec_node_id = hashlib.sha256(f"Section:{sec_name}".encode()).hexdigest()[:16]
+                    if sec_node_id not in nodes_map:
+                        nodes_map[sec_node_id] = GraphNode(
+                            id=sec_node_id,
+                            label=parts[depth - 1],
+                            type="Section",
+                            doc_category=cat or None,
+                            canonical_name=sec_name,
+                            properties_json=json.dumps({"section_path": prefix}, ensure_ascii=False),
+                            review_status="approved",
+                        )
+
+                    edge_key = f"{prev_node_id}->{sec_node_id}"
+                    if edge_key not in edges_map:
+                        edges_map[edge_key] = GraphEdge(
+                            id=hashlib.sha256(edge_key.encode()).hexdigest()[:16],
+                            source=prev_node_id,
+                            target=sec_node_id,
+                            label="has_section",
+                            review_status="approved",
+                        )
+                    prev_node_id = sec_node_id
+
+        return GraphDataResponse(nodes=list(nodes_map.values()), edges=list(edges_map.values()))
 
     def create_entity(
         self,
@@ -403,7 +464,7 @@ class KnowledgeGraphService:
     def list_entity_aliases(self, entity_id: str) -> list[GraphAliasItem]:
         entity = self.db.get_entity(entity_id)
         if not entity:
-            raise KeyError("Entity not found")
+            return []
         return [
             GraphAliasItem(
                 id=row["id"],
@@ -417,6 +478,57 @@ class KnowledgeGraphService:
             )
             for row in self.db.list_aliases(entity_id)
         ]
+
+    def list_entity_chunks(self, entity_id: str) -> list[EntityChunkDetailResponse]:
+        entity = self.db.get_entity(entity_id)
+        if not entity:
+            return self._list_document_tree_node_chunks(entity_id)
+
+        links = self.db.list_links(entity_id=entity_id)
+        if not links:
+            return []
+
+        chunk_ids = [l["chunk_id"] for l in links]
+        try:
+            collection = self.vector_store.get_chroma()._collection
+            res = collection.get(ids=chunk_ids, include=["documents", "metadatas"])
+        except Exception as exc:
+            logger.warning("Failed to query chunks from ChromaDB: %s", exc)
+            res = {}
+
+        ids = res.get("ids") or []
+        documents = res.get("documents") or []
+        metadatas = res.get("metadatas") or []
+        chroma_chunks = {
+            chunk_id: {"content": content, "metadata": meta or {}}
+            for chunk_id, content, meta in zip(ids, documents, metadatas)
+        }
+
+        files = ChunkAdminService()._file_lookup()
+        details = []
+        for link in links:
+            chunk_id = link["chunk_id"]
+            chroma_data = chroma_chunks.get(chunk_id, {})
+            meta = chroma_data.get("metadata", {})
+            file_data = files.get(chunk_id, {})
+
+            source_name = str(meta.get("source") or file_data.get("file_name") or "")
+            file_name = str(file_data.get("file_name") or source_name or "Unknown File")
+            section_title = str(meta.get("section_title") or "")
+            content = str(chroma_data.get("content") or "")
+
+            details.append(
+                EntityChunkDetailResponse(
+                    chunk_id=chunk_id,
+                    file_name=file_name,
+                    section_title=section_title,
+                    link_type=link["link_type"],
+                    content_preview=content[:80],
+                    content=content,
+                )
+            )
+
+        return details
 
     def create_entity_alias(
         self,
@@ -498,7 +610,7 @@ class KnowledgeGraphService:
     def list_entity_chunks(self, entity_id: str) -> list[EntityChunkDetailResponse]:
         entity = self.db.get_entity(entity_id)
         if not entity:
-            raise KeyError("Entity not found")
+            return self._list_document_tree_node_chunks(entity_id)
 
         links = self.db.list_links(entity_id=entity_id)
         if not links:
@@ -545,3 +657,60 @@ class KnowledgeGraphService:
             )
 
         return details
+
+    def _list_document_tree_node_chunks(self, node_id: str) -> list[EntityChunkDetailResponse]:
+        """Match chunks for Document Graph dynamic Document and Section nodes."""
+        import hashlib
+        from rag_knowledge.models.api import LinkTypeEnum
+
+        data = self.vector_store.get_chunk_stats_source()
+        ids = data.get("ids") or []
+        documents = data.get("documents") or []
+        metadatas = data.get("metadatas") or []
+        files = ChunkAdminService()._file_lookup()
+
+        matched_chunks = []
+        for chunk_id, content, meta in zip(ids, documents, metadatas):
+            if not meta:
+                continue
+            source = str(meta.get("source") or meta.get("file_name") or "").strip()
+            path = str(meta.get("section_path") or "").strip()
+
+            if not source:
+                continue
+
+            doc_node_id = hashlib.sha256(f"Document:{source}".encode()).hexdigest()[:16]
+            is_match = False
+
+            if node_id == doc_node_id:
+                is_match = True
+            elif path:
+                parts = [p.strip() for p in path.split(">") if p.strip()]
+                for depth in range(1, len(parts) + 1):
+                    prefix = " > ".join(parts[:depth])
+                    from rag_knowledge.models.graph_schema import make_section_entity_name
+                    sec_name = make_section_entity_name(source, prefix)
+                    sec_node_id = hashlib.sha256(f"Section:{sec_name}".encode()).hexdigest()[:16]
+                    if sec_node_id == node_id:
+                        is_match = True
+                        break
+
+            if is_match:
+                file_data = files.get(str(chunk_id), {})
+                section_title = str(meta.get("section_path") or "")
+                matched_chunks.append(
+                    EntityChunkDetailResponse(
+                        chunk_id=str(chunk_id),
+                        file_name=source or str(file_data.get("file_name") or "Unknown File"),
+                        doc_category=str(meta.get("doc_category") or ""),
+                        review_status=str(meta.get("review_status") or "approved"),
+                        content_preview=str(content or "")[:80],
+                        content=str(content or ""),
+                        link_type=LinkTypeEnum.primary,
+                        section_title=section_title,
+                        kb_name=str(file_data.get("kb_name") or ""),
+                        page_label=str(meta.get("page_label") or file_data.get("page_label") or ""),
+                    )
+                )
+
+        return matched_chunks

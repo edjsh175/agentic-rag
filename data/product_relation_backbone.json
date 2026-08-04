@@ -3,7 +3,7 @@
   "source_ref": "promoted_from_product_backbone_preview",
   "promoted_from": "",
   "promoted_at": "2026-08-04T00:50:59.077092+00:00",
-  "synced_from_live_at": "2026-08-04T03:36:52.947363+00:00",
+  "synced_from_live_at": "2026-08-04T08:19:02.860582+00:00",
   "entities": [
     {
       "name": "2D GIS数据",
@@ -303,9 +303,9 @@
     },
     {
       "name": "StampManager",
-      "entity_type": "Tool",
+      "entity_type": "Product",
       "aliases": [],
-      "doc_category": "产品体系层"
+      "doc_category": "StampServer"
     },
     {
       "name": "StampServer",
@@ -330,18 +330,6 @@
       "entity_type": "Module",
       "aliases": [],
       "doc_category": "客户端与渲染层"
-    },
-    {
-      "name": "StampWebGL",
-      "entity_type": "Product",
-      "aliases": [],
-      "doc_category": "主干"
-    },
-    {
-      "name": "StampWebRTC",
-      "entity_type": "Product",
-      "aliases": [],
-      "doc_category": "主干"
     },
     {
       "name": "TINBuilder",
@@ -417,7 +405,7 @@
       "name": "WebGL",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": "客户端与渲染层"
+      "doc_category": "StampServer"
     },
     {
       "name": "WebRTC",
@@ -1085,11 +1073,6 @@
     {
       "source": "I3S标准",
       "relation_type": "belongs_to",
-      "target": "二次开发与集成层"
-    },
-    {
-      "source": "I3S标准",
-      "relation_type": "belongs_to",
       "target": "标准规范体系"
     },
     {
@@ -1248,16 +1231,6 @@
       "target": "插件模式"
     },
     {
-      "source": "StampWebGL",
-      "relation_type": "belongs_to",
-      "target": "WebGL"
-    },
-    {
-      "source": "StampWebRTC",
-      "relation_type": "belongs_to",
-      "target": "WebRTC"
-    },
-    {
       "source": "TINBuilder",
       "relation_type": "belongs_to",
       "target": "TerrainBuilder"
@@ -1341,6 +1314,12 @@
       "source": "WebGL",
       "relation_type": "belongs_to",
       "target": "免插件模式"
+    },
+    {
+      "source": "WebRTC",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "synced_from_live:admin"
     },
     {
       "source": "WebRTC",
@@ -1578,6 +1557,12 @@
       "target": "系统数据与存储层"
     },
     {
+      "source": "二次开发与集成层",
+      "relation_type": "belongs_to",
+      "target": "StampGIS三维产品",
+      "note": "synced_from_live:admin"
+    },
+    {
       "source": "倾斜发布服务",
       "relation_type": "belongs_to",
       "target": "服务部署"
@@ -1685,7 +1670,8 @@
     {
       "source": "标准规范体系",
       "relation_type": "belongs_to",
-      "target": "StampGIS三维产品"
+      "target": "二次开发与集成层",
+      "note": "synced_from_live:admin"
     },
     {
       "source": "模型LOD发布服务",
@@ -1790,7 +1776,8 @@
     {
       "source": "运行与部署基础设施层",
       "relation_type": "belongs_to",
-      "target": "运维管理层"
+      "target": "StampGIS三维产品",
+      "note": "synced_from_live:admin"
     },
     {
       "source": "部件发布服务",

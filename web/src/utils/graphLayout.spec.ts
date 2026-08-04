@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createGraphLayout, type LayoutEdge, type LayoutNode } from './graphLayout'
+import { createDagreLayout, createGraphLayout, type LayoutEdge, type LayoutNode } from './graphLayout'
 
 const node = (id: string, x: number, y: number, type = 'Tool'): LayoutNode => ({
   id,
@@ -235,5 +235,56 @@ describe('graphLayout', () => {
 
     expect(looseDist).toBeGreaterThan(tightDist)
     expect(looseDist).toBeGreaterThan(150)
+  })
+})
+
+describe('createDagreLayout hierarchy', () => {
+  const labeled = (id: string, type: string, label: string): LayoutNode => ({
+    id,
+    type,
+    label,
+    x: Number.NaN,
+    y: Number.NaN,
+    vx: 0,
+    vy: 0,
+  }) as LayoutNode
+
+  const belongsTo = (source: string, target: string): LayoutEdge => ({
+    source,
+    target,
+    label: 'belongs_to',
+  }) as LayoutEdge
+
+  it('keeps same-depth products together and parks orphans below the root', () => {
+    const root = labeled('root', 'Product', 'StampGIS三维产品')
+    const client = labeled('client', 'Product', 'StampGIS Client')
+    const webrtc = labeled('webrtc', 'Product', 'WebRTC')
+    const webgl = labeled('webgl', 'Product', 'WebGL')
+    const cityplan = labeled('cityplan', 'Product', 'CityplanWebRTCView')
+    const standard = labeled('standard', 'Module', '标准规范体系')
+    const gb = labeled('gb', 'Format', 'GB28181')
+    const nodes = [client, root, webrtc, webgl, cityplan, standard, gb]
+    const edges = [
+      belongsTo('client', 'root'),
+      belongsTo('webrtc', 'root'),
+      belongsTo('webgl', 'client'),
+      belongsTo('webgl', '业务层'),
+      belongsTo('cityplan', 'webrtc'),
+      belongsTo('gb', 'standard'),
+      { source: 'webgl', target: 'gb', label: 'supports_format' } as LayoutEdge,
+    ]
+    const layout = createDagreLayout({ width: 1000, height: 800 })
+    layout.setGraph(nodes, edges, 'initial')
+
+    expect(root.y).toBeLessThan(client.y)
+    expect(Math.abs(client.y - webrtc.y)).toBeLessThan(1)
+    expect(Math.abs(webgl.y - cityplan.y)).toBeLessThan(1)
+    expect(Math.abs(webgl.x - cityplan.x)).toBeGreaterThan(120)
+    expect(Math.abs(webgl.x - cityplan.x)).toBeLessThan(360)
+
+    expect(standard.y).toBeGreaterThan(webgl.y)
+    expect(gb.y).toBeGreaterThan(standard.y)
+    expect(Math.abs(standard.y - root.y)).toBeGreaterThan(80)
+    layout.destroy()
   })
 })

@@ -46,6 +46,40 @@ export interface GraphLayoutOptions {
   chargeStrength?: number
   /** Collision radius around nodes (default 40). */
   collideRadius?: number
+
+  // ── Dagre-specific options ──────────────────────────────────────────────
+  /**
+   * Edge relation types that drive layer (rank) assignment in Dagre.
+   * Only edges whose label/type matches one of these strings are added to
+   * the Dagre graph; all other edges are drawn as visual-only lines.
+   * Default: ['belongs_to', 'defined_in']
+   */
+  hierarchyEdgeTypes?: string[]
+
+  /**
+   * Explicit root node ID. When provided, this node is unconditionally
+   * placed at depth 0. Takes priority over rootNodeMatcher.
+   */
+  rootNodeId?: string
+
+  /**
+   * Predicate to identify the root node when rootNodeId is not given.
+   * Receives each LayoutNode and should return true for the desired root.
+   * Keeps business-specific logic out of the generic layout layer.
+   */
+  rootNodeMatcher?: (node: LayoutNode) => boolean
+
+  /**
+   * Override the horizontal gap between same-rank nodes fed to Dagre.
+   * When omitted, a value is derived from the node count.
+   */
+  dagreNodeSep?: number
+
+  /**
+   * Override the vertical gap between ranks fed to Dagre.
+   * When omitted, a value is derived from the node count.
+   */
+  dagreRankSep?: number
 }
 
 export interface GraphLayoutController {
@@ -446,34 +480,165 @@ export const createDagreLayout = (options: GraphLayoutOptions): GraphLayoutContr
   let nodes: LayoutNode[] = []
   let edges: LayoutEdge[] = []
 
-  const BOTTOM_UP_RELS = ['belongs_to', 'defined_in']
+  /** Edge types that drive Dagre rank assignment (configurable, stable default). */
+  const HIERARCHY_EDGE_TYPES = options.hierarchyEdgeTypes ?? ['belongs_to', 'defined_in']
+
+  const relationTypeOf = (edge: LayoutEdge) =>
+    ((edge as { label?: string; type?: string }).label
+      ?? (edge as { label?: string; type?: string }).type
+      ?? '')
+
+  const nodeLabel = (node: LayoutNode | undefined) =>
+    String((node as { label?: string } | undefined)?.label || '')
+
+  const nodeDocCategory = (node: LayoutNode | undefined) =>
+    String((node as { doc_category?: string } | undefined)?.doc_category || '')
+
+  const nodeEntityType = (node: LayoutNode | undefined) =>
+    String((node as { type?: string } | undefined)?.type || '')
+
+  /** Generic root selection: priority chain that contains zero business keywords. */
+  const pickRootId = (nodeById: Map<string, LayoutNode>, parentsByChild: Map<string, string[]>): string | null => {
+    // 1. Caller supplied an explicit ID
+    if (options.rootNodeId && nodeById.has(options.rootNodeId)) return options.rootNodeId
+
+    // 2. Caller supplied a matcher predicate
+    if (options.rootNodeMatcher) {
+      const found = [...nodeById.values()].find(options.rootNodeMatcher)
+      if (found) return found.id
+    }
+
+    // 3. Among parentless Product nodes, pick the one with the most children
+    const childCountOf = (id: string) => {
+      let count = 0
+      parentsByChild.forEach((parents) => { if (parents.includes(id)) count++ })
+      return count
+    }
+    const parentlessProducts = [...nodeById.values()].filter(
+      n => n.type === 'Product' && !(parentsByChild.get(n.id)?.length),
+    )
+    if (parentlessProducts.length > 0) {
+      parentlessProducts.sort((a, b) => childCountOf(b.id) - childCountOf(a.id))
+      return parentlessProducts[0].id
+    }
+
+    // 4. All products – highest in-degree (most children point to it)
+    const allProducts = [...nodeById.values()].filter(n => n.type === 'Product')
+    if (allProducts.length > 0) {
+      allProducts.sort((a, b) => childCountOf(b.id) - childCountOf(a.id))
+      return allProducts[0].id
+    }
+
+    // 5. Any node that is a hierarchy target (others point to it via hierarchy edges)
+    const hierarchyTargets = new Set<string>()
+    parentsByChild.forEach(parents => parents.forEach(p => hierarchyTargets.add(p)))
+    const isChild = new Set([...parentsByChild.keys()])
+    const roots = [...hierarchyTargets].filter(id => !isChild.has(id))
+    if (roots.length > 0) {
+      roots.sort((a, b) => childCountOf(b) - childCountOf(a))
+      return roots[0]
+    }
+
+    return null
+  }
 
   return {
-    setGraph(newNodes: LayoutNode[], newEdges: LayoutEdge[], changeMode: GraphChangeMode) {
+    setGraph(newNodes: LayoutNode[], newEdges: LayoutEdge[], _changeMode: GraphChangeMode) {
       nodes = newNodes
       edges = newEdges
 
+      const nodeCount = nodes.length
+
+      // ── Adaptive spacing (overridden by caller options) ─────────────────
+      // nodesep / ranksep fed into Dagre (controls Module/Layer/Service nodes)
+      const nodesep = options.dagreNodeSep
+        ?? Math.round(Math.min(100, Math.max(40, 40 + Math.sqrt(nodeCount) * 3)))
+      const ranksep = options.dagreRankSep
+        ?? Math.round(Math.min(180, Math.max(80, 80 + Math.sqrt(nodeCount) * 5)))
+
+      // productGap / rankGap used when we manually place Product-band rows
+      const productGap = Math.round(Math.min(320, Math.max(140, 140 + Math.sqrt(nodeCount) * 6)))
+      const rankGap    = Math.round(Math.min(280, Math.max(120, 120 + Math.sqrt(nodeCount) * 4)))
+
       const g = new dagre.graphlib.Graph()
-      g.setGraph({
-        rankdir: 'TB', // Top-to-Bottom
-        nodesep: 60,
-        edgesep: 20,
-        ranksep: 120
-      })
+      g.setGraph({ rankdir: 'TB', nodesep, edgesep: 20, ranksep })
       g.setDefaultEdgeLabel(() => ({}))
 
       nodes.forEach(node => {
         g.setNode(node.id, { width: 80, height: 80, originalNode: node })
       })
 
-      edges.forEach(edge => {
-        // Reverse bottom-up edges so Dagre layouts parents above children
-        if (edge.type && BOTTOM_UP_RELS.includes(edge.type)) {
-          g.setEdge(edge.target, edge.source)
-        } else {
-          g.setEdge(edge.source, edge.target)
-        }
+      // ── Build belongs-to maps using the configurable hierarchy edge types ─
+      const hierarchyEdges = edges.filter(e => HIERARCHY_EDGE_TYPES.includes(relationTypeOf(e)))
+      const nodeById = new Map(nodes.map(n => [n.id, n]))
+      const parentsByChild = new Map<string, string[]>()
+      const childrenByParent = new Map<string, string[]>()
+
+      hierarchyEdges.forEach(edge => {
+        const childId  = edge.source   // "X belongs_to Y"  →  X is child, Y is parent
+        const parentId = edge.target
+        if (!nodeById.has(childId) || !nodeById.has(parentId)) return
+        const parents = parentsByChild.get(childId) ?? []
+        parents.push(parentId)
+        parentsByChild.set(childId, parents)
+        const children = childrenByParent.get(parentId) ?? []
+        children.push(childId)
+        childrenByParent.set(parentId, children)
       })
+
+      // ── Root selection: generic priority chain (no business keywords) ────
+      const rootId = pickRootId(nodeById, parentsByChild)
+
+      // ── BFS to assign depth and primary parent (single-parent tree) ──────
+      const depth = new Map<string, number>()
+      const primaryParent = new Map<string, string>()
+      const queue: string[] = []
+
+      if (rootId) {
+        depth.set(rootId, 0)
+        queue.push(rootId)
+      }
+
+      while (queue.length > 0) {
+        const parentId   = queue.shift()!
+        const parentDepth = depth.get(parentId) ?? 0
+        const children   = [...(childrenByParent.get(parentId) ?? [])].sort()
+
+        for (const childId of children) {
+          const nextDepth    = parentDepth + 1
+          const prevDepth    = depth.get(childId)
+          const currentParentId = primaryParent.get(childId)
+
+          // Prefer a Product parent over a non-Product parent at the same depth
+          const preferProductParent =
+            prevDepth === nextDepth &&
+            nodeById.get(parentId)?.type === 'Product' &&
+            nodeById.get(currentParentId ?? '')?.type !== 'Product'
+
+          if (prevDepth === undefined || nextDepth < prevDepth || preferProductParent) {
+            depth.set(childId, nextDepth)
+            primaryParent.set(childId, parentId)
+            if (prevDepth === undefined || nextDepth < prevDepth) queue.push(childId)
+          }
+        }
+      }
+
+      // ── Feed single-parent hierarchy edges into Dagre ────────────────────
+      let addedHierarchyEdge = false
+      primaryParent.forEach((parentId, childId) => {
+        g.setEdge(parentId, childId)
+        addedHierarchyEdge = true
+      })
+
+      // Fallback: no root reachable – fall back to raw hierarchy edges
+      if (!addedHierarchyEdge) {
+        hierarchyEdges.forEach(edge => {
+          // belongs_to is bottom-up: source belongs_to target → parent=target
+          g.setEdge(edge.target, edge.source)
+        })
+      }
+
+      // Non-hierarchy edges are visual-only; do NOT add to Dagre
 
       try {
         dagre.layout(g)
@@ -481,72 +646,240 @@ export const createDagreLayout = (options: GraphLayoutOptions): GraphLayoutContr
         console.warn('Dagre layout error:', e)
       }
 
-      // Find main root product node to center horizontally and place near top
-      let rootNode: { x: number; y: number } | null = null
+      const gNodeById = new Map<string, any>()
+      g.nodes().forEach(v => gNodeById.set(v, g.node(v)))
 
-      for (const v of g.nodes()) {
-        const n = g.node(v)
-        if (n && n.originalNode) {
-          const type = (n.originalNode as any).type
-          const label = String((n.originalNode as any).label || '')
-          if (type === 'Product' && label.toLowerCase().includes('stampgis')) {
-            rootNode = n
-            break
-          }
+      const labelOf = (id: string) => nodeLabel(nodeById.get(id)) || id
+      // Shorter, lighter wave improves edge readability without destroying layers.
+      const waveAmplitude = Math.max(4, Math.min(18, rankGap * 0.12))
+      const waveCycles = 2
+      const waveOffsetY = (index: number, total: number) => {
+        if (total <= 1) return 0
+        const phase = (index / Math.max(total - 1, 1)) * Math.PI * 2 * waveCycles
+        return Math.sin(phase) * waveAmplitude
+      }
+
+      // ── Compact Product nodes by branch (avoid forced pull to global center) ─
+      if (rootId && primaryParent.size > 0) {
+        const rootGNode = gNodeById.get(rootId)
+        if (rootGNode) {
+          const productsByDepth = new Map<number, Map<string, string[]>>()
+          depth.forEach((d, id) => {
+            if (d <= 0 || nodeById.get(id)?.type !== 'Product') return
+            const parentId = primaryParent.get(id) ?? rootId
+            const byParent = productsByDepth.get(d) ?? new Map<string, string[]>()
+            const list = byParent.get(parentId) ?? []
+            list.push(id)
+            byParent.set(parentId, list)
+            productsByDepth.set(d, byParent)
+          })
+
+          ;[...productsByDepth.keys()].sort((a, b) => a - b).forEach(d => {
+            const byParent = productsByDepth.get(d)!
+            const groupEntries = [...byParent.entries()].map(([parentId, ids]) => {
+              const sortedIds = [...ids].sort((a, b) => labelOf(a).localeCompare(labelOf(b)))
+              const parentGn = gNodeById.get(parentId)
+              const centerX = Number.isFinite(parentGn?.x) ? parentGn.x : rootGNode.x
+              return { parentId, ids: sortedIds, centerX }
+            })
+
+            // Keep sibling groups ordered by current parent x, then push apart to avoid overlap.
+            groupEntries.sort((a, b) => {
+              if (a.centerX !== b.centerX) return a.centerX - b.centerX
+              return labelOf(a.parentId).localeCompare(labelOf(b.parentId))
+            })
+            const minGroupGap = productGap * 1.1
+            for (let i = 1; i < groupEntries.length; i += 1) {
+              if (groupEntries[i].centerX - groupEntries[i - 1].centerX < minGroupGap) {
+                groupEntries[i].centerX = groupEntries[i - 1].centerX + minGroupGap
+              }
+            }
+
+            const y = rootGNode.y + d * rankGap
+            groupEntries.forEach(group => {
+              // Do not cap the gap here; productGap is already clamped/adaptive.
+              // Capping it reintroduces "too tight" product bands.
+              const gap = productGap
+              const startX = group.centerX - ((group.ids.length - 1) * gap) / 2
+              group.ids.forEach((id, index) => {
+                const gn = gNodeById.get(id)
+                if (!gn) return
+                gn.x = startX + index * gap
+                gn.y = y + waveOffsetY(index, group.ids.length)
+              })
+            })
+          })
         }
       }
 
-      if (!rootNode) {
-        for (const v of g.nodes()) {
-          const n = g.node(v)
-          if (n && n.originalNode && (n.originalNode as any).type === 'Product') {
-            rootNode = n
-            break
-          }
-        }
-      }
+      // Apply the same short-wave Y offset to ALL non-Product nodes in the main tree ranks.
+      // This keeps "层" readability for different entity types, not only products.
+      if (rootId) {
+        const nodesByDepth = new Map<number, string[]>()
+        depth.forEach((d, id) => {
+          if (d <= 0) return
+          if (nodeById.get(id)?.type === 'Product') return
+          const list = nodesByDepth.get(d) ?? []
+          list.push(id)
+          nodesByDepth.set(d, list)
+        })
 
-      if (!rootNode) {
-        let minYVal = Infinity
-        g.nodes().forEach(v => {
-          const n = g.node(v)
-          if (n && n.y < minYVal) {
-            minYVal = n.y
-            rootNode = n
-          }
+        nodesByDepth.forEach(ids => {
+          ids.sort((a, b) => (gNodeById.get(a)?.x ?? 0) - (gNodeById.get(b)?.x ?? 0))
+          ids.forEach((id, index) => {
+            const gn = gNodeById.get(id)
+            if (!gn) return
+            gn.y += waveOffsetY(index, ids.length)
+          })
         })
       }
 
-      const cx = options.width / 2
-      const targetRootY = 120
+      // ── Orphan nodes: group by entity_type (row), sort by doc_category ───
+      //
+      // Nodes not reachable from the root are placed in bands below the main
+      // tree, one horizontal band per entity_type, sorted by doc_category
+      // within each band.  This keeps semantically similar orphans together
+      // regardless of business-specific category names.
+      const orphanIds = nodes.map(n => n.id).filter(id => id !== rootId && !depth.has(id))
 
+      if (orphanIds.length > 0) {
+        // Determine the lowest Y coordinate in the main tree
+        let maxTreeY = Number.NEGATIVE_INFINITY
+        depth.forEach((_, id) => {
+          const gn = gNodeById.get(id)
+          if (gn && Number.isFinite(gn.y)) maxTreeY = Math.max(maxTreeY, gn.y)
+        })
+        if (!Number.isFinite(maxTreeY)) {
+          maxTreeY = (rootId ? gNodeById.get(rootId)?.y : null) ?? 0
+        }
+
+        const orphanSet = new Set(orphanIds)
+
+        // Build orphan-internal belongs_to relationships (for subtree placement)
+        const orphanChildren = new Map<string, string[]>()
+        const orphanHasParent = new Set<string>()
+        hierarchyEdges.forEach(edge => {
+          if (!orphanSet.has(edge.source)) return
+          // edge.source belongs_to edge.target → parent=target
+          if (orphanSet.has(edge.target) || depth.has(edge.target) || edge.target === rootId) {
+            const list = orphanChildren.get(edge.target) ?? []
+            list.push(edge.source)
+            orphanChildren.set(edge.target, list)
+            orphanHasParent.add(edge.source)
+          }
+        })
+
+        // Top-level orphans: no parent inside orphan set or main tree
+        const orphanRoots = orphanIds
+          .filter(id => !orphanHasParent.has(id))
+          .sort((a, b) => {
+            // Primary sort: entity_type; secondary: doc_category; tertiary: label
+            const ta = nodeEntityType(nodeById.get(a))
+            const tb = nodeEntityType(nodeById.get(b))
+            if (ta !== tb) return ta.localeCompare(tb)
+            const ca = nodeDocCategory(nodeById.get(a))
+            const cb = nodeDocCategory(nodeById.get(b))
+            if (ca !== cb) return ca.localeCompare(cb)
+            return labelOf(a).localeCompare(labelOf(b))
+          })
+
+        // Group top-level orphan roots by entity_type → each type gets its own Y row
+        const typeOrder = [...new Set(orphanRoots.map(id => nodeEntityType(nodeById.get(id))))]
+        const centerX = gNodeById.get(rootId ?? '')?.x ?? options.width / 2
+        let orphanBandY = maxTreeY + rankGap * 1.8
+
+        typeOrder.forEach(entityType => {
+          const group = orphanRoots.filter(id => nodeEntityType(nodeById.get(id)) === entityType)
+          // Within group: already sorted by doc_category then label (from above)
+          const startX = centerX - ((group.length - 1) * productGap) / 2
+          group.forEach((id, i) => {
+            const gn = gNodeById.get(id)
+            if (!gn) return
+            gn.x = startX + i * productGap
+            gn.y = orphanBandY + waveOffsetY(i, group.length)
+          })
+          orphanBandY += rankGap * 1.4   // next entity_type band goes lower
+        })
+
+        // Recursively place orphan subtrees under their orphan root
+        const placeOrphanSubtree = (parentId: string, parentY: number) => {
+          const parentGn  = gNodeById.get(parentId)
+          const children  = [...(orphanChildren.get(parentId) ?? [])]
+            .sort((a, b) => {
+              const ca = nodeDocCategory(nodeById.get(a))
+              const cb = nodeDocCategory(nodeById.get(b))
+              if (ca !== cb) return ca.localeCompare(cb)
+              return labelOf(a).localeCompare(labelOf(b))
+            })
+          if (!parentGn || children.length === 0) return
+          const childStart = parentGn.x - ((children.length - 1) * productGap) / 2
+          const childY = parentY + rankGap
+          children.forEach((childId, i) => {
+            const cn = gNodeById.get(childId)
+            if (!cn) return
+            cn.x = childStart + i * productGap
+            cn.y = childY + waveOffsetY(i, children.length)
+            placeOrphanSubtree(childId, childY)
+          })
+        }
+        orphanRoots.forEach(id => {
+          const gn = gNodeById.get(id)
+          placeOrphanSubtree(id, gn?.y ?? maxTreeY)
+        })
+
+        // Orphans whose primary parent IS inside the main tree: tuck under that parent
+        orphanIds.forEach(id => {
+          if (orphanRoots.includes(id)) return
+          const parents    = parentsByChild.get(id) ?? []
+          const treeParent = parents.find(p => depth.has(p) || p === rootId)
+          if (!treeParent) return
+          const parentGn = gNodeById.get(treeParent)
+          const childGn  = gNodeById.get(id)
+          if (!parentGn || !childGn) return
+          if (orphanHasParent.has(id) && orphanSet.has(primaryParent.get(id) ?? '')) return
+          childGn.x = parentGn.x
+          childGn.y = parentGn.y + rankGap
+        })
+      }
+
+      // ── Translate everything so root sits at (cx, targetRootY) ───────────
+      let anchorGNode: { x: number; y: number } | null = rootId ? (gNodeById.get(rootId) ?? null) : null
+
+      if (!anchorGNode) {
+        // No explicit root: use the topmost node
+        let minY = Infinity
+        g.nodes().forEach(v => {
+          const n = g.node(v)
+          if (n && Number.isFinite(n.y) && n.y < minY) { minY = n.y; anchorGNode = n }
+        })
+      }
+
+      const cx        = options.width / 2
+      const targetRootY = 120
       let offsetX = 0
       let offsetY = 0
 
-      if (rootNode) {
-        offsetX = cx - rootNode.x
-        offsetY = targetRootY - rootNode.y
+      if (anchorGNode) {
+        offsetX = cx - anchorGNode.x
+        offsetY = targetRootY - anchorGNode.y
       } else {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
         g.nodes().forEach(v => {
           const n = g.node(v)
           if (n && Number.isFinite(n.x) && Number.isFinite(n.y)) {
-            minX = Math.min(minX, n.x)
-            minY = Math.min(minY, n.y)
-            maxX = Math.max(maxX, n.x)
-            maxY = Math.max(maxY, n.y)
+            minX = Math.min(minX, n.x); minY = Math.min(minY, n.y)
+            maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y)
           }
         })
-        const gCx = (minX + maxX) / 2 || 0
-        offsetX = cx - gCx
+        offsetX = cx - ((minX + maxX) / 2 || 0)
         offsetY = 100 - (minY || 0)
       }
 
       g.nodes().forEach(v => {
         const n = g.node(v)
-        if (n && n.originalNode) {
-          n.originalNode.x = n.x + offsetX
-          n.originalNode.y = n.y + offsetY
+        if (n?.originalNode) {
+          n.originalNode.x  = n.x + offsetX
+          n.originalNode.y  = n.y + offsetY
           n.originalNode.vx = 0
           n.originalNode.vy = 0
         }
@@ -554,24 +887,19 @@ export const createDagreLayout = (options: GraphLayoutOptions): GraphLayoutContr
 
       options.onTick?.()
     },
-    beginNodeDrag(nodeId: string) {},
+
+    beginNodeDrag(_nodeId: string) {},
     moveNode(nodeId: string, x: number, y: number) {
       const node = nodes.find(n => n.id === nodeId)
-      if (node) {
-        node.x = x
-        node.y = y
-        options.onTick?.()
-      }
+      if (node) { node.x = x; node.y = y; options.onTick?.() }
     },
-    endNodeDrag(nodeId: string) {},
-    restartLayout() {
-      this.setGraph(nodes, edges, 'initial')
-    },
-    setPhysicsEnabled(enabled: boolean) {},
+    endNodeDrag(_nodeId: string) {},
+    restartLayout() { this.setGraph(nodes, edges, 'initial') },
+    setPhysicsEnabled(_enabled: boolean) {},
     isPhysicsEnabled() { return false },
-    tick(iterations?: number) {},
-    getAlpha() { return 0 },
+    tick(_iterations?: number) {},
+    getAlpha()    { return 0 },
     getAlphaMin() { return 0 },
-    destroy() {}
+    destroy()     {},
   }
 }

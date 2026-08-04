@@ -14,7 +14,7 @@ from rag_knowledge.services.graph_extraction import (
     GraphBuilder,
     RelationCandidate,
 )
-from rag_knowledge.services.graph_extraction.llm_extractor import (
+from rag_knowledge.services.graph_extraction.evidence_span import (
     evidence_matches,
     normalize_for_evidence_match,
 )

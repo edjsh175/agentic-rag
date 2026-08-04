@@ -20,6 +20,8 @@ from . import (
     ExtractionDiagnostic,
     ExtractionResult
 )
+from .evidence_span import repair_evidence_span
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,36 +66,6 @@ _COMMAND_SIGNAL_RE = re.compile(
     r"chmod|chown|firewall-cmd)\b",
     re.IGNORECASE | re.MULTILINE,
 )
-
-
-def normalize_for_evidence_match(text: str) -> str:
-    """Fold whitespace / full-width punctuation for evidence substring checks only."""
-    if not text:
-        return ""
-    chars: list[str] = []
-    for ch in str(text).replace("\u3000", " "):
-        code = ord(ch)
-        if 0xFF01 <= code <= 0xFF5E:
-            chars.append(chr(code - 0xFEE0))
-        else:
-            chars.append(ch)
-    folded = "".join(chars).replace("（", "(").replace("）", ")")
-    return re.sub(r"\s+", " ", folded).strip()
-
-
-def evidence_matches(evidence: str, content: str, section_path: str = "") -> bool:
-    """True if evidence is a direct excerpt, allowing blank/fullwidth folding only."""
-    ev = str(evidence or "").strip()
-    if not ev:
-        return False
-    content = content or ""
-    section_path = section_path or ""
-    if ev in content or ev in section_path:
-        return True
-    nev = normalize_for_evidence_match(ev)
-    if not nev:
-        return False
-    return nev in normalize_for_evidence_match(content) or nev in normalize_for_evidence_match(section_path)
 
 
 def normalize_name(name: str) -> str:
@@ -391,7 +363,10 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not evidence_matches(evidence, content, section_path):
+            repaired = repair_evidence_span(
+                evidence, content, section_path, anchor=name
+            )
+            if repaired is None:
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",
@@ -400,6 +375,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+            evidence = repaired.text
 
             if "confidence" not in item:
                 result.diagnostics.append(
@@ -410,6 +386,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+
 
             try:
                 conf = float(item["confidence"])
@@ -503,7 +480,12 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not evidence_matches(evidence, content, section_path):
+            repaired = repair_evidence_span(
+                evidence, content, section_path, anchor=src
+            ) or repair_evidence_span(
+                evidence, content, section_path, anchor=tgt
+            )
+            if repaired is None:
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",
@@ -512,6 +494,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+            evidence = repaired.text
 
             if "confidence" not in item:
                 result.diagnostics.append(
@@ -522,6 +505,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+
 
             try:
                 conf = float(item["confidence"])
@@ -627,7 +611,12 @@ class LLMGraphExtractor:
                 )
                 continue
 
-            if not evidence_matches(evidence, content, section_path):
+            repaired = repair_evidence_span(
+                evidence, content, section_path, anchor=ent
+            ) or repair_evidence_span(
+                evidence, content, section_path, anchor=alias
+            )
+            if repaired is None:
                 result.diagnostics.append(
                     ExtractionDiagnostic(
                         code="invalid_evidence_text",
@@ -636,6 +625,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+            evidence = repaired.text
 
             if "confidence" not in item:
                 result.diagnostics.append(
@@ -646,6 +636,7 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+
 
             try:
                 conf = float(item["confidence"])

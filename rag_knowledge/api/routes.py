@@ -1073,10 +1073,10 @@ def _sync_batch_status_after_review(db: RelationalDB, batch_id: str) -> str:
     return (db.get_extraction_batch(batch_id) or {}).get("status", "draft")
 
 @router.get("/admin/knowledge_graph/data", response_model=GraphDataResponse)
-def get_graph_data(doc_category: Optional[str] = None):
-    """获取知识图谱的节点和边"""
+def get_graph_data(doc_category: Optional[str] = None, graph_type: str = "product"):
+    """获取知识图谱的节点和边（支持 product 产品图谱与 document 文档树）"""
     try:
-        return KnowledgeGraphService().list_graph_data(doc_category=doc_category)
+        return KnowledgeGraphService().list_graph_data(doc_category=doc_category, graph_type=graph_type)
     except Exception as e:
         logger.error("Failed to list graph data: %s", e)
         raise HTTPException(500, detail=str(e))

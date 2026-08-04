@@ -143,6 +143,38 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write approved recovery batch (then run apply with confirm trio); default is dry-run",
     )
+
+    cooccur = sub.add_parser(
+        "propose-cooccur-relations",
+        help="Propose missing edges for formal entities that co-occur in the same chunk",
+    )
+    cooccur.add_argument(
+        "--relation-type",
+        action="append",
+        dest="relation_types",
+        help="Default: has_step/has_procedure/runs_command/belongs_to/uses_config/...",
+    )
+    cooccur.add_argument("--chunk-id", action="append", dest="chunk_ids")
+    cooccur.add_argument("--limit-chunks", type=int, default=0)
+    cooccur.add_argument("--max-entities-per-chunk", type=int, default=8)
+    cooccur.add_argument("--max-pairs-per-chunk", type=int, default=12)
+    cooccur.add_argument("--min-conf", type=float, default=0.80)
+    cooccur.add_argument(
+        "--include-llm",
+        action="store_true",
+        help="Ask LLM when multiple schema-legal directed edges exist; default only unique-legal",
+    )
+    cooccur.add_argument("--output-json", default="data/cooccur_relations_plan.json")
+    cooccur.add_argument(
+        "--stage",
+        action="store_true",
+        help="Write pending cooccur batch (review then apply); default is dry-run",
+    )
+    cooccur.add_argument(
+        "--approve",
+        action="store_true",
+        help="With --stage, mark candidates approved (still requires apply confirm trio)",
+    )
     return parser
 
 
@@ -378,6 +410,72 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
             }
         )
         return 0 if pre.ok else 1
+
+    if args.command == "propose-cooccur-relations":
+        from rag_knowledge.services.relation_cooccur import (
+            CooccurRelationService,
+            LLMCooccurRelationArbiter,
+        )
+
+        arbiter = LLMCooccurRelationArbiter(use_graph_endpoint=True) if args.include_llm else None
+        service = CooccurRelationService(db, arbiter=arbiter)
+        plan = service.plan(
+            relation_types=list(args.relation_types) if args.relation_types else None,
+            chunk_ids=list(args.chunk_ids) if args.chunk_ids else None,
+            include_llm=bool(args.include_llm),
+            min_confidence=float(args.min_conf),
+            max_entities_per_chunk=int(args.max_entities_per_chunk),
+            max_pairs_per_chunk=int(args.max_pairs_per_chunk),
+            limit_chunks=int(args.limit_chunks or 0),
+        )
+        out_path = Path(args.output_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(plan.summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        if not args.stage:
+            _print(
+                {
+                    "status": "dry_run",
+                    "output_json": str(out_path),
+                    "rel_count": plan.summary.get("rel_count"),
+                    "rel_by_type": plan.summary.get("rel_by_type"),
+                    "rel_by_method": plan.summary.get("rel_by_method"),
+                    "skip": plan.summary.get("skip"),
+                    "chunks_scanned": plan.summary.get("chunks_scanned"),
+                }
+            )
+            return 0
+        if not plan.relations:
+            _print({"status": "empty", "output_json": str(out_path), "message": "nothing to stage"})
+            return 1
+        batch_id = service.stage(plan, auto_approve=bool(args.approve))
+        payload = {
+            "status": "staged",
+            "batch_id": batch_id,
+            "batch_status": "approved" if args.approve else "pending",
+            "output_json": str(out_path),
+            "rel_count": plan.summary.get("rel_count"),
+            "rel_by_method": plan.summary.get("rel_by_method"),
+        }
+        if args.approve:
+            pre = GraphQualityService(db).inspect_batch(batch_id)
+            payload["preflight_ok"] = pre.ok
+            payload["preflight_errors"] = pre.errors
+            payload["next"] = (
+                "run_graph_build.py apply --batch "
+                f"{batch_id} --confirm-db-path <db> --confirm-batch {batch_id} "
+                "--confirm-backup <backup>"
+            )
+            _print(payload)
+            return 0 if pre.ok else 1
+        payload["next"] = (
+            f"run_graph_build.py review --batch {batch_id} --summary "
+            f"(then approve selected / apply with confirm trio)"
+        )
+        _print(payload)
+        return 0
 
     if args.command == "quality":
         quality = GraphQualityService(db)

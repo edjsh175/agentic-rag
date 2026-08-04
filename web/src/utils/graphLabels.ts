@@ -2,6 +2,7 @@
 
 export const ENTITY_TYPE_LABELS: Record<string, string> = {
   Product: '产品',
+  Layer: '层',
   Tool: '工具',
   Service: '服务',
   Module: '模块',
@@ -31,6 +32,7 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
 
 export const ENTITY_TYPE_BADGES: Record<string, string> = {
   Product: '产品',
+  Layer: '层',
   Tool: '工具',
   Service: '服务',
   Module: '模块',
@@ -64,6 +66,7 @@ export const FORMAL_ENTITY_TYPES = [
   'Document',
   'Section',
   'Product',
+  'Layer',
   'Tool',
   'Service',
   'Module',
