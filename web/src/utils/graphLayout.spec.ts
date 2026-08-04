@@ -276,7 +276,7 @@ describe('createDagreLayout hierarchy', () => {
     const layout = createDagreLayout({ width: 1000, height: 800 })
     layout.setGraph(nodes, edges, 'initial')
 
-    expect(root.y).toBeLessThan(client.y)
+    expect(client.y).toBeLessThan(root.y)
     expect(Math.abs(client.y - webrtc.y)).toBeLessThan(1)
     expect(Math.abs(webgl.y - cityplan.y)).toBeLessThan(1)
     expect(Math.abs(webgl.x - cityplan.x)).toBeGreaterThan(120)

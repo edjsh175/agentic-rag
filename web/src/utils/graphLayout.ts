@@ -695,7 +695,9 @@ export const createDagreLayout = (options: GraphLayoutOptions): GraphLayoutContr
               }
             }
 
-            const y = rootGNode.y + d * rankGap
+            // Mirror Product hierarchy above the root axis:
+            // depth-1/2/3 products are placed upward around StampGIS root.
+            const y = rootGNode.y - d * rankGap
             groupEntries.forEach(group => {
               // Do not cap the gap here; productGap is already clamped/adaptive.
               // Capping it reintroduces "too tight" product bands.
