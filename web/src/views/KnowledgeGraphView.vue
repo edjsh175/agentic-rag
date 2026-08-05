@@ -47,6 +47,11 @@ import {
   docCategoryLabel,
 } from '../utils/graphLabels'
 import { resolvePreviewEdgeStyle } from '../utils/graphEdgeStyle'
+import {
+  collectSeedIdsByType,
+  computeProgressiveVisibleIds,
+  countHiddenNeighbors,
+} from '../utils/graphProgressive'
 
 const route = useRoute()
 const isProductBackbonePreview = computed(() => route.query.source === 'product_backbone_preview')
@@ -525,6 +530,18 @@ const chunkLinkSaving = ref(false)
 // 搜索/筛选模式下的编辑产物暂态保活集合（仅在当前编辑操作生命周期内有效）
 const pinnedEditNodeIds = ref<Set<string>>(new Set())
 
+/** 渐进式展开：默认开启；关闭后画布显示全部筛选结果 */
+const progressiveReveal = ref(true)
+/** 用户从左侧列表点选加入的种子 */
+const manualSeedIds = ref<Set<string>>(new Set())
+/** 已展开一跳邻居的节点 */
+const expandedNodeIds = ref<Set<string>>(new Set())
+
+const resetProgressiveState = () => {
+  manualSeedIds.value = new Set()
+  expandedNodeIds.value = new Set()
+}
+
 const resetAllFiltersOnSearch = () => {
   selectedCategory.value = 'all'
   if (!isProductBackbonePreviewAny.value) {
@@ -543,6 +560,7 @@ const resetAllFiltersOnSearch = () => {
 
 watch(searchQuery, (newQuery, oldQuery) => {
   pinnedEditNodeIds.value.clear()
+  resetProgressiveState()
   const newTrim = newQuery.trim()
   const oldTrim = (oldQuery || '').trim()
   // 触发搜索时，自动恢复显示全分类、全实体类型及全链路大类
@@ -553,19 +571,26 @@ watch(searchQuery, (newQuery, oldQuery) => {
 
 watch(selectedCategory, () => {
   pinnedEditNodeIds.value.clear()
+  resetProgressiveState()
 })
 
-// 过滤后的节点（左侧列表展示）
+/** 搜索直命中（不含一跳邻居），用作渐进种子 */
+const searchDirectMatchIds = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const matched = new Set<string>()
+  if (!query) return matched
+  graphData.value.nodes.forEach(node => {
+    const matchSearch = node.label.toLowerCase().includes(query) ||
+      (node.canonical_name || '').toLowerCase().includes(query)
+    if (matchSearch) matched.add(node.id)
+  })
+  return matched
+})
+
+// 过滤后的候选节点（左侧列表）；搜索时仍带出一跳邻居便于点选展开
 const filteredNodesList = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  const directlyMatchedIds = new Set<string>()
-  if (query) {
-    graphData.value.nodes.forEach(node => {
-      const matchSearch = node.label.toLowerCase().includes(query) ||
-                          (node.canonical_name || '').toLowerCase().includes(query)
-      if (matchSearch) directlyMatchedIds.add(node.id)
-    })
-  }
+  const directlyMatchedIds = searchDirectMatchIds.value
   const searchNeighborIds = new Set<string>(directlyMatchedIds)
   if (query) {
     graphData.value.edges.forEach(edge => {
@@ -594,12 +619,121 @@ const filteredNodesList = computed(() => {
   })
 })
 
+const candidateNodeIds = computed(() => new Set(filteredNodesList.value.map(n => n.id)))
+
+/** 自动种子：搜索直命中，或 Product / Document 根 */
+const autoSeedIds = computed(() => {
+  const candidates = candidateNodeIds.value
+  if (searchQuery.value.trim()) {
+    const seeds = new Set<string>()
+    for (const id of searchDirectMatchIds.value) {
+      if (candidates.has(id)) seeds.add(id)
+    }
+    return seeds
+  }
+  const preferredType = graphMode.value === 'document' ? 'Document' : 'Product'
+  return collectSeedIdsByType(graphData.value.nodes, candidates, preferredType)
+})
+
+/** 画布可见节点（渐进子集或全部筛选结果） */
+const canvasVisibleIds = computed(() => {
+  const candidates = candidateNodeIds.value
+  if (!progressiveReveal.value) return candidates
+
+  const seeds = autoSeedIds.value
+  const query = searchQuery.value.trim()
+
+  // 无根类型且无搜索：保持全量（避免点选后从全量跌成单节点）
+  if (seeds.size === 0 && !query) {
+    return candidates
+  }
+
+  return computeProgressiveVisibleIds({
+    candidateIds: candidates,
+    seedIds: seeds,
+    manualSeedIds: manualSeedIds.value,
+    expandedIds: expandedNodeIds.value,
+    pinnedIds: pinnedEditNodeIds.value,
+    edges: graphData.value.edges,
+  })
+})
+
+const canvasNodesList = computed(() => {
+  const visible = canvasVisibleIds.value
+  return visualNodes.value.filter(node => visible.has(node.id))
+})
+
+const canvasVisibleSignature = computed(() =>
+  [...canvasVisibleIds.value].sort().join('\u0000'),
+)
+
+const hiddenNeighborCount = (entityId: string) =>
+  countHiddenNeighbors(
+    entityId,
+    graphData.value.edges,
+    candidateNodeIds.value,
+    canvasVisibleIds.value,
+  )
+
+const isNodeExpanded = (entityId: string) => expandedNodeIds.value.has(entityId)
+
+const toggleNodeExpand = (entityId: string) => {
+  const next = new Set(expandedNodeIds.value)
+  if (next.has(entityId)) {
+    next.delete(entityId)
+  } else {
+    next.add(entityId)
+  }
+  expandedNodeIds.value = next
+}
+
+const expandSelectedNode = () => {
+  if (!selectedNodeId.value) return
+  const next = new Set(expandedNodeIds.value)
+  next.add(selectedNodeId.value)
+  expandedNodeIds.value = next
+}
+
+const collapseSelectedNode = () => {
+  if (!selectedNodeId.value) return
+  const next = new Set(expandedNodeIds.value)
+  next.delete(selectedNodeId.value)
+  expandedNodeIds.value = next
+}
+
+/** 将当前画布可见集同步进布局引擎（Dagre 重排 / Force 仿真节点表） */
+const applyCanvasLayout = (changeMode: GraphChangeMode) => {
+  updateVisualSubGraph()
+  graphLayout?.setGraph(canvasNodesList.value as LayoutNode[], visualEdges.value, changeMode)
+  // 全量重挂节点后强制恢复 Force 物理，避免仿真停在旧节点集上
+  if (layoutMode.value === 'force' && isPhysicsEnabled.value) {
+    graphLayout?.setPhysicsEnabled(true)
+  }
+  drawGraph()
+}
+
+const toggleProgressiveReveal = async () => {
+  progressiveReveal.value = !progressiveReveal.value
+  if (!progressiveReveal.value) {
+    resetProgressiveState()
+  }
+  // 显示全部 ↔ 渐进 属于批量可见集切换，必须 initial 重排；抑制 watch 避免重复 setGraph
+  suppressFilterLayoutWatch = true
+  await nextTick()
+  applyCanvasLayout('initial')
+  await nextTick()
+  suppressFilterLayoutWatch = false
+}
+
 // 加载图谱数据
 const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'initial') => {
   loading.value = true
   errorMsg.value = ''
   suppressFilterLayoutWatch = true
   try {
+    if (changeMode === 'initial') {
+      resetProgressiveState()
+    }
     const data = isProductBackboneComplexPreview.value
       ? await getProductBackboneComplexPreview(forceRefresh)
       : isProductBackbonePreview.value
@@ -657,9 +791,9 @@ const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'i
       }
     })
 
-    // 根据过滤显示节点确定需要可视化的边，避免孤立边
+    // 根据渐进可见集确定需要可视化的边，避免孤立边
     updateVisualSubGraph()
-    graphLayout?.setGraph(filteredNodesList.value as LayoutNode[], visualEdges.value, changeMode)
+    graphLayout?.setGraph(canvasNodesList.value as LayoutNode[], visualEdges.value, changeMode)
   } catch (err: any) {
     errorMsg.value = err.message || '加载图谱数据失败'
   } finally {
@@ -669,10 +803,10 @@ const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'i
   }
 }
 
-// 依据用户过滤条件筛选出可见的子图节点和边
+// 依据渐进可见集筛选出画布子图节点和边
 const updateVisualSubGraph = () => {
-  const activeNodeIds = new Set(filteredNodesList.value.map(n => n.id))
-  
+  const activeNodeIds = canvasVisibleIds.value
+
   // 筛选可见的边，两端节点必须都在可见集合中
   visualEdges.value = graphData.value.edges.filter(edge => {
     return activeNodeIds.has(edge.source) && activeNodeIds.has(edge.target)
@@ -694,6 +828,7 @@ watch(selectedCategory, () => {
 
 watch(graphMode, (newMode) => {
   if (isProductBackbonePreviewAny.value) return
+  resetProgressiveState()
   if (newMode === 'document') {
     selectedTypes.value['Section'] = true
     selectedTypes.value['Document'] = true
@@ -710,6 +845,7 @@ watch(isProductBackbonePreviewAny, () => {
   isLinkMode.value = false
   clearLinkDraft()
   clearSelection()
+  resetProgressiveState()
   scale.value = 1.0
   panX.value = 0
   panY.value = 0
@@ -720,11 +856,53 @@ watch(isLinkMode, (enabled) => {
   if (!enabled) clearLinkDraft()
 })
 
-// 监听过滤后的节点列表，如果当前选中的实体被隐藏，则自动清除选中状态，防止图谱异常灰化
+// 渐进可见集变化时同步布局：小幅展开 incremental，批量扩/缩 initial
+watch(canvasVisibleSignature, (next, prev) => {
+  if (suppressFilterLayoutWatch) return
+  // 首次回调或无 prev 时只同步边与重绘，避免误打 incremental
+  if (prev === undefined) {
+    updateVisualSubGraph()
+    drawGraph()
+    return
+  }
+  if (next === prev) {
+    updateVisualSubGraph()
+    drawGraph()
+    return
+  }
+  const nextCount = next ? next.split('\u0000').filter(Boolean).length : 0
+  const prevCount = prev ? prev.split('\u0000').filter(Boolean).length : 0
+  const delta = Math.abs(nextCount - prevCount)
+  const bulkThreshold = Math.max(8, Math.ceil(Math.max(prevCount, 1) * 0.25))
+
+  // 同数量但成员变化、批量增减、收起：全量重排；小幅一跳展开：增量播种
+  if (nextCount > prevCount && delta > 0 && delta < bulkThreshold) {
+    applyCanvasLayout('incremental')
+  } else {
+    applyCanvasLayout('initial')
+  }
+})
+
+// 选中实体若被筛选移出候选则清除；若仅渐进隐藏则重新纳入种子
 watch(filteredNodesList, (nodes) => {
   if (!selectedNodeId.value) return
-  const stillVisible = nodes.some(node => node.id === selectedNodeId.value)
-  if (!stillVisible) {
+  const stillCandidate = nodes.some(node => node.id === selectedNodeId.value)
+  if (!stillCandidate) {
+    clearSelection()
+    drawGraph()
+  }
+})
+
+watch(canvasNodesList, (nodes) => {
+  if (!selectedNodeId.value) return
+  const onCanvas = nodes.some(node => node.id === selectedNodeId.value)
+  if (onCanvas) return
+  const stillCandidate = filteredNodesList.value.some(node => node.id === selectedNodeId.value)
+  if (stillCandidate && selectedNodeId.value) {
+    const next = new Set(manualSeedIds.value)
+    next.add(selectedNodeId.value)
+    manualSeedIds.value = next
+  } else {
     clearSelection()
     drawGraph()
   }
@@ -762,7 +940,7 @@ const drawGraph = () => {
   ctx.translate(panX.value, panY.value)
   ctx.scale(scale.value, scale.value)
   
-  const nodes = filteredNodesList.value
+  const nodes = canvasNodesList.value
   const nodesById = new Map(nodes.map(n => [n.id, n]))
   
   // 是否有高亮节点
@@ -822,8 +1000,10 @@ const drawGraph = () => {
     } else if (hoveredNodeId.value === node.id) {
       isNeighbor = true
     }
-    
-    drawNode(ctx, node, isSelected, isNeighbor, isFaded, isLinkTarget)
+
+    const hiddenCount = progressiveReveal.value ? hiddenNeighborCount(node.id) : 0
+    const expanded = progressiveReveal.value && isNodeExpanded(node.id)
+    drawNode(ctx, node, isSelected, isNeighbor, isFaded, isLinkTarget, hiddenCount, expanded)
   })
 
   // --- 3. 连线模式草稿边 ---
@@ -996,7 +1176,9 @@ const drawNode = (
   isSelected: boolean,
   isNeighbor: boolean,
   isFaded: boolean,
-  isLinkTarget = false
+  isLinkTarget = false,
+  hiddenNeighborCount = 0,
+  isExpanded = false,
 ) => {
   const nodeStyle = getNodeStyle(node)
   const nodeRadius = nodeStyle.radius
@@ -1044,6 +1226,28 @@ const drawNode = (
     labelText = labelText.substring(0, 8) + '...'
   }
   ctx.fillText(labelText, node.x, node.y + nodeRadius + 5)
+
+  // 渐进展开角标：有隐藏邻居显示 +N；已展开显示 −
+  if (!isFaded && (hiddenNeighborCount > 0 || isExpanded)) {
+    const badgeR = 8
+    const bx = node.x + nodeRadius * 0.72
+    const by = node.y - nodeRadius * 0.72
+    ctx.beginPath()
+    ctx.arc(bx, by, badgeR, 0, Math.PI * 2)
+    ctx.fillStyle = isExpanded ? '#64748b' : '#0f766e'
+    ctx.fill()
+    ctx.font = 'bold 9px sans-serif'
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(
+      isExpanded && hiddenNeighborCount === 0
+        ? '−'
+        : (hiddenNeighborCount > 9 ? '9+' : `+${hiddenNeighborCount || ''}`),
+      bx,
+      by + 0.5,
+    )
+  }
   
   ctx.restore()
 }
@@ -1147,6 +1351,9 @@ const handleMouseDown = (e: MouseEvent) => {
   }
   
   if (clickedNode) {
+    const nextSeeds = new Set(manualSeedIds.value)
+    nextSeeds.add(clickedNode.id)
+    manualSeedIds.value = nextSeeds
     draggedNodeId.value = clickedNode.id
     graphLayout?.beginNodeDrag(clickedNode.id)
     selectedNodeId.value = clickedNode.id
@@ -1258,7 +1465,7 @@ const handleWheel = (e: WheelEvent) => {
 
 // 寻找特定坐标下的节点
 const findNodeAt = (x: number, y: number, extraTolerance = 0) => {
-  const nodes = filteredNodesList.value
+  const nodes = canvasNodesList.value
   return nodes.find(n => {
     const nodeRadius = getNodeStyle(n).radius + extraTolerance
     const dx = n.x - x
@@ -1267,8 +1474,12 @@ const findNodeAt = (x: number, y: number, extraTolerance = 0) => {
   })
 }
 
-// 左侧节点列表点击定位
+// 左侧节点列表点击定位（纳入渐进种子）
 const selectAndFocusNode = (nodeId: string) => {
+  const nextSeeds = new Set(manualSeedIds.value)
+  nextSeeds.add(nodeId)
+  manualSeedIds.value = nextSeeds
+
   selectedNodeId.value = nodeId
   isRightSidebarOpen.value = true
   detailsTab.value = 'relations'
@@ -1282,6 +1493,17 @@ const selectAndFocusNode = (nodeId: string) => {
     panY.value = canvasHeight.value / 2 - node.y * scale.value
     drawGraph()
   }
+}
+
+/** 双击节点：渐进模式下展开/收起一跳邻居 */
+const handleDblClick = (e: MouseEvent) => {
+  if (!progressiveReveal.value || isLinkMode.value) return
+  const coords = getGraphCoords(e)
+  const clickedNode = findNodeAt(coords.x, coords.y)
+  if (!clickedNode) return
+  selectedNodeId.value = clickedNode.id
+  isRightSidebarOpen.value = true
+  toggleNodeExpand(clickedNode.id)
 }
 
 // 重置视口缩放平移
@@ -1956,7 +2178,10 @@ onUnmounted(() => {
       <header class="kg-toolbar">
         <div class="kg-stats">
           <span class="stats-badge">
-            <strong>{{ graphData.nodes.length }}</strong> 实体 / <strong>{{ graphData.edges.length }}</strong> 关系
+            <strong>{{ canvasNodesList.length }}</strong> 画布 /
+            <strong>{{ filteredNodesList.length }}</strong> 筛选 /
+            <strong>{{ graphData.nodes.length }}</strong> 实体 /
+            <strong>{{ graphData.edges.length }}</strong> 关系
           </span>
           <span v-if="selectedCategory !== 'all'" class="category-badge">
             当前分类: {{ selectedCategory }}
@@ -1993,6 +2218,15 @@ onUnmounted(() => {
               文档结构树
             </button>
           </div>
+          <button
+            @click="toggleProgressiveReveal"
+            class="icon-btn"
+            :class="{ active: progressiveReveal }"
+            data-test="toggle-progressive-reveal"
+            :title="progressiveReveal ? '当前为渐进展开：双击节点展开/收起一跳邻居' : '当前显示全部筛选结果；点击启用渐进展开'"
+          >
+            {{ progressiveReveal ? '渐进展开' : '显示全部' }}
+          </button>
           <button @click="toggleLayoutMode" class="icon-btn" data-test="toggle-layout-mode" style="background-color: #f1f5f9; color: #334155; font-weight: 500; border-color: #cbd5e1;">
             切换: {{ layoutMode === 'dagre' ? '分层组织图 (Dagre)' : '力导向图 (Force)' }}
           </button>
@@ -2047,12 +2281,20 @@ onUnmounted(() => {
         >
           {{ linkModeHint }}
         </div>
+        <div
+          v-else-if="progressiveReveal"
+          class="link-mode-hint progressive-hint"
+          data-test="progressive-hint"
+        >
+          渐进展开：种子为 Product/Document 或搜索命中；双击节点展开/收起一跳邻居；左侧点选可加入画布
+        </div>
         <canvas 
           ref="canvasRef" 
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
           @mouseleave="handleMouseUp"
+          @dblclick="handleDblClick"
           @wheel="handleWheel"
         ></canvas>
         
@@ -2185,6 +2427,25 @@ onUnmounted(() => {
         <div class="tab-content scrollable">
           <!-- 关系连线展示 -->
           <div v-if="detailsTab === 'relations'" class="tab-pane">
+            <div
+              v-if="progressiveReveal && selectedNode"
+              class="progressive-actions"
+              data-test="progressive-actions"
+            >
+              <button
+                type="button"
+                class="mini-btn"
+                data-test="expand-neighbors"
+                :disabled="!isNodeExpanded(selectedNode.id) && hiddenNeighborCount(selectedNode.id) === 0"
+                @click="isNodeExpanded(selectedNode.id) ? collapseSelectedNode() : expandSelectedNode()"
+              >
+                {{
+                  isNodeExpanded(selectedNode.id)
+                    ? '收起邻居'
+                    : `展开邻居${hiddenNeighborCount(selectedNode.id) ? ` (+${hiddenNeighborCount(selectedNode.id)})` : ''}`
+                }}
+              </button>
+            </div>
             <ul class="relation-ul">
               <li 
                 v-for="rel in selectedNodeRelations" 
@@ -2821,6 +3082,19 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+}
+
+.link-mode-hint.progressive-hint {
+  white-space: normal;
+  text-align: center;
+  border-radius: 10px;
+  max-width: min(520px, calc(100% - 32px));
+}
+
+.progressive-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .canvas-container canvas {

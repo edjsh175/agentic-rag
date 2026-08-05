@@ -281,6 +281,9 @@ describe('KnowledgeGraphView', () => {
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
 
+    // 预览图有 Product 根，渐进模式默认只显示种子；测半径前切到显示全部
+    await wrapper.get('[data-test="toggle-progressive-reveal"]').trigger('click')
+    await flushPromises()
     await wrapper.get('.entity-li').trigger('click')
 
     const radii = canvasOps
@@ -312,6 +315,7 @@ describe('KnowledgeGraphView', () => {
 
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
+    // 无 Product 根时渐进回退为全量；仍显式点选保证选中态
     await wrapper.get('.entity-li').trigger('click')
 
     const radii = canvasOps
@@ -356,6 +360,87 @@ describe('KnowledgeGraphView', () => {
     expect(uniqueRadii[0]).toBeGreaterThan(uniqueRadii[1])
     // child hub (degree=3) should still be above leaf nodes
     expect(uniqueRadii[1]).toBeGreaterThan(uniqueRadii[2])
+  })
+
+  it('progressively reveals one-hop neighbors from Product seed', async () => {
+    routeState.query = { source: 'product_backbone_preview' }
+    vi.mocked(api.getProductBackbonePreview).mockResolvedValue({
+      nodes: [
+        {
+          id: 'preview-root',
+          label: 'StampGIS三维产品',
+          type: 'Product',
+          review_status: 'pending',
+          properties_json: JSON.stringify({ subtype: 'ProductFamily', layer: '产品体系层' }),
+        },
+        {
+          id: 'preview-layer',
+          label: '客户端与渲染层',
+          type: 'Module',
+          review_status: 'pending',
+          properties_json: JSON.stringify({ subtype: 'CoreLayer', layer: '总体分层框架' }),
+        },
+        {
+          id: 'preview-tool',
+          label: 'UEModelBuilder',
+          type: 'Tool',
+          review_status: 'pending',
+          properties_json: JSON.stringify({ subtype: 'MainTool', layer: '工具与数据处理层' }),
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'preview-layer', target: 'preview-root', label: 'belongs_to' },
+        { id: 'e2', source: 'preview-tool', target: 'preview-layer', label: 'belongs_to' },
+      ],
+    })
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="progressive-hint"]').exists()).toBe(true)
+    expect(wrapper.text()).toMatch(/画布/)
+    // 初始仅 Product 种子在画布；左侧列表仍有全部候选
+    expect(wrapper.text()).toContain('客户端与渲染层')
+    expect(wrapper.text()).toContain('UEModelBuilder')
+
+    const rootItem = wrapper.findAll('.entity-li').find(li => li.text().includes('StampGIS'))
+    expect(rootItem).toBeTruthy()
+    await rootItem!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="progressive-actions"]').exists()).toBe(true)
+    await wrapper.get('[data-test="expand-neighbors"]').trigger('click')
+    await flushPromises()
+
+    // 展开后布局应收到 incremental
+    const { createDagreLayout } = await import('../utils/graphLayout')
+    const results = vi.mocked(createDagreLayout).mock.results
+    const layout = results[results.length - 1]?.value as { setGraph: ReturnType<typeof vi.fn> }
+    const modes = layout.setGraph.mock.calls.map(call => call[2])
+    expect(modes.includes('incremental')).toBe(true)
+  })
+
+  it('can switch progressive reveal off to show all filtered nodes', async () => {
+    routeState.query = { source: 'product_backbone_preview' }
+    const { createDagreLayout } = await import('../utils/graphLayout')
+
+    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    const toggle = wrapper.get('[data-test="toggle-progressive-reveal"]')
+    expect(toggle.text()).toContain('渐进展开')
+    await toggle.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="toggle-progressive-reveal"]').text()).toContain('显示全部')
+    expect(wrapper.find('[data-test="progressive-hint"]').exists()).toBe(false)
+
+    // 关闭渐进后必须 initial 重挂全量节点，否则 Dagre/Force 仍停在种子子集
+    const results = vi.mocked(createDagreLayout).mock.results
+    const layout = results[results.length - 1]?.value as { setGraph: ReturnType<typeof vi.fn> }
+    const modesAfterToggle = layout.setGraph.mock.calls.map(call => call[2])
+    expect(modesAfterToggle[modesAfterToggle.length - 1]).toBe('initial')
+    const lastNodes = layout.setGraph.mock.calls[layout.setGraph.mock.calls.length - 1][0] as Array<{ id: string }>
+    expect(lastNodes.length).toBeGreaterThan(1)
   })
 
   it('saves product backbone preview entities through preview API', async () => {
@@ -474,6 +559,10 @@ describe('KnowledgeGraphView', () => {
     })
 
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
+    await flushPromises()
+
+    // 连线测试需要多个节点同屏，关闭渐进展开
+    await wrapper.get('[data-test="toggle-progressive-reveal"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-test="link-mode-hint"]').exists()).toBe(false)
