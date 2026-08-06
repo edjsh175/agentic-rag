@@ -130,11 +130,17 @@ const selectedCategory = ref<string>('all')
 const graphMode = ref<'product' | 'document'>('product')
 const selectedTypes = ref<Record<string, boolean>>({ ...DEFAULT_TYPE_SELECTION })
 
-// 链路层级正交过滤状态（默认全选）
-const selectedLinkClasses = ref<Record<string, boolean>>({
+// 产品图谱正交链路过滤状态 (主干、抽取，无来源)
+const selectedProductLinkClasses = ref<Record<string, boolean>>({
   Backbone: true,
   Extraction: true,
-  Context: true
+})
+
+// 文档图谱结构链路过滤状态 (文档根、章节大纲、关联实体)
+const selectedDocumentLinkClasses = ref<Record<string, boolean>>({
+  Document: true,
+  Section: true,
+  Entities: true,
 })
 
 const EXTRACTION_ENTITY_TYPES = new Set([
@@ -149,22 +155,21 @@ const EXTRACTION_ENTITY_TYPES = new Set([
   'Field',
 ])
 
-const CONTEXT_ENTITY_TYPES = new Set([
-  'Document',
-  'Section',
-])
+const isProductNodeMatch = (node: GraphNode): boolean => {
+  if (isProductBackbonePreviewAny.value) return true
+  const isExtraction = EXTRACTION_ENTITY_TYPES.has(node.type)
+  const linkClass = isExtraction ? 'Extraction' : 'Backbone'
+  return selectedProductLinkClasses.value[linkClass] !== false
+}
 
-const getLinkClassForNode = (node: GraphNode): string => {
-  // 1. 来源 (Context): 文档与章节物理节点
-  if (CONTEXT_ENTITY_TYPES.has(node.type)) {
-    return 'Context'
+const isDocumentNodeMatch = (node: GraphNode): boolean => {
+  let docLinkClass = 'Entities'
+  if (node.type === 'Document') {
+    docLinkClass = 'Document'
+  } else if (node.type === 'Section') {
+    docLinkClass = 'Section'
   }
-  // 2. 抽取 (Extraction): 灰色(ConfigItem)、橘橙/浅橙(Procedure/Step)、红色(Error)、翠绿(Solution)、数据表(DataTable)、字段(Field)
-  if (!isProductBackbonePreviewAny.value && EXTRACTION_ENTITY_TYPES.has(node.type)) {
-    return 'Extraction'
-  }
-  // 3. 主干 (Backbone): 产品(Product)、模块(Module)、工具(Tool)、服务(Service)、格式(Format)等主干架构节点
-  return 'Backbone'
+  return selectedDocumentLinkClasses.value[docLinkClass] !== false
 }
 
 // 可选的实体类型：正式版固定枚举；主干预览=正式类型顺序 ∩ 数据中出现的类型 + 扩展类型
@@ -196,7 +201,11 @@ const nodeFilterType = (node: GraphNode): string => {
 
 const syncPreviewFilterTypes = (nodes: GraphNode[]) => {
   if (!isProductBackbonePreviewAny.value) {
-    selectedTypes.value = { ...DEFAULT_TYPE_SELECTION }
+    const base = { ...DEFAULT_TYPE_SELECTION }
+    if (graphMode.value === 'document') {
+      base['Section'] = true
+    }
+    selectedTypes.value = base
     return
   }
   const previous = selectedTypes.value
@@ -551,10 +560,14 @@ const resetAllFiltersOnSearch = () => {
   } else {
     syncPreviewFilterTypes(graphData.value.nodes)
   }
-  selectedLinkClasses.value = {
+  selectedProductLinkClasses.value = {
     Backbone: true,
     Extraction: true,
-    Context: true,
+  }
+  selectedDocumentLinkClasses.value = {
+    Document: true,
+    Section: true,
+    Entities: true,
   }
 }
 
@@ -611,9 +624,9 @@ const filteredNodesList = computed(() => {
     // 子类型复选框匹配条件
     const subTypeMatch = selectedTypes.value[nodeFilterType(node)] !== false
 
-    // 链路级大类正交匹配条件 (仅在非预览常规模式下生效)
+    // 链路级正交匹配条件 (仅在非预览常规模式下生效，按产品图谱和文档图谱分离)
     const linkClassMatch = isProductBackbonePreviewAny.value ||
-                           selectedLinkClasses.value[getLinkClassForNode(node)] !== false
+                           (graphMode.value === 'product' ? isProductNodeMatch(node) : isDocumentNodeMatch(node))
 
     return matchSearch && matchCategory && subTypeMatch && linkClassMatch
   })
@@ -815,7 +828,7 @@ const updateVisualSubGraph = () => {
 }
 
 // 类型、搜索及链路大类过滤只增量调整当前子图，避免扰动原有布局
-watch([selectedTypes, searchQuery, selectedLinkClasses], () => {
+watch([selectedTypes, searchQuery, selectedProductLinkClasses, selectedDocumentLinkClasses], () => {
   if (suppressFilterLayoutWatch) return
   updateVisualSubGraph()
   drawGraph()
@@ -830,13 +843,17 @@ watch(selectedCategory, () => {
 watch(graphMode, (newMode) => {
   if (isProductBackbonePreviewAny.value) return
   resetProgressiveState()
-  if (newMode === 'document') {
-    selectedTypes.value['Section'] = true
-    selectedTypes.value['Document'] = true
-    selectedLinkClasses.value['Context'] = true
-  } else {
-    selectedTypes.value['Section'] = false
-    selectedTypes.value['Document'] = true
+  suppressFilterLayoutWatch = true
+  try {
+    if (newMode === 'document') {
+      selectedTypes.value = { ...selectedTypes.value, Section: true, Document: true }
+      selectedDocumentLinkClasses.value = { Document: true, Section: true, Entities: true }
+    } else {
+      selectedTypes.value = { ...selectedTypes.value, Section: false, Document: true }
+      selectedProductLinkClasses.value = { Backbone: true, Extraction: true }
+    }
+  } finally {
+    suppressFilterLayoutWatch = false
   }
   fetchGraph(true, 'initial')
 })
@@ -922,7 +939,7 @@ const drawGraph = () => {
   if (!canvas) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  
+
   // 确保 backing store 的大小与高清屏的像素比（DPI）相匹配
   const ratio = window.devicePixelRatio || 1
   const container = containerRef.value
@@ -936,21 +953,21 @@ const drawGraph = () => {
       canvasHeight.value = container.clientHeight
     }
   }
-  
+
   // 清空画布
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  
+
   ctx.save()
   // 应用高清 DPI 缩放
   ctx.scale(ratio, ratio)
-  
+
   // 应用平移和缩放变换
   ctx.translate(panX.value, panY.value)
   ctx.scale(scale.value, scale.value)
-  
+
   const nodes = canvasNodesList.value
   const nodesById = new Map(nodes.map(n => [n.id, n]))
-  
+
   // 是否有高亮节点
   const hasSelection = selectedNodeId.value !== null
   const selectedId = selectedNodeId.value
@@ -958,16 +975,16 @@ const drawGraph = () => {
   const isLinking = isLinkMode.value && !!linkStartNodeId.value
   const linkSourceId = linkStartNodeId.value
   const linkTargetId = linkHoverNodeId.value
-  
+
   // --- 1. 绘制关系连线 ---
   buildDrawableEdges(visualEdges.value).forEach(edge => {
     const n1 = nodesById.get(edge.source)
     const n2 = nodesById.get(edge.target)
     if (!n1 || !n2) return
-    
+
     let isHighlighted = false
     let isFaded = false
-    
+
     if (isLinking) {
       isFaded = true
     } else if (hasSelection) {
@@ -979,18 +996,18 @@ const drawGraph = () => {
     } else if (hoveredNodeId.value && (edge.source === hoveredNodeId.value || edge.target === hoveredNodeId.value)) {
       isHighlighted = true
     }
-    
+
     const isSectionEdge = n1.type === 'Section' || n2.type === 'Section'
     drawEdge(ctx, n1, n2, edge, isHighlighted, isFaded, isSectionEdge)
   })
-  
+
   // --- 2. 绘制实体节点 ---
   nodes.forEach(node => {
     let isSelected = false
     let isNeighbor = false
     let isLinkTarget = false
     let isFaded = false
-    
+
     if (isLinking) {
       if (node.id === linkSourceId) {
         isSelected = true
@@ -1027,7 +1044,7 @@ const drawGraph = () => {
       if (end) drawLinkDraft(ctx, source, end)
     }
   }
-  
+
   ctx.restore()
 }
 
@@ -1075,19 +1092,19 @@ const drawEdge = (
   const sourceRadius = getNodeStyle(n1).radius
   const targetRadius = getNodeStyle(n2).radius
   const arrowSize = 6
-  
+
   const dx = n2.x - n1.x
   const dy = n2.y - n1.y
   const dist = Math.sqrt(dx * dx + dy * dy)
   if (dist < 10) return
-  
+
   const ux = dx / dist
   const uy = dy / dist
   const normalX = -uy
   const normalY = ux
   const canonicalDirection = edge.source <= edge.target ? 1 : -1
   const curveOffset = edge.parallelTotal > 1 ? edge.parallelOffset * canonicalDirection : 0
-  
+
   // 连线端点偏置到节点边缘，避开内部重合
   const sourceBorderX = n1.x + ux * sourceRadius
   const sourceBorderY = n1.y + uy * sourceRadius
@@ -1103,7 +1120,7 @@ const drawEdge = (
         faded: isFaded,
       })
     : null
-  
+
   ctx.beginPath()
   ctx.moveTo(sourceBorderX, sourceBorderY)
   if (curveOffset) {
@@ -1120,13 +1137,13 @@ const drawEdge = (
     ? previewStyle.width
     : (isHighlighted ? 2.2 : (isSectionEdge ? 0.55 : 0.8))
   ctx.stroke()
-  
+
   const tangentX = curveOffset ? targetBorderX - controlX : ux
   const tangentY = curveOffset ? targetBorderY - controlY : uy
   const tangentDist = Math.sqrt(tangentX * tangentX + tangentY * tangentY) || 1
   const arrowUx = tangentX / tangentDist
   const arrowUy = tangentY / tangentDist
-  
+
   // 绘制箭头
   ctx.beginPath()
   ctx.moveTo(targetBorderX, targetBorderY)
@@ -1145,7 +1162,7 @@ const drawEdge = (
       ? '#a855f7'
       : (isFaded ? 'rgba(148, 163, 184, 0.15)' : (isSectionEdge ? 'rgba(99, 102, 241, 0.1)' : '#94a3b8')))
   ctx.fill()
-  
+
   // 选中节点的一跳关系边永远显示关系标签，其余普通边保持隐藏，避免噪点
   const shouldDrawLabel = isHighlighted
   if (shouldDrawLabel) {
@@ -1155,17 +1172,17 @@ const drawEdge = (
     const midY = curveOffset
       ? (sourceBorderY + 2 * controlY + targetBorderY) / 4
       : (sourceBorderY + targetBorderY) / 2
-    
+
     ctx.save()
     ctx.translate(midX, midY)
-    
+
     let angle = Math.atan2(dy, dx)
     // 旋转文本，避免倒挂
     if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
       angle += Math.PI
     }
     ctx.rotate(angle)
-    
+
     ctx.font = isHighlighted ? 'bold 9px sans-serif' : '9px sans-serif'
     ctx.fillStyle = previewStyle
       ? previewStyle.labelColor
@@ -1190,18 +1207,18 @@ const drawNode = (
 ) => {
   const nodeStyle = getNodeStyle(node)
   const nodeRadius = nodeStyle.radius
-  
+
   ctx.save()
   // 如果当前属于被遮罩淡出状态，则整体应用低透明度，彻底降噪
   if (isFaded) {
     ctx.globalAlpha = 0.45
   }
-  
+
   ctx.beginPath()
   ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
   ctx.fillStyle = nodeStyle.fill
   ctx.fill()
-  
+
   // 描边画圆
   ctx.beginPath()
   ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2)
@@ -1210,25 +1227,25 @@ const drawNode = (
     : (isLinkTarget ? '#0d9488' : (isNeighbor ? '#818cf8' : nodeStyle.stroke))
   ctx.lineWidth = isSelected || isLinkTarget ? 3.5 : (isNeighbor ? 2.5 : 1.5)
   ctx.stroke()
-  
+
   if ((isSelected || isLinkTarget) && !isFaded) {
     ctx.shadowColor = isLinkTarget ? 'rgba(13, 148, 136, 0.45)' : 'rgba(168, 85, 247, 0.45)'
     ctx.shadowBlur = 10
   }
-  
+
   // 写实体类型首字母缩写
   ctx.font = nodeRadius >= 30 ? 'bold 10px monospace' : 'bold 9px monospace'
   ctx.fillStyle = '#ffffff'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(nodeStyle.badgeText, node.x, node.y)
-  
+
   // 节点名称文字
   ctx.font = (isSelected || isLinkTarget) ? 'bold 11px sans-serif' : nodeStyle.labelFont
   ctx.fillStyle = isSelected || isLinkTarget ? '#1e293b' : (isFaded ? '#94a3b8' : '#334155')
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  
+
   let labelText = getShortLabel(node.label)
   if (labelText.length > 10) {
     labelText = labelText.substring(0, 8) + '...'
@@ -1256,7 +1273,7 @@ const drawNode = (
       by + 0.5,
     )
   }
-  
+
   ctx.restore()
 }
 
@@ -1357,7 +1374,7 @@ const handleMouseDown = (e: MouseEvent) => {
     drawGraph()
     return
   }
-  
+
   if (clickedNode) {
     const nextSeeds = new Set(manualSeedIds.value)
     nextSeeds.add(clickedNode.id)
@@ -1393,7 +1410,7 @@ const handleMouseMove = (e: MouseEvent) => {
     drawGraph()
     return
   }
-  
+
   if (draggedNodeId.value) {
     const node = visualNodes.value.find(n => n.id === draggedNodeId.value)
     if (node) {
@@ -1452,19 +1469,19 @@ const handleWheel = (e: WheelEvent) => {
   e.preventDefault()
   const canvas = canvasRef.value
   if (!canvas) return
-  
+
   const rect = canvas.getBoundingClientRect()
   const mouseX = e.clientX - rect.left
   const mouseY = e.clientY - rect.top
-  
+
   const graphX = (mouseX - panX.value) / scale.value
   const graphY = (mouseY - panY.value) / scale.value
-  
+
   const zoomIntensity = 0.08
-  const nextScale = e.deltaY < 0 
+  const nextScale = e.deltaY < 0
     ? scale.value * (1 + zoomIntensity)
     : scale.value / (1 + zoomIntensity)
-    
+
   scale.value = Math.max(0.12, Math.min(3.5, nextScale))
   panX.value = mouseX - graphX * scale.value
   panY.value = mouseY - graphY * scale.value
@@ -1493,7 +1510,7 @@ const selectAndFocusNode = (nodeId: string) => {
   detailsTab.value = 'relations'
   expandedChunkId.value = null
   evidenceChunks.value = []
-  
+
   const node = visualNodes.value.find(n => n.id === nodeId)
   if (node && canvasRef.value) {
     // 平滑移动使节点置于画布中央
@@ -1939,7 +1956,7 @@ const confirmDeleteEntity = async () => {
     alert('输入的名称不匹配，请重新输入实体名确认！')
     return
   }
-  
+
   isDeleting.value = true
   try {
     if (isProductBackbonePreviewAny.value) {
@@ -1947,7 +1964,7 @@ const confirmDeleteEntity = async () => {
     } else {
       await deleteEntity(selectedNode.value.id)
     }
-    
+
     // 本地移除实体与关联边并重绘，不触发 Dagre/Force 重排
     const deletedId = selectedNode.value.id
     suppressFilterLayoutWatch = true
@@ -2063,23 +2080,12 @@ onUnmounted(() => {
     <!-- 左侧过滤器和列表 -->
     <aside class="kg-left-panel">
       <div class="panel-header">
-        <h3>实体过滤筛选</h3>
+        <h3>{{ graphMode === 'product' ? '产品架构过滤筛选' : '文档结构过滤筛选' }}</h3>
       </div>
-      
+
       <div class="panel-body scrollable">
-        <!-- 搜索 -->
-        <div class="filter-group">
-          <label>实体检索</label>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索实体名称..." 
-            class="filter-input"
-          />
-        </div>
-        
-        <!-- 数据分类 -->
-        <div v-if="!isProductBackbonePreviewAny" class="filter-group">
+        <!-- 文档模式下置顶数据分类 -->
+        <div v-if="graphMode === 'document'" class="filter-group">
           <label>所属分类 (doc_category)</label>
           <select v-model="selectedCategory" class="filter-select">
             <option value="all">全部分类</option>
@@ -2089,15 +2095,29 @@ onUnmounted(() => {
           </select>
         </div>
 
-        <!-- 链路过滤 (正交) -->
+        <!-- 统一搜索 -->
+        <div class="filter-group">
+          <label>{{ graphMode === 'product' ? '架构实体检索' : '文档与大纲检索' }}</label>
+          <input
+            type="text"
+            v-model="searchQuery"
+            :placeholder="graphMode === 'product' ? '搜索产品/模块/服务/工具/数据表...' : '搜索文档名称/章节/关联知识点...'"
+            class="filter-input"
+            data-test="filter-search-input"
+          />
+        </div>
+
+        <!-- 链路过滤 (按图谱视角精准切换局部控件) -->
         <div v-if="!isProductBackbonePreviewAny" class="filter-group">
-          <label>链路过滤 (正交)</label>
-          <div class="checkbox-row-flat">
+          <label>{{ graphMode === 'product' ? '链路过滤 (正交)' : '结构链路过滤' }}</label>
+
+          <!-- 产品视角正交链路 (无来源) -->
+          <div v-if="graphMode === 'product'" class="checkbox-row-flat">
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
                 id="class-Backbone"
-                v-model="selectedLinkClasses.Backbone"
+                v-model="selectedProductLinkClasses.Backbone"
                 data-test="link-class-backbone"
               />
               <label for="class-Backbone" class="checkbox-label">主干</label>
@@ -2106,40 +2126,62 @@ onUnmounted(() => {
               <input
                 type="checkbox"
                 id="class-Extraction"
-                v-model="selectedLinkClasses.Extraction"
+                v-model="selectedProductLinkClasses.Extraction"
                 data-test="link-class-extraction"
               />
               <label for="class-Extraction" class="checkbox-label">抽取</label>
             </div>
+          </div>
+
+          <!-- 文档视角结构链路 -->
+          <div v-else class="checkbox-row-flat">
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
-                id="class-Context"
-                v-model="selectedLinkClasses.Context"
-                data-test="link-class-context"
+                id="doc-class-Document"
+                v-model="selectedDocumentLinkClasses.Document"
+                data-test="doc-link-class-document"
               />
-              <label for="class-Context" class="checkbox-label">来源</label>
+              <label for="doc-class-Document" class="checkbox-label">文档根</label>
+            </div>
+            <div class="checkbox-item inline-flex">
+              <input
+                type="checkbox"
+                id="doc-class-Section"
+                v-model="selectedDocumentLinkClasses.Section"
+                data-test="doc-link-class-section"
+              />
+              <label for="doc-class-Section" class="checkbox-label">章节大纲</label>
+            </div>
+            <div class="checkbox-item inline-flex">
+              <input
+                type="checkbox"
+                id="doc-class-Entities"
+                v-model="selectedDocumentLinkClasses.Entities"
+                data-test="doc-link-class-entities"
+              />
+              <label for="doc-class-Entities" class="checkbox-label">关联实体</label>
             </div>
           </div>
         </div>
-        
+
         <!-- 实体类型多选 -->
         <div class="filter-group">
           <label>{{ isProductBackbonePreviewAny ? '展示功能分层' : '展示实体类型' }}</label>
           <div class="checkbox-list">
-            <div 
-              v-for="type in availableTypes" 
-              :key="type" 
+            <div
+              v-for="type in availableTypes"
+              :key="type"
               class="checkbox-item"
             >
-              <input 
-                type="checkbox" 
-                :id="`type-${type}`" 
+              <input
+                type="checkbox"
+                :id="`type-${type}`"
                 v-model="selectedTypes[type]"
               />
               <label :for="`type-${type}`" class="checkbox-label">
-                <span 
-                  class="type-dot" 
+                <span
+                  class="type-dot"
                   :style="{ backgroundColor: filterTypeDotColor(type) }"
                 ></span>
                 {{ filterTypeLabelLocal(type) }}
@@ -2148,19 +2190,19 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 实体列表展示 -->
+        <!-- 实体列表展示 (常驻稳定 DOM 节点树) -->
         <div class="entity-list-section">
           <label>筛选结果 ({{ filteredNodesList.length }} 个实体)</label>
           <ul class="entity-ul">
-            <li 
-              v-for="node in filteredNodesList" 
-              :key="node.id" 
+            <li
+              v-for="node in filteredNodesList"
+              :key="node.id"
               class="entity-li"
               :class="{ active: selectedNodeId === node.id }"
               @click="selectAndFocusNode(node.id)"
             >
-              <span 
-                class="type-tag" 
+              <span
+                class="type-tag"
                 :style="{ backgroundColor: nodeListBadge(node).color }"
               >
                 {{ nodeListBadge(node).text }}
@@ -2206,7 +2248,7 @@ onUnmounted(() => {
             <span class="edge-legend-item edge-legend-note">颜色区分关系类型</span>
           </span>
         </div>
-        
+
         <div class="kg-controls">
           <div v-if="!isProductBackbonePreviewAny" class="mode-segmented-control">
             <button
@@ -2264,8 +2306,8 @@ onUnmounted(() => {
           <button @click="resetView" class="icon-btn" title="重置画布平移与缩放视角">
             复位视角
           </button>
-          <button 
-            @click="restartLayout" 
+          <button
+            @click="restartLayout"
             class="icon-btn"
             data-test="restart-layout"
             title="重置被拖拽实体的坐标，使其恢复到初始计算布局位置"
@@ -2296,8 +2338,8 @@ onUnmounted(() => {
         >
           渐进展开：种子为 Product/Document 或搜索命中；双击节点展开/收起一跳邻居；左侧点选可加入画布
         </div>
-        <canvas 
-          ref="canvasRef" 
+        <canvas
+          ref="canvasRef"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
@@ -2305,7 +2347,7 @@ onUnmounted(() => {
           @dblclick="handleDblClick"
           @wheel="handleWheel"
         ></canvas>
-        
+
         <div v-if="loading" class="canvas-overlay">
           <div class="loader"></div>
           <span>加载中...</span>
@@ -2318,15 +2360,15 @@ onUnmounted(() => {
     </main>
 
     <!-- 右侧实体详情面板 -->
-    <aside 
-      class="kg-right-panel" 
+    <aside
+      class="kg-right-panel"
       :class="{ open: isRightSidebarOpen && selectedNode }"
     >
       <div v-if="selectedNode" class="panel-layout">
         <header class="right-header">
           <div class="header-main">
-            <span 
-              class="type-badge" 
+            <span
+              class="type-badge"
               :style="{ backgroundColor: colors[selectedNode.type] || colors.Default }"
             >
               {{ entityTypeLabel(selectedNode.type) }}
@@ -2353,7 +2395,7 @@ onUnmounted(() => {
           </div>
           <div class="meta-row" v-if="selectedNode.review_status">
             <span class="meta-label">审核状态:</span>
-            <span 
+            <span
               class="status-tag"
               :class="selectedNode.review_status"
             >
@@ -2417,14 +2459,14 @@ onUnmounted(() => {
 
         <!-- 详情 Tab 菜单 -->
         <nav class="detail-tabs">
-          <button 
-            :class="{ active: detailsTab === 'relations' }" 
+          <button
+            :class="{ active: detailsTab === 'relations' }"
             @click="detailsTab = 'relations'"
           >
             关系连接 ({{ selectedNodeRelations.length }})
           </button>
-          <button 
-            :class="{ active: detailsTab === 'chunks' }" 
+          <button
+            :class="{ active: detailsTab === 'chunks' }"
             @click="detailsTab = 'chunks'"
           >
             原文证据
@@ -2455,15 +2497,15 @@ onUnmounted(() => {
               </button>
             </div>
             <ul class="relation-ul">
-              <li 
-                v-for="rel in selectedNodeRelations" 
-                :key="rel.id" 
+              <li
+                v-for="rel in selectedNodeRelations"
+                :key="rel.id"
                 class="relation-li"
               >
                 <!-- 指向指示 -->
                 <div class="relation-path">
-                  <span 
-                    class="node-link" 
+                  <span
+                    class="node-link"
                     @click="selectAndFocusNode(rel.source)"
                     :class="{ current: rel.source === selectedNode.id }"
                     :title="rel.source === selectedNode.id ? '当前实体' : '源端实体'"
@@ -2473,8 +2515,8 @@ onUnmounted(() => {
                   <span class="rel-arrow">
                     ── <strong>{{ relationTypeLabel(rel.label) }}</strong> ──&gt;
                   </span>
-                  <span 
-                    class="node-link" 
+                  <span
+                    class="node-link"
                     @click="selectAndFocusNode(rel.target)"
                     :class="{ current: rel.target === selectedNode.id }"
                     :title="rel.target === selectedNode.id ? '当前实体' : '目标实体'"
@@ -2488,7 +2530,7 @@ onUnmounted(() => {
                     证据: "{{ rel.evidence_text.substring(0, 25) }}..."
                   </span>
                   <button
-                    @click="handleDeleteRelation(rel.id)" 
+                    @click="handleDeleteRelation(rel.id)"
                     class="delete-text-btn"
                   >
                     删除边
@@ -2507,7 +2549,7 @@ onUnmounted(() => {
               <div class="loader-sm"></div>
               <span>加载证据片段...</span>
             </div>
-            
+
             <div v-else class="chunks-container">
               <div v-if="!isProductBackbonePreviewAny" class="chunk-link-form">
                 <input
@@ -2520,9 +2562,9 @@ onUnmounted(() => {
                   关联
                 </button>
               </div>
-              <div 
-                v-for="chunk in evidenceChunks" 
-                :key="chunk.chunk_id" 
+              <div
+                v-for="chunk in evidenceChunks"
+                :key="chunk.chunk_id"
                 class="chunk-card"
               >
                 <header class="chunk-card-header">
@@ -2540,22 +2582,22 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Markdown 详情折叠 -->
-                <div 
-                  v-if="expandedChunkId === chunk.chunk_id" 
+                <div
+                  v-if="expandedChunkId === chunk.chunk_id"
                   class="chunk-markdown markdown-body"
                   v-html="renderMarkdown(chunk.content)"
                 ></div>
 
                 <footer class="chunk-card-footer">
-                  <button 
-                    @click="expandedChunkId = expandedChunkId === chunk.chunk_id ? null : chunk.chunk_id" 
+                  <button
+                    @click="expandedChunkId = expandedChunkId === chunk.chunk_id ? null : chunk.chunk_id"
                     class="action-text-btn"
                   >
                     {{ expandedChunkId === chunk.chunk_id ? '收起原文' : '查看完整原文' }}
                   </button>
                   <button
                     v-if="!isProductBackbonePreviewAny"
-                    @click="handleUnlinkChunk(chunk.chunk_id)" 
+                    @click="handleUnlinkChunk(chunk.chunk_id)"
                     class="delete-text-btn"
                   >
                     解除关联
@@ -2579,8 +2621,8 @@ onUnmounted(() => {
     </aside>
 
     <!-- 级联删除实体确认模态弹窗 -->
-    <div 
-      class="modal-backdrop" 
+    <div
+      class="modal-backdrop"
       v-if="isDeleteEntityModalOpen && selectedNode"
     >
       <div class="modal-card">
@@ -2595,22 +2637,22 @@ onUnmounted(() => {
           <p class="prompt-text">
             请输入实体名称 <strong>{{ selectedNode.label }}</strong> 确认此删除操作：
           </p>
-          <input 
-            type="text" 
-            v-model="deleteConfirmationInput" 
+          <input
+            type="text"
+            v-model="deleteConfirmationInput"
             class="modal-input"
             :placeholder="selectedNode.label"
           />
         </div>
         <footer class="modal-footer">
-          <button 
-            @click="isDeleteEntityModalOpen = false" 
+          <button
+            @click="isDeleteEntityModalOpen = false"
             class="secondary-btn"
           >
             取消
           </button>
-          <button 
-            @click="confirmDeleteEntity" 
+          <button
+            @click="confirmDeleteEntity"
             class="danger-confirm-btn"
             :disabled="deleteConfirmationInput !== selectedNode.label || isDeleting"
           >

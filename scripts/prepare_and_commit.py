@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "fix: preserve Force layout positions when filtering KnowledgeGraphView"
+    commit_msg = "feat: split product/document link-class filters in KnowledgeGraphView"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
