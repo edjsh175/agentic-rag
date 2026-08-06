@@ -59,6 +59,67 @@ def _setup_logging(log_dir: Path):
 logger = logging.getLogger(__name__)
 
 
+def _is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        try:
+            s.connect((host, port))
+            return True
+        except (socket.timeout, ConnectionRefusedError):
+            return False
+
+
+def _try_start_gpu_agent(cfg):
+    import subprocess
+    import atexit
+    from urllib.parse import urlparse
+
+    url = urlparse(cfg.gpu_agent_base_url)
+    port = url.port or 11435
+    host = url.hostname or "127.0.0.1"
+
+    if host not in ("127.0.0.1", "localhost", "0.0.0.0"):
+        logger.info("gpu-agent 配置为远程服务 (%s)，跳过本地自动启动", cfg.gpu_agent_base_url)
+        return
+
+    if _is_port_in_use(port, host):
+        logger.info("检测到端口 %d 已被占用，gpu-agent 服务已在运行，无需自动拉起", port)
+        return
+
+    agent_path = Path(cfg.gpu_agent_local_path)
+    if not agent_path.is_absolute():
+        agent_path = (Path(cfg.config_file).parent / agent_path).resolve()
+
+    if not agent_path.exists():
+        logger.warning("未找到本地 gpu-agent 脚本，自动启动已跳过: %s", agent_path)
+        return
+
+    logger.info("检测到本地 gpu-agent 未启动，正在尝试自动拉起: %s", agent_path)
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(agent_path)],
+            cwd=str(agent_path.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        )
+
+        def _cleanup():
+            if proc.poll() is None:
+                logger.info("正在清理并关闭本地自启动的 gpu-agent 进程 (PID: %d)...", proc.pid)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+
+        atexit.register(_cleanup)
+        logger.info("成功自动拉起本地 gpu-agent 服务 (PID: %d, 监听端口: %d)", proc.pid, port)
+    except Exception as e:
+        logger.warning("自动拉起本地 gpu-agent 服务失败: %s", e)
+
+
 def main():
     """启动入口"""
     from fastapi import FastAPI
@@ -78,6 +139,10 @@ def main():
 
     # ---- 日志初始化（必须在所有日志调用之前） ----
     _setup_logging(cfg.log_dir)
+
+    # ---- 启动 gpu-agent 监控服务 ----
+    if cfg.gpu_agent_enabled and cfg.gpu_agent_local_path:
+        _try_start_gpu_agent(cfg)
 
     # ---- 启动横幅 ----
     logger.info("")

@@ -3,9 +3,13 @@
 优先级：环境变量 > config.ini > 代码默认值
 """
 import os
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from configparser import ConfigParser
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -203,7 +207,8 @@ class Config:
         self._load_dotenv(root / ".env.local")
 
         # ---- 读取配置文件（RAG_CONFIG / CONFIG_FILE 可指向临时混用配置）----
-        ini = ConfigParser()
+        # delimiters 仅用 "="：模型名含 ":"（如 qwen3.5:9b），默认 ConfigParser 会把 ":" 当分隔符
+        ini = ConfigParser(delimiters=("=",))
         config_name = (os.getenv("RAG_CONFIG") or os.getenv("CONFIG_FILE") or "config.ini").strip()
         ini_path = Path(config_name)
         if not ini_path.is_absolute():
@@ -279,6 +284,23 @@ class Config:
         self.llm_model = self.llm_endpoint.model
         self.helper_llm_model = self.helper_llm_endpoint.model
         self.vision_model = self.vision_endpoint.model
+
+        # ---- GPU Agent 显存监控（gpu-agent sidecar，默认 11435 端口）----
+        self.gpu_agent_enabled = _get("gpu_agent", "enabled", "false").strip().lower() in ("1", "true", "yes")
+        self.gpu_agent_base_url = _get("gpu_agent", "base_url", "http://localhost:11435").strip().rstrip("/")
+        self.gpu_agent_local_path = _get("gpu_agent", "local_path", "").strip()
+        self.gpu_agent_timeout = float(_get("gpu_agent", "timeout", "3"))
+        self.gpu_agent_poll_ttl = float(_get("gpu_agent", "poll_ttl", "2"))
+        self.gpu_agent_fallback_model = _get("gpu_agent", "fallback_model", "").strip()
+        self.gpu_agent_safety_margin_gib = float(_get("gpu_agent", "safety_margin_gib", "0.5"))
+        # [gpu_agent.model_vram] 模型→预估显存占用(GiB)，基于评测/实测；外部 provider 模型不在此表（不占本地显存）
+        self.gpu_agent_model_vram: dict[str, float] = {}
+        if ini.has_section("gpu_agent.model_vram"):
+            for key, val in ini.items("gpu_agent.model_vram"):
+                try:
+                    self.gpu_agent_model_vram[key.strip()] = float(val)
+                except ValueError:
+                    logger.warning("忽略无效显存占用配置: %s=%s", key, val)
 
         # ---- 问答策略 ----
         self.allow_general_knowledge = _get(

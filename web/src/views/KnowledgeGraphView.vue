@@ -86,9 +86,13 @@ const colors: Record<string, string> = {
   Default: '#94a3b8'
 }
 
-/** 正式版默认勾选；Field/Section 默认关闭避免刷屏 */
-const DEFAULT_TYPE_SELECTION: Record<string, boolean> = Object.fromEntries(
-  FORMAL_ENTITY_TYPES.map(type => [type, type !== 'Field' && type !== 'Section']),
+/** 正式版默认勾选；Field/Section/Document 默认关闭避免刷屏（产品图谱排除 Document/Section 作为来源） */
+const PRODUCT_DEFAULT_TYPES: Record<string, boolean> = Object.fromEntries(
+  FORMAL_ENTITY_TYPES.map(type => [type, type !== 'Field' && type !== 'Section' && type !== 'Document']),
+)
+
+const DOCUMENT_DEFAULT_TYPES: Record<string, boolean> = Object.fromEntries(
+  FORMAL_ENTITY_TYPES.map(type => [type, type !== 'Field']),
 )
 
 const FORM_ENTITY_TYPES = [...FORMAL_ENTITY_TYPES]
@@ -127,21 +131,71 @@ const graphData = ref<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], e
 // 过滤状态
 const searchQuery = ref('')
 const selectedCategory = ref<string>('all')
+const documentSelectedCategory = ref<string>('all')
 const graphMode = ref<'product' | 'document'>('product')
-const selectedTypes = ref<Record<string, boolean>>({ ...DEFAULT_TYPE_SELECTION })
+const selectedTypes = ref<Record<string, boolean>>({ ...PRODUCT_DEFAULT_TYPES })
+const documentSelectedTypes = ref<Record<string, boolean>>({ ...DOCUMENT_DEFAULT_TYPES })
 
-// 产品图谱正交链路过滤状态 (主干、抽取，无来源)
-const selectedProductLinkClasses = ref<Record<string, boolean>>({
-  Backbone: true,
-  Extraction: true,
+// 链路过滤 computed 双向绑定实体类型
+const linkClassBackbone = computed({
+  get: () => FORM_ENTITY_TYPES.filter(t => !CONTEXT_ENTITY_TYPES.has(t) && !EXTRACTION_ENTITY_TYPES.has(t)).some(t => selectedTypes.value[t] !== false),
+  set: (val) => {
+    FORM_ENTITY_TYPES.forEach(t => {
+      if (!CONTEXT_ENTITY_TYPES.has(t) && !EXTRACTION_ENTITY_TYPES.has(t)) {
+        selectedTypes.value[t] = val
+      }
+    })
+  }
 })
 
-// 文档图谱结构链路过滤状态 (文档根、章节大纲、关联实体)
-const selectedDocumentLinkClasses = ref<Record<string, boolean>>({
-  Document: true,
-  Section: true,
-  Entities: true,
+const linkClassExtraction = computed({
+  get: () => Array.from(EXTRACTION_ENTITY_TYPES).some(t => selectedTypes.value[t] !== false),
+  set: (val) => {
+    EXTRACTION_ENTITY_TYPES.forEach(t => {
+      selectedTypes.value[t] = val
+    })
+  }
 })
+
+const docLinkClassStructure = computed({
+  get: () => documentSelectedTypes.value.Document || documentSelectedTypes.value.Section,
+  set: (val) => {
+    documentSelectedTypes.value.Document = val
+    documentSelectedTypes.value.Section = val
+  }
+})
+
+const docLinkClassExtraction = computed({
+  get: () => Array.from(EXTRACTION_ENTITY_TYPES).some(t => documentSelectedTypes.value[t] !== false),
+  set: (val) => {
+    EXTRACTION_ENTITY_TYPES.forEach(t => {
+      documentSelectedTypes.value[t] = val
+    })
+  }
+})
+
+const docLinkClassAssociation = computed({
+  get: () => FORM_ENTITY_TYPES.filter(t => !CONTEXT_ENTITY_TYPES.has(t) && !EXTRACTION_ENTITY_TYPES.has(t)).some(t => documentSelectedTypes.value[t] !== false),
+  set: (val) => {
+    FORM_ENTITY_TYPES.forEach(t => {
+      if (!CONTEXT_ENTITY_TYPES.has(t) && !EXTRACTION_ENTITY_TYPES.has(t)) {
+        documentSelectedTypes.value[t] = val
+      }
+    })
+  }
+})
+
+const selectedLinkClasses = computed(() => ({
+  Backbone: linkClassBackbone.value,
+  Extraction: linkClassExtraction.value,
+  Context: false
+}))
+
+const documentLinkClasses = computed(() => ({
+  Structure: docLinkClassStructure.value,
+  Extraction: docLinkClassExtraction.value,
+  Association: docLinkClassAssociation.value
+}))
 
 const EXTRACTION_ENTITY_TYPES = new Set([
   'ConfigItem',
@@ -155,29 +209,39 @@ const EXTRACTION_ENTITY_TYPES = new Set([
   'Field',
 ])
 
-const isProductNodeMatch = (node: GraphNode): boolean => {
-  if (isProductBackbonePreviewAny.value) return true
-  const isExtraction = EXTRACTION_ENTITY_TYPES.has(node.type)
-  const linkClass = isExtraction ? 'Extraction' : 'Backbone'
-  return selectedProductLinkClasses.value[linkClass] !== false
-}
+const CONTEXT_ENTITY_TYPES = new Set([
+  'Document',
+  'Section',
+])
 
-const isDocumentNodeMatch = (node: GraphNode): boolean => {
-  let docLinkClass = 'Entities'
-  if (node.type === 'Document') {
-    docLinkClass = 'Document'
-  } else if (node.type === 'Section') {
-    docLinkClass = 'Section'
+const getLinkClassForNode = (node: GraphNode): string => {
+  if (graphMode.value === 'document') {
+    if (CONTEXT_ENTITY_TYPES.has(node.type)) return 'Structure'
+    if (EXTRACTION_ENTITY_TYPES.has(node.type)) return 'Extraction'
+    return 'Association'
   }
-  return selectedDocumentLinkClasses.value[docLinkClass] !== false
+
+  // 1. 来源 (Context): 文档与章节物理节点
+  if (CONTEXT_ENTITY_TYPES.has(node.type)) {
+    return 'Context'
+  }
+  // 2. 抽取 (Extraction): 灰色(ConfigItem)、橘橙/浅橙(Procedure/Step)、红色(Error)、翠绿(Solution)、数据表(DataTable)、字段(Field)
+  if (!isProductBackbonePreviewAny.value && EXTRACTION_ENTITY_TYPES.has(node.type)) {
+    return 'Extraction'
+  }
+  // 3. 主干 (Backbone): 产品(Product)、模块(Module)、工具(Tool)、服务(Service)、格式(Format)等主干架构节点
+  return 'Backbone'
 }
 
 // 可选的实体类型：正式版固定枚举；主干预览=正式类型顺序 ∩ 数据中出现的类型 + 扩展类型
 const availableTypes = computed(() => {
-  if (!isProductBackbonePreviewAny.value) {
-    return FORM_ENTITY_TYPES
+  if (isProductBackbonePreviewAny.value) {
+    return Object.keys(selectedTypes.value)
   }
-  return Object.keys(selectedTypes.value)
+  if (graphMode.value === 'product') {
+    return FORM_ENTITY_TYPES.filter(type => !CONTEXT_ENTITY_TYPES.has(type))
+  }
+  return FORM_ENTITY_TYPES
 })
 
 const nodeFilterType = (node: GraphNode): string => {
@@ -201,11 +265,7 @@ const nodeFilterType = (node: GraphNode): string => {
 
 const syncPreviewFilterTypes = (nodes: GraphNode[]) => {
   if (!isProductBackbonePreviewAny.value) {
-    const base = { ...DEFAULT_TYPE_SELECTION }
-    if (graphMode.value === 'document') {
-      base['Section'] = true
-    }
-    selectedTypes.value = base
+    selectedTypes.value = { ...PRODUCT_DEFAULT_TYPES }
     return
   }
   const previous = selectedTypes.value
@@ -553,21 +613,12 @@ const resetProgressiveState = () => {
 
 const resetAllFiltersOnSearch = () => {
   selectedCategory.value = 'all'
+  documentSelectedCategory.value = 'all'
   if (!isProductBackbonePreviewAny.value) {
-    const fullTypes: Record<string, boolean> = {}
-    FORMAL_ENTITY_TYPES.forEach(t => { fullTypes[t] = true })
-    selectedTypes.value = fullTypes
+    selectedTypes.value = { ...PRODUCT_DEFAULT_TYPES }
+    documentSelectedTypes.value = { ...DOCUMENT_DEFAULT_TYPES }
   } else {
     syncPreviewFilterTypes(graphData.value.nodes)
-  }
-  selectedProductLinkClasses.value = {
-    Backbone: true,
-    Extraction: true,
-  }
-  selectedDocumentLinkClasses.value = {
-    Document: true,
-    Section: true,
-    Entities: true,
   }
 }
 
@@ -582,7 +633,7 @@ watch(searchQuery, (newQuery, oldQuery) => {
   }
 })
 
-watch(selectedCategory, () => {
+watch([selectedCategory, documentSelectedCategory], () => {
   pinnedEditNodeIds.value.clear()
   resetProgressiveState()
 })
@@ -619,14 +670,16 @@ const filteredNodesList = computed(() => {
     }
 
     const matchSearch = !query || searchNeighborIds.has(node.id)
-    const matchCategory = selectedCategory.value === 'all' || node.doc_category === selectedCategory.value
+
+    const activeSelectedCategory = graphMode.value === 'document' ? documentSelectedCategory.value : selectedCategory.value
+    const matchCategory = activeSelectedCategory === 'all' || node.doc_category === activeSelectedCategory
 
     // 子类型复选框匹配条件
-    const subTypeMatch = selectedTypes.value[nodeFilterType(node)] !== false
+    const activeSelectedTypes = graphMode.value === 'document' ? documentSelectedTypes.value : selectedTypes.value
+    const subTypeMatch = activeSelectedTypes[nodeFilterType(node)] !== false
 
-    // 链路级正交匹配条件 (仅在非预览常规模式下生效，按产品图谱和文档图谱分离)
-    const linkClassMatch = isProductBackbonePreviewAny.value ||
-                           (graphMode.value === 'product' ? isProductNodeMatch(node) : isDocumentNodeMatch(node))
+    // 链路级大类已双向同步到具体实体类型，故通过 subTypeMatch 过滤即可，此处设为 true 避免冲突
+    const linkClassMatch = true
 
     return matchSearch && matchCategory && subTypeMatch && linkClassMatch
   })
@@ -828,13 +881,13 @@ const updateVisualSubGraph = () => {
 }
 
 // 类型、搜索及链路大类过滤只增量调整当前子图，避免扰动原有布局
-watch([selectedTypes, searchQuery, selectedProductLinkClasses, selectedDocumentLinkClasses], () => {
+watch([selectedTypes, documentSelectedTypes, searchQuery, selectedLinkClasses, documentLinkClasses], () => {
   if (suppressFilterLayoutWatch) return
   updateVisualSubGraph()
   drawGraph()
 }, { deep: true })
 
-watch(selectedCategory, () => {
+watch([selectedCategory, documentSelectedCategory], () => {
   if (isProductBackbonePreviewAny.value) return
   updateVisualSubGraph()
   drawGraph()
@@ -843,17 +896,12 @@ watch(selectedCategory, () => {
 watch(graphMode, (newMode) => {
   if (isProductBackbonePreviewAny.value) return
   resetProgressiveState()
-  suppressFilterLayoutWatch = true
-  try {
-    if (newMode === 'document') {
-      selectedTypes.value = { ...selectedTypes.value, Section: true, Document: true }
-      selectedDocumentLinkClasses.value = { Document: true, Section: true, Entities: true }
-    } else {
-      selectedTypes.value = { ...selectedTypes.value, Section: false, Document: true }
-      selectedProductLinkClasses.value = { Backbone: true, Extraction: true }
-    }
-  } finally {
-    suppressFilterLayoutWatch = false
+  if (newMode === 'document') {
+    documentSelectedTypes.value['Section'] = true
+    documentSelectedTypes.value['Document'] = true
+  } else {
+    selectedTypes.value['Section'] = false
+    selectedTypes.value['Document'] = false
   }
   fetchGraph(true, 'initial')
 })
@@ -1600,7 +1648,8 @@ const openCreateEntityModal = () => {
   entityModalMode.value = 'create'
   // 继承上下文分类：优先当前选中实体的分类 > 当前视图分类 > 空
   const rawCat = selectedNode.value?.doc_category || ''
-  const contextCat = selectedCategory.value !== 'all' ? selectedCategory.value : ''
+  const activeSelectedCategory = graphMode.value === 'document' ? documentSelectedCategory.value : selectedCategory.value
+  const contextCat = activeSelectedCategory !== 'all' ? activeSelectedCategory : ''
   const candidateCat = rawCat || contextCat
   const defaultCategory = DOC_CATEGORIES.includes(candidateCat as any) ? candidateCat : ''
 
@@ -2080,14 +2129,31 @@ onUnmounted(() => {
     <!-- 左侧过滤器和列表 -->
     <aside class="kg-left-panel">
       <div class="panel-header">
-        <h3>{{ graphMode === 'product' ? '产品架构过滤筛选' : '文档结构过滤筛选' }}</h3>
+        <h3>实体过滤筛选</h3>
       </div>
 
       <div class="panel-body scrollable">
-        <!-- 文档模式下置顶数据分类 -->
-        <div v-if="graphMode === 'document'" class="filter-group">
+        <!-- 搜索 -->
+        <div class="filter-group">
+          <label>实体检索</label>
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="搜索实体名称..."
+            class="filter-input"
+          />
+        </div>
+
+        <!-- 数据分类 -->
+        <div v-if="!isProductBackbonePreviewAny" class="filter-group">
           <label>所属分类 (doc_category)</label>
-          <select v-model="selectedCategory" class="filter-select">
+          <select v-if="graphMode === 'product'" v-model="selectedCategory" class="filter-select">
+            <option value="all">全部分类</option>
+            <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">
+              {{ docCategoryLabel(cat) }}
+            </option>
+          </select>
+          <select v-else v-model="documentSelectedCategory" class="filter-select">
             <option value="all">全部分类</option>
             <option v-for="cat in DOC_CATEGORIES" :key="cat" :value="cat">
               {{ docCategoryLabel(cat) }}
@@ -2095,29 +2161,15 @@ onUnmounted(() => {
           </select>
         </div>
 
-        <!-- 统一搜索 -->
-        <div class="filter-group">
-          <label>{{ graphMode === 'product' ? '架构实体检索' : '文档与大纲检索' }}</label>
-          <input
-            type="text"
-            v-model="searchQuery"
-            :placeholder="graphMode === 'product' ? '搜索产品/模块/服务/工具/数据表...' : '搜索文档名称/章节/关联知识点...'"
-            class="filter-input"
-            data-test="filter-search-input"
-          />
-        </div>
-
-        <!-- 链路过滤 (按图谱视角精准切换局部控件) -->
+        <!-- 链路过滤 (正交) -->
         <div v-if="!isProductBackbonePreviewAny" class="filter-group">
-          <label>{{ graphMode === 'product' ? '链路过滤 (正交)' : '结构链路过滤' }}</label>
-
-          <!-- 产品视角正交链路 (无来源) -->
+          <label>链路过滤 (正交)</label>
           <div v-if="graphMode === 'product'" class="checkbox-row-flat">
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
                 id="class-Backbone"
-                v-model="selectedProductLinkClasses.Backbone"
+                v-model="linkClassBackbone"
                 data-test="link-class-backbone"
               />
               <label for="class-Backbone" class="checkbox-label">主干</label>
@@ -2126,41 +2178,39 @@ onUnmounted(() => {
               <input
                 type="checkbox"
                 id="class-Extraction"
-                v-model="selectedProductLinkClasses.Extraction"
+                v-model="linkClassExtraction"
                 data-test="link-class-extraction"
               />
               <label for="class-Extraction" class="checkbox-label">抽取</label>
             </div>
           </div>
-
-          <!-- 文档视角结构链路 -->
           <div v-else class="checkbox-row-flat">
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
-                id="doc-class-Document"
-                v-model="selectedDocumentLinkClasses.Document"
-                data-test="doc-link-class-document"
+                id="doc-class-Structure"
+                v-model="docLinkClassStructure"
+                data-test="link-class-structure"
               />
-              <label for="doc-class-Document" class="checkbox-label">文档根</label>
+              <label for="doc-class-Structure" class="checkbox-label">结构</label>
             </div>
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
-                id="doc-class-Section"
-                v-model="selectedDocumentLinkClasses.Section"
-                data-test="doc-link-class-section"
+                id="doc-class-Extraction"
+                v-model="docLinkClassExtraction"
+                data-test="link-class-extraction-doc"
               />
-              <label for="doc-class-Section" class="checkbox-label">章节大纲</label>
+              <label for="doc-class-Extraction" class="checkbox-label">抽取</label>
             </div>
             <div class="checkbox-item inline-flex">
               <input
                 type="checkbox"
-                id="doc-class-Entities"
-                v-model="selectedDocumentLinkClasses.Entities"
-                data-test="doc-link-class-entities"
+                id="doc-class-Association"
+                v-model="docLinkClassAssociation"
+                data-test="link-class-association"
               />
-              <label for="doc-class-Entities" class="checkbox-label">关联实体</label>
+              <label for="doc-class-Association" class="checkbox-label">关联产品</label>
             </div>
           </div>
         </div>
@@ -2168,7 +2218,7 @@ onUnmounted(() => {
         <!-- 实体类型多选 -->
         <div class="filter-group">
           <label>{{ isProductBackbonePreviewAny ? '展示功能分层' : '展示实体类型' }}</label>
-          <div class="checkbox-list">
+          <div v-if="graphMode === 'product' || isProductBackbonePreviewAny" class="checkbox-list">
             <div
               v-for="type in availableTypes"
               :key="type"
@@ -2188,9 +2238,29 @@ onUnmounted(() => {
               </label>
             </div>
           </div>
+          <div v-else class="checkbox-list">
+            <div
+              v-for="type in availableTypes"
+              :key="type"
+              class="checkbox-item"
+            >
+              <input
+                type="checkbox"
+                :id="`doc-type-${type}`"
+                v-model="documentSelectedTypes[type]"
+              />
+              <label :for="`doc-type-${type}`" class="checkbox-label">
+                <span
+                  class="type-dot"
+                  :style="{ backgroundColor: filterTypeDotColor(type) }"
+                ></span>
+                {{ filterTypeLabelLocal(type) }}
+              </label>
+            </div>
+          </div>
         </div>
 
-        <!-- 实体列表展示 (常驻稳定 DOM 节点树) -->
+        <!-- 实体列表展示 -->
         <div class="entity-list-section">
           <label>筛选结果 ({{ filteredNodesList.length }} 个实体)</label>
           <ul class="entity-ul">
@@ -2233,8 +2303,11 @@ onUnmounted(() => {
             <strong>{{ graphData.nodes.length }}</strong> 实体 /
             <strong>{{ graphData.edges.length }}</strong> 关系
           </span>
-          <span v-if="selectedCategory !== 'all'" class="category-badge">
+          <span v-if="graphMode === 'product' && selectedCategory !== 'all'" class="category-badge">
             当前分类: {{ selectedCategory }}
+          </span>
+          <span v-else-if="graphMode === 'document' && documentSelectedCategory !== 'all'" class="category-badge">
+            当前分类: {{ documentSelectedCategory }}
           </span>
           <span v-if="isProductBackboneComplexPreview" class="category-badge">
             产品架构主干预览（复杂明细版）

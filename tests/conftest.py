@@ -6,6 +6,7 @@ from rag_knowledge.config import Config
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.bm25_store import BM25Store
+from rag_knowledge.services.gpu_monitor import GpuMonitor
 
 
 def reset_singletons() -> None:
@@ -13,6 +14,7 @@ def reset_singletons() -> None:
     RelationalDB._instance = None
     VectorStore._instance = None
     BM25Store._instance = None
+    GpuMonitor._instance = None
 
 
 @pytest.fixture(autouse=True)

@@ -42,6 +42,7 @@ import type {
   QaTraceListResult,
   ClarifyResult,
   MessageClarification,
+  GpuStatus,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -77,6 +78,8 @@ http.interceptors.response.use(
 interface QueryResult {
   answer: string
   source_documents: any[]
+  used_model?: string
+  downshift_notice?: string
 }
 
 interface UploadResult {
@@ -225,6 +228,7 @@ export async function queryKnowledgeStream(
     onSources: (sources: any[]) => void
     onTrace?: (traceId: string) => void
     onPipeline?: (pipelineData: any) => void
+    onNotice?: (notice: string) => void
     onDone: () => void
     onError: (err: Error) => void
   },
@@ -302,6 +306,8 @@ export async function queryKnowledgeStream(
             callbacks.onTrace?.(event.data)
           } else if (event.type === 'pipeline') {
             callbacks.onPipeline?.(event.data)
+          } else if (event.type === 'notice') {
+            callbacks.onNotice?.(event.data)
           } else if (event.type === 'done') {
             callbacks.onDone()
           }
@@ -406,6 +412,11 @@ export interface ModelsResponse {
 
 export async function getModels(signal?: AbortSignal) {
   return getJSON<ModelsResponse>('/models', signal)
+}
+
+/** GPU 显存监控 + 显存自适应模型推荐（gpu-agent） */
+export async function getGpuStatus(signal?: AbortSignal) {
+  return getJSON<GpuStatus>('/gpu', signal)
 }
 
 /** 切换向量模型（需要随后重建知识库） */

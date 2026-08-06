@@ -88,5 +88,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.trae/
+config-local.ini
+*.bak
 
 

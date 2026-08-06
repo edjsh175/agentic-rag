@@ -569,10 +569,15 @@ class GraphBuilder:
                         )
                         res_act = payload.get("resolution_action")
                         if res_act in {"reuse", "alias", "diagnostic", "bind", "alias_of", "conflict"}:
-                            reason = f"resolution:{res_act}"
-                            if payload.get("resolved_entity_id"):
-                                reason += f":{payload['resolved_entity_id']}"
-                            self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
+                            resolved_id = payload.get("resolved_entity_id")
+                            if res_act == "reuse" and resolved_id == candidate_id:
+                                # This is a self-folded parent candidate in the current batch. Keep it pending.
+                                pass
+                            else:
+                                reason = f"resolution:{res_act}"
+                                if resolved_id:
+                                    reason += f":{resolved_id}"
+                                self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
                             if res_act == "alias" and payload.get("identity_canonical"):
                                 staged = self._stage_identity_alias_candidate(
                                     batch_id,
@@ -785,10 +790,15 @@ class GraphBuilder:
                                 )
                                 res_act = payload.get("resolution_action")
                                 if res_act in {"reuse", "alias", "diagnostic", "bind", "alias_of", "conflict"}:
-                                    reason = f"resolution:{res_act}"
-                                    if payload.get("resolved_entity_id"):
-                                        reason += f":{payload['resolved_entity_id']}"
-                                    self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
+                                    resolved_id = payload.get("resolved_entity_id")
+                                    if res_act == "reuse" and resolved_id == candidate_id:
+                                        # This is a self-folded parent candidate in the current batch. Keep it pending.
+                                        pass
+                                    else:
+                                        reason = f"resolution:{res_act}"
+                                        if resolved_id:
+                                            reason += f":{resolved_id}"
+                                        self.db.review_extraction_candidates(batch_id, [candidate_id], "rejected", reason)
                                     if res_act == "alias" and payload.get("identity_canonical"):
                                         staged = self._stage_identity_alias_candidate(
                                             batch_id,

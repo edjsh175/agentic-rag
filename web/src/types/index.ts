@@ -102,6 +102,32 @@ export interface Stats {
   scan_interval_minutes: number
 }
 
+/** GPU 显存监控（gpu-agent sidecar） */
+export interface GpuMetrics {
+  name: string
+  total_mib: number
+  used_mib: number
+  free_mib: number
+  utilization?: number
+  temperature?: number
+  power_draw?: number | null
+}
+
+export interface GpuModelFit {
+  name: string
+  footprint_gib?: number | null
+  fits?: boolean | null
+}
+
+export interface GpuStatus {
+  enabled: boolean
+  gpu: GpuMetrics | null
+  current_model: string
+  recommended_model?: string
+  fallback_model?: string
+  models: GpuModelFit[]
+}
+
 export interface ChunkCountItem {
   key: string
   chunk_count: number

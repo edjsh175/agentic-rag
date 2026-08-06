@@ -1,8 +1,8 @@
 <script setup lang="ts">
 defineOptions({ name: 'ChatView' })
-import { ref, onMounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats, ClarificationOption, EvidenceItem } from '../types'
-import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import type { Message, SourceDoc, Stats, ClarificationOption, EvidenceItem, GpuStatus } from '../types'
+import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getGpuStatus, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
@@ -14,6 +14,128 @@ const messages = ref<Message[]>([])
 const currentSources = ref<SourceDoc[]>([])
 const loading = ref(false)
 const stats = ref<Stats | null>(null)
+const gpuStatus = ref<GpuStatus | null>(null)
+const gpuNotice = ref('')          // 显存不足自动降级提示
+let gpuNoticeTimer = 0
+let gpuPollTimer = 0
+
+// 自定义模型下拉菜单与 GPU 悬浮框的交互状态
+const showGpuPopover = ref(false)
+const showModelDropdown = ref(false)
+const modelSelectTrigger = ref<HTMLElement | null>(null)
+const gpuPillTrigger = ref<HTMLElement | null>(null)
+
+const modelSelectStyle = ref({ top: '0px', left: '0px' })
+const gpuPopoverStyle = ref({ top: '0px', right: '0px' })
+let gpuPopoverTimer = 0
+
+function gpuFits(name: string): boolean | null {
+  const fit = gpuStatus.value?.models?.find(m => m.name === name)
+  return fit ? (fit.fits ?? null) : null
+}
+
+async function refreshGpu() {
+  try {
+    gpuStatus.value = await getGpuStatus()
+  } catch { /* gpu-agent 不可用时静默 */ }
+}
+
+function showGpuNotice(msg: string) {
+  gpuNotice.value = msg
+  clearTimeout(gpuNoticeTimer)
+  gpuNoticeTimer = window.setTimeout(() => { gpuNotice.value = '' }, 8000)
+}
+
+const vramPct = computed(() => {
+  const g = gpuStatus.value?.gpu
+  if (!g || !g.total_mib) return 0
+  return Math.min(100, Math.round((g.used_mib / g.total_mib) * 100))
+})
+const vramText = computed(() => {
+  const g = gpuStatus.value?.gpu
+  if (!g) return ''
+  return `${(g.used_mib / 1024).toFixed(1)}/${(g.total_mib / 1024).toFixed(1)} GB`
+})
+const recommendedModel = computed(() => gpuStatus.value?.recommended_model || '')
+const gpuTitle = computed(() => {
+  const g = gpuStatus.value?.gpu
+  if (!g) return 'GPU 离线（gpu-agent 未启用或不可达）'
+  return `${g.name} | 利用率 ${g.utilization ?? '-'}% | 温度 ${g.temperature ?? '-'}℃`
+})
+
+const gpuVramClass = computed(() => {
+  const pct = vramPct.value
+  if (pct < 60) return 'safe'
+  if (pct < 85) return 'warning'
+  return 'danger'
+})
+
+const gpuLoadClass = computed(() => {
+  const util = gpuStatus.value?.gpu?.utilization
+  if (util === undefined || util === null) return 'unknown'
+  if (util < 50) return 'low'
+  if (util < 85) return 'medium'
+  return 'high'
+})
+
+const tempClass = computed(() => {
+  const temp = gpuStatus.value?.gpu?.temperature
+  if (temp === undefined || temp === null) return 'unknown'
+  if (temp < 65) return 'cool'
+  if (temp < 80) return 'warm'
+  return 'hot'
+})
+
+// 切换问答模型下拉列表并定位
+function toggleModelDropdown() {
+  showModelDropdown.value = !showModelDropdown.value
+  if (showModelDropdown.value && modelSelectTrigger.value) {
+    const rect = modelSelectTrigger.value.getBoundingClientRect()
+    modelSelectStyle.value = {
+      top: `${rect.bottom + window.scrollY + 6}px`,
+      left: `${rect.left + window.scrollX}px`
+    }
+  }
+}
+
+// 展开 GPU 卡片面板并定位（右对齐）
+function showGpuPopoverPanel() {
+  clearTimeout(gpuPopoverTimer)
+  if (!gpuPillTrigger.value) return
+
+  const rect = gpuPillTrigger.value.getBoundingClientRect()
+  gpuPopoverStyle.value = {
+    top: `${rect.bottom + window.scrollY + 6}px`,
+    right: `${window.innerWidth - rect.right - window.scrollX}px`
+  }
+  showGpuPopover.value = true
+}
+
+// 延时收起 GPU 卡片
+function hideGpuPopoverPanel() {
+  clearTimeout(gpuPopoverTimer)
+  gpuPopoverTimer = window.setTimeout(() => {
+    showGpuPopover.value = false
+  }, 200)
+}
+
+// 清除隐藏定时器（供 hover 悬浮框内部时使用）
+function clearGpuPopoverTimer() {
+  clearTimeout(gpuPopoverTimer)
+}
+
+// 选择模型时的统一代理
+function onSelectModel(name: string) {
+  selectModel(name)
+  showModelDropdown.value = false
+  showGpuPopover.value = false
+}
+
+// 获取模型显存开销文本
+function getModelFootprint(name: string): string {
+  const m = gpuStatus.value?.models?.find(mod => mod.name === name)
+  return m?.footprint_gib ? `${m.footprint_gib.toFixed(1)} GB` : ''
+}
 const showSources = ref(false)
 const sourcePanel = ref<InstanceType<typeof SourcePanel> | null>(null)
 const msgContainer = ref<HTMLElement | null>()
@@ -151,6 +273,13 @@ function onLayoutClick(e: MouseEvent) {
   if (showUploadPicker.value && !target.closest('.upload-wrap')) {
     showUploadPicker.value = false
   }
+  // 点击空白处关闭自定义下拉菜单与 GPU 悬浮框
+  if (showModelDropdown.value && !target.closest('.model-pill') && !target.closest('.model-dropdown-menu')) {
+    showModelDropdown.value = false
+  }
+  if (showGpuPopover.value && !target.closest('.gpu-pill') && !target.closest('.gpu-popover')) {
+    showGpuPopover.value = false
+  }
 }
 
 function selectModel(name: string) {
@@ -225,6 +354,14 @@ onMounted(async () => {
     const saved = agents.value.find(a => a.id === activeAgentId.value)
     if (saved) applyAgent(saved)
   } catch { /* 静默 */ }
+  refreshGpu()
+  gpuPollTimer = window.setInterval(refreshGpu, 5000)
+})
+
+onUnmounted(() => {
+  clearInterval(gpuPollTimer)
+  clearTimeout(gpuNoticeTimer)
+  clearTimeout(gpuPopoverTimer)
 })
 
 async function persist() {
@@ -397,6 +534,9 @@ async function handleSend(text: string, image?: File) {
             msg.evidencePack = pipelineData.evidence
           }
         },
+        onNotice: (notice) => {
+          showGpuNotice(notice)
+        },
         onDone: () => {
           streamOk = true
           abortController.value = null
@@ -431,6 +571,7 @@ async function handleSend(text: string, image?: File) {
         msg.loading = false
         currentSources.value = result.source_documents
         msg.sources = result.source_documents
+        if (result.downshift_notice) showGpuNotice(result.downshift_notice)
         await persist()
         loading.value = false
         scrollDown()
@@ -566,6 +707,9 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
             currentSources.value = sources
             aiMsg.sources = sources
           },
+          onNotice: (notice) => {
+            showGpuNotice(notice)
+          },
           onDone: () => {
             streamOk = true
             abortController.value = null
@@ -607,6 +751,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         aiMsg.loading = false
         currentSources.value = result.source_documents
         aiMsg.sources = result.source_documents
+        if (result.downshift_notice) showGpuNotice(result.downshift_notice)
         await persist()
         loading.value = false
         scrollDown()
@@ -813,15 +958,41 @@ function scrollDown() {
               </select>
               <span v-else class="model-tag">{{ currentKb }}</span>
             </span>
-            <span class="model-pill">
+            <span class="model-pill" ref="modelSelectTrigger" :class="{ 'has-dropdown': llmModels.length > 0 }">
               问答
-              <select v-if="llmModels.length > 0" class="model-select" v-model="currentModel" @change="selectModel(currentModel)">
-                <option v-for="m in llmModels" :key="m" :value="m">
-                  {{ m.replace(':latest', '') }}
-                </option>
-              </select>
+              <span v-if="llmModels.length > 0" class="model-custom-select" @click.stop="toggleModelDropdown">
+                <span class="selected-val">{{ currentModel.replace(':latest', '') }}</span>
+                <span v-if="gpuFits(currentModel) === false" class="badge-mini badge-error">⚠️</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-chevron" :class="{ open: showModelDropdown }">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </span>
               <span v-else class="model-tag">{{ currentModel.replace(':latest','') || '…' }}</span>
             </span>
+            <Teleport to="body">
+              <Transition name="fade-slide">
+                <div v-if="showModelDropdown" class="model-dropdown-menu" :style="modelSelectStyle">
+                  <div
+                    v-for="m in llmModels"
+                    :key="m"
+                    class="model-dropdown-item"
+                    :class="{ active: m === currentModel, 'gpu-insufficient': gpuFits(m) === false }"
+                    @click="onSelectModel(m)"
+                  >
+                    <div class="model-item-left">
+                      <span class="model-item-name">{{ m.replace(':latest', '') }}</span>
+                      <span class="model-item-footprint" v-if="getModelFootprint(m)">{{ getModelFootprint(m) }}</span>
+                    </div>
+                    <div class="model-item-right">
+                      <span v-if="m === currentModel" class="badge-status current">当前</span>
+                      <span v-else-if="m === recommendedModel" class="badge-status recommended">推荐</span>
+                      <span v-else-if="gpuFits(m) === false" class="badge-status insufficient">显存不足</span>
+                      <span v-else class="badge-status fit">可用</span>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </Teleport>
             <span class="model-pill">
               视觉
               <select v-if="visionModels.length > 0" class="model-select" v-model="visionModel" @change="selectVision(visionModel)">
@@ -832,6 +1003,127 @@ function scrollDown() {
               <span v-else class="model-tag">{{ visionModel.replace(':latest','') || '…' }}</span>
             </span>
             <span class="model-pill" title="嵌入模型需通过配置文件修改">嵌入 {{ embeddingModel.replace(':latest','') || '…' }}</span>
+            <span
+              v-if="gpuStatus"
+              ref="gpuPillTrigger"
+              class="gpu-pill"
+              :class="{ offline: !gpuStatus.gpu, active: showGpuPopover }"
+              @mouseenter="showGpuPopoverPanel"
+              @mouseleave="hideGpuPopoverPanel"
+              @click.stop="showGpuPopover = !showGpuPopover"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>
+              </svg>
+              <span v-if="gpuStatus.gpu" class="gpu-vram">
+                <span class="gpu-bar"><span :class="gpuVramClass" :style="{ width: vramPct + '%' }"></span></span>
+                {{ vramText }}
+              </span>
+              <span v-else>GPU 离线</span>
+              <span
+                v-if="gpuStatus.gpu && recommendedModel && recommendedModel !== currentModel"
+                class="gpu-reco"
+                title="当前显存下的推荐模型，点击选用"
+                @click.stop="onSelectModel(recommendedModel)"
+              >
+                推荐 {{ recommendedModel.replace(':latest','') }}
+              </span>
+            </span>
+            <Teleport to="body">
+              <Transition name="fade-slide">
+                <div
+                  v-if="showGpuPopover && gpuStatus"
+                  class="gpu-popover"
+                  :class="{ offline: !gpuStatus.gpu }"
+                  :style="gpuPopoverStyle"
+                  @mouseenter="clearGpuPopoverTimer"
+                  @mouseleave="hideGpuPopoverPanel"
+                  @click.stop
+                >
+                  <template v-if="gpuStatus.gpu">
+                    <div class="gpu-popover-header">
+                      <div class="gpu-title-group">
+                        <svg class="gpu-popover-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>
+                        </svg>
+                        <span class="gpu-card-name">{{ gpuStatus.gpu.name }}</span>
+                      </div>
+                      <span class="gpu-status-dot" :class="gpuLoadClass" title="GPU 状态"></span>
+                    </div>
+
+                    <div class="gpu-popover-section">
+                      <div class="vram-label-row">
+                        <span class="section-label">显存占用 (VRAM)</span>
+                        <span class="vram-values">{{ vramText }} ({{ vramPct }}%)</span>
+                      </div>
+                      <div class="gpu-popover-bar">
+                        <div class="gpu-popover-bar-fill" :class="gpuVramClass" :style="{ width: vramPct + '%' }"></div>
+                      </div>
+                    </div>
+
+                    <div class="gpu-popover-grid">
+                      <div class="grid-item">
+                        <span class="grid-label">利用率</span>
+                        <span class="grid-val">{{ gpuStatus.gpu.utilization ?? '-' }}%</span>
+                      </div>
+                      <div class="grid-item">
+                        <span class="grid-label">核心温度</span>
+                        <span class="grid-val" :class="tempClass">{{ gpuStatus.gpu.temperature ?? '-' }}℃</span>
+                      </div>
+                      <div class="grid-item" v-if="gpuStatus.gpu.power_draw !== undefined && gpuStatus.gpu.power_draw !== null">
+                        <span class="grid-label">实时功耗</span>
+                        <span class="grid-val">{{ gpuStatus.gpu.power_draw }}W</span>
+                      </div>
+                    </div>
+
+                    <div class="gpu-popover-section">
+                      <div class="section-subtitle">可用模型与显存要求</div>
+                      <div class="gpu-models-list">
+                        <div
+                          v-for="m in gpuStatus.models"
+                          :key="m.name"
+                          class="gpu-model-row"
+                          :class="{ active: m.name === currentModel, disabled: m.fits === false }"
+                          @click="onSelectModel(m.name)"
+                        >
+                          <div class="model-row-left">
+                            <span class="model-row-name">{{ m.name.replace(':latest', '') }}</span>
+                            <span class="model-row-footprint" v-if="m.footprint_gib">约 {{ m.footprint_gib.toFixed(1) }} GB</span>
+                          </div>
+                          <div class="model-row-right">
+                            <span v-if="m.name === currentModel" class="tag-status tag-current">当前</span>
+                            <span v-else-if="m.name === recommendedModel" class="tag-status tag-reco">推荐</span>
+                            <span v-else-if="m.fits === false" class="tag-status tag-insufficient">显存不足</span>
+                            <span v-else class="tag-status tag-fit">可用</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div v-if="recommendedModel && recommendedModel !== currentModel" class="gpu-popover-footer">
+                      <div class="footer-notice">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <span>推荐选用 <strong>{{ recommendedModel.replace(':latest','') }}</strong></span>
+                      </div>
+                      <button class="btn-switch-reco" @click="onSelectModel(recommendedModel)">立即切换</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="gpu-offline-title">GPU 监控服务离线</div>
+                    <p class="gpu-offline-desc">未检测到本地 GPU 运行数据。这通常是因为后端未启用显存监控，或 <code>gpu-agent</code> 服务未启动（默认 11435 端口）。</p>
+                    <div class="gpu-offline-help">
+                      <strong>启用方式：</strong>
+                      <ol>
+                        <li>在服务器或本机启动 <code>gpu-agent</code>。</li>
+                        <li>检查本项目的 <code>config.ini</code> 配置文件中 <code>[gpu_agent]</code> 的 <code>enabled</code> 与 <code>base_url</code> 配置。</li>
+                      </ol>
+                    </div>
+                  </template>
+                </div>
+              </Transition>
+            </Teleport>
             <button class="think-btn" :class="{ active: thinkingEnabled }" @click="toggleThinking" :title="deepModeTitle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
@@ -920,6 +1212,18 @@ function scrollDown() {
           </button>
         </div>
       </header>
+
+      <Transition name="slide-fade">
+        <div v-if="gpuNotice" class="gpu-notice">
+          <span class="gpu-notice-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="gpu-notice-icon">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            {{ gpuNotice }}
+          </span>
+          <button class="gpu-notice-close" @click="gpuNotice = ''" title="关闭提示">✕</button>
+        </div>
+      </Transition>
 
       <div ref="msgContainer" class="msg-list">
         <div class="msg-wrap">
@@ -1139,6 +1443,29 @@ function scrollDown() {
   border-radius: 6px;
   white-space: nowrap;
 }
+.model-pill.has-dropdown {
+  cursor: pointer;
+}
+.model-custom-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #1e2a41;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.select-chevron {
+  transition: transform 0.2s ease;
+  color: #8a8f99;
+}
+.select-chevron.open {
+  transform: rotate(180deg);
+}
+.badge-mini {
+  font-size: 10px;
+  margin-left: 2px;
+}
 .model-select {
   font-size: 11px;
   padding: 1px 4px;
@@ -1156,6 +1483,432 @@ function scrollDown() {
   font-size: 11px;
   color: #1e2a41;
   font-weight: 500;
+}
+
+/* 自定义下拉菜单 Teleport 样式 */
+.model-dropdown-menu {
+  position: absolute;
+  z-index: 10000;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  min-width: 240px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.model-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  gap: 16px;
+}
+.model-dropdown-item:hover {
+  background: #f1f5f9;
+}
+.model-dropdown-item.active {
+  background: #eef2ff;
+}
+.model-dropdown-item.gpu-insufficient {
+  opacity: 0.85;
+}
+.model-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.model-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e293b;
+}
+.model-dropdown-item.active .model-item-name {
+  color: #3b82f6;
+  font-weight: 600;
+}
+.model-item-footprint {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.badge-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.badge-status.current {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.badge-status.recommended {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge-status.insufficient {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.badge-status.fit {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* GPU 显存小面板优化 */
+.gpu-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.gpu-pill:hover, .gpu-pill.active {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.gpu-pill.offline {
+  color: #94a3b8;
+  background: #f8fafc;
+  cursor: default;
+}
+.gpu-vram {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gpu-bar {
+  position: relative;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: #cbd5e1;
+  overflow: hidden;
+  display: inline-block;
+}
+.gpu-bar span {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 3px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.gpu-bar span.safe, .gpu-popover-bar-fill.safe {
+  background-color: #10b981;
+}
+.gpu-bar span.warning, .gpu-popover-bar-fill.warning {
+  background-color: #f59e0b;
+}
+.gpu-bar span.danger, .gpu-popover-bar-fill.danger {
+  background-color: #ef4444;
+  animation: pulse-warn 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-warn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.gpu-reco {
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gpu-reco:hover { background: #fde68a; }
+
+/* GPU 悬浮框 popover 样式 */
+.gpu-popover {
+  position: absolute;
+  z-index: 10000;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gpu-popover.offline {
+  width: 280px;
+  padding: 14px;
+  gap: 8px;
+}
+.gpu-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 8px;
+}
+.gpu-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gpu-popover-icon {
+  color: #64748b;
+}
+.gpu-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.gpu-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.gpu-status-dot.low { background-color: #10b981; }
+.gpu-status-dot.medium { background-color: #f59e0b; }
+.gpu-status-dot.high { background-color: #ef4444; }
+.gpu-status-dot.unknown { background-color: #94a3b8; }
+
+.gpu-popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vram-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.section-label {
+  color: #64748b;
+}
+.vram-values {
+  font-weight: 600;
+  color: #1e293b;
+}
+.gpu-popover-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.gpu-popover-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.gpu-popover-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.grid-label {
+  font-size: 10px;
+  color: #64748b;
+}
+.grid-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+.grid-val.cool { color: #10b981; }
+.grid-val.warm { color: #d97706; }
+.grid-val.hot { color: #ef4444; }
+
+.section-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 4px;
+}
+.gpu-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.gpu-model-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.gpu-model-row:hover {
+  background: #f1f5f9;
+}
+.gpu-model-row.active {
+  background: #eef2ff;
+}
+.gpu-model-row.disabled {
+  opacity: 0.85;
+}
+.model-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.model-row-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+}
+.gpu-model-row.active .model-row-name {
+  color: #3b82f6;
+  font-weight: 600;
+}
+.model-row-footprint {
+  font-size: 9px;
+  color: #94a3b8;
+}
+.tag-status {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.tag-status.tag-current { background: #dbeafe; color: #1e40af; }
+.tag-status.tag-reco { background: #fef3c7; color: #92400e; }
+.tag-status.tag-insufficient { background: #fee2e2; color: #991b1b; }
+.tag-status.tag-fit { background: #d1fae5; color: #065f46; }
+
+.gpu-popover-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+.footer-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #92400e;
+}
+.footer-notice svg {
+  flex-shrink: 0;
+  color: #d97706;
+}
+.btn-switch-reco {
+  width: 100%;
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-switch-reco:hover {
+  background: #2563eb;
+}
+
+.gpu-offline-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+.gpu-offline-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+.gpu-offline-help {
+  font-size: 10px;
+  color: #94a3b8;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 6px;
+}
+.gpu-offline-help ol {
+  margin-top: 4px;
+  padding-left: 14px;
+}
+
+/* 降级提示 Notice 样式优化 */
+.gpu-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
+}
+.gpu-notice-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.gpu-notice-icon {
+  color: #d97706;
+}
+.gpu-notice-close {
+  border: none;
+  background: transparent;
+  color: #b45309;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.gpu-notice-close:hover {
+  background: #fde68a;
+}
+
+/* Transition 动画 */
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-slide-enter-from, .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.slide-fade-enter-active, .slide-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 60px;
+  opacity: 1;
+  overflow: hidden;
+}
+.slide-fade-enter-from, .slide-fade-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
 }
 
 .icon-btn {
@@ -1459,6 +2212,7 @@ function scrollDown() {
     max-width: 80px;
     font-size: 11px;
   }
+  .gpu-pill { display: none; }
   .agent-pill {
     padding: 2px 8px 2px 4px;
   }

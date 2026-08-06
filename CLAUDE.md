@@ -78,6 +78,7 @@
 - ✅ Docker 生产部署骨架 — 双容器（`rag-service` FastAPI + `rag-web` Nginx/dist）；生产 CPU 默认 `INSTALL_RERANKER=false`、不将模型打入镜像；`reranker.enabled=false` 三层门控（QueryPlanner / `_get_reranker` / postprocess 降级）；详见 [`deploy/README.md`](deploy/README.md)
 - ✅ 图辅助改写 + 扩召回融合（代码已实现，**默认关闭**）— `graph_query_rewrite.py` 中量图摘要 → helper LLM 改写检索 query；与 `graph_retrieval` 扩召回 chunk 融合共用 `_prepare_graph_plan`；须同时 `enabled=true` 且 `query_rewrite_enabled=true` 才生效
 - ✅ 模型多 provider 适配与同步 — 已支持在 config 中为每个模型角色（llm, helper_llm, compression 等）配置独立的 provider (google / openai / ollama)。后端 `_build_llm` 和 `stream_query` 已完成适配（支持自动按模型解析并匹配 provider 继承），前端 `ChatView.vue` 下拉框可同步显示并正常切换外部模型（标注 `(外部)` 标记，不再显示空白），且测试 `test_contextual_compression.py` 已同步通过
+- ✅ GPU 显存监控 + 显存自适应模型选择 — `GpuMonitor`（`gpu_monitor.py`）轮询 gpu-agent sidecar `GET /gpu`（TTL 缓存，字节/MiB 自适应），按 `[gpu_agent.model_vram]` 配置表判断本地模型显存占用并自适应推荐/降级。`gpu-agent` 已物理集成至项目 `gpu_agent/` 目录中，后端启动时会自动探活端口并智能拉起，同时与主服务生命周期绑定（退出时自动销毁进程），不再产生外部路径依赖。本地 `config-local.ini` 已启用，`config-prod.ini` 默认关
 - 审核工作台、图谱画布、分类过滤前端、反问 Prompt 暂缓；legacy migration 文件自动瘦身、管线面表 Phase B Section 治理待办；**第 4 轮 GraphRAG 检索 A/B 已 PASS，生产默认开图仍未批准**
 
 ### 核心功能
@@ -103,6 +104,7 @@
 - **图扩召回 + 融合**：实体链接 → 沿关系扩展 → `entity_chunk_links` 取图侧 chunk → 与 Hybrid 结果加权融合（`graph_retrieval.py`）；本地 `config.ini` 已开，`config-prod.ini` 仍默认关
 - **图辅助改写 query**：中量图摘要（实体/别名/`different_from`/一跳边类型/`defined_in` 路径）喂给 helper LLM，产出 `kind=graph_rewrite` 的检索 query 再并入 Hybrid；失败启发式降级；本地已开，生产模板仍默认关
 - **Profile → Graph 同步**：`sync_profiles_to_graph.py` + `ProfileGraphSyncService` 生成 `profile_sync` 候选；正式库须分拆审批，禁止 `--approve-all`；生产 apply 需 `--confirm-db-path` / `--confirm-batch` / `--confirm-backup`
+- **GPU 显存监控与模型选择**：`GpuMonitor` 实时读显存并给出「推荐模型 + 超显存自动降级」，配置驱动、降级兜底、前端小面板展示（详见「关键设计决策」）
 
 ## 技术栈
 
@@ -140,6 +142,11 @@ rag_python/
 ├── requirements-dev.txt              # 开发依赖（-r requirements.txt + pytest）
 ├── deploy/README.md                # Docker 生产部署说明
 ├── CLAUDE.md                       # 项目说明
+│
+├── gpu_agent/                      # 物理集成的 gpu-agent 监控服务目录（主服务自启动托管）
+│   ├── main.py                     # API 入口（默认 11435 端口）
+│   ├── README.md                   # 接口与部署说明
+│   └── requirements.txt            # 依赖声明
 │
 ├── rag_knowledge/                  # 后端主包
 │   ├── __init__.py                 # 包信息
@@ -428,6 +435,7 @@ Query
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/health` | 健康检查 |
+| GET | `/gpu` | GPU 显存指标 + 推荐/回退模型 + 各模型是否可装下（gpu-agent sidecar） |
 | GET | `/models` | Ollama 模型列表 + 当前配置 |
 | GET | `/knowledge-bases` | 知识库列表（已发布文章 / 文章附件） |
 | POST | `/query` | 知识库问答（非流式） |
@@ -536,6 +544,22 @@ $env:RAG_CONFIG="config-mix.ini"; .\venv\Scripts\python.exe run.py
 .\venv\Scripts\python.exe run_eval_full.py
 ```
 
+### 纯本地运行配置说明 (Ollama 运行)
+如果需要在断网或纯本地开发环境下运行后端（不依赖 Google Gemini 或 OpenAI 等外网 API）：
+1. **使用本地配置文件**：项目根目录下已内置了纯本地配置模板 `config-local.ini`。在该配置中，所有 AI 模型服务均指向本地 Ollama 地址 `http://127.0.0.1:11434`，主问答模型为 `qwen3.5:9b`，辅助模型为 `qwen3.5:4b`，向量模型为 `qwen3-embedding`，且禁用了视觉模型。
+2. **拉取本地所需的模型**：确保您的本地 Ollama 机器上已下载并加载了对应模型：
+   ```powershell
+   ollama pull qwen3.5:9b
+   ollama pull qwen3.5:4b
+   ollama pull qwen3-embedding
+   ```
+3. **指定本地配置启动服务**：
+   在 PowerShell 终端运行以下指令，通过指定 `RAG_CONFIG` 环境变量拉起 FastAPI 后端：
+   ```powershell
+   $env:RAG_CONFIG="config-local.ini"; .\venv\Scripts\python.exe run.py
+   ```
+   服务将运行在本地 `10605` 端口（接口文档见 `http://localhost:10605/docs`）。
+
 > **Chroma 环境强约束**：本项目锁定 `chromadb==0.6.3` 与 `langchain-chroma==0.2.3`。不得用系统 Python、`.venv` 或其他 Chroma 版本打开同一个 `chroma_db`；不得在后端运行时用另一个进程直接操作该目录。VectorStore 初始化时会校验这两个版本，版本不符会拒绝打开数据库。Docker 不要求虚拟环境，但仍必须安装上述锁定版本。
 
 **前端：**
@@ -623,6 +647,11 @@ docker compose up -d
 - **Reranker 全局门控**：`[reranker] enabled=false`（或 `RERANKER_ENABLED=false`）时三层防御——(1) `QueryPlanner` / `_plan_retrieval` fallback 不产出 `enable_rerank=True`；(2) `_get_reranker()` 返回 `None`；(3) `_postprocess_docs` / `_postprocess_docs_sync` 对 `None` 或加载失败截断 `top_n`。`force_rerank=True` 不能绕过全局开关
 - **Docker 依赖拆分（两条 torch 口子）**：路径 A = `INSTALL_RERANKER` + `requirements-reranker.txt`（Reranker）；路径 B = base 里若写 `unstructured[pdf]` 会经 inference 再拉 torch（与 Reranker 门控无关）。现 base 为 `unstructured==0.18.32` 且禁止 `[pdf]`。`requirements.txt` 聚合两者供本地开发；`requirements-cuda.txt` 仅本地 GPU，不纳入 CPU 生产镜像验收。详见 [`deploy/README.md`](deploy/README.md) §5
 - **测试防呆体系**：`isolated_storage` fixture 隔离 8 个运行时路径 → `Config._assert_test_paths_are_isolated()` 作为运行时熔断器 → `pytest.ini addopts = -m "not integration"` 默认排除真实库测试。三层保护确保测试不可能静默写入正式数据
+- **GPU 显存自适应模型选择（推荐 + 自动降级）**：`GpuMonitor.resolve_model()` 先查 `[gpu_agent.model_vram]` 配置表得到所选模型的显存占用（外部 provider 模型恒为 0 GiB = 一定装得下），再对比 `memoryFree` 减去 `safety_margin_gib` 后的可用显存；装不下且 fallback 装得下时降级并告知用户。**保守降级**：配置表里没有的本地模型、或 gpu-agent 不可达 / `enabled=false` 时**不降级**（避免破坏现有可用配置）。前端每 5s 轮询 `/gpu`，后端按 `poll_ttl` 缓存避免打爆 gpu-agent
+- **ConfigParser `delimiters=("=",)`**：模型名含 `:`（如 `qwen3.5:4b`）会被默认 `(("=", ":"))` 分隔符拆成 key `qwen3.5` + value `4b = 3.5`，导致 `[gpu_agent.model_vram]` 解析冲突；config.py 改为仅 `=` 分隔（现有 ini 无 `:` 键值用法，验证无损）
+- **GpuMonitor 单例 TTL 缓存**：`GpuMonitor` 与 Config/VectorStore/BM25Store 同为单例，纳入 `reset_singletons()`；指标结果按 `poll_ttl` 秒缓存，gpu-agent 返回 503/500/超时均按「不可用」处理（`get_metrics() → None`），不阻断问答
+- **gpu-agent 自动托管与生命周期绑定**：后端启动时对本地 `11435` 端口进行探活，若端口空闲且配置了 `local_path = gpu_agent/main.py`，会使用主服务的 Python 虚拟环境自动在后台拉起集成的 GPU 监控 Agent；并利用 `atexit` 机制使子进程生命周期与主进程强绑定，随主进程退出同步销毁，避免孤儿进程遗留。
+
 
 ## Prompt 与回答规范
 

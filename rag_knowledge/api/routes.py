@@ -27,6 +27,7 @@ from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException, Re
 from fastapi.responses import StreamingResponse
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.gpu_monitor import GpuMonitor
 from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.services.qa_trace import QaTraceStore, set_request_context
@@ -245,6 +246,45 @@ def health():
     }
 
 
+@router.get("/gpu")
+def gpu_status():
+    """GPU 显存监控 + 显存自适应模型推荐（对接 gpu-agent sidecar，默认 11435 端口）。
+
+    gpu-agent 不可用或 [gpu_agent] enabled=false 时返回 enabled 与 gpu=null，
+    前端据此显示“GPU 离线”，推荐/降级逻辑保持原模型。
+    """
+    monitor = GpuMonitor()
+    metrics = monitor.get_metrics()
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for m in (
+        list(_cfg.gpu_agent_model_vram.keys())
+        + [_cfg.llm_endpoint.model, _cfg.helper_llm_endpoint.model,
+           _cfg.vision_endpoint.model, _cfg.compression_endpoint.model,
+           _cfg.gpu_agent_fallback_model]
+    ):
+        m = (m or "").strip()
+        if m and m not in seen:
+            seen.add(m)
+            candidates.append(m)
+    models = [
+        {
+            "name": name,
+            "footprint_gib": monitor.footprint_gib(name),
+            "fits": monitor.fits(name, metrics) if metrics else None,
+        }
+        for name in candidates
+    ]
+    return {
+        "enabled": monitor.enabled,
+        "gpu": metrics,
+        "current_model": _cfg.llm_model,
+        "recommended_model": monitor.recommend_model(candidates, _cfg.llm_model),
+        "fallback_model": _cfg.gpu_agent_fallback_model,
+        "models": models,
+    }
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest):
     """知识库问答"""
@@ -267,7 +307,12 @@ async def query(req: QueryRequest):
                                    clarification_question=req.clarification_question,
                                    clarification_selected=req.clarification_selected)
 
-        return QueryResponse(answer=result["answer"], source_documents=result["source_documents"])
+        return QueryResponse(
+            answer=result["answer"],
+            source_documents=result["source_documents"],
+            used_model=result.get("used_model"),
+            downshift_notice=result.get("downshift_notice"),
+        )
     except Exception as e:
         logger.error("查询失败: %s", e)
         raise HTTPException(500, detail=str(e))

@@ -470,24 +470,47 @@ class EntityIdentityService:
                     )
                 )
 
-        comp_candidate = norm_compact(name)
+        # Helper to get prefix and leaf name for comparison
+        def get_comparison_prefix_and_leaf(entity_name: str, entity_type: str) -> tuple[str, str]:
+            if entity_type == "FunctionArea" and "::" in entity_name:
+                parts = entity_name.split("::")
+                return "::".join(parts[:-1]), parts[-1]
+            if entity_type == "Field" and "." in entity_name:
+                parts = entity_name.split(".")
+                return ".".join(parts[:-1]), parts[-1]
+            return "", entity_name
+
+        prefix_candidate, leaf_candidate = get_comparison_prefix_and_leaf(name, effective_type)
+        comp_candidate = norm_compact(leaf_candidate)
+        norm_key_leaf = normalize_identity_key(leaf_candidate)
+
         for existing_name, existing_type, target_id in near_targets:
             if not existing_name or existing_type != effective_type:
                 continue
             existing_norm = normalize_identity_key(existing_name)
             if existing_norm == norm_key:
                 continue
-            comp_existing = norm_compact(existing_name)
+
+            prefix_existing, leaf_existing = get_comparison_prefix_and_leaf(existing_name, existing_type)
+            # If prefixes differ, they must be distinct entities. Skip collision.
+            if normalize_identity_key(prefix_candidate) != normalize_identity_key(prefix_existing):
+                continue
+
+            comp_existing = norm_compact(leaf_existing)
+            existing_norm_leaf = normalize_identity_key(leaf_existing)
 
             is_near_variant = False
-            if existing_norm and (norm_key in existing_norm or existing_norm in norm_key):
+            if existing_norm_leaf and (norm_key_leaf in existing_norm_leaf or existing_norm_leaf in norm_key_leaf):
                 is_near_variant = True
             elif comp_candidate and comp_existing:
                 if comp_candidate in comp_existing or comp_existing in comp_candidate:
                     is_near_variant = True
+                elif effective_type == "DataTable":
+                    # DataTable 严肃的数据库表名不应进行模糊 SequenceMatcher 相似度比对
+                    pass
                 else:
                     ratio = difflib.SequenceMatcher(None, comp_candidate, comp_existing).ratio()
-                    if ratio >= 0.75 and min(len(comp_candidate), len(comp_existing)) >= 4:
+                    if ratio >= 0.8 and min(len(comp_candidate), len(comp_existing)) >= 4:
                         is_near_variant = True
 
             if not is_near_variant:

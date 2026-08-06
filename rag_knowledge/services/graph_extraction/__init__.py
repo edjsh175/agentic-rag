@@ -119,7 +119,7 @@ class SectionPathExtractor:
     def extract(self, chunk: dict) -> ExtractionResult:
         chunk_id, content, source, category, path, metadata = _parts(chunk)
         result = ExtractionResult()
-        parts = [part.strip() for part in path.split(">") if part.strip()]
+        parts = [part.strip("：: \t\u3000") for part in path.split(">") if part.strip("：: \t\u3000")]
         evidence = path or content[:500]
 
         document_name = source.strip()

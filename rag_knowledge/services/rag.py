@@ -784,6 +784,26 @@ class RagChain:
             api_key_env="",
         )
 
+    def _apply_vram_guard(self, llm_model: str | None) -> tuple[str, bool]:
+        """显存自适应模型选择：所选本地模型超显存时自动降级到 fallback。返回（最终模型，是否降级）。"""
+        from rag_knowledge.services.gpu_monitor import GpuMonitor
+
+        # getattr 兼容测试桩（object.__new__(RagChain) 未运行 __init__，无 _llm_model）
+        requested = llm_model or getattr(self, "_llm_model", None)
+        final, downshifted = GpuMonitor().resolve_model(requested)
+        if downshifted:
+            logger.warning("显存不足，模型 %s 自动降级为 %s", requested, final)
+        return final, downshifted
+
+    @staticmethod
+    def _downshift_fields(downshifted: bool, final_model: str) -> dict:
+        if not downshifted:
+            return {}
+        return {
+            "used_model": final_model,
+            "downshift_notice": f"当前显存不足以加载所选模型，已自动降级为 {final_model}。",
+        }
+
     def _build_llm(self, model: str | None = None):
         """创建 LLM 实例，支持模型覆盖（前端选择）及多 provider。"""
         from types import SimpleNamespace
@@ -1962,6 +1982,8 @@ class RagChain:
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
+        guarded_model, downshifted = self._apply_vram_guard(llm_model)
+
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
@@ -2000,7 +2022,7 @@ class RagChain:
                 source_docs, context, history, q, agent_prompt=agent_prompt
             )
 
-            llm = self._build_llm(llm_model)
+            llm = self._build_llm(guarded_model)
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
@@ -2040,6 +2062,7 @@ class RagChain:
             return {
                 "answer": answer,
                 "source_documents": self._filter_cited_sources(answer, source_docs),
+                **self._downshift_fields(downshifted, guarded_model),
             }
 
         except Exception as e:
@@ -2075,6 +2098,8 @@ class RagChain:
         if _is_greeting(q):
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
+
+        guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
         retrieved_source_docs: list[dict] = []
         source_docs: list[dict] = []
@@ -2132,7 +2157,7 @@ class RagChain:
                 source_docs, context, history, q, agent_prompt=agent_prompt
             )
 
-            llm = self._build_llm(llm_model)
+            llm = self._build_llm(guarded_model)
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
@@ -2182,6 +2207,7 @@ class RagChain:
             result = {
                 "answer": answer_content,
                 "source_documents": cited,
+                **self._downshift_fields(downshifted, guarded_model),
             }
             if include_evidence:
                 result["evidence_chain"] = evidence
@@ -2479,8 +2505,11 @@ class RagChain:
                 backbone_avoid=getattr(plan, "backbone_avoid", ()) or (),
             )
 
-            model = llm_model or self._llm_model
+            guarded_model, downshifted = self._apply_vram_guard(llm_model)
+            model = guarded_model
             enable_model_thinking = deep_mode and self._need_ollama_thinking(model)
+            if downshifted:
+                yield {"type": "notice", "data": self._downshift_fields(True, guarded_model)["downshift_notice"]}
 
             from rag_knowledge.llm_http import achat_stream
 

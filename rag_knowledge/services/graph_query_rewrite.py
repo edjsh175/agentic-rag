@@ -307,6 +307,37 @@ class GraphQueryRewriter:
 
         return self._to_retrieval_queries(q, texts, weight=_REWRITE_WEIGHT)
 
+    @staticmethod
+    def _robust_json_loads(raw: str) -> Any | None:
+        """Extract JSON from LLM output that may contain prose, code fences, or extra text."""
+        text = raw.strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text).strip()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        brace_start = text.find("{")
+        brace_end = text.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            candidate = text[brace_start : brace_end + 1]
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        bracket_start = text.find("[")
+        bracket_end = text.rfind("]")
+        if bracket_start != -1 and bracket_end > bracket_start:
+            candidate = text[bracket_start : bracket_end + 1]
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
     def _anchor_via_llm(
         self,
         question: str,
@@ -329,9 +360,7 @@ class GraphQueryRewriter:
             timeout=float(self._anchor_timeout),
             think=False,
         ).strip()
-        cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
-        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
-        payload = json.loads(cleaned)
+        payload = self._robust_json_loads(raw)
         if not isinstance(payload, dict):
             raise ValueError("anchor payload is not an object")
         return payload
@@ -508,9 +537,9 @@ class GraphQueryRewriter:
             timeout=float(self._timeout),
             think=False,
         ).strip()
-        cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
-        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
-        payload = json.loads(cleaned)
+        payload = self._robust_json_loads(raw)
+        if not isinstance(payload, dict):
+            return []
         queries = payload.get("queries", [])
         if not isinstance(queries, list):
             return []

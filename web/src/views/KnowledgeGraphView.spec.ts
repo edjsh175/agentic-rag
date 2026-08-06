@@ -501,6 +501,14 @@ describe('KnowledgeGraphView', () => {
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
 
+    // 切换到文档图谱模式，使 doc-1 和 section-1 可见
+    await wrapper.get('[data-test="mode-document-top"]').trigger('click')
+    await flushPromises()
+
+    // 连线测试需要多个节点同屏，关闭渐进展开
+    await wrapper.get('[data-test="toggle-progressive-reveal"]').trigger('click')
+    await flushPromises()
+
     await wrapper.get('[data-test="toggle-link-mode"]').trigger('click')
     expect(wrapper.find('.canvas-container').classes()).toContain('link-mode')
     expect(wrapper.get('[data-test="link-mode-hint"]').text()).toContain('从源实体拉到目标实体')
@@ -637,15 +645,19 @@ describe('KnowledgeGraphView', () => {
     expect(toggle.classes()).toContain('active')
   })
 
-  it('shows Document nodes by default and keeps search results visible', async () => {
+  it('shows Document nodes in document mode and keeps search results visible', async () => {
     const wrapper = mount(KnowledgeGraphView, {
       attachTo: document.body,
     })
     await flushPromises()
 
+    // 切换到文档图谱模式
+    await wrapper.get('[data-test="mode-document-top"]').trigger('click')
+    await flushPromises()
+
     expect(wrapper.text()).toContain('2ca727efa70847b49f0f67528544d210.pdf')
 
-    await wrapper.get('input[data-test="filter-search-input"]').setValue('2ca727')
+    await wrapper.get('input[placeholder="搜索实体名称..."]').setValue('2ca727')
     await flushPromises()
     expect(wrapper.text()).toContain('2ca727efa70847b49f0f67528544d210.pdf')
     expect(wrapper.text()).toContain('安装模式')
@@ -714,38 +726,46 @@ describe('KnowledgeGraphView', () => {
     expect(canvasOps.some(op => op.op === 'quadraticCurveTo')).toBe(false)
   })
 
-  it('filters nodes orthogonally in product graph (Backbone / Extraction)', async () => {
+  it('filters nodes orthogonally using link classes in document mode (Structure / Extraction / Association)', async () => {
     vi.mocked(api.getGraphData).mockResolvedValue({
       nodes: [
         { id: 'n1', label: 'CoreProduct', type: 'Product', review_status: 'approved', created_by: 'seed:product_backbone' },
         { id: 'n2', label: 'DataTableA', type: 'DataTable', review_status: 'approved' },
+        { id: 'n3', label: 'DocSource', type: 'Document', review_status: 'approved' },
       ],
       edges: [],
     })
     const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
     await flushPromises()
 
-    // Backbone (Product) and Extraction (DataTable) are checked by default
+    // 切换到文档图谱模式
+    await wrapper.get('[data-test="mode-document-top"]').trigger('click')
+    await flushPromises()
+
+    // Structure (Document), Extraction (DataTable), Association (Product) are checked by default
     expect(wrapper.text()).toContain('CoreProduct')
     expect(wrapper.text()).toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
 
     // 1. Uncheck "抽取" (Extraction) filter
-    const extractionCheckbox = wrapper.get('input[data-test="link-class-extraction"]')
+    const extractionCheckbox = wrapper.get('input[data-test="link-class-extraction-doc"]')
     await extractionCheckbox.setValue(false)
     await flushPromises()
 
-    // DataTableA (Extraction) is hidden, CoreProduct stays visible
+    // DataTableA (Extraction) is hidden, others stay visible
     expect(wrapper.text()).toContain('CoreProduct')
     expect(wrapper.text()).not.toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
 
-    // 2. Uncheck "主干" (Backbone) filter
-    const backboneCheckbox = wrapper.get('input[data-test="link-class-backbone"]')
-    await backboneCheckbox.setValue(false)
+    // 2. Uncheck "关联产品" (Association) filter
+    const associationCheckbox = wrapper.get('input[data-test="link-class-association"]')
+    await associationCheckbox.setValue(false)
     await flushPromises()
 
-    // CoreProduct (Backbone) is also hidden
+    // CoreProduct (Association) is also hidden
     expect(wrapper.text()).not.toContain('CoreProduct')
     expect(wrapper.text()).not.toContain('DataTableA')
+    expect(wrapper.text()).toContain('DocSource')
 
     // 3. Re-check "抽取" (Extraction) filter
     await extractionCheckbox.setValue(true)
@@ -754,46 +774,6 @@ describe('KnowledgeGraphView', () => {
     // DataTableA is back, CoreProduct remains hidden
     expect(wrapper.text()).not.toContain('CoreProduct')
     expect(wrapper.text()).toContain('DataTableA')
-  })
-
-  it('filters nodes using document structure link classes in document graph mode (Document / Section / Entities)', async () => {
-    vi.mocked(api.getGraphData).mockResolvedValue({
-      nodes: [
-        { id: 'doc1', label: 'Manual.pdf', type: 'Document', review_status: 'approved' },
-        { id: 'sec1', label: 'Chapter 1', type: 'Section', review_status: 'approved' },
-        { id: 'ent1', label: 'ConfigValue', type: 'ConfigItem', review_status: 'approved' },
-      ],
-      edges: [],
-    })
-    const wrapper = mount(KnowledgeGraphView, { attachTo: document.body })
-    await flushPromises()
-
-    // Switch to document graph mode
-    const docModeBtn = wrapper.get('button[data-test="mode-document-top"]')
-    await docModeBtn.trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('文档结构过滤筛选')
-    expect(wrapper.text()).toContain('Manual.pdf')
-    expect(wrapper.text()).toContain('Chapter 1')
-    expect(wrapper.text()).toContain('ConfigValue')
-
-    // Uncheck "章节大纲" (Section)
-    const sectionCheckbox = wrapper.get('input[data-test="doc-link-class-section"]')
-    await sectionCheckbox.setValue(false)
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Manual.pdf')
-    expect(wrapper.text()).not.toContain('Chapter 1')
-    expect(wrapper.text()).toContain('ConfigValue')
-
-    // Uncheck "关联实体" (Entities)
-    const entitiesCheckbox = wrapper.get('input[data-test="doc-link-class-entities"]')
-    await entitiesCheckbox.setValue(false)
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Manual.pdf')
-    expect(wrapper.text()).not.toContain('Chapter 1')
-    expect(wrapper.text()).not.toContain('ConfigValue')
+    expect(wrapper.text()).toContain('DocSource')
   })
 })

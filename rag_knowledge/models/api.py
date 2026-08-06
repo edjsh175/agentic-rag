@@ -72,6 +72,8 @@ class ClarifyResponse(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     source_documents: list
+    used_model: Optional[str] = None  # 显存不足自动降级后的实际模型
+    downshift_notice: Optional[str] = None  # 自动降级提示（未降级时为 None）
 
 
 class AdminQaDebugResponse(QueryResponse):
