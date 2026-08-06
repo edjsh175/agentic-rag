@@ -705,8 +705,8 @@ const collapseSelectedNode = () => {
 const applyCanvasLayout = (changeMode: GraphChangeMode) => {
   updateVisualSubGraph()
   graphLayout?.setGraph(canvasNodesList.value as LayoutNode[], visualEdges.value, changeMode)
-  // 全量重挂节点后强制恢复 Force 物理，避免仿真停在旧节点集上
-  if (layoutMode.value === 'force' && isPhysicsEnabled.value) {
+  // preserve 已钉住坐标并冻结仿真；勿再 setPhysicsEnabled(true) 解钉重推
+  if (changeMode !== 'preserve' && layoutMode.value === 'force' && isPhysicsEnabled.value) {
     graphLayout?.setPhysicsEnabled(true)
   }
   drawGraph()
@@ -738,7 +738,8 @@ const fetchGraph = async (forceRefresh = false, changeMode: GraphChangeMode = 'i
       ? await getProductBackboneComplexPreview(forceRefresh)
       : isProductBackbonePreview.value
       ? await getProductBackbonePreview(forceRefresh)
-      : await getGraphData(selectedCategory.value, forceRefresh, graphMode.value)
+      // 正式图始终拉全部分类，分类切换走前端过滤，避免 Force 下切换分类丢节点数据与坐标
+      : await getGraphData('all', forceRefresh, graphMode.value)
     graphData.value = data
     syncPreviewFilterTypes(data.nodes)
 
@@ -856,7 +857,7 @@ watch(isLinkMode, (enabled) => {
   if (!enabled) clearLinkDraft()
 })
 
-// 渐进可见集变化时同步布局：小幅展开 incremental，批量扩/缩 initial
+// 渐进可见集变化时同步布局：Force 保留坐标；Dagre 按增量/全量重排
 watch(canvasVisibleSignature, (next, prev) => {
   if (suppressFilterLayoutWatch) return
   // 首次回调或无 prev 时只同步边与重绘，避免误打 incremental
@@ -870,12 +871,19 @@ watch(canvasVisibleSignature, (next, prev) => {
     drawGraph()
     return
   }
+
+  // Force：分类/类型/搜索等可见集切换一律保留实体坐标，禁止 initial/incremental 重推挤
+  if (layoutMode.value === 'force') {
+    applyCanvasLayout('preserve')
+    return
+  }
+
   const nextCount = next ? next.split('\u0000').filter(Boolean).length : 0
   const prevCount = prev ? prev.split('\u0000').filter(Boolean).length : 0
   const delta = Math.abs(nextCount - prevCount)
   const bulkThreshold = Math.max(8, Math.ceil(Math.max(prevCount, 1) * 0.25))
 
-  // 同数量但成员变化、批量增减、收起：全量重排；小幅一跳展开：增量播种
+  // Dagre：同数量但成员变化、批量增减、收起：全量重排；小幅一跳展开：增量
   if (nextCount > prevCount && delta > 0 && delta < bulkThreshold) {
     applyCanvasLayout('incremental')
   } else {

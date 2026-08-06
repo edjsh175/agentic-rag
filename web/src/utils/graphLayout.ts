@@ -33,7 +33,8 @@ interface InternalLink extends SimulationLinkDatum<LayoutNode> {
   target: string | LayoutNode
 }
 
-export type GraphChangeMode = 'initial' | 'incremental'
+/** initial=全量重排；incremental=增量推挤；preserve=只同步可见集并钉住坐标（分类筛选用） */
+export type GraphChangeMode = 'initial' | 'incremental' | 'preserve'
 
 export interface GraphLayoutOptions {
   width: number
@@ -323,6 +324,27 @@ export const createGraphLayout = (options: GraphLayoutOptions): GraphLayoutContr
     const relationshipsOnlyChanged = relationshipsChanged && addedIds.size === 0 && removedIds.size === 0
     nodes = nextNodes
     edges = nextEdges
+
+    // 分类/筛选可见集切换：只同步仿真节点表，钉住已有坐标，禁止重播种与推挤
+    if (changeMode === 'preserve') {
+      nodes.forEach((node, index) => {
+        if (!isFinitePosition(node)) {
+          seedNode(node, index)
+        }
+        node.vx = 0
+        node.vy = 0
+        node.fx = node.x
+        node.fy = node.y
+      })
+      simulation.nodes(nodes)
+      linkForce.links(edges.map(edge => ({ source: edge.source, target: edge.target })))
+      nodes.forEach(node => seenNodeIds.add(node.id))
+      activeNodeIds.clear()
+      nodes.forEach(node => activeNodeIds.add(node.id))
+      activeEdgeSignature = nextEdgeSignature
+      freezeSimulation()
+      return
+    }
 
     const bulkExpansionThreshold = Math.max(12, Math.ceil(nodes.length * 0.2))
     const isBulkExpansion = changeMode === 'incremental' && addedIds.size >= bulkExpansionThreshold

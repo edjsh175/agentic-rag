@@ -82,6 +82,37 @@ describe('graphLayout', () => {
     layout.destroy()
   })
 
+  it('preserve mode keeps existing coordinates when visibility shrinks or restores', () => {
+    const nodes = [
+      node('a', 120, 180),
+      node('b', 260, 220),
+      node('c', 400, 160),
+    ]
+    const layout = createGraphLayout({ width: 800, height: 600, autoStart: false })
+    layout.setGraph(nodes, [edge('a', 'b'), edge('b', 'c')], 'initial')
+    layout.tick(800)
+    const before = nodes.map(item => ({ id: item.id, x: item.x, y: item.y }))
+
+    layout.setGraph([nodes[0], nodes[2]], [], 'preserve')
+    expect(nodes[0].x).toBe(before[0].x)
+    expect(nodes[0].y).toBe(before[0].y)
+    expect(nodes[2].x).toBe(before[2].x)
+    expect(nodes[2].y).toBe(before[2].y)
+    expect(nodes[0].fx).toBe(nodes[0].x)
+    expect(nodes[0].fy).toBe(nodes[0].y)
+    expect(layout.getAlpha()).toBe(0)
+
+    layout.setGraph(nodes, [edge('a', 'b'), edge('b', 'c')], 'preserve')
+    expect(nodes[0].x).toBe(before[0].x)
+    expect(nodes[0].y).toBe(before[0].y)
+    expect(nodes[1].x).toBe(before[1].x)
+    expect(nodes[1].y).toBe(before[1].y)
+    expect(nodes[2].x).toBe(before[2].x)
+    expect(nodes[2].y).toBe(before[2].y)
+    expect(layout.getAlpha()).toBe(0)
+    layout.destroy()
+  })
+
   it('re-solves when relationships change without a node change', () => {
     const nodes = [node('a', 100, 100), node('b', 400, 100)]
     const layout = createGraphLayout({ width: 800, height: 600, autoStart: false })

@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: add progressive reveal neighbors and seed controls to KnowledgeGraphView"
+    commit_msg = "fix: preserve Force layout positions when filtering KnowledgeGraphView"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
