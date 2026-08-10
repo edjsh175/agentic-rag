@@ -19,7 +19,25 @@ def _profiles_path(data_dir: Path) -> Path:
     src = Path(__file__).resolve().parents[1] / "data" / "migrations" / "retrieval_intent_profiles_v1.json"
     dst = data_dir / "migrations" / "retrieval_intent_profiles_v1.json"
     dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    import json
+    p_data = json.loads(src.read_text(encoding="utf-8"))
+    sibling_group = [
+        "\u7ba1\u7ebf\u70b9\u8868", "\u70b9\u6570\u636e\u7ed3\u6784",
+        "\u7ba1\u7ebf\u7ebf\u8868", "\u7ebf\u8868\u6570\u636e\u7ed3\u6784",
+        "\u7ba1\u7ebf\u9762\u8868", "\u9762\u8868\u6570\u636e\u7ed3\u6784"
+    ]
+    for item in p_data:
+        if item["id"] == "pipeline_point_table":
+            item["entity_aliases"] = ["\u7ba1\u7ebf\u70b9\u8868", "\u70b9\u6570\u636e\u7ed3\u6784"]
+            item["sibling_penalty_groups"] = [sibling_group]
+        elif item["id"] == "pipeline_line_table":
+            item["entity_aliases"] = ["\u7ba1\u7ebf\u7ebf\u8868", "\u7ebf\u8868\u6570\u636e\u7ed3\u6784"]
+            item["sibling_penalty_groups"] = [sibling_group]
+        elif item["id"] == "pipeline_face_table":
+            item["entity_aliases"] = ["\u7ba1\u7ebf\u9762\u8868", "\u9762\u8868\u6570\u636e\u7ed3\u6784"]
+            item["sibling_penalty_groups"] = [sibling_group]
+    dst.write_text(json.dumps(p_data, ensure_ascii=False, indent=2), encoding="utf-8")
     return dst
 
 

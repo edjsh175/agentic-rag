@@ -480,6 +480,9 @@ def test_pipeline_include_llm_fails_when_ollama_down(isolated_storage, monkeypat
         "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
         lambda **kwargs: (_ for _ in ()).throw(OllamaUnreachableError("down")),
     )
+    # Force provider to ollama to ensure ollama reachability validation runs
+    from rag_knowledge.config import Config
+    monkeypatch.setattr(Config().graph_extraction_llm, "provider", "ollama")
     chunks = [chunk(chunk_id="c1", content="x", doc_category="StampTools")]
     with pytest.raises(OllamaUnreachableError):
         GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(include_llm=True)

@@ -135,6 +135,7 @@ class VectorStoreMetadataTests(unittest.TestCase):
                 patch("rag_knowledge.repository.vector_store.OllamaEmbeddings"):
             cfg_cls.return_value.ollama_base_url = "http://localhost:11434"
             cfg_cls.return_value.collection_name = "rag_knowledge"
+            cfg_cls.return_value.embedding_endpoint.resolved_base_url = MagicMock(return_value="http://localhost:11434")
 
             store.set_embedding_model("other-model")
 

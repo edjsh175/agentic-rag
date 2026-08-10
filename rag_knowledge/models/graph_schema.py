@@ -30,6 +30,7 @@ class EntityType(str, Enum):
     # 第二层：领域概念
     product = "Product"
     tool = "Tool"
+    utility = "Utility"              # 辅助程序/二进制，不可与主工具平权挂 Product
     service = "Service"
     module = "Module"
     function_area = "FunctionArea"
@@ -130,12 +131,21 @@ VALID_RELATION_PAIRS: dict[str, list[tuple[str, str]]] = {
         for target_type in (EntityType.document, EntityType.section, EntityType.function_area)
     ],
     # 领域概念
+    # Tool/Service may belong_to Module for non-layer groupings (e.g. 服务部署).
+    # Architecture-layer Modules must not be ownership parents — enforced in
+    # backbone_ownership / GraphQualityService, not by banning all Module parents.
     RelationType.belongs_to: [
         (EntityType.product, EntityType.product),
         (EntityType.product, EntityType.module),
         (EntityType.tool, EntityType.product),
         (EntityType.tool, EntityType.module),
         (EntityType.tool, EntityType.tool),
+        (EntityType.utility, EntityType.tool),
+        (EntityType.utility, EntityType.service),
+        (EntityType.utility, EntityType.procedure),
+        (EntityType.utility, EntityType.function_area),
+        (EntityType.utility, EntityType.module),
+        (EntityType.utility, EntityType.feature),
         (EntityType.service, EntityType.product),
         (EntityType.service, EntityType.module),
         (EntityType.service, EntityType.service),

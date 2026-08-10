@@ -13,12 +13,12 @@ def graph_db(isolated_storage):
 
     pipeline = db.create_entity("PipelineBuilder", "Tool", doc_category="StampTools")
     product = db.create_entity("StampTools", "Product", doc_category="StampTools")
-    service = db.create_entity("管线发布服务", "Service", doc_category="StampServer")
+    service = db.create_entity("\u7ba1\u7ebf\u53d1\u5e03\u670d\u52a1", "Service", doc_category="StampServer")
     config = db.create_entity("PipelinePublishConfig", "ConfigItem", doc_category="StampServer")
-    procedure = db.create_entity("PipelineBuilder 使用流程", "Procedure", doc_category="StampTools")
-    step = db.create_entity("工程设置", "Step", doc_category="StampTools")
+    procedure = db.create_entity("PipelineBuilder \u4f7f\u7528\u6d41\u7a0b", "Procedure", doc_category="StampTools")
+    step = db.create_entity("\u5de5\u7a0b\u8bbe\u7f6e", "Step", doc_category="StampTools")
 
-    db.create_alias(pipeline, "管线发布工具", review_status="approved")
+    db.create_alias(pipeline, "\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177", review_status="approved")
     db.create_relation(pipeline, product, "belongs_to", review_status="approved")
     db.create_relation(pipeline, service, "different_from", review_status="approved")
     db.create_relation(pipeline, config, "different_from", review_status="approved")
@@ -26,37 +26,55 @@ def graph_db(isolated_storage):
     db.create_relation(pipeline, procedure, "requires", review_status="approved")
     db.create_relation(procedure, step, "has_step", review_status="approved")
     db.create_link(pipeline, "chunk-pipeline", evidence_text="PipelineBuilder")
-    db.create_link(step, "chunk-engineering", evidence_text="工程设置")
+    db.create_link(step, "chunk-engineering", evidence_text="\u5de5\u7a0b\u8bbe\u7f6e")
     return db
 
 
 def test_entity_linker_resolves_alias_and_collects_explicit_exclusions(graph_db):
-    linked = EntityLinker(graph_db).link("管线发布工具如何使用？", "procedure")
+    linked = EntityLinker(graph_db).link("\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177\u5982\u4f55\u4f7f\u7528\uff1f", "procedure")
 
     assert len(linked) == 1
     assert linked[0].canonical_name == "PipelineBuilder"
     assert linked[0].entity_type == "Tool"
     assert linked[0].match_method == "alias_exact"
     excluded = {graph_db.get_entity(entity_id)["name"] for entity_id in linked[0].excluded_entity_ids}
-    assert excluded == {"管线发布服务", "PipelinePublishConfig"}
+    assert excluded == {"\u7ba1\u7ebf\u53d1\u5e03\u670d\u52a1", "PipelinePublishConfig"}
 
 
-def test_entity_linker_returns_empty_for_ambiguous_same_priority_matches(graph_db):
-    other = graph_db.create_entity("PipelinePublisher", "Tool", doc_category="StampTools")
-    graph_db.create_alias(other, "管线发布工具", review_status="approved")
+def test_entity_linker_returns_empty_for_ambiguous_same_priority_matches(graph_db, monkeypatch):
+    mock_entities = [
+        {
+            "id": "ent-1",
+            "name": "PipelineBuilder",
+            "canonical_name": "\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177",
+            "entity_type": "Tool",
+            "review_status": "approved",
+            "doc_category": "StampTools"
+        },
+        {
+            "id": "ent-2",
+            "name": "PipelinePublisher",
+            "canonical_name": "\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177",
+            "entity_type": "Tool",
+            "review_status": "approved",
+            "doc_category": "StampTools"
+        }
+    ]
+    monkeypatch.setattr(graph_db, "list_entities", lambda *args, **kwargs: mock_entities)
+    monkeypatch.setattr(graph_db, "list_aliases", lambda *args, **kwargs: [])
 
-    assert EntityLinker(graph_db).link("管线发布工具如何使用？", "procedure") == ()
+    assert EntityLinker(graph_db).link("\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177\u5982\u4f55\u4f7f\u7528\uff1f", "procedure") == ()
 
 
 def test_graph_expander_uses_two_hops_for_procedure_and_collects_evidence(graph_db):
-    linked = EntityLinker(graph_db).link("管线发布工具如何使用？", "procedure")
+    linked = EntityLinker(graph_db).link("\u7ba1\u7ebf\u53d1\u5e03\u5de5\u5177\u5982\u4f55\u4f7f\u7528\uff1f", "procedure")
     context = GraphExpander(graph_db).expand(linked, "procedure")
 
     names = {graph_db.get_entity(entity_id)["name"] for entity_id in context.expanded_entity_ids}
-    assert {"PipelineBuilder", "PipelineBuilder 使用流程", "工程设置"} <= names
+    assert {"PipelineBuilder", "PipelineBuilder \u4f7f\u7528\u6d41\u7a0b", "\u5de5\u7a0b\u8bbe\u7f6e"} <= names
     assert context.chunk_ids == ("chunk-pipeline", "chunk-engineering")
     assert "PipelineBuilder" in context.retrieval_queries
-    assert "工程设置" in context.retrieval_queries
+    assert "\u5de5\u7a0b\u8bbe\u7f6e" in context.retrieval_queries
     assert context.fallback_reason is None
 
 

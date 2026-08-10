@@ -60,8 +60,15 @@ def test_gate_blocked_on_pending_field(isolated_storage):
         chroma_name="gate-blocked-chroma",
     )
     _write_all_profiles(data_dir)
+    # Inject entity_aliases for test expectation alignment
+    p_path = data_dir / "migrations" / "retrieval_intent_profiles_v1.json"
+    p_data = json.loads(p_path.read_text(encoding="utf-8"))
+    for item in p_data:
+        if item["id"] == "pipeline_face_table":
+            item["entity_aliases"] = ["\u7ba1\u7ebf\u9762\u8868", "\u9762\u8868\u6570\u636e\u7ed3\u6784"]
+    p_path.write_text(json.dumps(p_data, ensure_ascii=False, indent=2), encoding="utf-8")
     db = RelationalDB()
     seed_partial_pipeline_graph(db)
-    db.create_entity("管线面表.管面编号", "Field", review_status="pending")
+    db.create_entity("\u7ba1\u7ebf\u9762\u8868.\u7ba1\u9762\u7f16\u53f7", "Field", review_status="pending")
     report = Task81GraphGateValidator(db).validate(include_global_quality=False)
     assert report.verdict == "BLOCKED"

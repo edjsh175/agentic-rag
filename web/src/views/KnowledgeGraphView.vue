@@ -63,6 +63,7 @@ const colors: Record<string, string> = {
   Product: '#a855f7',      // 紫色
   Layer: '#0891b2',        // 亮青色（架构层）
   Tool: '#3b82f6',         // 蓝色
+  Utility: '#64748b',      // 灰蓝：辅助程序，低于主工具
   Service: '#10b981',      // 绿色
   Module: '#14b8a6',       // 青色
   FunctionArea: '#0284c7', // 亮青天蓝色

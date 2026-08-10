@@ -91,8 +91,8 @@ class QueryPlannerTests(unittest.TestCase):
             ["Turnserver TLS 端口说明", "Turnserver TLS 端口配置"],
         )
         self.assertTrue(all(query.weight == 0.6 for query in conflict_queries))
-        self.assertEqual(plan.top_k, 6)
-        self.assertEqual(plan.candidate_k, 18)
+        self.assertEqual(plan.top_k, max(self.planner._cfg.retrieval_top_k, 6))
+        self.assertEqual(plan.candidate_k, max(self.planner._cfg.retrieval_candidate_k, 18))
 
     def test_explicit_port_values_add_evidence_scope_queries(self):
         self.planner._classify_via_llm = MagicMock(return_value=("config", 0.95))
@@ -102,7 +102,7 @@ class QueryPlannerTests(unittest.TestCase):
         )
 
         self.assertIn("planner_conflict", [query.kind for query in plan.queries])
-        self.assertEqual(plan.top_k, 6)
+        self.assertEqual(plan.top_k, max(self.planner._cfg.retrieval_top_k, 6))
 
     def test_table_and_config_values_add_evidence_scope_queries(self):
         self.planner._classify_via_llm = MagicMock(return_value=("config", 0.95))

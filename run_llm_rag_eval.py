@@ -19,18 +19,19 @@ from rag_knowledge.config import Config
 from rag_knowledge.services.rag import RagChain
 
 # Benchmark Targets
+# 本轮仅评测远端 119（含 deepseek-r1:8b）；本地 3060ti 保留配置但注释，避免重复耗时。
 SERVERS = [
-    {
-        "name": "3060ti (本地)",
-        "ollama_url": "http://localhost:11434",
-        "gpu_agent_url": "http://localhost:11435",
-        "models": ["qwen3.5:4b", "qwen3.5:9b", "gemma4:12b"]
-    },
+    # {
+    #     "name": "3060ti (本地)",
+    #     "ollama_url": "http://localhost:11434",
+    #     "gpu_agent_url": "http://localhost:11435",
+    #     "models": ["qwen3.5:4b", "qwen3.5:9b", "gemma4:12b"]
+    # },
     {
         "name": "3070ti (远端)",
         "ollama_url": "http://192.168.10.119:11434",
         "gpu_agent_url": "http://192.168.10.119:11435",
-        "models": ["qwen3.5:4b", "qwen3.5:9b", "gemma4:12b", "gemma4:e2b", "gemma4:e4b", "gemma3:4b"]
+        "models": ["qwen3.5:4b", "qwen3.5:9b", "gemma4:12b", "gemma4:e2b", "gemma4:e4b", "gemma3:4b", "deepseek-r1:8b"]
     }
 ]
 
@@ -86,27 +87,42 @@ def unload_model(ollama_url, model):
     except Exception:
         pass
 
+# 定义需要排除的格式噪音与高频无意义通用词
+IGNORED_KEYWORDS = {
+    "---", "...", "....................................................................................................................................",
+    "可以", "以下", "允许", "依次", "代表", "的", "了", "和", "是", "在", "等", "进行", "需要", "以及", "通过",
+    "on", "so", "in", "at", "by", "for", "with", "to", "of", "and", "or", "the", "a", "an", "is", "are"
+}
+
 def calculate_keywords_score(answer: str, expected_targets: list) -> float:
     if not expected_targets:
         return 1.0
-    
+
     # Collect all unique keywords from targets
     all_keywords = set()
     for target in expected_targets:
         keywords = target.get("keywords", [])
         for kw in keywords:
-            if kw.strip():
-                all_keywords.add(kw.strip().lower())
-                
+            kw_clean = kw.strip().lower()
+            # 过滤掉长度小于等于1的字符，以及停用词
+            if len(kw_clean) > 1 and kw_clean not in IGNORED_KEYWORDS:
+                all_keywords.add(kw_clean)
+
     if not all_keywords:
         return 1.0
-        
+
     answer_lower = answer.lower()
     hit_count = 0
     for kw in all_keywords:
-        if kw in answer_lower:
-            hit_count += 1
-            
+        # 如果是纯英文字母/数字，使用前后非字母边界保护，防止 matches 诸如 these/also
+        if kw.isalnum() and kw.isascii():
+            pattern = rf"(?<![a-zA-Z]){re.escape(kw)}(?![a-zA-Z])"
+            if re.search(pattern, answer_lower):
+                hit_count += 1
+        else:
+            if kw in answer_lower:
+                hit_count += 1
+
     return hit_count / len(all_keywords)
 
 def _merge_thinking_output(raw_answer: str) -> tuple[str, str]:
@@ -121,6 +137,27 @@ def _merge_thinking_output(raw_answer: str) -> tuple[str, str]:
         return stripped, stripped
 
 def _enforce_model_binding(m: str, server: dict):
+    # 1. 锁定向量服务地址（在改写 ollama_base_url 之前），防止 embedding 跟随被测服务器漂移。
+    #    本地 chroma_db 是按 158 的 qwen3-embedding:latest（4096 维）构建的；
+    #    若 embedding 漂移到如 119 的 qwen3-embedding:4b（2560 维），检索会因维度不匹配返回空 context。
+    #    仅在未显式配置时锁定为当前解析地址（config.ini 默认 158）。
+    embed_original = Config().embedding_endpoint.resolved_base_url(Config().ollama_base_url)
+    if not Config().embedding_endpoint.base_url:
+        Config().embedding_endpoint = dataclasses.replace(
+            Config().embedding_endpoint,
+            base_url=embed_original,
+        )
+    # 2. 锁定 helper_llm（路由/改写/摘要）到绑定前的模型与地址，保证各被测模型走同一检索路径。
+    #    若 helper 跟随被测模型，会系统性改变召回，导致“更守规矩的大模型拒答更多→准确率更低”。
+    helper_ep = Config().helper_llm_endpoint
+    helper_original_url = helper_ep.resolved_base_url(Config().ollama_base_url)
+    helper_original_model = helper_ep.model
+    Config().helper_llm_endpoint = dataclasses.replace(
+        helper_ep,
+        base_url=helper_original_url,
+    )
+    Config().helper_llm_model = helper_original_model
+    # 3. 仅绑定生成用 LLM 到当前被测服务器与模型
     Config().ollama_base_url = server["ollama_url"]
     Config().llm_endpoint = dataclasses.replace(
         Config().llm_endpoint,
@@ -128,14 +165,12 @@ def _enforce_model_binding(m: str, server: dict):
         model=m,
         base_url=server["ollama_url"]
     )
-    Config().helper_llm_endpoint = dataclasses.replace(
-        Config().helper_llm_endpoint,
-        provider="ollama",
-        model=m,
-        base_url=server["ollama_url"]
-    )
-    assert Config().llm_endpoint.model == Config().helper_llm_endpoint.model == m
+    assert Config().llm_endpoint.model == m
     assert Config().llm_endpoint.base_url == server["ollama_url"]
+    assert Config().helper_llm_endpoint.model == helper_original_model
+    assert Config().helper_llm_endpoint.resolved_base_url(Config().ollama_base_url) == helper_original_url
+    # 4. embedding 端点保持绑定前解析地址，不随 ollama_base_url 漂移
+    assert Config().embedding_endpoint.resolved_base_url(Config().ollama_base_url) == embed_original
 
 def _check_ollama_available(ollama_url: str) -> bool:
     try:
@@ -196,39 +231,39 @@ def _preflight_servers(servers: list) -> list:
 
 def run_benchmark():
     print("=== STARTING FULL-PIPELINE RAG LLM BENCHMARK ===")
-    
+
     # Load Evaluation Dataset
     dataset_path = Path("data/eval_dataset.json")
     if not dataset_path.exists():
         print(f"ERROR: Dataset not found at {dataset_path}")
         return
-        
+
     with open(dataset_path, "r", encoding="utf-8") as f:
         dataset = json.load(f)
-        
+
     test_subset = dataset[:MAX_RAG_QUESTIONS]
     print(f"Loaded {len(dataset)} items. Selected top {len(test_subset)} questions for RAG evaluation.")
-    
+
     # Initialize RagChain
     print("Initializing RagChain...")
     chain = RagChain()
-    
+
     all_results = []
-    
+
     # Preflight servers: check connectivity & model availability
     print("\n--- Preflight: 检查各服务器与模型可用性 ---")
     enriched_servers = _preflight_servers(SERVERS)
-    
+
     for server_idx, server in enumerate(enriched_servers):
         original_server = SERVERS[server_idx]
         print(f"\n==========================================")
         print(f"测试服务器: {server['name']} ({server['ollama_url']})")
         print(f"==========================================")
-        
+
         for model_info in server["models"]:
             m = model_info["name"]
             model_available = model_info["available"]
-            
+
             if not model_available:
                 print(f"\n------ 模型: {m}  [UNAVAILABLE] ------")
                 all_results.append({
@@ -247,10 +282,10 @@ def run_benchmark():
                 continue
 
             print(f"\n------ 模型: {m} ------")
-            
+
             # Enforce model binding via helper
             _enforce_model_binding(m, server)
-            
+
             # 0. Health check Ollama before starting
             if not _check_ollama_available(server["ollama_url"]):
                 print(f"  Ollama 不可达，跳过模型 {m}")
@@ -268,18 +303,22 @@ def run_benchmark():
                     "avg_answer_chars": 0.0
                 })
                 continue
-            
+
             # 1. Unload all models to measure Idle VRAM
             print("正在卸载其他模型...")
             for other_model in original_server["models"]:
                 unload_model(server["ollama_url"], other_model)
-            time.sleep(1.5)
-            
+            # 额外卸载本机常见常驻模型，避免显存残留污染净增读数
+            for extra in ("qwen3.5:4b", "qwen3.5:9b", "gemma4:12b", "gemma4:e4b", "gemma3:4b", "deepseek-r1:8b", "qwen3-embedding:4b"):
+                if extra not in original_server["models"]:
+                    unload_model(server["ollama_url"], extra)
+            time.sleep(3.0)
+
             idle_stats = get_gpu_vram(server["gpu_agent_url"])
             idle_vram = idle_stats["used"] if idle_stats else None
-            
+
             print(f"Idle VRAM: {idle_vram if idle_vram is not None else 'n/a'} MiB")
-            
+
             # 2. Warm up / Load model
             print("正在加载并预热模型...")
             warmup_ok = True
@@ -319,24 +358,24 @@ def run_benchmark():
             # 3. Run RAG test subset
             per_question = []
             peak_vram = loaded_vram or 0
-            
+
             print(f"开始运行 {len(test_subset)} 个真实 RAG 问题测试...")
             for idx, item in enumerate(test_subset):
                 q = item["question"]
                 targets = item.get("expected_targets", [])
-                
+
                 # Fetch VRAM before request
                 before_stats = get_gpu_vram(server["gpu_agent_url"])
-                
+
                 t0 = time.time()
                 res, q_status = _run_query_with_timeout(
                     chain, q, m, thinking=False, ollama_url=server["ollama_url"]
                 )
                 t1 = time.time()
-                
+
                 # Fetch VRAM after request
                 after_stats = get_gpu_vram(server["gpu_agent_url"])
-                
+
                 # Compute VRAM peak
                 cur_peak = max(
                     before_stats["used"] if before_stats else 0,
@@ -386,7 +425,7 @@ def run_benchmark():
 
             # Clean up/unload
             unload_model(server["ollama_url"], m)
-            
+
             # Compute aggregates from OK results only
             ok_results = [x for x in per_question if x["status"] == "OK"]
             non_empty_rate = sum(1 for r in ok_results if r["body"].strip()) / len(ok_results) if ok_results else 0.0
@@ -427,13 +466,13 @@ def run_benchmark():
 
     # Generate Markdown Report
     md = build_report_md(all_results)
-    
+
     docs_dir = Path("docs")
     docs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(docs_dir / "model-eval-report.md", "w", encoding="utf-8") as f:
         f.write(md)
-        
+
     print("\n===== BENCHMARK REPORT COMPLETED =====")
     print(f"Saved to: docs/model-eval-report.md")
 
@@ -462,7 +501,7 @@ def build_report_md(results) -> str:
         "| 运行服务器 | 模型名称 | 状态 | 关键词匹配准确率 | 非空率 | Sources 命中率 | 平均字数 | tok/s | 延迟 ms | 空闲显存 | 净增显存 | 峰值显存 |"
     )
     lines.append("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
-    
+
     for r in results:
         status_str = r.get("status", "OK" if r["available"] else "UNAVAILABLE")
         if status_str in ("UNAVAILABLE", "ERROR") or not r["available"]:
@@ -470,7 +509,7 @@ def build_report_md(results) -> str:
                 f"| {r['server']} | {r['model']} | {status_str} | - | - | - | - | - | - | - | - | - |"
             )
             continue
-            
+
         score_pct = f"{r['rag_score']*100:.0f}%"
         non_empty_pct = f"{r.get('non_empty_rate', 0.0)*100:.0f}%"
         has_src_pct = f"{r.get('has_sources_rate', 0.0)*100:.0f}%"
@@ -480,18 +519,19 @@ def build_report_md(results) -> str:
         idle_str = f"{r['idle_vram']}" if r.get('idle_vram') is not None else "-"
         delta_str = f"{r['delta_vram']}" if r.get('delta_vram') is not None else "-"
         peak_str = f"{r['peak_vram']}" if r.get('peak_vram') is not None else "-"
-        
+
         lines.append(
             f"| {r['server']} | {r['model']} | {status_str} | {score_pct} | {non_empty_pct} | {has_src_pct} | {avg_chars_str} | {speed_str} | {latency_str} | {idle_str} | {delta_str} | {peak_str} |"
         )
-        
+
     lines.append("")
     lines.append("## 2. 每台机器 Top3 推荐")
     lines.append("")
-    
-    server_keys = [s["name"] for s in SERVERS]
+
+    # 从实际结果动态提取服务器列表，避免依赖当前 SERVERS 注释状态
+    server_keys = list(dict.fromkeys(r["server"] for r in results))
     top_selections = {}
-    
+
     for server_name in server_keys:
         rows = [r for r in results if r["server"] == server_name and r["available"] and r.get("status") not in ("UNAVAILABLE", "ERROR")]
         if not rows:
@@ -501,24 +541,24 @@ def build_report_md(results) -> str:
             lines.append("")
             top_selections[server_name] = []
             continue
-            
+
         rag_scores = [r["rag_score"] for r in rows]
         avg_speeds = [r["avg_speed"] for r in rows]
         peak_vrams = [1.0 / max(r.get("peak_vram") or 1.0, 1.0) for r in rows]
-        
+
         score_norms = min_max_norm(rag_scores)
         speed_norms = min_max_norm(avg_speeds)
         vram_norms = min_max_norm(peak_vrams)
-        
+
         scored_rows = []
         for i, r in enumerate(rows):
             composite = 0.4 * score_norms[i] + 0.3 * speed_norms[i] + 0.3 * vram_norms[i]
             scored_rows.append((composite, r))
-            
+
         scored_rows.sort(key=lambda x: x[0], reverse=True)
         top3 = scored_rows[:3]
         top_selections[server_name] = top3
-        
+
         lines.append(f"### {server_name} Top3 推荐")
         lines.append("")
         for rank, (comp_score, r) in enumerate(top3, 1):
@@ -527,13 +567,13 @@ def build_report_md(results) -> str:
             peak_str = f"{r.get('peak_vram') or '-'}"
             lines.append(f"{rank}. **{r['model']}** — 综合分 {comp_score:.3f} | RAG Score: {score_pct} | tok/s: {speed_str} | 峰值显存: {peak_str} MiB")
         lines.append("")
-    
+
     lines.append("## 3. 综合选型结论")
     lines.append("")
-    
+
     local_server_name = "3060ti (本地)"
     remote_server_name = "3070ti (远端)"
-    
+
     local_top = top_selections.get(local_server_name, [])
     if local_top:
         comp, r = local_top[0]
@@ -541,7 +581,7 @@ def build_report_md(results) -> str:
     else:
         lines.append("1) **本地 3060ti 场景**：当前无可用模型，建议先安装 4B-9B 级轻量模型。")
     lines.append("")
-    
+
     remote_top = top_selections.get(remote_server_name, [])
     if remote_top:
         comp, r = remote_top[0]
@@ -549,10 +589,10 @@ def build_report_md(results) -> str:
     else:
         lines.append("2) **远端 3070ti 场景**：当前无可用模型。")
     lines.append("")
-    
+
     lines.append("3) **跨机器协同场景建议**：远端 3070ti 常驻首选高精度模型（如 Gemma 系列 4B-9B 级），承担需要精确关键词匹配的复杂问答；本地 3060ti 则部署 4B 级轻量模型负责低延迟快速响应与日常交互。**明确不建议本地 3060ti 上 gemma4:12b**，该模型在 8GB 显存下极易发生显存溢出导致 PARTIAL/TIMEOUT，严重拖慢响应效率。")
     lines.append("")
-    
+
     return "\n".join(lines)
 
 def _selftest():
@@ -590,6 +630,7 @@ The real body text.
         # Force endpoints to something known
         fresh_cfg.llm_endpoint = ModelEndpoint(role="llm", provider="ollama", model="old:1b", base_url="")
         fresh_cfg.helper_llm_endpoint = ModelEndpoint(role="helper_llm", provider="ollama", model="oldhelper:1b", base_url="")
+        fresh_cfg.embedding_endpoint = ModelEndpoint(role="embedding", provider="ollama", model="oldembed:1b", base_url="")
         fresh_cfg.ollama_base_url = "http://old:11434"
 
         test_server = {"ollama_url": "http://testhost:11434", "name": "t", "gpu_agent_url": ""}
@@ -598,10 +639,16 @@ The real body text.
 
         assert Config().ollama_base_url == "http://testhost:11434"
         assert Config().llm_endpoint.model == test_model
-        assert Config().helper_llm_endpoint.model == test_model
         assert Config().llm_endpoint.base_url == "http://testhost:11434"
         assert Config().llm_endpoint.provider == "ollama"
+        # helper_llm 应保持绑定前模型与地址，不跟随被测模型
+        assert Config().helper_llm_endpoint.model == "oldhelper:1b"
         assert Config().helper_llm_endpoint.provider == "ollama"
+        assert Config().helper_llm_endpoint.resolved_base_url(Config().ollama_base_url) == "http://old:11434"
+        assert Config().helper_llm_model == "oldhelper:1b"
+        # embedding 端点应锁定为绑定前的解析地址，不随 ollama_base_url 漂移到被测服务器
+        assert Config().embedding_endpoint.base_url == "http://old:11434"
+        assert Config().embedding_endpoint.resolved_base_url(Config().ollama_base_url) == "http://old:11434"
         print("[selftest] TR-1.2 passed.")
     finally:
         Config._instance = saved_instance
@@ -732,7 +779,7 @@ The real body text.
     assert "3070ti (远端) Top3 推荐" in md, "Missing 远端 3070ti Top3 推荐 section"
     assert "## 3. 综合选型结论" in md, "Missing 综合选型结论 section"
     assert "已知免责说明" in md, "Missing 已知免责说明"
-    
+
     local_3060ti_rows = [r for r in mock_results if r["server"] == "3060ti (本地)" and r["available"] and r.get("status") not in ("UNAVAILABLE", "ERROR")]
     rag_scores = [r["rag_score"] for r in local_3060ti_rows]
     avg_speeds = [r["avg_speed"] for r in local_3060ti_rows]
@@ -746,7 +793,7 @@ The real body text.
         scored.append((comp, r["model"]))
     scored.sort(key=lambda x: x[0], reverse=True)
     expected_top1_model = scored[0][1]
-    
+
     local_section_start = md.find("3060ti (本地) Top3 推荐")
     local_section_end = md.find("3070ti (远端) Top3 推荐", local_section_start)
     local_section = md[local_section_start:local_section_end]
@@ -757,5 +804,5 @@ The real body text.
     print("\n[selftest] ALL TESTS PASSED.")
 
 if __name__ == "__main__":
-    _selftest()
-    # run_benchmark()
+    # _selftest()
+    run_benchmark()

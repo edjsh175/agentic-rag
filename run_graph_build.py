@@ -97,6 +97,14 @@ def build_parser() -> argparse.ArgumentParser:
     quality.add_argument("--profile", choices=("partial", "full"), default="full")
     quality.add_argument("--llm", action="store_true")
 
+    coverage = sub.add_parser(
+        "coverage",
+        help="Catalog Tool extraction-coverage matrix (leaves vs structure-only)",
+    )
+    coverage.add_argument("--product", action="append", dest="products", help="Product name; default StampTools")
+    coverage.add_argument("--strict", action="store_true", help="exit 1 when top-level tools lack extraction leaves")
+    coverage.add_argument("--json", action="store_true", dest="as_json")
+
     rebuild_safe = sub.add_parser("rebuild-safe")
     rebuild_mode = rebuild_safe.add_mutually_exclusive_group(required=True)
     rebuild_mode.add_argument("--dry-run", action="store_true")
@@ -482,6 +490,25 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         report = quality.inspect_graph(profile=args.profile) if args.graph else quality.inspect_llm_batch(args.batch) if args.llm else quality.inspect_batch(args.batch)
         _print({"ok": report.ok, "errors": report.errors, "warnings": report.warnings, "stats": report.stats})
         return 0 if report.ok else 1
+
+    if args.command == "coverage":
+        from rag_knowledge.services.extraction_coverage import ExtractionCoverageService
+
+        products = args.products or ["StampTools"]
+        service = ExtractionCoverageService(db)
+        reports = [service.inspect_product(name).as_dict() for name in products]
+        uncovered = sum(item["top_level_uncovered"] for item in reports)
+        missing = sum(item["missing_tools"] for item in reports)
+        payload = {
+            "ok": uncovered == 0 and missing == 0,
+            "products": reports,
+            "uncovered_total": uncovered,
+            "missing_total": missing,
+        }
+        _print(payload)
+        if args.strict and (uncovered or missing):
+            return 1
+        return 0
 
     if args.command == "rebuild-safe":
         if args.execute:

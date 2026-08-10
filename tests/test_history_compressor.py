@@ -34,6 +34,13 @@ class TestHistoryCompressor(unittest.TestCase):
             max_raw_rounds=4
         )
         self.main_cfg = MagicMock(spec=Config)
+        endpoint_mock = self.main_cfg.endpoint_for.return_value
+        endpoint_mock.normalized_provider.return_value = "ollama"
+        endpoint_mock.resolved_base_url.return_value = "http://localhost:11434"
+        endpoint_mock.max_retries = 3
+        endpoint_mock.concurrency_limit = 5
+        endpoint_mock.role = "helper_llm"
+        endpoint_mock.model = "helper-model"
         self.main_cfg.ollama_base_url = "http://localhost:11434"
         self.main_cfg.llm_model = "test-model"
         self.main_cfg.helper_llm_model = "helper-model"
@@ -146,7 +153,7 @@ class TestHistoryCompressor(unittest.TestCase):
 
         self.compressor._generate_summary.assert_not_called()
 
-    @patch("httpx.post")
+    @patch("httpx.Client.post")
     def test_compression_exceeds_limit_with_caching(self, mock_post):
         # 5 轮（10条消息），大于 max_raw_rounds (4)
         # 会保留最近 min_raw_rounds (2轮=4条消息) 也就是最后4条为原始消息
@@ -185,7 +192,7 @@ class TestHistoryCompressor(unittest.TestCase):
         self.assertEqual(summary_cached, "这是 1-3 轮的摘要")
         self.assertEqual(mock_post.call_count, 1)  # 仍然是 1
 
-    @patch("httpx.post")
+    @patch("httpx.Client.post")
     def test_incremental_compression(self, mock_post):
         # 准备历史对话：首先触发第 1 阶段的压缩
         history_step1 = [

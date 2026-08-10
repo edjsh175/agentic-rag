@@ -9,9 +9,32 @@ from rag_knowledge.services.graph_extraction.pipeline import GraphCandidateAppli
 from rag_knowledge.repository.relational_db import RelationalDB
 
 
+@pytest.fixture(autouse=True)
+def mock_backbone_constraints(monkeypatch):
+    mock_data = {
+        "belongs_to": {"ActiveX": {"StampGIS Client"}},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [{"source": "ActiveX", "relation_type": "belongs_to", "target": "StampGIS Client"}],
+        "canonical_by_alias": {"ActiveX": "ActiveX"},
+        "entity_type_by_name": {"ActiveX": "Module"},
+        "doc_category_by_name": {},
+        "doc_categories": set(),
+    }
+    monkeypatch.setattr(
+        "rag_knowledge.services.backbone_guard.load_backbone_constraints",
+        lambda *args, **kwargs: mock_data
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda *args, **kwargs: mock_data
+    )
+
+
 def test_llm_extractor_rejects_backbone_conflicts():
     """Verify LLMGraphExtractor drops entities/relations conflicting with official backbone."""
-    constraints = load_backbone_constraints()
+    import rag_knowledge.services.backbone_guard as bb_guard
+    constraints = bb_guard.load_backbone_constraints()
 
     # Entity type conflict: ActiveX is a Module in official product_relation_backbone.json
     conflict_ent = describe_conflict("entity", {"name": "ActiveX", "entity_type": "Procedure"}, constraints)

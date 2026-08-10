@@ -297,8 +297,12 @@ class EntityTypeEnum(str, Enum):
     # --- 第二层：领域概念 ---
     product = "Product"
     tool = "Tool"
+    utility = "Utility"
     service = "Service"
     module = "Module"
+    function_area = "FunctionArea"
+    feature = "Feature"
+    constraint = "Constraint"
     data_table = "DataTable"
     field = "Field"
     config_item = "ConfigItem"
@@ -308,6 +312,8 @@ class EntityTypeEnum(str, Enum):
     step = "Step"
     error = "Error"
     solution = "Solution"
+    environment_component = "EnvironmentComponent"
+    command = "Command"
     # --- 旧版兼容别名 ---
     legacy_module = "功能模块"
     legacy_data_file = "数据文件"

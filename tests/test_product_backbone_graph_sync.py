@@ -67,7 +67,7 @@ def test_product_backbone_rejects_illegal_relation(tmp_path):
                     {"name": "A", "entity_type": "Tool", "aliases": []},
                     {"name": "B", "entity_type": "Tool", "aliases": []},
                 ],
-                "relations": [{"source": "A", "relation_type": "belongs_to", "target": "B", "note": "bad"}],
+                "relations": [{"source": "A", "relation_type": "has_step", "target": "B", "note": "bad"}],
             },
             ensure_ascii=False,
         ),

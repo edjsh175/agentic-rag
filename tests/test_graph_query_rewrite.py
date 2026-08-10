@@ -67,12 +67,32 @@ def test_soft_match_backbone_stamp_manager():
     assert soft_match_backbone_entities("StampTools 是什么", constraints) == ["StampGIS Tools"]
 
 
-def test_soft_match_live_backbone_oral_pipeline_tool():
+def test_soft_match_live_backbone_oral_pipeline_tool(monkeypatch):
     """A2: oral「管线工具」must soft-hit PipelineBuilder on live backbone JSON."""
+    mock_data = {
+        "belongs_to": {},
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {
+            "PipelineBuilder": "PipelineBuilder",
+            "\u7ba1\u7ebf\u5de5\u5177": "PipelineBuilder",
+            "\u7ba1\u7ebf\u53d1\u5e03\u670d\u52a1": "\u7ba1\u7ebf\u53d1\u5e03\u670d\u52a1"
+        },
+        "entity_type_by_name": {
+            "PipelineBuilder": "Tool"
+        },
+        "doc_categories": set()
+    }
+    monkeypatch.setattr(
+        "rag_knowledge.services.backbone_guard.load_backbone_constraints",
+        lambda *args, **kwargs: mock_data
+    )
+
     from rag_knowledge.services.backbone_guard import load_backbone_constraints
 
     constraints = load_backbone_constraints()
-    hits = soft_match_backbone_entities("管线工具是什么", constraints)
+    hits = soft_match_backbone_entities("\u7ba1\u7ebf\u5de5\u5177\u662f\u4ec0\u4e48", constraints)
     assert "PipelineBuilder" in hits
     assert "PipelineWebGL" not in hits
 
@@ -146,14 +166,8 @@ def test_graph_query_rewriter_parses_llm_json(rewrite_db):
     context = GraphContext(linked_entities=(linked,), expanded_entity_ids=(pipeline,))
     rewriter = GraphQueryRewriter(Config(), db)
 
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {
-        "message": {
-            "content": '{"queries":["PipelineBuilder 使用流程","PipelineBuilder 工程设置"]}'
-        }
-    }
-    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
+    mock_resp = '{"queries":["PipelineBuilder \\u4f7f\\u7528\\u6d41\\u7a0b","PipelineBuilder \\u5de5\\u7a0b\\u8bbe\\u7f6e"]}'
+    with patch("rag_knowledge.llm_http.chat_role", return_value=mock_resp):
         specs = rewriter.rewrite("管线发布工具怎么用？", context)
 
     assert specs
@@ -197,14 +211,8 @@ def test_backbone_anchor_from_llm_json(isolated_storage):
         "doc_categories": set(),
     }
     rewriter = GraphQueryRewriter(Config())
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {
-        "message": {
-            "content": _json_payload_stamp_manager(),
-        }
-    }
-    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
+    mock_resp = _json_payload_stamp_manager()
+    with patch("rag_knowledge.llm_http.chat_role", return_value=mock_resp):
         result = rewriter.anchor_from_backbone("stamp manager 是什么", constraints=constraints)
 
     assert result.canonical_entities == ("StampManager",)
@@ -234,7 +242,7 @@ def test_backbone_anchor_heuristic_without_llm(isolated_storage):
     }
     rewriter = GraphQueryRewriter(Config())
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.ollama_post",
+        "rag_knowledge.llm_http.chat_role",
         side_effect=RuntimeError("ollama down"),
     ):
         result = rewriter.anchor_from_backbone("介绍 StampManager", constraints=constraints)
@@ -262,19 +270,13 @@ def test_soft_hits_override_wrong_llm_canonical(isolated_storage):
         "doc_categories": set(),
     }
     rewriter = GraphQueryRewriter(Config())
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {
-        "message": {
-            "content": (
-                '{"deconstruct":{"primary_intent":"product_relation","surface_terms":["PipelineBuilder"]},'
-                '"canonical_entities":["PipelineWebGL"],"avoid":[],'
-                '"anchored_queries":["PipelineWebGL 产品介绍"],'
-                '"relation_focus":["PipelineWebGL"]}'
-            )
-        }
-    }
-    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
+    mock_resp = (
+        '{"deconstruct":{"primary_intent":"product_relation","surface_terms":["PipelineBuilder"]},'
+        '"canonical_entities":["PipelineWebGL"],"avoid":[],'
+        '"anchored_queries":["PipelineWebGL \\u4ea7\\u54c1\\u4ecb\\u7ecd"],'
+        '"relation_focus":["PipelineWebGL"]}'
+    )
+    with patch("rag_knowledge.llm_http.chat_role", return_value=mock_resp):
         result = rewriter.anchor_from_backbone(
             "PipelineBuilder 属于哪个产品",
             constraints=constraints,
@@ -297,19 +299,13 @@ def test_anchor_fills_query_when_llm_repeats_question(isolated_storage):
         "doc_categories": set(),
     }
     rewriter = GraphQueryRewriter(Config())
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {
-        "message": {
-            "content": (
-                '{"deconstruct":{"primary_intent":"product_intro","surface_terms":["StampManager"]},'
-                '"canonical_entities":["StampManager"],"avoid":[],'
-                '"anchored_queries":["介绍一下 StampManager"],'
-                '"relation_focus":[]}'
-            )
-        }
-    }
-    with patch("rag_knowledge.services.graph_query_rewrite.ollama_post", return_value=mock_resp):
+    mock_resp = (
+        '{"deconstruct":{"primary_intent":"product_intro","surface_terms":["StampManager"]},'
+        '"canonical_entities":["StampManager"],"avoid":[],'
+        '"anchored_queries":["\\u4ecb\\u7ecd\\u4e00\\u4e0b StampManager"],'
+        '"relation_focus":[]}'
+    )
+    with patch("rag_knowledge.llm_http.chat_role", return_value=mock_resp):
         result = rewriter.anchor_from_backbone("介绍一下 StampManager", constraints=constraints)
     assert result.canonical_entities == ("StampManager",)
     assert result.anchored_queries
@@ -337,7 +333,7 @@ def test_comparison_alias_queries_not_collapsed(isolated_storage):
     }
     rewriter = GraphQueryRewriter(Config())
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.ollama_post",
+        "rag_knowledge.llm_http.chat_role",
         side_effect=RuntimeError("down"),
     ):
         result = rewriter.anchor_from_backbone(
@@ -361,7 +357,7 @@ def test_graph_query_rewriter_falls_back_on_llm_failure(rewrite_db):
     )
     rewriter = GraphQueryRewriter(Config(), db)
     with patch(
-        "rag_knowledge.services.graph_query_rewrite.ollama_post",
+        "rag_knowledge.llm_http.chat_role",
         side_effect=RuntimeError("ollama down"),
     ):
         specs = rewriter.rewrite("怎么用？", context, summary=summary)

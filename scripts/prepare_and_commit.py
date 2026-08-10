@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement GPU status monitoring and add Trae / local config overrides to ignore list"
+    commit_msg = "feat: implement backbone ownership, entity type guard, and extraction coverage analysis"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

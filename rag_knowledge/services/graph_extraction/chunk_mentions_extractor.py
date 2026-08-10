@@ -19,6 +19,7 @@ from typing import List, Dict, Set, Optional
 FORBIDDEN_ENTITY_TYPES = frozenset({
     "Product",
     "Tool",
+    "Utility",
     "Service",
     "FunctionArea",
     "Document",

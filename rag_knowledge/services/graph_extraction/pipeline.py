@@ -626,6 +626,9 @@ class GraphBuilder:
                             self._reject_illegal_relation(
                                 batch_id, candidate_id, payload, type_index, candidate_ids
                             )
+                            self._reject_redundant_has_table_relation(
+                                batch_id, candidate_id, payload, type_index, candidate_ids
+                            )
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
@@ -1341,6 +1344,63 @@ class GraphBuilder:
         self.db.review_extraction_candidates(batch_id, [diagnostic_id], "rejected", reason)
         candidate_ids["diagnostic"].add(diagnostic_id)
 
+    def _reject_redundant_has_table_relation(
+        self,
+        batch_id: str,
+        candidate_id: str,
+        payload: dict,
+        type_index: dict[str, str],
+        candidate_ids: dict[str, set[str]],
+    ) -> None:
+        """Reject has_table relation at staging when the DataTable already belongs to a FunctionArea."""
+        relation_type = str(payload.get("relation_type") or "")
+        if relation_type != "has_table":
+            return
+        source_name = str(payload.get("source_name") or "")
+        target_name = str(payload.get("target_name") or "")
+        source_type = self._lookup_entity_type(type_index, source_name) or ""
+        target_type = self._lookup_entity_type(type_index, target_name) or ""
+        if source_type not in {"Tool", "Service", "Product"} or target_type != "DataTable":
+            return
+
+        has_func_area_belonging = False
+        import sqlite3
+        with self.db._get_conn() as conn:
+            # 1. Check if the current batch contains a belongs_to candidate for this DataTable mapping to a FunctionArea
+            candidates = conn.execute(
+                "SELECT payload_json FROM extraction_candidates WHERE batch_id = ? AND candidate_kind = 'relation' AND status != 'rejected'",
+                (batch_id,)
+            ).fetchall()
+            for cand in candidates:
+                try:
+                    p = json.loads(cand["payload_json"])
+                    if (str(p.get("relation_type") or "") == "belongs_to"
+                        and str(p.get("source_name") or "") == target_name):
+                        t_parent = str(p.get("target_name") or "")
+                        t_parent_type = self._lookup_entity_type(type_index, t_parent) or ""
+                        if t_parent_type == "FunctionArea":
+                            has_func_area_belonging = True
+                            break
+                except Exception:
+                    continue
+
+            # 2. Check if the main graph relations table already has this belongs_to mapping
+            if not has_func_area_belonging:
+                row_rel = conn.execute(
+                    "SELECT e2.entity_type FROM relations r "
+                    "JOIN entities e1 ON r.source_entity_id = e1.id "
+                    "JOIN entities e2 ON r.target_entity_id = e2.id "
+                    "WHERE e1.name = ? AND r.relation_type = 'belongs_to' AND e2.entity_type = 'FunctionArea'",
+                    (target_name,)
+                ).fetchone()
+                if row_rel:
+                    has_func_area_belonging = True
+
+        if has_func_area_belonging:
+            self.db.review_extraction_candidates(
+                batch_id, [candidate_id], "rejected", "redundant_has_table_relationship"
+            )
+
     @staticmethod
     def _remember_batch_identity(
         batch_type_index: dict[str, str],
@@ -1482,11 +1542,22 @@ class GraphCandidateApplier:
         raise ValueError(f"unsupported candidate kind: {kind}")
 
     def _entity(self, conn: sqlite3.Connection, payload: dict) -> str:
+        from rag_knowledge.services.entity_type_guard import coerce_entity_type
+
         name = normalize_entity_name(payload["name"])
+        entity_type = coerce_entity_type(name, payload.get("entity_type") or "")
         row = self._lookup_entity_or_none(conn, name)
         if row:
-            if row["entity_type"] != payload["entity_type"]:
-                raise ValueError(f"entity type conflict: {name}")
+            existing_type = str(row["entity_type"] or "")
+            if existing_type != entity_type:
+                # Allow Tool -> Utility coercion for binary misclassifications already in DB.
+                if existing_type == "Tool" and entity_type == "Utility":
+                    conn.execute(
+                        "UPDATE entities SET entity_type = ?, updated_at = ? WHERE id = ?",
+                        (entity_type, self.db._now(), row["id"]),
+                    )
+                else:
+                    raise ValueError(f"entity type conflict: {name}")
             entity_id = str(row["id"])
             if payload.get("source_chunk_id"):
                 self._link(conn, {
@@ -1504,7 +1575,7 @@ class GraphCandidateApplier:
         conn.execute(
             "INSERT INTO entities (id, name, canonical_name, entity_type, properties_json, doc_category, confidence, review_status, created_by, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)",
-            (entity_id, name, name, payload["entity_type"], properties, payload.get("doc_category") or "", confidence, created_by, now, now),
+            (entity_id, name, name, entity_type, properties, payload.get("doc_category") or "", confidence, created_by, now, now),
         )
         if payload.get("source_chunk_id"):
             self._link(conn, {
@@ -1598,6 +1669,20 @@ class GraphCandidateApplier:
             return ""
         if relation_type == "belongs_to" and (source["entity_type"] in {"Document", "Section"} or target["entity_type"] in {"Document", "Section"}):
             return ""
+        from rag_knowledge.services.backbone_ownership import is_architecture_layer_name
+
+        if (
+            relation_type == "belongs_to"
+            and is_architecture_layer_name(str(target["name"] or ""))
+            and source["entity_type"] in {"Tool", "Service", "Product"}
+        ):
+            return ""
+        if (
+            relation_type == "belongs_to"
+            and source["entity_type"] == "Utility"
+            and target["entity_type"] == "Product"
+        ):
+            return ""
         if relation_type == "alias_of":
             return self._alias(conn, {
                 "entity_name": str(target["name"]),
@@ -1688,7 +1773,8 @@ class GraphQualityService:
         ("PipelineBuilder", "has_table", "管线点表"),
         ("管线发布服务", "belongs_to", "StampServer"),
         ("管线发布服务", "uses_config", "PipelinePublishConfig"),
-        ("DOMBuilder", "belongs_to", "StampTools"),
+        ("DOMBuilder", "belongs_to", "TerrainBuilder"),
+        ("TerrainBuilder", "belongs_to", "StampTools"),
     ]
 
     def __init__(self, db: RelationalDB | None = None):
@@ -1816,6 +1902,43 @@ class GraphQualityService:
             if not ok:
                 report.errors.append(f"illegal_relation:{row['id']}")
 
+        # --- Catalog ownership (Tool/Service must not hang on architecture layers) ---
+        from rag_knowledge.services.backbone_ownership import (
+            belongs_to_parents_from_relations,
+            find_ownership_gaps,
+        )
+
+        entity_types = {name: meta["entity_type"] for name, meta in entities.items()}
+        parents = belongs_to_parents_from_relations(
+            relations,
+            source_key="source_name",
+            target_key="target_name",
+        )
+        ownership_gaps = find_ownership_gaps(
+            entity_types=entity_types,
+            belongs_to_parents=parents,
+        )
+        report.stats["catalog_ownership_gap_count"] = len(ownership_gaps)
+        for gap in ownership_gaps:
+            report.errors.append(gap.code() if gap.reason == "missing_owner_edge" else f"{gap.reason}:{gap.child}:{gap.expected_parent}")
+
+        from rag_knowledge.services.entity_type_guard import looks_like_utility_name
+
+        utility_misclassified = 0
+        utility_product_parents = 0
+        for name, meta in entities.items():
+            etype = meta.get("entity_type") or ""
+            if etype == "Tool" and looks_like_utility_name(name):
+                utility_misclassified += 1
+                report.errors.append(f"utility_misclassified_as_tool:{name}")
+            if etype == "Utility":
+                for parent in parents.get(name) or []:
+                    if entity_types.get(parent) == "Product":
+                        utility_product_parents += 1
+                        report.errors.append(f"utility_belongs_to_product:{name}:{parent}")
+        report.stats["utility_misclassified_as_tool_count"] = utility_misclassified
+        report.stats["utility_belongs_to_product_count"] = utility_product_parents
+
         # --- Orphan entities ---
         connected = {row["source_entity_id"] for row in relations} | {row["target_entity_id"] for row in relations} | links
         for entity in entities.values():
@@ -1916,5 +2039,26 @@ class GraphQualityService:
         report.stats["business_entity_count"] = business_count
         report.stats["total_entities"] = total_entities
         report.stats["total_relations"] = len(relations)
+
+        # --- Extraction coverage contract (catalog top-level tools) ---
+        from rag_knowledge.services.extraction_coverage import ExtractionCoverageService
+
+        coverage_products = ["StampTools", "StampServer"]
+        coverage_matrix = []
+        uncovered_total = 0
+        for product_name in coverage_products:
+            product_report = ExtractionCoverageService(self.db).inspect_product(product_name)
+            coverage_matrix.append(product_report.as_dict())
+            for row in product_report.uncovered_top_level:
+                uncovered_total += 1
+                report.warnings.append(
+                    f"extraction_coverage_gap:{product_name}:{row.tool}"
+                )
+            for row in product_report.missing_tools:
+                report.warnings.append(
+                    f"extraction_coverage_missing_tool:{product_name}:{row.tool}"
+                )
+        report.stats["extraction_coverage"] = coverage_matrix
+        report.stats["extraction_coverage_gap_count"] = uncovered_total
 
         return report

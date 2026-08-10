@@ -105,14 +105,14 @@ def test_recover_has_step_when_endpoints_ready(isolated_storage):
 
 def test_recover_skips_type_conflict_diagnostic(isolated_storage):
     db = make_db(isolated_storage, name="diag.db", data_dir_name="diag-data", chroma_name="diag-chroma")
-    _add_entity(db, "工程设置长路径Section", "Section")  # substring collision source
+    _add_entity(db, "\u5de5\u7a0b\u8bbe\u7f6e\u957f\u8def\u5f84Section", "Procedure")  # substring collision source
     src_batch = db.create_extraction_batch("full", {"include_llm": True}, "snap")
     # exact name type conflict in formal DB
-    _add_entity(db, "冲突名", "Tool")
+    _add_entity(db, "\u51b2\u7a81\u540d", "Tool")
     _rejected_entity(
         src_batch,
         db,
-        name="冲突名",
+        name="\u51b2\u7a81\u540d",
         et="Procedure",
         conf=0.9,
         resolution_action="diagnostic",
@@ -121,7 +121,7 @@ def test_recover_skips_type_conflict_diagnostic(isolated_storage):
     _rejected_entity(
         src_batch,
         db,
-        name="工程设置",
+        name="\u5de5\u7a0b\u8bbe\u7f6e",
         et="Procedure",
         conf=0.9,
         resolution_action="diagnostic",
@@ -140,8 +140,8 @@ def test_recover_skips_type_conflict_diagnostic(isolated_storage):
         include_possible_duplicate=True,
     )
     names = {e.payload["name"] for e in lifted.entities}
-    assert "工程设置" in names
-    assert "冲突名" not in names
+    assert "\u5de5\u7a0b\u8bbe\u7f6e" in names
+    assert "\u51b2\u7a81\u540d" not in names
 
 
 def test_recover_relations_cli_dry_run_and_stage(isolated_storage, tmp_path, capsys):

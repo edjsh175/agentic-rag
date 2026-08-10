@@ -51,6 +51,24 @@ def test_section_path_extractor_creates_function_area():
     assert result.entity("StampTools用户手册.docx").entity_type == "Document"
 
 
+def test_section_path_extractor_creates_leaf_capability_function_area():
+    """Two-level Tool > 数据规范 must not skip the capability leaf."""
+    chunk = {
+        "chunk_id": "c101",
+        "content": "倾斜摄影数据规范…",
+        "metadata": {
+            "source": "StampTools用户手册.docx",
+            "doc_category": "StampTools",
+            "section_path": "ObliqueModelBuilder > 数据规范",
+        },
+    }
+    result = SectionPathExtractor().extract(chunk)
+    fa = result.entity("ObliqueModelBuilder::数据规范")
+    assert fa is not None
+    assert fa.entity_type == "FunctionArea"
+    assert result.has_relation("ObliqueModelBuilder::数据规范", "belongs_to", "ObliqueModelBuilder")
+
+
 def test_llm_extractor_rejects_llm_created_function_area(isolated_storage):
     isolated_storage(db_name="llm_fa.db", data_dir_name="llm_fa_data", chroma_name="llm_fa_chroma")
     extractor = LLMGraphExtractor()

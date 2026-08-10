@@ -38,6 +38,10 @@ def setup_integration_env(isolated_storage, monkeypatch):
     db.create_link(omb, "chunk-omb", evidence_text="ObliqueModelBuilder 使用指南")
     db.create_link(pb, "chunk-pb", evidence_text="PipelineBuilder 使用指南")
     
+    # Establish different_from relations to active exclusion guard logic
+    db.create_relation(mb, "different_from", uemb, review_status="approved")
+    db.create_relation(mb, "different_from", omb, review_status="approved")
+
     # Mock Vector Store and Chroma Collection
     class MockChromaCollection:
         def get(self, ids, include):
@@ -88,7 +92,7 @@ def setup_integration_env(isolated_storage, monkeypatch):
                         docs.append(Document(page_content="ObliqueModelBuilder content", metadata={"chunk_id": "chunk-omb", "source": "chunk-omb.md", "doc_category": "ObliqueModelBuilderDoc", "review_status": "approved"}))
                     if "pipelinebuilder" in entities_in_query:
                         docs.append(Document(page_content="PipelineBuilder content", metadata={"chunk_id": "chunk-pb", "source": "chunk-pb.md", "doc_category": "PipelineBuilderDoc", "review_status": "approved"}))
-                    if "modelbuilder" in entities_in_query:
+                    if "modelbuilder" in entities_in_query and not any(x in entities_in_query for x in ["uemodelbuilder", "obliquemodelbuilder"]):
                         docs.append(Document(page_content="ModelBuilder content", metadata={"chunk_id": "chunk-mb", "source": "chunk-mb.md", "doc_category": "ModelBuilderDoc", "review_status": "approved"}))
                     return docs
                 def get_relevant_documents(self, query):
@@ -167,7 +171,7 @@ def test_scenario_5_omb_followup():
         {"role": "user", "content": "ModelBuilder如何使用？"},
         {"role": "assistant", "content": "ModelBuilder 是一个用于建模的工具。", "sources": [{"file_name": "chunk-mb.md", "chunk_id": "chunk-mb"}]}
     ]
-    resp = chain.query("obliqueModelBuilder呢？", history=history)
+    resp = chain.query("obliqueModelBuilder\u5462\uff1f", history=history)
     assert resp["answer"] != NO_KNOWLEDGE_ANSWER
     assert any(doc.get("metadata", {}).get("chunk_id") == "chunk-omb" for doc in resp["source_documents"])
     assert "ObliqueModelBuilder" in resp["answer"]

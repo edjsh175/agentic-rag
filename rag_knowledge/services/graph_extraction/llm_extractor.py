@@ -26,7 +26,7 @@ from .evidence_span import repair_evidence_span
 logger = logging.getLogger(__name__)
 
 ALLOWED_ENTITY_TYPES = {
-    "Product", "Tool", "Service", "Module", "EnvironmentComponent",
+    "Product", "Tool", "Utility", "Service", "Module", "EnvironmentComponent",
     "Feature", "Constraint",
     "Procedure", "Step", "Command", "ConfigItem", "Error", "Solution"
 }
@@ -312,6 +312,9 @@ class LLMGraphExtractor:
                 continue
 
             etype = maybe_reclassify_as_command(etype, name)
+            from rag_knowledge.services.entity_type_guard import coerce_entity_type
+
+            etype = coerce_entity_type(name, etype)
 
             if is_generic_entity_name(name) and etype in {
                 "Procedure",
@@ -319,6 +322,7 @@ class LLMGraphExtractor:
                 "Command",
                 "ConfigItem",
                 "Tool",
+                "Utility",
                 "Module",
             }:
                 result.diagnostics.append(

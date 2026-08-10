@@ -142,7 +142,7 @@ class RagRerankerIntegrationTests(unittest.TestCase):
 
         self.assertEqual([d["metadata"]["chunk_id"] for d in sources], ["0", "1", "2"])
         self.assertEqual(
-            list(diagnostics), ["retrieved", "post_rerank", "post_quality", "final"]
+            list(diagnostics), ["retrieved", "post_rerank", "post_quality", "post_anchor_filter", "final"]
         )
         self.assertEqual(
             [d.metadata["chunk_id"] for d in diagnostics["final"]], ["0", "1", "2"]

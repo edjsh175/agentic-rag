@@ -537,4 +537,7 @@ def test_belongs_to_allows_product_backbone_tree_edges():
 
     assert validate_relation("Tool", "belongs_to", "Module")[0]
     assert validate_relation("Service", "belongs_to", "Module")[0]
+    assert validate_relation("Tool", "belongs_to", "Product")[0]
+    assert validate_relation("Tool", "belongs_to", "Tool")[0]
+    assert validate_relation("Service", "belongs_to", "Product")[0]
     assert validate_relation("Module", "belongs_to", "Module")[0]

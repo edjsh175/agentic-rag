@@ -243,6 +243,8 @@ class LoaderSemanticChunkingTests(unittest.TestCase):
             extract_embedded_images=False,
             use_unstructured=True,
             unstructured_strategy="fast",
+            vision_endpoint=None,
+            embedding_endpoint=None,
         )
 
         with (
@@ -273,6 +275,8 @@ class LoaderSemanticChunkingTests(unittest.TestCase):
             extract_embedded_images=False,
             use_unstructured=False,
             unstructured_strategy="fast",
+            vision_endpoint=None,
+            embedding_endpoint=None,
         )
 
         with (

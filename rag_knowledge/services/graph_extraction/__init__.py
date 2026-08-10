@@ -180,10 +180,18 @@ class SectionPathExtractor:
             for idx, part in enumerate(parts):
                 if idx in owner_part_indexes:
                     continue
-                # Skip leaf part if there are multiple parts (leaves are for LLM entities or DataTables)
-                if idx == len(parts) - 1 and len(parts) > 1:
+                ctx = ClassifyContext(
+                    doc_category=category,
+                    source=source,
+                    parts=parts,
+                    depth=idx,
+                    owner_name=primary_owner,
+                )
+                c_type = self.fa_classifier.classify(part, ctx)
+                # Skip non-capability leaves (table titles / doc org); keep capability
+                # leaves such as "Tool > 数据规范" so umbrella chapters still get FA nodes.
+                if idx == len(parts) - 1 and len(parts) > 1 and c_type != "function_area":
                     continue
-                c_type = self.fa_classifier.classify(part, ClassifyContext(category, source, parts, idx))
                 if c_type == "function_area":
                     fa_scoped_name = f"{primary_owner}::{part}"
                     result.entities.append(

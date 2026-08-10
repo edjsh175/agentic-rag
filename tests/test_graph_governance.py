@@ -198,7 +198,8 @@ def test_profile_sync_review_cli_rejects_approve_all(isolated_storage):
         run_graph_build.main(["review", "--batch", batch_id, "--approve-all"], db=db)
 
 
-def test_is_production_false_under_pytest():
+def test_is_production_false_under_pytest(monkeypatch):
+    monkeypatch.delenv("ALLOW_LIVE_STORAGE_IN_TESTS", raising=False)
     assert not is_production_relational_db()
 
 

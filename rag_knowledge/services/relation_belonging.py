@@ -219,12 +219,16 @@ class RelationBelongingService:
 
         preferred = preferred_parent_from_section_path(section_path, candidates, parent)
         if preferred and _norm_key(preferred) != _norm_key(parent):
-            return BelongingDecision(
-                action=BelongingAction.REPLACE,
-                target_name=preferred,
-                reason="section_path_prefer_parent",
-                candidates=tuple(candidates),
-            )
+            if _norm_key(preferred) == _norm_key(child_name):
+                # Prevent belongs_to self-loop (e.g. PipelineBuilder::数据规范 -> PipelineBuilder::数据规范)
+                pass
+            else:
+                return BelongingDecision(
+                    action=BelongingAction.REPLACE,
+                    target_name=preferred,
+                    reason="section_path_prefer_parent",
+                    candidates=tuple(candidates),
+                )
 
         if not self.arbiter or len(candidates) <= 1:
             return BelongingDecision(
@@ -329,7 +333,9 @@ class LLMBelongingArbiter:
                 f"候选边: {child_name} -[belongs_to]-> {parent_name}\n"
                 f"可选父实体(replace 必须从中选): {alt_text}\n"
                 f"{type_hint}{path_block}{evidence_block}\n"
-                "约定: belongs_to 是子→父；优先更具体的 FunctionArea/Module，避免跳过中间上级挂到过粗的 Tool/Product。\n\n"
+                "约定: belongs_to 是子→父；优先更具体的 FunctionArea/父 Tool；"
+                "产品归属以 catalog 为准（Tool→Product / SubTool→Tool）；"
+                "禁止把「工具与数据处理层」等架构分层 Module 当作归属父节点（分层是 facet，不是父实体）。\n\n"
                 "只回答 JSON:\n"
                 '{"verdict":"accept"|"replace"|"reject"|"unsure","parent":"<one of candidates>","confidence":0.0}\n'
             )
