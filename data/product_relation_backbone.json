@@ -1,90 +1,129 @@
 {
   "schema_version": 1,
   "source_ref": "docs/3_待办清单/知识图谱语义抽取/已完成-第2.5轮-产品关系主干/产品关系材料/2026-07-16-产品实体分层清单-待业务确认.md",
-  "promoted_from": "product_relation_backbone_preview.json",
-  "promoted_at": "2026-08-07",
   "entities": [
     {
       "name": "StampGIS三维产品",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "产品体系层",
+      "layer": "产品体系层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampGIS Client",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "产品体系层",
+      "layer": "产品体系层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampServer",
       "entity_type": "Product",
       "aliases": [
+        "StampServer",
         "StampGIS Server"
       ],
-      "doc_category": "StampServer"
+      "doc_category": "产品体系层",
+      "layer": "产品体系层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampTools",
       "entity_type": "Product",
       "aliases": [
+        "StampTools",
         "StampGIS Tools"
       ],
-      "doc_category": "StampTools"
+      "doc_category": "产品体系层",
+      "layer": "产品体系层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampManager",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "产品体系层",
+      "layer": "产品体系层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "工具与数据处理层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "系统数据与存储层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "系统服务层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "客户端与渲染层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "业务应用层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "二次开发与集成层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "运维管理层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "运行与部署基础设施层",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "总体分层框架",
+      "layer": "总体分层框架",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "TerrainBuilder",
@@ -92,7 +131,10 @@
       "aliases": [
         "地形发布工具"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ModelBuilder",
@@ -100,7 +142,10 @@
       "aliases": [
         "模型工具"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "UEModelBuilder",
@@ -108,7 +153,10 @@
       "aliases": [
         "ue_model_tools"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ObliqueModelBuilder",
@@ -116,7 +164,10 @@
       "aliases": [
         "ObliqueBuilder 倾斜模型构建器"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "PipelineBuilder",
@@ -124,7 +175,10 @@
       "aliases": [
         "PiplineBuilder"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "点云数据处理工具",
@@ -132,181 +186,271 @@
       "aliases": [
         "PointCloudBuilder"
       ],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "DOMBuilder",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "DEMBuilder",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "TINBuilder",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "TINIncise",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "UE蓝图处理",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "UE材质集添加蓝图",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "UE导出插件",
       "entity_type": "Tool",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "工具与数据处理层",
+      "layer": "工具与数据处理层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "2D GIS数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "3D GIS数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "矢量数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "DEM数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "DOM数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "TIN数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "GRID数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ROAM数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "模型数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "BIM模型",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "倾斜数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "点云数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "高斯数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "管线数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "业务数据",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "3DTiles",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "I3S标准",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "WMS",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "WMTS",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "MVT",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统数据与存储层",
+      "layer": "系统数据与存储层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "授权服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Port服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Apache数据服务",
@@ -314,13 +458,19 @@
       "aliases": [
         "基础数据服务"
       ],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Nginx数据服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维搜索服务",
@@ -328,7 +478,10 @@
       "aliases": [
         "基础搜索服务"
       ],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维分析服务",
@@ -336,25 +489,37 @@
       "aliases": [
         "基础分析服务"
       ],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "管线查询服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "管线分析服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "网络分析服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "工程地质服务",
@@ -362,13 +527,19 @@
       "aliases": [
         "工程地质分析服务"
       ],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "管线更新服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "矢量瓦片服务",
@@ -376,541 +547,811 @@
       "aliases": [
         "矢量服务"
       ],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "矢量编辑服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维数据库服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维数据库发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维规划服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "GB28181视频服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "3DTiles服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "I3S服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "文件上传服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "影像发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "GRID发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ROAM发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "地形切割服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "模型LOD发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "倾斜发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "管线发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "部件发布服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Mesh转换服务",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_license.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_port.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_sde.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ngx_sde_module.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_search.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_analysis.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_query.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_pipeline.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_network.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_geologic.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_pipeline_publish_tool.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_geo_server.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_db_sde.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_db_query_pg.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_model_tool_publish.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_city_plan_pg.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_gb28181_module.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_w3ts.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_i3s.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_filedownload.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_dom.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_grid.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_roam.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_tin_incise.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_model_lod.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_oblique_publish.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_pipeline_publish.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_parts_publish.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "se_mesh_convert.so",
       "entity_type": "Service",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "ActiveX",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampUE",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "WebGL",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "WebRTC",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "C++ API",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "DirectX",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Vulkan",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "插件模式",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "免插件模式",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "CEGUI",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "generate_edit_active.dll",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "客户端与渲染层",
+      "layer": "客户端与渲染层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维规划审批",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "三维管线管理",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "地下基础设施管理",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "自然资源管理",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "BIM应用",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "CIM应用",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "应急管理",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "PipelineWebGL",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "业务应用层",
+      "layer": "业务应用层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "SDK",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "COM",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "HTTP",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "OGC",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "GB28181",
       "entity_type": "Format",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "二次开发与集成层",
+      "layer": "二次开发与集成层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Linux",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Windows 10",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Windows 11",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Apache HTTP Server",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Nginx",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "PostgreSQL",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "Oracle",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "SafeNet / aksusbd",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "运行与部署基础设施层",
+      "layer": "运行与部署基础设施层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "标准规范体系",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "标准与安全横向维度",
+      "layer": "标准与安全横向维度",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "安全保障体系",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "标准与安全横向维度",
+      "layer": "标准与安全横向维度",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "服务授权",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "标准与安全横向维度",
+      "layer": "标准与安全横向维度",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "图层访问控制",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "标准与安全横向维度",
+      "layer": "标准与安全横向维度",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "服务部署",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "系统服务层",
+      "layer": "系统服务层",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampWebGL",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "StampWebRTC",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": "StampWebRTC"
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "PipelineWebRTC",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "CityplanWebRTCView",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "CityplanWebRTCEditor",
       "entity_type": "Product",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     },
     {
       "name": "CentOS 7.8/7.9",
       "entity_type": "Module",
       "aliases": [],
-      "doc_category": ""
+      "doc_category": "主干",
+      "layer": "主干",
+      "subtype": "",
+      "description": ""
     }
   ],
   "relations": [
@@ -1487,6 +1928,11 @@
     {
       "source": "GB28181视频服务",
       "relation_type": "belongs_to",
+      "target": "服务部署"
+    },
+    {
+      "source": "服务部署",
+      "relation_type": "belongs_to",
       "target": "StampServer"
     },
     {
@@ -1630,11 +2076,6 @@
       "target": "服务部署"
     },
     {
-      "source": "GB28181视频服务",
-      "relation_type": "belongs_to",
-      "target": "服务部署"
-    },
-    {
       "source": "倾斜发布服务",
       "relation_type": "belongs_to",
       "target": "服务部署"
@@ -1725,165 +2166,32 @@
       "target": "StampTools"
     },
     {
-      "source": "管线发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer"
-    },
-    {
-      "source": "Apache数据服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "GRID发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "Mesh转换服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
       "source": "ModelBuilder",
       "relation_type": "belongs_to",
-      "target": "StampTools",
-      "note": "ownership:catalog"
+      "target": "StampTools"
     },
     {
       "source": "ObliqueModelBuilder",
       "relation_type": "belongs_to",
-      "target": "StampTools",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "Port服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "ROAM发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
+      "target": "StampTools"
     },
     {
       "source": "TerrainBuilder",
       "relation_type": "belongs_to",
-      "target": "StampTools",
-      "note": "ownership:catalog"
+      "target": "StampTools"
     },
     {
       "source": "UEModelBuilder",
       "relation_type": "belongs_to",
-      "target": "StampTools",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "三维分析服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "三维搜索服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "三维数据库服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "倾斜发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "地形切割服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "工程地质服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "影像发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "授权服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "模型LOD发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
+      "target": "StampTools"
     },
     {
       "source": "点云数据处理工具",
       "relation_type": "belongs_to",
-      "target": "StampTools",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "矢量瓦片服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "矢量编辑服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "管线分析服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "管线更新服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "管线查询服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "网络分析服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
-    },
-    {
-      "source": "部件发布服务",
-      "relation_type": "belongs_to",
-      "target": "StampServer",
-      "note": "ownership:catalog"
+      "target": "StampTools"
     }
-  ]
+  ],
+  "confirmed_at": "2026-08-07",
+  "promoted_at": "2026-08-10",
+  "promoted_from": "product_relation_backbone_preview.json"
 }

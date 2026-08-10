@@ -67,6 +67,8 @@ class RelationType(str, Enum):
     # 领域概念关系
     alias_of = "alias_of"            # Entity -> Entity (同一事物不同叫法)
     different_from = "different_from" # Entity -> Entity (明确不同的概念)
+    # Vertical ownership stays belongs_to. A planned component_of rename was deferred:
+    # full migration would rewrite backbone JSON, formal DB edges, guards, and prompts.
     belongs_to = "belongs_to"        # 子 -> 父 (PipelineBuilder -> StampTools)
     has_table = "has_table"          # Tool -> DataTable
     has_field = "has_field"          # DataTable -> Field

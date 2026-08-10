@@ -151,6 +151,8 @@ def is_safe_review_candidate(
         batch = batch or {}
         if batch.get("mode") == "product_backbone_seed":
             return _safe_product_backbone_alias_candidate(item, batch)
+        if batch.get("mode") == "domain_catalog_seed":
+            return _safe_domain_catalog_alias_candidate(item, batch)
         return _safe_profile_sync_alias_candidate(item, batch)
     payload = item["payload"]
     evidence_text = str(payload.get("evidence_text") or item.get("evidence_text") or "")
@@ -186,6 +188,16 @@ def _safe_product_backbone_alias_candidate(item: dict, batch: dict) -> bool:
         return False
     evidence = str(payload.get("evidence_text") or item.get("evidence_text") or "")
     return evidence.startswith("product_backbone:")
+
+
+def _safe_domain_catalog_alias_candidate(item: dict, batch: dict) -> bool:
+    if batch.get("mode") != "domain_catalog_seed":
+        return False
+    payload = item["payload"]
+    if payload.get("created_by") != "seed:domain_catalog":
+        return False
+    evidence = str(payload.get("evidence_text") or item.get("evidence_text") or "")
+    return evidence.startswith("domain_catalog:")
 
 
 def filter_approvable_candidate_ids(

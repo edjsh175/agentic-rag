@@ -2,6 +2,15 @@
 
 Success is measured against ``domain_catalog`` ownership, not candidate counts.
 Architecture layers / document Sections are out of scope here.
+
+Two tiers for top-level tools:
+- ``structure_ok``: chapter scaffold (FunctionArea) present
+- ``domain_ok``: navigational domain skeleton (Procedure / Feature / Table / Format / …)
+
+GUI ConfigItem and fine-grained Step do **not** count for ``domain_ok`` — those belong
+in evidence chunks, not as graph coverage credit.
+
+``covered`` / ``--strict`` / quality gaps use ``domain_ok``.
 """
 from __future__ import annotations
 
@@ -12,22 +21,34 @@ from typing import Any, Iterable
 from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 
-# Domain leaves produced by rule/LLM extraction (not backbone structure).
-EXTRACTION_LEAF_TYPES: frozenset[str] = frozenset(
+# Chapter-scaffold leaves from section_path rules (not domain facts).
+STRUCTURE_LEAF_TYPES: frozenset[str] = frozenset({"FunctionArea"})
+
+# Navigational domain leaves that justify graph storage (not GUI labels).
+DOMAIN_LEAF_TYPES: frozenset[str] = frozenset(
     {
-        "FunctionArea",
         "Feature",
         "DataTable",
         "Field",
         "Procedure",
-        "Step",
-        "ConfigItem",
-        "Constraint",
+        "Format",
         "Command",
         "Error",
         "Solution",
     }
 )
+
+# Tracked in samples but excluded from domain_ok gate.
+AUX_LEAF_TYPES: frozenset[str] = frozenset(
+    {
+        "ConfigItem",
+        "Step",
+        "Constraint",
+    }
+)
+
+# Union for neighborhood sampling / leaf_type_counts.
+EXTRACTION_LEAF_TYPES: frozenset[str] = STRUCTURE_LEAF_TYPES | DOMAIN_LEAF_TYPES | AUX_LEAF_TYPES
 
 _EXTRACTION_CREATED_PREFIXES = ("rule:", "llm:")
 
@@ -44,17 +65,32 @@ class ToolCoverageRow:
     top_level: bool
     tool_present: bool
     extraction_leaf_count: int = 0
+    structure_leaf_count: int = 0
+    domain_leaf_count: int = 0
     leaf_type_counts: dict[str, int] = field(default_factory=dict)
     sample_leaves: list[str] = field(default_factory=list)
 
     @property
-    def covered(self) -> bool:
+    def structure_ok(self) -> bool:
+        if not self.tool_present:
+            return False
+        if not self.top_level:
+            return True
+        return self.structure_leaf_count > 0 or self.domain_leaf_count > 0
+
+    @property
+    def domain_ok(self) -> bool:
         if not self.tool_present:
             return False
         if not self.top_level:
             # Subtools inherit coverage expectation from parent; presence is enough.
             return True
-        return self.extraction_leaf_count > 0
+        return self.domain_leaf_count > 0
+
+    @property
+    def covered(self) -> bool:
+        """Strict gate alias: domain knowledge, not scaffold alone."""
+        return self.domain_ok
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -63,8 +99,12 @@ class ToolCoverageRow:
             "top_level": self.top_level,
             "tool_present": self.tool_present,
             "extraction_leaf_count": self.extraction_leaf_count,
+            "structure_leaf_count": self.structure_leaf_count,
+            "domain_leaf_count": self.domain_leaf_count,
             "leaf_type_counts": dict(self.leaf_type_counts),
             "sample_leaves": list(self.sample_leaves),
+            "structure_ok": self.structure_ok,
+            "domain_ok": self.domain_ok,
             "covered": self.covered,
         }
 
@@ -77,7 +117,12 @@ class ProductCoverageReport:
 
     @property
     def uncovered_top_level(self) -> list[ToolCoverageRow]:
-        return [row for row in self.tools if row.top_level and not row.covered]
+        """Domain gaps (strict gate)."""
+        return [row for row in self.tools if row.top_level and not row.domain_ok]
+
+    @property
+    def structure_uncovered_top_level(self) -> list[ToolCoverageRow]:
+        return [row for row in self.tools if row.top_level and not row.structure_ok]
 
     @property
     def missing_tools(self) -> list[ToolCoverageRow]:
@@ -85,13 +130,21 @@ class ProductCoverageReport:
 
     def as_dict(self) -> dict[str, Any]:
         top = [row for row in self.tools if row.top_level]
-        covered = [row for row in top if row.covered]
+        structure_covered = [row for row in top if row.structure_ok]
+        domain_covered = [row for row in top if row.domain_ok]
         return {
             "product": self.product,
             "top_level_total": len(top),
-            "top_level_covered": len(covered),
-            "top_level_uncovered": len(top) - len(covered),
+            "top_level_structure_covered": len(structure_covered),
+            "top_level_structure_uncovered": len(top) - len(structure_covered),
+            "top_level_domain_covered": len(domain_covered),
+            "top_level_domain_uncovered": len(top) - len(domain_covered),
+            # Back-compat aliases = domain tier (strict gate).
+            "top_level_covered": len(domain_covered),
+            "top_level_uncovered": len(top) - len(domain_covered),
             "missing_tools": len(self.missing_tools),
+            "structure_uncovered_tools": [row.tool for row in self.structure_uncovered_top_level],
+            "domain_uncovered_tools": [row.tool for row in self.uncovered_top_level],
             "uncovered_tools": [row.tool for row in self.uncovered_top_level],
             "skipped_catalog_tools": list(self.skipped_catalog_tools),
             "tools": [row.as_dict() for row in self.tools],
@@ -160,6 +213,12 @@ class ExtractionCoverageService:
                 continue
             present = bool(meta) and meta.get("entity_type") == "Tool"
             leaves = self._extraction_leaves_for_tool(tool, graph) if present else {}
+            structure_count = sum(
+                len(names) for etype, names in leaves.items() if etype in STRUCTURE_LEAF_TYPES
+            )
+            domain_count = sum(
+                len(names) for etype, names in leaves.items() if etype in DOMAIN_LEAF_TYPES
+            )
             sample: list[str] = []
             for leaf_type, names in sorted(leaves.items()):
                 for name in sorted(names):
@@ -171,7 +230,9 @@ class ExtractionCoverageService:
                     owner=owner,
                     top_level=top_level,
                     tool_present=present,
-                    extraction_leaf_count=sum(len(v) for v in leaves.values()),
+                    extraction_leaf_count=structure_count + domain_count,
+                    structure_leaf_count=structure_count,
+                    domain_leaf_count=domain_count,
                     leaf_type_counts={k: len(v) for k, v in sorted(leaves.items())},
                     sample_leaves=sample,
                 )
@@ -248,7 +309,12 @@ class ExtractionCoverageService:
                     nxt.add(child)
                     seen.add(child)
                 for rel, target in outbound.get(node, []):
-                    if rel.startswith("has_") or rel in {"uses_config", "causes", "solved_by"}:
+                    if rel.startswith("has_") or rel in {
+                        "uses_config",
+                        "supports_format",
+                        "causes",
+                        "solved_by",
+                    }:
                         if target not in seen:
                             nxt.add(target)
                             seen.add(target)

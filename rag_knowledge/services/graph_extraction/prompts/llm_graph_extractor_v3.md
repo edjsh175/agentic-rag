@@ -58,6 +58,9 @@ When unsure about direction, prefer omitting the relation rather than reversing 
 
 # Allowed Relation Types
 - belongs_to: Part-of relationship, child belongs to parent.
+  Hierarchy rule for Service: prefer Service → Module「服务部署」→ Product「StampServer」.
+  Do NOT emit Service → Product skip edges (especially Service → StampServer) unless the
+  official backbone/catalog already allowlists that exact ownership.
 - requires: A general dependency (e.g., one component requires another).
 - depends_on: Environment/software dependency (e.g., Service depends_on PostgreSQL).
 - has_procedure: A tool or service has a procedure.

@@ -22,7 +22,7 @@ def _catalog_path(tmp_path):
                     }
                 ],
                 "services": [
-                    {"name": "管线发布服务", "aliases": [], "belongs_to": "StampServer"},
+                    {"name": "管线发布服务", "aliases": [], "belongs_to": "服务部署"},
                 ],
                 "environment_components": [],
             },
@@ -96,7 +96,8 @@ def test_domain_catalog_seed_batch_can_be_applied_after_review(isolated_storage,
     catalog = DomainCatalogLoader(_catalog_path(tmp_path))
     db.create_entity("StampTools", "Product", "StampTools")
     db.create_entity("StampServer", "Product", "StampServer")
-    db.create_entity("管线发布服务", "Service", "StampServer")
+    db.create_entity("服务部署", "Module", "StampServer")
+    db.create_entity("管线发布服务", "Service", "服务部署")
     db.create_entity("PipelinePublishConfig", "ConfigItem", "StampServer")
 
     batch = DomainCatalogGraphSyncService(db=db, catalog=catalog).build_batch(review_status="pending")

@@ -76,6 +76,68 @@ def test_resolve_canonical_uses_aliases():
     assert resolve_canonical("Unknown", constraints) == "Unknown"
 
 
+def test_service_skip_generation_to_product_forbidden():
+    constraints = {
+        "belongs_to": {
+            "管线发布服务": {"服务部署"},
+            "服务部署": {"StampGIS Server"},
+        },
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": {
+            "管线发布服务": "管线发布服务",
+            "服务部署": "服务部署",
+            "StampGIS Server": "StampGIS Server",
+            "StampServer": "StampGIS Server",
+            "新服务": "新服务",
+        },
+        "entity_type_by_name": {
+            "管线发布服务": "Service",
+            "服务部署": "Module",
+            "StampGIS Server": "Product",
+            "新服务": "Service",
+        },
+        "doc_categories": set(),
+    }
+    # Known service with Module parent: Product parent conflicts (existing + skip).
+    assert relation_conflicts_with_backbone(
+        {
+            "source_name": "管线发布服务",
+            "relation_type": "belongs_to",
+            "target_name": "StampServer",
+        },
+        constraints,
+    )
+    # Unknown service (not in belongs_to) still blocked when types say Service→Product.
+    assert relation_conflicts_with_backbone(
+        {
+            "source_name": "新服务",
+            "relation_type": "belongs_to",
+            "target_name": "StampGIS Server",
+            "source_entity_type": "Service",
+            "target_entity_type": "Product",
+        },
+        constraints,
+    )
+    # Explicit Service→Product allowlist remains OK.
+    constraints["belongs_to"]["GB28181服务配置"] = {"StampWebRTC"}
+    constraints["canonical_by_alias"]["GB28181服务配置"] = "GB28181服务配置"
+    constraints["canonical_by_alias"]["StampWebRTC"] = "StampWebRTC"
+    constraints["entity_type_by_name"]["GB28181服务配置"] = "Service"
+    constraints["entity_type_by_name"]["StampWebRTC"] = "Product"
+    assert not relation_conflicts_with_backbone(
+        {
+            "source_name": "GB28181服务配置",
+            "relation_type": "belongs_to",
+            "target_name": "StampWebRTC",
+            "source_entity_type": "Service",
+            "target_entity_type": "Product",
+        },
+        constraints,
+    )
+
+
 def test_belongs_to_reparent_conflicts():
     constraints = _constraints()
     assert relation_conflicts_with_backbone(

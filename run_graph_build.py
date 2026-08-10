@@ -102,7 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Catalog Tool extraction-coverage matrix (leaves vs structure-only)",
     )
     coverage.add_argument("--product", action="append", dest="products", help="Product name; default StampTools")
-    coverage.add_argument("--strict", action="store_true", help="exit 1 when top-level tools lack extraction leaves")
+    coverage.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 1 when top-level tools lack navigational domain leaves (Procedure/Table/Format/…; ConfigItem/Step alone is not enough)",
+    )
     coverage.add_argument("--json", action="store_true", dest="as_json")
 
     rebuild_safe = sub.add_parser("rebuild-safe")
@@ -497,16 +501,20 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         products = args.products or ["StampTools"]
         service = ExtractionCoverageService(db)
         reports = [service.inspect_product(name).as_dict() for name in products]
-        uncovered = sum(item["top_level_uncovered"] for item in reports)
+        domain_uncovered = sum(item["top_level_domain_uncovered"] for item in reports)
+        structure_uncovered = sum(item["top_level_structure_uncovered"] for item in reports)
         missing = sum(item["missing_tools"] for item in reports)
         payload = {
-            "ok": uncovered == 0 and missing == 0,
+            "ok": domain_uncovered == 0 and missing == 0,
+            "gate": "domain_ok",
             "products": reports,
-            "uncovered_total": uncovered,
+            "domain_uncovered_total": domain_uncovered,
+            "structure_uncovered_total": structure_uncovered,
+            "uncovered_total": domain_uncovered,
             "missing_total": missing,
         }
         _print(payload)
-        if args.strict and (uncovered or missing):
+        if args.strict and (domain_uncovered or missing):
             return 1
         return 0
 

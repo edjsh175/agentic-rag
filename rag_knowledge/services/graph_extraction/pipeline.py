@@ -46,6 +46,7 @@ from rag_knowledge.services.backbone_guard import (
 from rag_knowledge.services.ollama_health import assert_ollama_reachable
 
 from .chunk_mentions_extractor import ChunkMentionsExtractor
+from .chapter_leaf_extractor import ChapterLeafExtractor
 from . import (
     CandidateNormalizer,
     ConfigBlockExtractor,
@@ -504,6 +505,7 @@ class GraphBuilder:
             combined.extend(DataSpecTableRelationExtractor().extract(chunk, context))
             combined.extend(TableFieldExtractor().extract(chunk, context))
             combined.extend(ConfigBlockExtractor().extract(chunk, context))
+            combined.extend(ChapterLeafExtractor(catalog=catalog).extract(chunk, context))
             for kind, items in (
                 ("entity", combined.entities), ("relation", combined.relations),
                 ("field", combined.fields), ("link", combined.links),
@@ -514,6 +516,9 @@ class GraphBuilder:
                 for item in items:
                     payload = asdict(item)
                     if kind == "entity":
+                        props = payload.get("properties") or {}
+                        if isinstance(props, dict) and props.get("created_by") and not payload.get("created_by"):
+                            payload["created_by"] = props["created_by"]
                         resolution = entity_resolver.resolve(
                             item,
                             batch_type_index=batch_type_index,
@@ -1660,13 +1665,18 @@ class GraphCandidateApplier:
         relation_type = payload.get("relation_type") or ""
         if relation_type in {"has_section", "defined_in"}:
             return ""
-        conflict_reason = describe_conflict("relation", payload, load_backbone_constraints())
-        if conflict_reason:
-            raise ValueError(f"backbone relation lock: {conflict_reason}")
         source = self._lookup_entity_or_none(conn, payload["source_name"])
         target = self._lookup_entity_or_none(conn, payload["target_name"])
         if not source or not target:
             return ""
+        typed_payload = {
+            **payload,
+            "source_entity_type": source["entity_type"],
+            "target_entity_type": target["entity_type"],
+        }
+        conflict_reason = describe_conflict("relation", typed_payload, load_backbone_constraints())
+        if conflict_reason:
+            raise ValueError(f"backbone relation lock: {conflict_reason}")
         if relation_type == "belongs_to" and (source["entity_type"] in {"Document", "Section"} or target["entity_type"] in {"Document", "Section"}):
             return ""
         from rag_knowledge.services.backbone_ownership import is_architecture_layer_name
@@ -2045,20 +2055,28 @@ class GraphQualityService:
 
         coverage_products = ["StampTools", "StampServer"]
         coverage_matrix = []
-        uncovered_total = 0
+        domain_gap_total = 0
+        structure_gap_total = 0
         for product_name in coverage_products:
             product_report = ExtractionCoverageService(self.db).inspect_product(product_name)
             coverage_matrix.append(product_report.as_dict())
             for row in product_report.uncovered_top_level:
-                uncovered_total += 1
+                domain_gap_total += 1
                 report.warnings.append(
-                    f"extraction_coverage_gap:{product_name}:{row.tool}"
+                    f"extraction_coverage_domain_gap:{product_name}:{row.tool}"
+                )
+            for row in product_report.structure_uncovered_top_level:
+                structure_gap_total += 1
+                report.warnings.append(
+                    f"extraction_coverage_structure_gap:{product_name}:{row.tool}"
                 )
             for row in product_report.missing_tools:
                 report.warnings.append(
                     f"extraction_coverage_missing_tool:{product_name}:{row.tool}"
                 )
         report.stats["extraction_coverage"] = coverage_matrix
-        report.stats["extraction_coverage_gap_count"] = uncovered_total
+        report.stats["extraction_coverage_domain_gap_count"] = domain_gap_total
+        report.stats["extraction_coverage_structure_gap_count"] = structure_gap_total
+        report.stats["extraction_coverage_gap_count"] = domain_gap_total
 
         return report

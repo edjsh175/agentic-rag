@@ -561,7 +561,13 @@ class LLMGraphExtractor:
 
             rel_conflict = describe_conflict(
                 "relation",
-                {"source_name": src, "relation_type": rtype, "target_name": tgt},
+                {
+                    "source_name": src,
+                    "relation_type": rtype,
+                    "target_name": tgt,
+                    "source_entity_type": type_index.get(src) or "",
+                    "target_entity_type": type_index.get(tgt) or "",
+                },
                 self.backbone_constraints,
             )
             if rel_conflict:

@@ -65,7 +65,7 @@ def test_product_backbone_seed_contains_required_preview_entities():
     assert {"ActiveX", "StampUE", "WebGL", "UEModelBuilder", "PipelineBuilder", "se_port.so"} <= labels
     # 预览真源归一后以实体/关系拓扑为准；layer/subtype 元数据可为空，不再强绑旧 StampServer 子类型计数
     assert len(graph.nodes) == 147
-    assert len(graph.edges) == 177
+    assert len(graph.edges) == 167
 
 
 def test_product_backbone_preview_creates_updates_and_deletes_entities(tmp_path):

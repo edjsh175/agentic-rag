@@ -190,6 +190,28 @@ def format_anchor_relation_summary(
     return "\n".join(lines)
 
 
+def _overlay_domain_catalog_ownership(
+    *,
+    belongs_to: dict[str, set[str]],
+    canonical_by_alias: dict[str, str],
+    entity_type_by_name: dict[str, str],
+) -> None:
+    """Merge domain_catalog ownership so Service→Product exceptions stay allowlisted."""
+    try:
+        from rag_knowledge.services.domain_catalog import DomainCatalogLoader
+
+        catalog = DomainCatalogLoader()
+    except (FileNotFoundError, ValueError):
+        return
+    for seed in catalog.seeds():
+        canonical_by_alias.setdefault(seed.name, seed.name)
+        entity_type_by_name.setdefault(seed.name, seed.entity_type)
+        for alias in seed.aliases:
+            canonical_by_alias.setdefault(alias, seed.name)
+        if seed.belongs_to:
+            belongs_to.setdefault(seed.name, set()).add(seed.belongs_to)
+
+
 def load_backbone_constraints(path: Path | None = None) -> dict:
     root = Path(__file__).resolve().parents[2]
     backbone_path = path or (root / "data" / "product_relation_backbone.json")
@@ -247,6 +269,12 @@ def load_backbone_constraints(path: Path | None = None) -> dict:
             belongs_to.setdefault(source, set()).add(target)
         elif relation_type == "different_from":
             different_from.add(frozenset({source, target}))
+
+    _overlay_domain_catalog_ownership(
+        belongs_to=belongs_to,
+        canonical_by_alias=canonical_by_alias,
+        entity_type_by_name=entity_type_by_name,
+    )
     return {
         "belongs_to": belongs_to,
         "different_from": different_from,
@@ -271,6 +299,18 @@ def relation_conflicts_with_backbone(payload: dict, constraints: dict) -> bool:
     return bool(describe_relation_conflict(payload, constraints))
 
 
+def _resolve_endpoint_type(
+    name: str,
+    payload_type: str,
+    constraints: dict,
+) -> str:
+    explicit = str(payload_type or "").strip()
+    if explicit:
+        return explicit
+    types = constraints.get("entity_type_by_name") or {}
+    return str(types.get(name) or "").strip()
+
+
 def describe_relation_conflict(payload: dict, constraints: dict) -> str:
     source_raw = str(payload.get("source_name") or "").strip()
     target_raw = str(payload.get("target_name") or "").strip()
@@ -289,6 +329,25 @@ def describe_relation_conflict(payload: dict, constraints: dict) -> str:
             f"belongs_to conflict: {source_raw}(->{source}) must belong to [{allowed}], "
             f"got {target_raw}(->{target})"
         )
+
+    if relation_type == "belongs_to":
+        source_type = _resolve_endpoint_type(
+            source, str(payload.get("source_entity_type") or ""), constraints
+        )
+        target_type = _resolve_endpoint_type(
+            target, str(payload.get("target_entity_type") or ""), constraints
+        )
+        # Anti-regression for service hierarchy:
+        # Service must not skip Module (e.g. 服务部署) and attach directly to Product,
+        # unless the official backbone/catalog allowlist already lists that Product parent.
+        if source_type == "Service" and target_type == "Product":
+            allowed_parents = belongs_to.get(source) or set()
+            if target not in allowed_parents:
+                return (
+                    f"service skip-generation: {source_raw}(Service) must not belong_to "
+                    f"{target_raw}(Product) directly; attach via Module (e.g. 服务部署) "
+                    "unless explicitly allowlisted"
+                )
 
     if relation_type == "alias_of" and frozenset({source, target}) in different_from:
         return f"alias_of conflicts different_from: {source} vs {target}"
