@@ -152,6 +152,7 @@ def chat(
     format_json: bool = False,
     timeout: float = 60.0,
     num_predict: int | None = None,
+    num_ctx: int | None = None,
     think: bool | None = False,
 ) -> str:
     """Non-streaming chat; returns assistant text.
@@ -160,6 +161,9 @@ def chat(
     (``endpoint.concurrency_limit``).  Transient network/server errors are
     automatically retried up to ``endpoint.max_retries`` times with exponential
     back-off starting at 1 second.
+
+    ``num_ctx`` is Ollama-only (ignored by OpenAI/Google). When unset, Ollama
+    keeps its default (typically 4096), which can silently truncate long prompts.
     """
     provider = endpoint.normalized_provider()
     if provider not in SUPPORTED_PROVIDERS:
@@ -177,6 +181,7 @@ def chat(
                 format_json=format_json,
                 timeout=timeout,
                 num_predict=num_predict,
+                num_ctx=num_ctx,
                 think=False if think is None else think,
             )
         if provider == "openai":
@@ -282,11 +287,14 @@ def _chat_ollama(
     timeout: float,
     num_predict: int | None,
     think: bool,
+    num_ctx: int | None = None,
 ) -> str:
     base = endpoint.resolved_base_url(default_ollama)
     options: dict[str, Any] = {"temperature": temperature}
     if num_predict is not None:
         options["num_predict"] = num_predict
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
     payload: dict[str, Any] = {
         "model": endpoint.model,
         "messages": messages,

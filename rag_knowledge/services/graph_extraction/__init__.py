@@ -174,11 +174,16 @@ class SectionPathExtractor:
 
         # Extract FunctionAreas from intermediate non-owner parts
         primary_owner = owners[-1][0] if owners else None
+        primary_owner_idx = max(owner_part_indexes) if owner_part_indexes else -1
         current_parent_name = primary_owner
 
         if primary_owner and parts:
             for idx, part in enumerate(parts):
                 if idx in owner_part_indexes:
+                    continue
+                # Ancestor segments before the owner are umbrella context (Section tree),
+                # not FunctionAreas scoped under that owner (avoids Service::祖先段 inversion).
+                if idx <= primary_owner_idx:
                     continue
                 ctx = ClassifyContext(
                     doc_category=category,

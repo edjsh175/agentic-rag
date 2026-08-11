@@ -7,6 +7,7 @@ import pytest
 import httpx
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.graph_extraction import ExtractionResult
 from rag_knowledge.services.graph_extraction.llm_extractor import (
     LLMGraphExtractor,
     normalize_name
@@ -227,6 +228,9 @@ def test_noisy_config_item_and_command_reclassify():
     assert is_noisy_config_item("EPSG:4326")
     assert is_noisy_config_item("四参数")
     assert is_noisy_config_item("经纬度坐标")
+    assert is_noisy_config_item("工程路径")
+    assert is_noisy_config_item("输出路径")
+    assert is_noisy_config_item("处理类型")
     assert not is_noisy_config_item("PipelinePublishConfig")
     assert not is_noisy_config_item("nginx.conf")
 
@@ -394,7 +398,7 @@ def test_prompt_v3_has_direction_few_shot(isolated_storage):
     assert "never Command → actor" in prompt or "never Command → Service" in prompt or "WRONG:" in prompt
 
 
-def test_prompt_injects_stamptools_exemplars_not_for_server(isolated_storage):
+def test_prompt_injects_universal_exemplars_for_all_categories(isolated_storage):
     cfg, db_path, chroma_dir, data_dir = isolated_storage()
     cfg.graph_extraction_llm.prompt_version = "v4"
     extractor = LLMGraphExtractor()
@@ -405,7 +409,7 @@ def test_prompt_injects_stamptools_exemplars_not_for_server(isolated_storage):
     )
     assert "{extraction_exemplars}" not in tools_prompt
     assert "uni-proc-under-tool" in tools_prompt
-    assert "st-proc-new-project" in tools_prompt
+    assert "st-proc-new-project" not in tools_prompt
     assert "Golden Extraction Exemplars" in tools_prompt
 
     server_prompt = extractor.build_prompt(
@@ -416,6 +420,7 @@ def test_prompt_injects_stamptools_exemplars_not_for_server(isolated_storage):
     assert "{extraction_exemplars}" not in server_prompt
     assert "uni-deploy-proc-command" in server_prompt
     assert "st-proc-new-project" not in server_prompt
+    assert tools_prompt.count("uni-proc-under-tool") == server_prompt.count("uni-proc-under-tool")
 
 
 def test_prompt_v3_injects_exemplars(isolated_storage):
@@ -424,5 +429,61 @@ def test_prompt_v3_injects_exemplars(isolated_storage):
     extractor = LLMGraphExtractor()
     prompt = extractor.build_prompt(doc_category="StampTools", section_path="x", content="y")
     assert "uni-proc-under-tool" in prompt
-    assert "st-proc-new-project" in prompt or "uni-format-table" in prompt
+    assert "uni-deploy-leaf-no-ancestor-proc" in prompt
+    assert "st-proc-new-project" not in prompt
     assert "{extraction_exemplars}" not in prompt
+
+
+def test_reject_ancestor_section_as_procedure(isolated_storage):
+    cfg, db_path, chroma_dir, data_dir = isolated_storage()
+    extractor = LLMGraphExtractor()
+    content = "Apache服务配置\n授权服务用于校验 License。\nsystemctl enable license-server"
+    path = "Apache服务配置 > 服务部署 > 授权服务"
+    raw = {
+        "entities": [
+            {
+                "name": "Apache服务配置",
+                "entity_type": "Procedure",
+                "confidence": 0.95,
+                "evidence_text": "Apache服务配置",
+            },
+            {
+                "name": "HTTPD服务配置",
+                "entity_type": "Procedure",
+                "confidence": 0.95,
+                "evidence_text": "授权服务用于校验 License",
+            },
+            {
+                "name": "Apache服务配置 > 服务部署 > 授权服务",
+                "entity_type": "Service",
+                "confidence": 0.9,
+                "evidence_text": "授权服务用于校验 License",
+            },
+        ],
+        "relations": [
+            {
+                "source_name": "矢量瓦片服务",
+                "relation_type": "has_procedure",
+                "target_name": "Apache服务配置",
+                "confidence": 0.9,
+                "evidence_text": "Apache服务配置",
+            },
+            {
+                "source_name": "Apache服务配置 > 服务部署 > 三维搜索服务",
+                "relation_type": "has_procedure",
+                "target_name": "服务部署",
+                "confidence": 0.9,
+                "evidence_text": "服务部署",
+            },
+        ],
+    }
+    res = ExtractionResult()
+    extractor._validate_and_normalize(raw, "c1", "StampServer", res, content, path)
+    assert res.entity("Apache服务配置") is None
+    assert res.entity("Apache服务配置 > 服务部署 > 授权服务") is None
+    # leaf-like procedure name not in ancestors may pass evidence repair; if rejected for evidence ok
+    codes = {d.code for d in res.diagnostics}
+    assert "ancestor_section_as_procedure" in codes
+    assert "pathlike_entity_name" in codes
+    assert "ancestor_section_has_procedure" in codes or "pathlike_relation_endpoint" in codes
+    assert not any(r.relation_type == "has_procedure" for r in res.relations)

@@ -1,7 +1,8 @@
 """Load curated extraction exemplar packs for LLM few-shot injection.
 
-Strategy B: always inject universal pattern pack for all doc_categories;
-optionally append a category-specific pack (e.g. StampTools) within budget.
+Strategy B / V1.2: always inject the single universal pattern pack for all
+doc_categories. Category-specific packs are retired (Phase 1.5 stop-stacking);
+do not reintroduce _CATEGORY_PACKS mappings.
 """
 from __future__ import annotations
 
@@ -10,16 +11,9 @@ from functools import lru_cache
 from pathlib import Path
 
 DEFAULT_MAX_CHARS = 3200
-UNIVERSAL_BUDGET = 2400
-CATEGORY_BUDGET = 800
 _NONE = "(none)"
 
 UNIVERSAL_PACK = "pattern_universal_v1.json"
-
-# doc_category -> optional extra pack under data/extraction_exemplars/
-_CATEGORY_PACKS: dict[str, str] = {
-    "StampTools": "stamptools_v1.json",
-}
 
 
 def exemplar_root() -> Path:
@@ -40,24 +34,9 @@ def _load_pack_file(path_str: str) -> dict:
     return data
 
 
-def pack_path_for_category(doc_category: str) -> Path | None:
-    name = _CATEGORY_PACKS.get(str(doc_category or "").strip())
-    if not name:
-        return None
-    path = exemplar_root() / name
-    return path if path.is_file() else None
-
-
 def universal_pack_path() -> Path | None:
     path = exemplar_root() / UNIVERSAL_PACK
     return path if path.is_file() else None
-
-
-def load_pack(doc_category: str) -> dict:
-    path = pack_path_for_category(doc_category)
-    if path is None:
-        return {}
-    return _load_pack_file(str(path.resolve()))
 
 
 def load_universal_pack() -> dict:
@@ -109,8 +88,8 @@ def format_exemplars_for_prompt(
     *,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> str:
-    """Return prompt section: universal patterns for all categories + optional category pack."""
-    parts: list[str] = []
+    """Return prompt section: universal patterns only (same for every doc_category)."""
+    del doc_category  # reserved for call-site symmetry; injection is category-agnostic
     universal = load_universal_pack()
     uni_body = _format_pack_body(
         universal,
@@ -119,26 +98,9 @@ def format_exemplars_for_prompt(
             "replace {Tool}/{Service} with names from THIS chunk; do not copy foreign product names):"
         ),
     )
-    if uni_body:
-        parts.append(_truncate(uni_body, min(UNIVERSAL_BUDGET, max_chars)))
-
-    cat_pack = load_pack(doc_category)
-    if cat_pack.get("exemplars"):
-        cat_body = _format_pack_body(
-            cat_pack,
-            heading=(
-                f"Category-specific exemplars for doc_category={doc_category} "
-                "(optional extra hints; still prefer universal patterns):"
-            ),
-        )
-        remain = max_chars - sum(len(p) + 2 for p in parts)
-        if cat_body and remain > 80:
-            parts.append(_truncate(cat_body, min(CATEGORY_BUDGET, remain)))
-
-    if not parts:
+    if not uni_body:
         return _NONE
-    text = "\n\n".join(parts)
-    return _truncate(text, max_chars)
+    return _truncate(uni_body, max_chars)
 
 
 def clear_exemplar_cache() -> None:

@@ -54,6 +54,9 @@ _NOISY_CONFIG_UI_LABELS = frozenset({
     "投影面高程", "缩放参数", "渲染效率",
     "3度分带", "6度分带", "经纬度坐标", "平面坐标", "高程偏移",
     "四参数", "平移参数", "旋转参数", "七参数", "坐标偏移",
+    # Handbook GUI labels (exemplar BAD / Phase-3 Tools smoke)
+    "工程路径", "输出路径", "处理类型", "坐标系", "纹理格式",
+    "工程文件存储路径", "成果输出目录",
 })
 _COMMAND_NAME_RE = re.compile(
     r"^(?:sudo\s+)?"
@@ -95,6 +98,9 @@ def is_noisy_config_item(name: str) -> bool:
         return True
     if re.fullmatch(r"epsg\s*:?\s*\d+", low):
         return True
+    # Short GUI path/type labels: 「…路径」「…类型」 rarely are navigational ConfigItem keys.
+    if len(n) <= 12 and (n.endswith("路径") or n.endswith("类型")):
+        return True
     return False
 
 
@@ -110,6 +116,27 @@ def maybe_reclassify_as_command(entity_type: str, name: str) -> str:
 def chunk_has_command_signal(content: str) -> bool:
     """True when chunk text contains concrete shell/CLI lines worth LLM Command extract."""
     return bool(_COMMAND_SIGNAL_RE.search(content or ""))
+
+
+def section_path_parts(section_path: str) -> list[str]:
+    return [
+        p.strip("：: \t\u3000")
+        for p in str(section_path or "").split(">")
+        if p.strip("：: \t\u3000")
+    ]
+
+
+def section_path_ancestors(section_path: str) -> frozenset[str]:
+    """Segments above the leaf — document context, not this chunk's Procedure title."""
+    parts = section_path_parts(section_path)
+    if len(parts) <= 1:
+        return frozenset()
+    return frozenset(parts[:-1])
+
+
+def is_pathlike_entity_name(name: str) -> bool:
+    """Reject names that are clearly a dumped section_path, not a leaf label."""
+    return ">" in (name or "")
 
 
 def early_check_relation_endpoints(
@@ -261,6 +288,8 @@ class LLMGraphExtractor:
                     temperature=llm_cfg.temperature,
                     format_json=True,
                     timeout=180.0,
+                    num_predict=llm_cfg.num_predict,
+                    num_ctx=llm_cfg.num_ctx,
                     think=False,
                 )
             except Exception as e:
@@ -317,6 +346,29 @@ class LLMGraphExtractor:
             from rag_knowledge.services.entity_type_guard import coerce_entity_type
 
             etype = coerce_entity_type(name, etype)
+
+            if is_pathlike_entity_name(name):
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="pathlike_entity_name",
+                        message=f"Rejected {etype} '{name}' as path-like name (contains '>')",
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
+            if etype in {"Procedure", "Step"} and name in section_path_ancestors(section_path):
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="ancestor_section_as_procedure",
+                        message=(
+                            f"Rejected {etype} '{name}' — equals a section_path ancestor "
+                            f"(navigational context, not this chunk's leaf procedure)"
+                        ),
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
 
             if is_generic_entity_name(name) and etype in {
                 "Procedure",
@@ -474,6 +526,34 @@ class LLMGraphExtractor:
                     )
                 )
                 continue
+
+            if is_pathlike_entity_name(src) or is_pathlike_entity_name(tgt):
+                result.diagnostics.append(
+                    ExtractionDiagnostic(
+                        code="pathlike_relation_endpoint",
+                        message=(
+                            f"Rejected relation '{src} ->[{rtype}]-> {tgt}' "
+                            f"due to path-like endpoint name"
+                        ),
+                        chunk_id=chunk_id,
+                    )
+                )
+                continue
+
+            if rtype == "has_procedure":
+                ancestors = section_path_ancestors(section_path)
+                if tgt in ancestors or src in ancestors:
+                    result.diagnostics.append(
+                        ExtractionDiagnostic(
+                            code="ancestor_section_has_procedure",
+                            message=(
+                                f"Rejected has_procedure '{src} -> {tgt}' — "
+                                f"endpoint is a section_path ancestor"
+                            ),
+                            chunk_id=chunk_id,
+                        )
+                    )
+                    continue
 
             evidence = str(item.get("evidence_text", "")).strip()
             if not evidence:

@@ -65,6 +65,28 @@ def test_chat_ollama_payload(monkeypatch):
     assert capture[0]["json"]["stream"] is False
 
 
+def test_chat_ollama_passes_num_ctx_and_num_predict(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.http_client",
+        lambda **kw: _FakeClient(
+            capture, {"message": {"content": "{}"}}
+        ),
+    )
+    ep = ModelEndpoint(role="graph_extraction", provider="ollama", model="qwen3.5:9b", base_url="http://x:1")
+    chat(
+        ep,
+        [{"role": "user", "content": "hi"}],
+        format_json=True,
+        num_ctx=16384,
+        num_predict=2048,
+    )
+    options = capture[0]["json"]["options"]
+    assert options["num_ctx"] == 16384
+    assert options["num_predict"] == 2048
+    assert capture[0]["json"]["format"] == "json"
+
+
 def test_chat_openai_payload(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     capture: list = []

@@ -77,3 +77,53 @@ def test_server_leaf_requires_deploy_path():
     }
     result = ServerLeafExtractor().extract(chunk)
     assert result.entities == []
+
+
+def test_server_leaf_blocks_ancestor_apache_fan_in_on_auth_service():
+    """授权服务 leaf: body titles must not invent Procedure (path-leaf-only)."""
+    chunk = {
+        "chunk_id": "sv5",
+        "content": (
+            "Apache服务配置\n"
+            "某某安装\n"
+            "授权服务用于校验客户端 License。\n"
+            "sudo systemctl enable license-server\n"
+        ),
+        "metadata": {
+            "source": "Stamp服务部署.docx",
+            "doc_category": "StampServer",
+            "section_path": "Apache服务配置 > 服务部署 > 授权服务",
+        },
+    }
+    result = ServerLeafExtractor().extract(chunk)
+    assert result.entity("Apache服务配置") is None
+    assert result.entity("某某安装") is None
+    assert result.entity("服务部署") is None
+    assert not any(e.entity_type == "Procedure" for e in result.entities)
+    assert not any(r.relation_type == "has_procedure" for r in result.relations)
+    # Commands may still be extracted; without a procedure they are unowned leaves.
+    assert result.entity("sudo systemctl enable license-server") is not None
+
+
+def test_server_leaf_httpd_leaf_title_still_emits_procedure():
+    chunk = {
+        "chunk_id": "sv6",
+        "content": (
+            "Apache服务配置\n"
+            "额外安装\n"
+            "HTTPD服务配置完成后执行：\n"
+            "systemctl enable httpd\n"
+        ),
+        "metadata": {
+            "source": "Stamp服务部署.docx",
+            "doc_category": "StampServer",
+            "section_path": "Apache服务配置 > 服务部署 > HTTPD服务配置",
+        },
+    }
+    result = ServerLeafExtractor().extract(chunk)
+    assert result.entity("HTTPD服务配置") is not None
+    assert result.entity("HTTPD服务配置").entity_type == "Procedure"
+    assert result.entity("Apache服务配置") is None
+    assert result.entity("额外安装") is None
+    assert result.has_relation("HTTPD服务配置", "runs_command", "systemctl enable httpd")
+    assert [e.name for e in result.entities if e.entity_type == "Procedure"] == ["HTTPD服务配置"]

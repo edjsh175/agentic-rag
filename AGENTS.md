@@ -76,6 +76,7 @@
 - `pytest` 默认隔离运行时路径并排除 `integration` 标记；访问正式库的测试必须显式执行 `pytest -m integration`。
 - 嵌入模型变更后必须重建知识库；重建会改变 chunk ID，相关评测集需要重新生成。
 - 知识库回答必须基于检索上下文并附来源；联网搜索只能由请求显式开启，且与知识库来源分开标记。
+- **图谱语义抽取**：验收与日常抽图只用 `config-local.ini`（本地 Ollama）；`config-mix` 外部抽取仅摸底、不得结项；试抽默认不 apply。
 
 ## 常用命令
 
@@ -84,6 +85,11 @@
 .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\venv\Scripts\python.exe run.py
 .\venv\Scripts\python.exe -m pytest
+
+# 图谱抽取（验收主路径）
+$env:RAG_CONFIG="config-local.ini"
+$env:PYTHONPATH=(Get-Location).Path
+.\venv\Scripts\python.exe run_graph_build.py extract --chunk-id <id>
 
 # 交付前只读检查
 .\venv\Scripts\python.exe scripts/check_repo_hygiene.py

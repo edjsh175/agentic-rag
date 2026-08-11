@@ -4,6 +4,9 @@ GraphRAG policy: navigational skeleton only — install/config/deploy procedures
 shell commands under a path Service. No ConfigItem flood; no Service→Product skip
 edges (backbone_guard handles that elsewhere).
 
+Procedure titles come only from section_path leaf (FR-R2 / V1.6). Body lines may
+still yield Commands; they must not invent Procedure titles (avoids ancestor fan-in).
+
 Procedure→Module belongs_to is not in schema; without a Service owner we still emit
 the Procedure entity + chunk link, but skip ownership edges.
 """
@@ -29,6 +32,7 @@ _DEPLOY_PATH_MARKER = "服务部署"
 
 _PROCEDURE_TITLE_RE = re.compile(r"^.{1,40}?(?:安装|配置|部署)$")
 
+# Only applies when the path leaf equals the whitelist entry (not a body scan).
 _PROCEDURE_WHITELIST = frozenset({
     "服务部署准备",
     "Redis安装",
@@ -89,7 +93,7 @@ def _extract_commands(content: str) -> list[str]:
 
 
 class ServerLeafExtractor:
-    """Extract deployment Procedure + Command under StampServer 服务部署 paths."""
+    """Extract deployment Procedure (path leaf only) + Command under StampServer."""
 
     def __init__(self, catalog: DomainCatalogLoader | None = None):
         self.catalog = catalog or DomainCatalogLoader()
@@ -104,36 +108,31 @@ class ServerLeafExtractor:
 
         owner = resolve_path_owner(path, self.catalog)
         props = {"created_by": _CREATED_BY}
-        procedures: list[str] = []
 
         leaf = _leaf_title(path)
-        if _is_procedure_title(leaf):
-            procedures.append(leaf)
-        for raw in content.splitlines():
-            line = raw.strip().lstrip("#").strip()
-            if _is_procedure_title(line) and line not in procedures:
-                procedures.append(line)
+        primary_proc: str | None = leaf if _is_procedure_title(leaf) else None
 
-        for title in procedures[:4]:
+        if primary_proc:
             result.entities.append(
                 EntityCandidate(
-                    title,
+                    primary_proc,
                     "Procedure",
                     category,
                     dict(props),
                     source_chunk_id=chunk_id,
-                    evidence_text=title,
+                    evidence_text=primary_proc,
                 )
             )
             if owner:
                 result.relations.append(
-                    RelationCandidate(owner, "has_procedure", title, chunk_id, title)
+                    RelationCandidate(owner, "has_procedure", primary_proc, chunk_id, primary_proc)
                 )
             result.links.append(
-                ChunkLinkCandidate(title, chunk_id, section_path=path, source=source, evidence_text=title)
+                ChunkLinkCandidate(
+                    primary_proc, chunk_id, section_path=path, source=source, evidence_text=primary_proc
+                )
             )
 
-        primary_proc = procedures[0] if procedures else None
         for cmd in _extract_commands(content):
             result.entities.append(
                 EntityCandidate(

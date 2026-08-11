@@ -24,13 +24,17 @@ def test_universal_pack_injected_for_all_categories():
         assert "uni-deploy-proc-command" in text
         assert "{Tool}" in text or "Universal navigational" in text
         assert text != "(none)"
+        assert "st-proc-new-project" not in text
 
 
-def test_stamptools_still_appends_category_pack():
+def test_no_category_pack_stacking():
     clear_exemplar_cache()
-    text = format_exemplars_for_prompt("StampTools")
-    assert "uni-proc-under-tool" in text
-    assert "st-proc-new-project" in text
+    tools = format_exemplars_for_prompt("StampTools")
+    server = format_exemplars_for_prompt("StampServer")
+    assert tools == server
+    assert "st-proc-new-project" not in tools
+    assert "uni-proc-resume" in tools
+    assert "Category-specific exemplars" not in tools
 
 
 def test_leaf_fallback_keeps_all_when_llm_empty():

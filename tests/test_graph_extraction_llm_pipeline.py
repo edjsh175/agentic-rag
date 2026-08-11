@@ -122,6 +122,13 @@ def test_graph_extraction_llm_pipeline(isolated_storage, monkeypatch):
         assert stats["alias"] == 1
         assert stats["rule_candidates"] > 0
         assert stats["llm_candidates"] == 4  # Entities + Relation + Alias from LLM
+        assert stats["llm_chunks_considered"] == 1
+        assert stats["llm_json_ok"] == 1
+        assert stats["llm_json_failed"] == 0
+        assert stats["llm_json_repaired"] == 0
+        assert stats["llm_usable_candidates"] == 3  # 2 entities + 1 relation
+        assert "leaf_fallback_entities" in stats
+        assert "leaf_fallback_relations" in stats
         
         # Check extraction candidates count in DB staging
         candidates = db.list_extraction_candidates(batch_id)
@@ -162,3 +169,56 @@ def test_graph_extraction_llm_pipeline(isolated_storage, monkeypatch):
         aliases = db.list_aliases(ent["id"])
         assert len(aliases) == 1
         assert aliases[0]["alias"] == "PostgreSQL 16"
+
+
+def test_graph_extraction_llm_json_failed_stats(isolated_storage, monkeypatch):
+    from rag_knowledge.services.graph_extraction import ExtractionDiagnostic
+
+    cfg, db_path, chroma_dir, data_dir = isolated_storage()
+    db = RelationalDB()
+    chunks = [
+        {
+            "chunk_id": "chunk-fail",
+            "content": "systemctl enable redis",
+            "metadata": {
+                "doc_category": "StampServer",
+                "section_path": "服务部署 > Redis安装",
+                "content_type": "text",
+            },
+        }
+    ]
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.load_backbone_constraints",
+        lambda path=None: {
+            "belongs_to": {},
+            "different_from": set(),
+            "requires": set(),
+            "relations": [],
+            "canonical_by_alias": {},
+            "entity_type_by_name": {},
+            "doc_categories": set(),
+        },
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_extraction.pipeline.assert_ollama_reachable",
+        lambda **kwargs: "http://test",
+    )
+    failed = ExtractionResult()
+    failed.diagnostics.append(
+        ExtractionDiagnostic(
+            code="llm_extraction_failed",
+            message="LLM extraction failed: Unterminated string",
+            chunk_id="chunk-fail",
+        )
+    )
+    with patch(
+        "rag_knowledge.services.graph_extraction.llm_extractor.LLMGraphExtractor.extract",
+        return_value=failed,
+    ):
+        res = GraphBuilder(db=db, chunk_source=lambda: chunks).build_full(
+            force_rebuild=True, include_llm=True
+        )
+    assert res.stats["llm_chunks_considered"] == 1
+    assert res.stats["llm_json_ok"] == 0
+    assert res.stats["llm_json_failed"] == 1
+    assert res.stats["llm_usable_candidates"] == 0

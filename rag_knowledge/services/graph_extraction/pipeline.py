@@ -297,6 +297,12 @@ class GraphBuilder:
             "llm_chunks_skipped": 0,
             "llm_chunks_command_rich": 0,
             "llm_chunks_category_scoped": 0,
+            "llm_json_ok": 0,
+            "llm_json_failed": 0,
+            "llm_json_repaired": 0,
+            "llm_usable_candidates": 0,
+            "leaf_fallback_entities": 0,
+            "leaf_fallback_relations": 0,
             "relation_direction_flipped": 0,
             "processed_chunk_ids": [],
             "extract_progress": "running",
@@ -328,6 +334,12 @@ class GraphBuilder:
                 "llm_chunks_skipped",
                 "llm_chunks_command_rich",
                 "llm_chunks_category_scoped",
+                "llm_json_ok",
+                "llm_json_failed",
+                "llm_json_repaired",
+                "llm_usable_candidates",
+                "leaf_fallback_entities",
+                "leaf_fallback_relations",
                 "relation_direction_flipped",
                 "requested_chunks",
                 "matched_chunks",
@@ -546,6 +558,18 @@ class GraphBuilder:
                         llm_result = llm_extractor.extract(chunk, function_areas=fa_list)
                     else:
                         llm_result = llm_extractor.extract(chunk)
+                    json_failed = any(
+                        getattr(d, "code", "") == "llm_extraction_failed"
+                        for d in (llm_result.diagnostics or [])
+                    )
+                    if json_failed:
+                        counts["llm_json_failed"] = int(counts.get("llm_json_failed") or 0) + 1
+                    else:
+                        counts["llm_json_ok"] = int(counts.get("llm_json_ok") or 0) + 1
+                        # D4 repair not implemented; counter reserved for S6 raw vs repaired split.
+                        counts["llm_usable_candidates"] = int(
+                            counts.get("llm_usable_candidates") or 0
+                        ) + len(llm_result.entities) + len(llm_result.relations)
                     if actual_include_leak_salvage:
                         from .leak_salvage import (
                             assess_leak_risk,
@@ -592,6 +616,9 @@ class GraphBuilder:
                 leaf_result = apply_leaf_rule_fallback(leaf_result, llm_result)
                 counts["leaf_fallback_entities"] = int(counts.get("leaf_fallback_entities") or 0) + len(
                     leaf_result.entities
+                )
+                counts["leaf_fallback_relations"] = int(counts.get("leaf_fallback_relations") or 0) + len(
+                    leaf_result.relations
                 )
             combined.extend(leaf_result)
 

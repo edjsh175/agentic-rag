@@ -146,6 +146,9 @@ class GraphLLMExtractorConfig:
     api_key_env: str = ""
     temperature: float = 0.0
     max_retries: int = 2
+    # Ollama context / generation budget for extraction (see PRD §2.4 / Phase 2 D2)
+    num_ctx: int = 16384
+    num_predict: int = 2048
     min_confidence: float = 0.60
     entity_resolve_min_confidence: float = 0.80
     relation_direction_min_confidence: float = 0.80
@@ -522,6 +525,8 @@ class Config:
             api_key_env=_get("graph_extraction.llm", "api_key_env", "").strip(),
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),
             max_retries=int(_get("graph_extraction.llm", "max_retries", "2")),
+            num_ctx=int(_get("graph_extraction.llm", "num_ctx", "16384")),
+            num_predict=int(_get("graph_extraction.llm", "num_predict", "2048")),
             min_confidence=float(_get("graph_extraction.llm", "min_confidence", "0.60")),
             entity_resolve_min_confidence=float(
                 _get("graph_extraction.llm", "entity_resolve_min_confidence", "0.80")

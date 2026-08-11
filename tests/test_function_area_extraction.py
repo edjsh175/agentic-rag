@@ -69,6 +69,28 @@ def test_section_path_extractor_creates_leaf_capability_function_area():
     assert result.has_relation("ObliqueModelBuilder::数据规范", "belongs_to", "ObliqueModelBuilder")
 
 
+def test_section_path_extractor_skips_fa_before_terminal_service_owner():
+    """Owner at path end must not get inverted FunctionArea Service::祖先段."""
+    chunk = {
+        "chunk_id": "c102",
+        "content": "授权服务部署说明…",
+        "metadata": {
+            "source": "Stamp服务部署.docx",
+            "doc_category": "StampServer",
+            "section_path": "Apache服务配置 > 服务部署 > 授权服务",
+        },
+    }
+    result = SectionPathExtractor().extract(chunk)
+    assert result.entity("授权服务") is not None
+    assert result.entity("授权服务").entity_type == "Service"
+    assert result.entity("授权服务::服务部署") is None
+    assert result.entity("授权服务::Apache服务配置") is None
+    assert not any(
+        e.entity_type == "FunctionArea" and e.name.startswith("授权服务::")
+        for e in result.entities
+    )
+
+
 def test_llm_extractor_rejects_llm_created_function_area(isolated_storage):
     isolated_storage(db_name="llm_fa.db", data_dir_name="llm_fa_data", chroma_name="llm_fa_chroma")
     extractor = LLMGraphExtractor()

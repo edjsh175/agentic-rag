@@ -603,7 +603,7 @@ docker compose up -d
 - **重建后评估**：重建会生成全新的 chunk ID；旧的 `eval_dataset.json` 和难例集随即失效，必须基于新向量库重新生成
 - **数据库维护**：执行离线重建、迁移或诊断前先停止后端和其他评估进程，确认没有进程占用 `chroma_db`
 - **受控重建**：`RebuildCoordinator.run()` 提供完整的带锁重建流程（备份 → clear → reset → scan → 一致性断言 → BM25 重建），替代手动逐步操作。也可通过 `POST /rebuild` 触发。重建锁文件 `data/rebuild.lock` 记录 PID，异常退出后下次重建自动检测并清理 stale lock
-- **图谱重建**：知识库一致性通过后，按顺序执行：`run_graph_build.py extract --force-rebuild` → `review --batch <id> --approve-all` → `apply --batch <id>` → `quality --graph`。图谱提取前会调用 `assert_consistent()`，不一致时拒绝执行
+- **图谱重建 / 语义抽取**：抽图与验收主路径须 `$env:RAG_CONFIG="config-local.ini"`（Ollama；`num_ctx`/`num_predict` 见 `[graph_extraction.llm]`）；`config-mix` 外部模型仅摸底、不得结项。知识库一致性通过后：`run_graph_build.py extract`（默认开 LLM；规则验 `--no-llm`）→ `review` 分拆审批 → `apply`（须 confirm 三件套）→ `quality --graph`。试抽批默认 pending、禁止默认 apply。提取前 `assert_consistent()`，不一致时拒绝执行
 - **Profile → Graph 同步（Task 8.1）**：`sync_profiles_to_graph.py --dry-run` 预览 → `--apply --review-status pending` 写 staging → `run_graph_build.py review` **分拆审批**（`--approve-kind alias` / `--approve-type` / `--approve-relation-type`，禁止 `profile_sync` 使用 `--approve-all`）→ `apply --batch <id>` 须带 `--confirm-db-path` / `--confirm-batch` / `--confirm-backup`。验收：`$env:PYTHONPATH=(Get-Location).Path; .\venv\Scripts\python.exe scripts\validate_task81_graph_gate.py --json`（目标 PASS）。报告见 `docs/3_待办清单/task81-production-validation/`
 - **图谱乱码修复**：`run_graph_build.py repair-text` 修复关系图谱中的 mojibake 中文标签
 - **测试隔离**：`pytest` 默认排除 `@pytest.mark.integration` 测试（`addopts = -m "not integration"`）。`isolated_storage` fixture 将全部 8 个运行时路径指向 `tmp_path`。`Config._assert_test_paths_are_isolated()` 在 pytest 下检测到正式路径时直接抛错，除非设置 `ALLOW_LIVE_STORAGE_IN_TESTS=1`。需接触正式库的集成测试显式运行 `pytest -m integration`

@@ -1,14 +1,14 @@
 # data/ 目录约定
 
 - **生效日期**：2026-07-20
-- **最近复核**：2026-07-28（Round 3/4 产物状态已更新，见 §4）
+- **最近复核**：2026-08-11（补充 `extraction_exemplars/` 与抽图本地验收口径）
 - **目的**：区分 live 真源 / 运行时文件与历史生成物，避免文档把归档路径或缺失产物写成「已完成」。
 
 ## 1. 留在 `data/` 根目录
 
 | 类别 | 路径（示例） | 说明 |
 |------|-------------|------|
-| 跟踪真源 | `domain_catalog.json`、`product_relation_backbone.json`、`product_relation_backbone_preview.json`、`retrieval_intent_policies.json`、`migrations/`、`structured_retrieval_regression.json` | Git/SVN 白名单跟踪 |
+| 跟踪真源 | `domain_catalog.json`、`product_relation_backbone.json`、`product_relation_backbone_preview.json`、`retrieval_intent_policies.json`、`migrations/`、`structured_retrieval_regression.json`、`extraction_exemplars/pattern_universal_v1.json` | Git/SVN 白名单跟踪；**仅** universal 示例包（禁止新品类专包） |
 | 运行时 | `file_index.json`、`ingestion_decisions.json`、`document_profile_map.json`、`agents.json`、`chats/`、`qa_traces/`、`rag_relational.db`、`graph_apply_audit.jsonl`、`chunk_hit_stats.json` | 服务读写；勿随意搬迁 |
 | 工作目录 | `rebuild/`（RebuildCoordinator 进行中） | 完成后可将整次操作目录迁入 archive |
 | 当前默认 CLI 产出 | `graph_audit_report.*`、`manual_graph_facts.json`、`eval_dataset*.json`、`retrieval_ab_results.json` | 新跑仍可先写根目录，轮次验收后再归档 |
@@ -49,3 +49,4 @@
 - Round 3 规则路径完成至少需要：`rebuild_safe_execute_round3.*`、执行日志、`graph_audit_post_round3.json`、填写后的验收记录与 §10 表。
 - **现场（2026-07-22 起）**：上述 execute 产物与 `data/backups/rag_relational_pre_round3*.db` **已存在**；实 LLM 由「第 3 轮补」按类目补抽完成；第 4 轮 GraphRAG A/B 已 PASS。
 - 导航以 [知识图谱PRD剩余轮次总览](../3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md) 与 [第4轮阶段总结](../3_待办清单/知识图谱语义抽取/已完成-第4轮-GraphRAG实效验收/2026-07-27-阶段总结.md) 为准。
+- **图谱语义抽取（2026-08-11）**：验收与日常抽图主路径仅 `RAG_CONFIG=config-local.ini`（Ollama + `[graph_extraction.llm] num_ctx/num_predict`）；`config-mix.ini` 外部抽取仅遗留摸底，不得结项。详见 [示例学习与模型本地化 PRD](../3_待办清单/知识图谱语义抽取/2026-08-11-图谱语义抽取示例学习与模型本地化PRD.md)。
