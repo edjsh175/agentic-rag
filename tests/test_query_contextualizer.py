@@ -376,6 +376,30 @@ class MultiQueryBuildTests(unittest.TestCase):
         self.assertIn("last_user", kinds)
         self.assertEqual(next(spec.weight for spec in specs if spec.kind == "source_anchor"), 0.3)
 
+    def test_drop_history_anchors_forces_cut_even_if_dependent(self):
+        history = [
+            {"role": "user", "content": "PipelineBuilder 怎么用"},
+            {"role": "assistant", "content": "介绍", "sources": [
+                {"file_name": "PipelineBuilder.md", "section_title": "安装"}
+            ]},
+        ]
+        llm_result = {
+            "standalone_query": "StampServer 端口配置",
+            "search_queries": ["StampServer listen port"],
+            "is_context_dependent": True,
+            "confidence": 0.95,
+        }
+        with patch.object(self.ctx, "contextualize", return_value=llm_result):
+            specs, meta = self.ctx.build_query_specs_with_meta(
+                "StampServer 的端口是多少？",
+                history,
+                drop_history_anchors=True,
+            )
+        kinds = [spec.kind for spec in specs]
+        self.assertNotIn("source_anchor", kinds)
+        self.assertNotIn("last_user", kinds)
+        self.assertTrue(meta.get("drop_history_anchors"))
+
 
 class SourceAnchorTests(unittest.TestCase):
     """来源锚点查询生成测试。"""

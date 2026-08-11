@@ -353,7 +353,20 @@ class GraphBuilder:
             counts["llm_candidates"] = len(llm_candidate_ids)
             counts["processed_chunk_ids"] = list(processed_chunk_ids)
             counts["extract_progress"] = "running"
-        elif mode == "full":
+
+        # Resolve include_llm before snapshot reuse lookup so filters_json matches
+        # what create_extraction_batch persists (None != False/True breaks idempotency).
+        from .llm_extractor import LLMGraphExtractor, chunk_has_command_signal
+        from rag_knowledge.config import Config
+        from rag_knowledge.services.entity_identity import LLMEntityTypeArbiter, LLMIdentityArbiter
+        cfg = Config()
+        actual_include_llm = (
+            cfg.graph_extraction_llm.enabled if include_llm is None else bool(include_llm)
+        )
+        filters = dict(filters)
+        filters["include_llm"] = actual_include_llm
+
+        if not resume_batch_id and mode == "full":
             with self.db._get_conn() as conn:
                 if force_rebuild:
                     conn.execute(
@@ -379,15 +392,6 @@ class GraphBuilder:
                             )
                         return BuildBatchResult(str(existing["id"]), existing_stats)
 
-        from .llm_extractor import LLMGraphExtractor, chunk_has_command_signal
-        from rag_knowledge.config import Config
-        from rag_knowledge.services.entity_identity import LLMEntityTypeArbiter, LLMIdentityArbiter
-        cfg = Config()
-        actual_include_llm = (
-            cfg.graph_extraction_llm.enabled if include_llm is None else bool(include_llm)
-        )
-        filters = dict(filters)
-        filters["include_llm"] = actual_include_llm
         actual_include_entity_resolve = (
             include_entity_resolve or cfg.graph_extraction_llm.entity_resolve_enabled
         )

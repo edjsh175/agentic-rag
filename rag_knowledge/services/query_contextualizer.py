@@ -339,11 +339,13 @@ class QueryContextualizer:
         focus_text: str = "",
         rolling_summary: str = "",
         recent_rounds: int = 2,
+        drop_history_anchors: bool = False,
     ) -> tuple[list[RetrievalQuery], dict[str, Any]]:
         """生成检索查询，并返回上下文化元数据（供 Understanding 一次消费）。
 
         历史锚点必须同时通过 LLM 判断、置信度门槛和本地启发式判断。
         启发式认为问题独立时拥有否决权，防止错误历史来源污染新问题。
+        drop_history_anchors=True：主题漂移时强制切断 source_anchor / last_user。
         """
         q = (question or "").strip()
         if not q:
@@ -369,7 +371,10 @@ class QueryContextualizer:
         confidence = float(ctx.get("confidence", 0.5))
         heuristic_dependent = _is_context_dependent_heuristic(q)
         use_history_anchors = (
-            is_dependent and confidence >= 0.6 and heuristic_dependent
+            (not drop_history_anchors)
+            and is_dependent
+            and confidence >= 0.6
+            and heuristic_dependent
         )
 
         candidates: list[RetrievalQuery] = [RetrievalQuery(q, "original", 1.0)]
@@ -414,12 +419,15 @@ class QueryContextualizer:
 
         logger.info(
             "query_context | dependent=%s confidence=%.2f heuristic_dependent=%s "
-            "history_anchors=%s candidates=%d unique=%d kinds=%s",
+            "history_anchors=%s drop_anchors=%s candidates=%d unique=%d kinds=%s",
             is_dependent, confidence, heuristic_dependent, use_history_anchors,
+            drop_history_anchors,
             len(candidates), len(result),
             [(item.kind, item.weight) for item in result[:6]],
         )
-        return result[:6], ctx
+        meta = dict(ctx)
+        meta["drop_history_anchors"] = bool(drop_history_anchors)
+        return result[:6], meta
 
     def _build_source_anchor_queries(
         self, sources: list[dict] | None

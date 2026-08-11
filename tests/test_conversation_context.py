@@ -72,6 +72,45 @@ class DialogueFocusTests(unittest.TestCase):
         self.assertEqual(focus.topic, "PipelineBuilder 怎么用")
         self.assertIn("PipelineBuilder", focus.to_text())
         self.assertIn("实体:", focus.to_text())
+        self.assertEqual(focus.notes, "")
+
+    def test_topic_shift_rewrites_focus_and_clears_conflicting_entity(self):
+        from rag_knowledge.services.conversation_context import detect_topic_shift
+
+        history = [
+            {"role": "user", "content": "PipelineBuilder 怎么用"},
+            {
+                "role": "assistant",
+                "content": "介绍",
+                "sources": [
+                    {"file_name": "PipelineBuilder.md", "section_title": "安装"}
+                ],
+            },
+        ]
+        session = session_from_history(history, entity_name="PipelineBuilder")
+        question = "StampServer 的端口是多少？"
+        self.assertTrue(detect_topic_shift(question, session))
+        focus = build_dialogue_focus(question, session)
+        self.assertEqual(focus.notes, "topic_shift")
+        self.assertEqual(focus.topic, question[:80])
+        self.assertEqual(focus.confirmed_entity, "")
+
+    def test_followup_without_explicit_entity_is_not_shift(self):
+        from rag_knowledge.services.conversation_context import detect_topic_shift
+
+        history = [
+            {"role": "user", "content": "PipelineBuilder 怎么用"},
+            {
+                "role": "assistant",
+                "content": "介绍",
+                "sources": [{"file_name": "pb.md"}],
+            },
+        ]
+        session = session_from_history(history, entity_name="PipelineBuilder")
+        self.assertFalse(detect_topic_shift("它主要做什么？", session))
+        focus = build_dialogue_focus("它主要做什么？", session)
+        self.assertEqual(focus.notes, "")
+        self.assertEqual(focus.confirmed_entity, "PipelineBuilder")
 
     def test_format_retrieval_memory_is_short(self):
         history = [
@@ -148,6 +187,25 @@ class GenerationPackTests(unittest.TestCase):
         self.assertFalse(result.decision.used_summary)
         self.assertEqual(len(result.history or []), 4)
         self.assertTrue(result.decision.scheduled_background_summary)
+        self.assertFalse(result.decision.compress_background_busy)
+        self.assertFalse(result.decision.compress_pending_rewarm)
+        self.assertTrue(result.decision.compress_older_hash_prefix)
+
+    def test_pack_records_busy_when_background_running(self):
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        docs = [_doc(1, "ctx")]
+        from rag_knowledge.services.context_budget import _rebuild_context
+
+        self.compressor._background_task = MagicMock()
+        result = self.pack.pack(docs, _rebuild_context(docs), history, "q")
+        self.assertEqual(result.decision.compress_fallback, "truncate_recent")
+        self.assertTrue(result.decision.compress_background_busy)
+        self.assertTrue(result.decision.scheduled_background_summary)
+        self.assertTrue(result.decision.compress_pending_rewarm)
 
     def test_pack_uses_summary_cache(self):
         history = [

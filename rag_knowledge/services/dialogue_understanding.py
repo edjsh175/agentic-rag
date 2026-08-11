@@ -131,6 +131,31 @@ class DialogueUnderstanding:
         )
         # 先用当前问句构造焦点，改写后再用 resolved 更新 open_question
         focus = build_dialogue_focus(question, session)
+        topic_shifted = focus.notes == "topic_shift"
+
+        # 漂移且请求锚定实体与当前显式实体冲突时，去掉 filter 粘滞。
+        if topic_shifted and filters.get("entity_name"):
+            from rag_knowledge.services.query_entity_guard import extract_explicit_entities
+
+            pinned = str(filters["entity_name"]).strip().casefold()
+            q_ents = extract_explicit_entities(question)
+            conflicts = True
+            for e in q_ents:
+                e_cf = e.casefold()
+                if pinned == e_cf or pinned in e_cf or e_cf in pinned:
+                    conflicts = False
+                    break
+            if q_ents and conflicts:
+                filters = dict(filters)
+                filters.pop("entity_name", None)
+                session = session_from_history(
+                    history,
+                    entity_name=None,
+                    doc_category=filters.get("doc_category"),
+                    rolling_summary=None if topic_shifted else rolling_summary,
+                )
+                focus = build_dialogue_focus(question, session)
+                topic_shifted = focus.notes == "topic_shift"
 
         if history:
             raw_specs, meta = self._contextualizer.build_query_specs_with_meta(
@@ -138,8 +163,9 @@ class DialogueUnderstanding:
                 history,
                 protect_entities=False,
                 focus_text=focus.to_text(),
-                rolling_summary=session.rolling_summary or "",
-                recent_rounds=2,
+                rolling_summary="" if topic_shifted else (session.rolling_summary or ""),
+                recent_rounds=0 if topic_shifted else 2,
+                drop_history_anchors=topic_shifted,
             )
             specs = self._protect_specs(question, raw_specs, last_user)
             resolved = question
@@ -150,6 +176,7 @@ class DialogueUnderstanding:
             focus = build_dialogue_focus(
                 question, session, resolved_question=resolved,
             )
+            rationale = "contextualize_topic_shift" if topic_shifted else "contextualize"
             return UnderstandingResult(
                 mode="retrieve",
                 user_utterance=question,
@@ -158,9 +185,11 @@ class DialogueUnderstanding:
                 filters=filters,
                 dialogue_focus=focus.to_text(),
                 focus=focus.to_dict(),
-                is_context_dependent=bool(meta.get("is_context_dependent", False)),
+                is_context_dependent=False if topic_shifted else bool(
+                    meta.get("is_context_dependent", False)
+                ),
                 confidence=float(meta.get("confidence", 0.5)),
-                rationale="contextualize",
+                rationale=rationale,
             )
 
         # 无 history：原问题即检索 query

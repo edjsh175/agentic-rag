@@ -37,6 +37,9 @@ class CompressResult:
         "disabled",
     ]
     scheduled_background: bool = False
+    background_busy: bool = False
+    pending_rewarm_queued: bool = False
+    older_hash_prefix: str = ""
     reason: str = ""
 
 
@@ -72,6 +75,8 @@ class HistoryCompressor:
         self._lock = threading.RLock()
         self._background_task: threading.Thread | None = None
         self._cooldown_until = 0.0
+        # 后台忙碌时只保留「最新」一次 older 预热请求；完成后若仍未命中则续跑。
+        self._pending_job: tuple[str, list[dict], list[dict], int] | None = None
 
     def _cache_get(self, key: str) -> Optional[str]:
         with self._lock:
@@ -80,6 +85,32 @@ class HistoryCompressor:
     def _cache_put(self, key: str, value: str) -> None:
         with self._lock:
             self._cache.put(key, value)
+
+    def _start_background_summary(
+        self,
+        older_hash: str,
+        older_history: list[dict],
+        history: list[dict],
+        total_rounds: int,
+    ) -> bool:
+        """启动后台摘要线程。调用方须已持有锁或确认无并发竞态。返回是否新启动。"""
+        if self._background_task is not None:
+            self._pending_job = (
+                older_hash,
+                list(older_history),
+                list(history),
+                int(total_rounds),
+            )
+            return False
+        task = threading.Thread(
+            target=self._summarize_in_background,
+            args=(older_hash, list(older_history), list(history), int(total_rounds)),
+            name="history-summary",
+            daemon=True,
+        )
+        self._background_task = task
+        task.start()
+        return True
 
     def _hash_history(self, history_slice: list[dict]) -> str:
         """根据历史对话片段内容计算唯一的 Hash 值"""
@@ -270,15 +301,17 @@ class HistoryCompressor:
         older_history = history[:-recent_msg_count]
         recent_history = history[-recent_msg_count:]
         older_hash = self._hash_history(older_history)
+        hash_prefix = older_hash[:8]
 
         with self._lock:
             cached_summary = self._cache.get(older_hash)
             if cached_summary:
-                logger.info("history_compressor: 摘要缓存命中 (0ms) | HASH=%s", older_hash[:8])
+                logger.info("history_compressor: 摘要缓存命中 (0ms) | HASH=%s", hash_prefix)
                 return CompressResult(
                     history=recent_history,
                     summary=cached_summary,
                     fallback="summary_cache",
+                    older_hash_prefix=hash_prefix,
                     reason="cache_hit",
                 )
 
@@ -286,16 +319,24 @@ class HistoryCompressor:
             in_cooldown = now < self._cooldown_until
             busy = self._background_task is not None
             scheduled = False
+            pending_queued = False
             if not busy and not in_cooldown:
-                task = threading.Thread(
-                    target=self._summarize_in_background,
-                    args=(older_hash, older_history, history, total_rounds),
-                    name="history-summary",
-                    daemon=True,
+                scheduled = self._start_background_summary(
+                    older_hash, older_history, history, total_rounds
                 )
-                self._background_task = task
-                task.start()
-                scheduled = True
+            elif busy:
+                self._pending_job = (
+                    older_hash,
+                    list(older_history),
+                    list(history),
+                    total_rounds,
+                )
+                pending_queued = True
+                logger.info(
+                    "history_compressor: 缓存未命中且后台忙碌，排队最新 older | HASH=%s | keep=%d",
+                    hash_prefix,
+                    len(recent_history),
+                )
 
         if on_cache_miss == "async" and not in_cooldown:
             return CompressResult(
@@ -303,21 +344,30 @@ class HistoryCompressor:
                 summary=None,
                 fallback="none",
                 scheduled_background=scheduled or busy,
+                background_busy=busy and not scheduled,
+                pending_rewarm_queued=pending_queued,
+                older_hash_prefix=hash_prefix,
                 reason="async_miss_full_history",
             )
 
         fallback = "cooldown_truncate" if in_cooldown else "truncate_recent"
         logger.info(
-            "history_compressor: 缓存未命中确定性降级 | fallback=%s | keep=%d | scheduled=%s",
+            "history_compressor: 缓存未命中确定性降级 | fallback=%s | keep=%d | "
+            "scheduled=%s | busy=%s | pending=%s",
             fallback,
             len(recent_history),
             scheduled or busy,
+            busy and not scheduled,
+            pending_queued,
         )
         return CompressResult(
             history=recent_history,
             summary=None,
             fallback=fallback,
             scheduled_background=scheduled or busy,
+            background_busy=busy and not scheduled,
+            pending_rewarm_queued=pending_queued,
+            older_hash_prefix=hash_prefix,
             reason=fallback,
         )
 
@@ -328,8 +378,9 @@ class HistoryCompressor:
         history: list[dict],
         total_rounds: int,
     ) -> None:
+        summary = ""
         try:
-            summary = self._generate_summary(older_history, history, total_rounds)
+            summary = self._generate_summary(older_history, history, total_rounds) or ""
             with self._lock:
                 if summary:
                     self._cache.put(older_hash, summary)
@@ -346,5 +397,20 @@ class HistoryCompressor:
                 self._cooldown_until = time.monotonic() + self._cfg.failure_cooldown_seconds
             logger.exception("history_compressor: 后台摘要任务异常")
         finally:
+            next_job = None
             with self._lock:
                 self._background_task = None
+                pending = self._pending_job
+                self._pending_job = None
+                in_cooldown = time.monotonic() < self._cooldown_until
+                if pending and not in_cooldown:
+                    pending_hash = pending[0]
+                    if self._cache.get(pending_hash) is None:
+                        next_job = pending
+                        logger.info(
+                            "history_compressor: 续跑过期/排队的最新 older | HASH=%s",
+                            pending_hash[:8],
+                        )
+            if next_job:
+                with self._lock:
+                    self._start_background_summary(*next_job)

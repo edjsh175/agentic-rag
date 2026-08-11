@@ -23,7 +23,15 @@ class ProductBackboneLiveSyncService:
 
     def __init__(self, db: RelationalDB | None = None, path: str | Path | None = None):
         self.db = db or RelationalDB()
-        self.path = Path(path) if path else DEFAULT_BACKBONE_PATH
+        if path:
+            self.path = Path(path)
+        else:
+            import os
+            data_dir = os.getenv("PATH_DATA_DIR")
+            if data_dir:
+                self.path = Path(data_dir) / "product_relation_backbone.json"
+            else:
+                self.path = DEFAULT_BACKBONE_PATH
 
     def load_existing(self) -> dict:
         if not self.path.is_file():

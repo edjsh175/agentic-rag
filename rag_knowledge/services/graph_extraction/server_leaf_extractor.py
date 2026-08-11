@@ -30,14 +30,7 @@ from rag_knowledge.services.graph_extraction.llm_extractor import (
 _CREATED_BY = "rule:server_leaf"
 _DEPLOY_PATH_MARKER = "服务部署"
 
-_PROCEDURE_TITLE_RE = re.compile(r"^.{1,40}?(?:安装|配置|部署)$")
-
-# Only applies when the path leaf equals the whitelist entry (not a body scan).
-_PROCEDURE_WHITELIST = frozenset({
-    "服务部署准备",
-    "Redis安装",
-    "Nginx代理设置",
-})
+_PROCEDURE_TITLE_RE = re.compile(r"^.{1,40}?(?:安装|配置|部署|设置|准备)$")
 
 _COMMAND_LINE_RE = re.compile(
     r"(?:^|\n)\s*(?:\$\s*)?((?:sudo\s+)?"
@@ -66,8 +59,6 @@ def _is_procedure_title(title: str) -> bool:
     t = (title or "").strip()
     if not t or len(t) > 40:
         return False
-    if t in _PROCEDURE_WHITELIST:
-        return True
     return bool(_PROCEDURE_TITLE_RE.match(t))
 
 

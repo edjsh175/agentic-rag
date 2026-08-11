@@ -74,6 +74,50 @@ def test_understanding_with_history_protects_once(isolated_storage):
     assert kwargs.get("protect_entities") is False
     assert "StampServer" in (kwargs.get("focus_text") or "")
     assert kwargs.get("recent_rounds") == 2
+    assert kwargs.get("drop_history_anchors") is False
+
+
+def test_understanding_topic_shift_drops_anchors_and_conflicting_entity(isolated_storage):
+    isolated_storage()
+    cfg = MagicMock()
+    contextualizer = MagicMock()
+    contextualizer.build_query_specs_with_meta.return_value = (
+        [
+            RetrievalQuery("StampServer 的端口是多少？", "original", 1.0),
+            RetrievalQuery("StampServer 端口配置", "standalone", 0.8),
+        ],
+        {
+            "standalone_query": "StampServer 端口配置",
+            "is_context_dependent": False,
+            "confidence": 0.9,
+            "drop_history_anchors": True,
+        },
+    )
+    understanding = DialogueUnderstanding(cfg, contextualizer=contextualizer)
+    history = [
+        {"role": "user", "content": "PipelineBuilder 怎么用"},
+        {
+            "role": "assistant",
+            "content": "介绍",
+            "sources": [{"file_name": "PipelineBuilder.md", "section_title": "安装"}],
+        },
+    ]
+    result = understanding.analyze(
+        "StampServer 的端口是多少？",
+        history=history,
+        run_clarify=False,
+        entity_name="PipelineBuilder",
+    )
+    assert result.mode == "retrieve"
+    assert result.rationale == "contextualize_topic_shift"
+    assert result.is_context_dependent is False
+    assert result.focus.get("notes") == "topic_shift"
+    assert result.focus.get("confirmed_entity") == ""
+    assert "entity_name" not in result.filters
+    kwargs = contextualizer.build_query_specs_with_meta.call_args.kwargs
+    assert kwargs.get("drop_history_anchors") is True
+    assert kwargs.get("recent_rounds") == 0
+    assert kwargs.get("rolling_summary") == ""
 
 
 def test_understanding_clarify_mode(isolated_storage):

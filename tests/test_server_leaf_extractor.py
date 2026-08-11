@@ -127,3 +127,42 @@ def test_server_leaf_httpd_leaf_title_still_emits_procedure():
     assert result.entity("额外安装") is None
     assert result.has_relation("HTTPD服务配置", "runs_command", "systemctl enable httpd")
     assert [e.name for e in result.entities if e.entity_type == "Procedure"] == ["HTTPD服务配置"]
+
+
+def test_server_leaf_suffix_setting_and_prepare_without_name_whitelist():
+    """Path leaves ending in 设置/准备 are Procedures via suffix pattern, not name list."""
+    nginx = {
+        "chunk_id": "sv7",
+        "content": "打开 /etc/nginx/conf.d/default.conf\n",
+        "metadata": {
+            "doc_category": "StampServer",
+            "section_path": "服务部署 > Nginx代理设置",
+        },
+    }
+    prep = {
+        "chunk_id": "sv8",
+        "content": "chmod -R 777 /data\n",
+        "metadata": {
+            "doc_category": "StampServer",
+            "section_path": "服务部署 > 服务部署准备",
+        },
+    }
+    nginx_result = ServerLeafExtractor().extract(nginx)
+    prep_result = ServerLeafExtractor().extract(prep)
+    assert nginx_result.entity("Nginx代理设置") is not None
+    assert nginx_result.entity("Nginx代理设置").entity_type == "Procedure"
+    assert prep_result.entity("服务部署准备") is not None
+    assert prep_result.entity("服务部署准备").entity_type == "Procedure"
+
+
+def test_server_leaf_non_procedure_suffix_still_skips():
+    chunk = {
+        "chunk_id": "sv9",
+        "content": "说明文字\n",
+        "metadata": {
+            "doc_category": "StampServer",
+            "section_path": "服务部署 > 创建数据库目录",
+        },
+    }
+    result = ServerLeafExtractor().extract(chunk)
+    assert not any(e.entity_type == "Procedure" for e in result.entities)

@@ -132,6 +132,9 @@ class PackDecision:
     removed_history_messages: int = 0
     removed_chunks: int = 0
     scheduled_background_summary: bool = False
+    compress_background_busy: bool = False
+    compress_pending_rewarm: bool = False
+    compress_older_hash_prefix: str = ""
     reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -193,6 +196,76 @@ def session_from_history(
     )
 
 
+def _token_overlap(a: str, b: str) -> bool:
+    """True when two labels refer to the same token (casefold / substring)."""
+    left = (a or "").strip().casefold()
+    right = (b or "").strip().casefold()
+    if not left or not right:
+        return False
+    return left == right or left in right or right in left
+
+
+def _previous_user_topic(session: SessionState) -> str:
+    for turn in reversed(session.turns):
+        if turn.role == "user" and turn.content.strip():
+            return turn.content.strip()[:_FOCUS_TOPIC_MAX]
+    return ""
+
+
+def _previous_anchor_labels(session: SessionState, prev_topic: str) -> list[str]:
+    """Labels that represent 'what we were talking about' before the current turn."""
+    labels: list[str] = []
+    if session.resolved_entity:
+        labels.append(str(session.resolved_entity).strip())
+    if prev_topic:
+        labels.append(prev_topic)
+    for src in session.last_sources or []:
+        if not isinstance(src, dict):
+            continue
+        for key in ("section_title", "file_name", "source"):
+            val = src.get(key)
+            if val:
+                labels.append(str(val).strip())
+    if session.rolling_summary:
+        m = re.search(r"实体[:：]\s*(.+)", session.rolling_summary)
+        if m:
+            labels.append(m.group(1).strip())
+        m2 = re.search(r"主题[:：]\s*(.+)", session.rolling_summary)
+        if m2:
+            labels.append(m2.group(1).strip())
+    return [x for x in labels if x]
+
+
+def detect_topic_shift(question: str, session: SessionState) -> bool:
+    """当前问句显式点名了与上文无关的技术实体时视为主题漂移。
+
+    无显式实体（指代/省略追问）不判定漂移，保留锚点。
+    """
+    from rag_knowledge.services.query_entity_guard import extract_explicit_entities
+
+    q_ents = extract_explicit_entities(question or "")
+    if not q_ents:
+        return False
+
+    prev_topic = _previous_user_topic(session)
+    anchors = _previous_anchor_labels(session, prev_topic)
+    if not anchors:
+        return False
+
+    # Expand anchors with explicit entities found in previous topic / source names.
+    anchor_ents: list[str] = []
+    for label in anchors:
+        anchor_ents.extend(extract_explicit_entities(label))
+        # Keep raw label too (covers Chinese / short titles without Latin entities).
+        anchor_ents.append(label)
+
+    for qe in q_ents:
+        for ae in anchor_ents:
+            if _token_overlap(qe, ae):
+                return False
+    return True
+
+
 def build_dialogue_focus(
     question: str,
     session: SessionState,
@@ -201,11 +274,8 @@ def build_dialogue_focus(
 ) -> DialogueFocus:
     """从 Session + 当前问句构造结构化焦点（不调用 LLM）。"""
     entity = (session.resolved_entity or "").strip()
-    topic = ""
-    for turn in reversed(session.turns):
-        if turn.role == "user" and turn.content.strip():
-            topic = turn.content.strip()[:_FOCUS_TOPIC_MAX]
-            break
+    prev_topic = _previous_user_topic(session)
+    topic = prev_topic
     if not topic and session.last_sources:
         src = session.last_sources[0]
         topic = str(src.get("section_title") or src.get("file_name") or "")[:_FOCUS_TOPIC_MAX]
@@ -219,11 +289,22 @@ def build_dialogue_focus(
         if m2 and not entity:
             entity = m2.group(1).strip()[:80]
 
+    notes = ""
+    if detect_topic_shift(question, session):
+        # 切断旧主题粘滞：焦点改为当前问句；冲突实体锚点清空。
+        topic = (question or "").strip()[:_FOCUS_TOPIC_MAX]
+        from rag_knowledge.services.query_entity_guard import extract_explicit_entities
+
+        q_ents = extract_explicit_entities(question or "")
+        if entity and q_ents and not any(_token_overlap(entity, e) for e in q_ents):
+            entity = ""
+        notes = "topic_shift"
+
     return DialogueFocus(
         topic=topic,
         confirmed_entity=entity,
         open_question=open_q,
-        notes="",
+        notes=notes,
     )
 
 
@@ -346,15 +427,29 @@ class GenerationPack:
             removed_history_messages=removed_history,
             removed_chunks=removed_chunks,
             scheduled_background_summary=compress_result.scheduled_background,
+            compress_background_busy=bool(
+                getattr(compress_result, "background_busy", False)
+            ),
+            compress_pending_rewarm=bool(
+                getattr(compress_result, "pending_rewarm_queued", False)
+            ),
+            compress_older_hash_prefix=str(
+                getattr(compress_result, "older_hash_prefix", "") or ""
+            ),
             reason="; ".join(reason_parts) if reason_parts else "ok",
         )
         logger.info(
-            "generation_pack | fallback=%s summary=%s kept_hist=%d removed_hist=%d removed_chunks=%d",
+            "generation_pack | fallback=%s summary=%s kept_hist=%d removed_hist=%d "
+            "removed_chunks=%d scheduled=%s busy=%s pending=%s hash=%s",
             decision.compress_fallback,
             decision.used_summary,
             decision.kept_history_messages,
             decision.removed_history_messages,
             decision.removed_chunks,
+            decision.scheduled_background_summary,
+            decision.compress_background_busy,
+            decision.compress_pending_rewarm,
+            decision.compress_older_hash_prefix,
         )
         return PackResult(
             source_docs=trimmed_docs,

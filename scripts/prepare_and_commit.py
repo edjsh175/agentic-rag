@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: transition to pattern universal v1 and optimize leaf fallbacks for graph extraction"
+    commit_msg = "feat: optimize session history compression and improve leaf fallback logic"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

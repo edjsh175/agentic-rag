@@ -46,14 +46,18 @@ class TestHistoryCompressor(unittest.TestCase):
         self.main_cfg.helper_llm_model = "helper-model"
         self.compressor = HistoryCompressor(self.cfg, self.main_cfg)
 
-    def wait_for_background(self):
-        deadline = time.monotonic() + 1
+    def wait_for_background(self, timeout: float = 2.0):
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self.compressor._lock:
                 task = self.compressor._background_task
-            if task is None:
+                pending = self.compressor._pending_job
+            if task is None and pending is None:
                 return
-            task.join(0.02)
+            if task is not None:
+                task.join(0.05)
+            else:
+                time.sleep(0.02)
         self.fail("background summary did not finish")
 
     def test_cache_miss_returns_immediately_and_deduplicates_background_work(self):
@@ -88,6 +92,48 @@ class TestHistoryCompressor(unittest.TestCase):
         recent, summary = self.compressor.compress(history)
         self.assertEqual(len(recent), 4)
         self.assertEqual(summary, "summary")
+
+    def test_busy_miss_queues_latest_older_for_rewarm(self):
+        """后台仍在跑时新 older 入队；完成后续跑最新 hash，避免摘要饥饿。"""
+        history_v1 = [
+            {"role": role, "content": f"v1-{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        history_v2 = history_v1 + [
+            {"role": "user", "content": "v2-u"},
+            {"role": "assistant", "content": "v2-a"},
+        ]
+        started = threading.Event()
+        release = threading.Event()
+        call_lens: list[int] = []
+
+        def summarize(older_history, *_args):
+            call_lens.append(len(older_history))
+            if len(call_lens) == 1:
+                started.set()
+                release.wait(2)
+                return "sum-v1"
+            return "sum-v2"
+
+        self.compressor._generate_summary = summarize
+        r1 = self.compressor.compress_detailed(history_v1)
+        self.assertTrue(started.wait(1))
+        self.assertTrue(r1.scheduled_background)
+        self.assertFalse(r1.pending_rewarm_queued)
+
+        r2 = self.compressor.compress_detailed(history_v2)
+        self.assertTrue(r2.background_busy)
+        self.assertTrue(r2.pending_rewarm_queued)
+        self.assertIsNone(r2.summary)
+
+        release.set()
+        self.wait_for_background(timeout=3)
+
+        hit = self.compressor.compress_detailed(history_v2)
+        self.assertEqual(hit.fallback, "summary_cache")
+        self.assertEqual(hit.summary, "sum-v2")
+        self.assertEqual(call_lens, [16, 18])  # 10→11 轮：older=总消息-4
 
     def test_cache_miss_async_policy_keeps_full_history(self):
         history = [
