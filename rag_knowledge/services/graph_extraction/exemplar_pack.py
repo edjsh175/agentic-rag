@@ -1,14 +1,22 @@
-"""Load curated extraction exemplar packs for LLM few-shot injection."""
+"""Load curated extraction exemplar packs for LLM few-shot injection.
+
+Strategy B: always inject universal pattern pack for all doc_categories;
+optionally append a category-specific pack (e.g. StampTools) within budget.
+"""
 from __future__ import annotations
 
 import json
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_MAX_CHARS = 2500
+DEFAULT_MAX_CHARS = 3200
+UNIVERSAL_BUDGET = 2400
+CATEGORY_BUDGET = 800
 _NONE = "(none)"
 
-# doc_category -> pack filename under data/extraction_exemplars/
+UNIVERSAL_PACK = "pattern_universal_v1.json"
+
+# doc_category -> optional extra pack under data/extraction_exemplars/
 _CATEGORY_PACKS: dict[str, str] = {
     "StampTools": "stamptools_v1.json",
 }
@@ -18,7 +26,7 @@ def exemplar_root() -> Path:
     return Path(__file__).resolve().parents[3] / "data" / "extraction_exemplars"
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=16)
 def _load_pack_file(path_str: str) -> dict:
     path = Path(path_str)
     if not path.is_file():
@@ -40,6 +48,11 @@ def pack_path_for_category(doc_category: str) -> Path | None:
     return path if path.is_file() else None
 
 
+def universal_pack_path() -> Path | None:
+    path = exemplar_root() / UNIVERSAL_PACK
+    return path if path.is_file() else None
+
+
 def load_pack(doc_category: str) -> dict:
     path = pack_path_for_category(doc_category)
     if path is None:
@@ -47,20 +60,18 @@ def load_pack(doc_category: str) -> dict:
     return _load_pack_file(str(path.resolve()))
 
 
-def format_exemplars_for_prompt(
-    doc_category: str,
-    *,
-    max_chars: int = DEFAULT_MAX_CHARS,
-) -> str:
-    """Return prompt section text for {extraction_exemplars}; (none) when no pack."""
-    pack = load_pack(doc_category)
+def load_universal_pack() -> dict:
+    path = universal_pack_path()
+    if path is None:
+        return {}
+    return _load_pack_file(str(path.resolve()))
+
+
+def _format_pack_body(pack: dict, *, heading: str) -> str:
     exemplars = pack.get("exemplars") or []
     if not exemplars:
-        return _NONE
-
-    lines: list[str] = [
-        "Curated golden exemplars for this doc_category (imitate patterns; do not copy StampTools entity names onto other products):",
-    ]
+        return ""
+    lines: list[str] = [heading]
     for item in exemplars:
         if not isinstance(item, dict):
             continue
@@ -84,11 +95,50 @@ def format_exemplars_for_prompt(
                 if tip_s:
                     lines.append(f"- {tip_s}")
         lines.append("")
+    return "\n".join(lines).rstrip()
 
-    text = "\n".join(lines).rstrip()
+
+def _truncate(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 20].rstrip() + "\n... (truncated)"
+
+
+def format_exemplars_for_prompt(
+    doc_category: str,
+    *,
+    max_chars: int = DEFAULT_MAX_CHARS,
+) -> str:
+    """Return prompt section: universal patterns for all categories + optional category pack."""
+    parts: list[str] = []
+    universal = load_universal_pack()
+    uni_body = _format_pack_body(
+        universal,
+        heading=(
+            "Universal navigational patterns (apply to ALL products; "
+            "replace {Tool}/{Service} with names from THIS chunk; do not copy foreign product names):"
+        ),
+    )
+    if uni_body:
+        parts.append(_truncate(uni_body, min(UNIVERSAL_BUDGET, max_chars)))
+
+    cat_pack = load_pack(doc_category)
+    if cat_pack.get("exemplars"):
+        cat_body = _format_pack_body(
+            cat_pack,
+            heading=(
+                f"Category-specific exemplars for doc_category={doc_category} "
+                "(optional extra hints; still prefer universal patterns):"
+            ),
+        )
+        remain = max_chars - sum(len(p) + 2 for p in parts)
+        if cat_body and remain > 80:
+            parts.append(_truncate(cat_body, min(CATEGORY_BUDGET, remain)))
+
+    if not parts:
+        return _NONE
+    text = "\n\n".join(parts)
+    return _truncate(text, max_chars)
 
 
 def clear_exemplar_cache() -> None:

@@ -6,6 +6,7 @@ from rag_knowledge.services.graph_extraction.exemplar_pack import (
     clear_exemplar_cache,
     format_exemplars_for_prompt,
     load_pack,
+    load_universal_pack,
     pack_path_for_category,
 )
 
@@ -21,20 +22,20 @@ def test_stamptools_pack_loads_and_has_core_scenarios():
     assert "st-no-reparent-backbone" in ids
 
 
-def test_other_category_has_no_stamptools_pack():
+def test_universal_pack_always_present_for_server():
     clear_exemplar_cache()
+    assert load_universal_pack().get("pack_id") == "pattern_universal_v1"
     assert pack_path_for_category("StampServer") is None
-    assert load_pack("StampServer") == {}
-    assert format_exemplars_for_prompt("StampServer") == "(none)"
-    assert format_exemplars_for_prompt("博客") == "(none)"
+    text = format_exemplars_for_prompt("StampServer")
+    assert text != "(none)"
+    assert "uni-deploy-proc-command" in text
+    assert "st-proc-new-project" not in text
 
 
 def test_format_exemplars_truncates_to_budget():
     clear_exemplar_cache()
     text = format_exemplars_for_prompt("StampTools", max_chars=400)
     assert len(text) <= 400
-    assert "st-proc-new-project" in text or text.endswith("... (truncated)")
     full = format_exemplars_for_prompt("StampTools", max_chars=DEFAULT_MAX_CHARS)
-    assert "st-proc-new-project" in full
+    assert "uni-proc-under-tool" in full
     assert "GOOD extraction JSON" in full
-    assert "不要把「纹理格式」" in full or "ConfigItem" in full

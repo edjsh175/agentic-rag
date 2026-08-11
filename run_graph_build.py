@@ -26,11 +26,26 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("--doc-category", action="append", dest="doc_categories")
     extract.add_argument("--chunk-id", action="append", dest="chunk_ids")
     extract.add_argument("--force-rebuild", action="store_true")
-    extract.add_argument("--include-llm", action="store_true")
+    extract.set_defaults(include_llm=None)
+    llm_group = extract.add_mutually_exclusive_group()
+    llm_group.add_argument(
+        "--include-llm",
+        dest="include_llm",
+        action="store_const",
+        const=True,
+        help="Force LLM extraction on (overrides config)",
+    )
+    llm_group.add_argument(
+        "--no-llm",
+        dest="include_llm",
+        action="store_const",
+        const=False,
+        help="Force LLM extraction off (overrides config; leaf rules run fully)",
+    )
     extract.add_argument(
         "--include-entity-resolve",
         action="store_true",
-        help="Enable LLM identity arbiter for near-variant entity dedup (independent of --include-llm)",
+        help="Enable LLM identity arbiter for near-variant entity dedup (independent of LLM extract)",
     )
     extract.add_argument(
         "--include-relation-direction-resolve",
@@ -203,7 +218,7 @@ def main(argv: list[str] | None = None, *, db: RelationalDB | None = None, chunk
         if args.resume_batch:
             result = builder.resume_batch(
                 args.resume_batch,
-                include_llm=True if args.include_llm else None,
+                include_llm=args.include_llm,
                 include_entity_resolve=True if args.include_entity_resolve else None,
                 include_relation_direction_resolve=(
                     True if args.include_relation_direction_resolve else None

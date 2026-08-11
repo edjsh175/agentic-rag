@@ -1,0 +1,84 @@
+{
+  "pack_id": "pattern_universal_v1",
+  "doc_categories": ["*"],
+  "purpose": "Cross-category navigational patterns for ALL doc_categories. Replace {Tool}/{Service} with names from THIS chunk; never copy foreign product names.",
+  "exemplars": [
+    {
+      "id": "uni-anti-configitem",
+      "scenario": "anti_configitem_gui_labels",
+      "section_path": "{Tool} > 工程设置",
+      "content_excerpt": "处理类型：选择模式。\n输出路径：设置目录。\n坐标系：选择坐标系。",
+      "good": {"entities": [], "relations": []},
+      "bad": ["不要把 GUI 标签抽成 ConfigItem", "细节留在 chunk"]
+    },
+    {
+      "id": "uni-no-reparent",
+      "scenario": "respect_backbone_ownership",
+      "section_path": "{Tool} > 概述",
+      "content_excerpt": "{Tool} 属于产品目录下的组件。",
+      "good": {"entities": [], "relations": []},
+      "bad": [
+        "不要重写官方 belongs_to",
+        "Service 勿跨代直连 Product（经 Module如「服务部署」），除非 catalog 白名单"
+      ]
+    },
+    {
+      "id": "uni-deploy-proc-command",
+      "scenario": "deploy_procedure_and_command",
+      "section_path": "服务部署 > Redis安装",
+      "content_excerpt": "Redis安装\n执行：\nsystemctl enable redis",
+      "good": {
+        "entities": [
+          {"name": "Redis安装", "entity_type": "Procedure"},
+          {"name": "systemctl enable redis", "entity_type": "Command"}
+        ],
+        "relations": [
+          {"source_name": "Redis安装", "relation_type": "runs_command", "target_name": "systemctl enable redis"}
+        ]
+      },
+      "bad": ["不要刷 ConfigItem", "不要 Service→StampServer 跨代 belongs_to"]
+    },
+    {
+      "id": "uni-proc-under-tool",
+      "scenario": "procedure_under_tool",
+      "section_path": "{Tool} > 工程设置",
+      "content_excerpt": "新建工程\n新建处理工程。\n纹理格式：设置纹理。",
+      "good": {
+        "entities": [{"name": "新建工程", "entity_type": "Procedure"}],
+        "relations": [
+          {"source_name": "{Tool}", "relation_type": "has_procedure", "target_name": "新建工程"}
+        ]
+      },
+      "bad": ["不要把「纹理格式」抽成 ConfigItem"]
+    },
+    {
+      "id": "uni-fa-attach",
+      "scenario": "procedure_under_function_area",
+      "section_path": "{Tool} > 数据管理 > 材质映射",
+      "content_excerpt": "材质映射功能用于映射材质编码。",
+      "good": {
+        "entities": [{"name": "材质映射", "entity_type": "Procedure"}],
+        "relations": [
+          {"source_name": "材质映射", "relation_type": "belongs_to", "target_name": "{Tool}::数据管理"}
+        ]
+      },
+      "bad": ["不要新建 FunctionArea", "有 FunctionArea 时勿跳过"]
+    },
+    {
+      "id": "uni-format-table",
+      "scenario": "format_from_data_spec_table",
+      "section_path": "{Tool} > 数据规范",
+      "content_excerpt": "| 数据格式 |\n| --- |\n| Las（*.las） |\n| Ply（*.ply） |",
+      "good": {
+        "entities": [
+          {"name": "Las", "entity_type": "Format"},
+          {"name": "Ply", "entity_type": "Format"}
+        ],
+        "relations": [
+          {"source_name": "{Tool}", "relation_type": "supports_format", "target_name": "Las"}
+        ]
+      },
+      "bad": ["不要把格式枚举抽成 ConfigItem"]
+    }
+  ]
+}

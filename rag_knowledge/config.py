@@ -126,7 +126,7 @@ from rag_knowledge.llm_http import ModelEndpoint
 @dataclass
 class GraphLLMExtractorConfig:
     """LLM semantic graph extraction config (MVP-4)."""
-    enabled: bool = False
+    enabled: bool = True
     # Entity identity arbiter (secondary dedup); independent of extract --include-llm
     entity_resolve_enabled: bool = False
     # Relation direction arbiter (who-depends-on-whom); independent of --include-llm
@@ -175,8 +175,10 @@ class QaTraceConfig:
     enabled: bool = True
     max_content_preview: int = 240
     max_candidates: int = 20
-    retain_days: int = 14
-    max_traces: int = 2000
+    # 0 = keep forever (no age-based prune)
+    retain_days: int = 0
+    # 0 = no cap (no count-based prune)
+    max_traces: int = 0
 
 
 @dataclass
@@ -184,7 +186,6 @@ class ClarificationConfig:
     """Clarification (反问) before full retrieval."""
     enabled: bool = True
     min_options: int = 2
-    max_options: int = 4
     llm_enabled: bool = True
     llm_timeout_seconds: float = 15.0
 
@@ -490,7 +491,7 @@ class Config:
 
         # ---- LLM 语义图谱抽取 (MVP-4) ----
         self.graph_extraction_llm = GraphLLMExtractorConfig(
-            enabled=_get("graph_extraction.llm", "enabled", "false").lower() == "true",
+            enabled=_get("graph_extraction.llm", "enabled", "true").lower() == "true",
             entity_resolve_enabled=_get(
                 "graph_extraction.llm", "entity_resolve_enabled", "false"
             ).lower()
@@ -550,14 +551,13 @@ class Config:
             enabled=_get("qa_trace", "enabled", "true").lower() == "true",
             max_content_preview=int(_get("qa_trace", "max_content_preview", "240")),
             max_candidates=int(_get("qa_trace", "max_candidates", "20")),
-            retain_days=int(_get("qa_trace", "retain_days", "14")),
-            max_traces=int(_get("qa_trace", "max_traces", "2000")),
+            retain_days=int(_get("qa_trace", "retain_days", "0")),
+            max_traces=int(_get("qa_trace", "max_traces", "0")),
         )
 
         self.clarification = ClarificationConfig(
             enabled=_get("clarification", "enabled", "true").lower() == "true",
             min_options=int(_get("clarification", "min_options", "2")),
-            max_options=int(_get("clarification", "max_options", "4")),
             llm_enabled=_get("clarification", "llm_enabled", "true").lower() == "true",
             llm_timeout_seconds=float(_get("clarification", "llm_timeout_seconds", "15")),
         )

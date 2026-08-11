@@ -48,6 +48,7 @@ from rag_knowledge.services.ollama_health import assert_ollama_reachable
 from .chunk_mentions_extractor import ChunkMentionsExtractor
 from .chapter_leaf_extractor import ChapterLeafExtractor
 from .server_leaf_extractor import ServerLeafExtractor
+from .leaf_fallback import apply_leaf_rule_fallback
 from . import (
     CandidateNormalizer,
     ConfigBlockExtractor,
@@ -94,7 +95,7 @@ class GraphBuilder:
         ]
 
     def build_full(self, force_rebuild: bool = False, limit: int | None = None,
-                   doc_categories: list[str] | None = None, include_llm: bool = False,
+                   doc_categories: list[str] | None = None, include_llm: bool | None = None,
                    include_entity_resolve: bool = False,
                    include_relation_direction_resolve: bool = False,
                    include_entity_type_resolve: bool = False,
@@ -133,7 +134,7 @@ class GraphBuilder:
             resume_batch_id=resume_batch_id,
         )
 
-    def build_incremental(self, chunk_ids: list[str], include_llm: bool = False,
+    def build_incremental(self, chunk_ids: list[str], include_llm: bool | None = None,
                           include_entity_resolve: bool = False,
                           include_relation_direction_resolve: bool = False,
                           include_entity_type_resolve: bool = False,
@@ -196,7 +197,14 @@ class GraphBuilder:
 
         filters = json.loads(batch.get("filters_json") or "{}")
         mode = str(batch.get("mode") or "full")
-        want_llm = bool(filters.get("include_llm")) if include_llm is None else bool(include_llm)
+        if include_llm is None:
+            if "include_llm" in filters:
+                want_llm = bool(filters.get("include_llm"))
+            else:
+                from rag_knowledge.config import Config
+                want_llm = bool(Config().graph_extraction_llm.enabled)
+        else:
+            want_llm = bool(include_llm)
         want_resolve = (
             bool(filters.get("include_entity_resolve"))
             if include_entity_resolve is None
@@ -260,7 +268,7 @@ class GraphBuilder:
     def _build(self, mode: str, chunks: list[dict], filters: dict,
                extra_stats: dict | None = None,
                missing_chunk_ids: list[str] | None = None,
-               include_llm: bool = False,
+               include_llm: bool | None = None,
                include_entity_resolve: bool = False,
                include_relation_direction_resolve: bool = False,
                include_entity_type_resolve: bool = False,
@@ -363,7 +371,11 @@ class GraphBuilder:
         from rag_knowledge.config import Config
         from rag_knowledge.services.entity_identity import LLMEntityTypeArbiter, LLMIdentityArbiter
         cfg = Config()
-        actual_include_llm = include_llm or cfg.graph_extraction_llm.enabled
+        actual_include_llm = (
+            cfg.graph_extraction_llm.enabled if include_llm is None else bool(include_llm)
+        )
+        filters = dict(filters)
+        filters["include_llm"] = actual_include_llm
         actual_include_entity_resolve = (
             include_entity_resolve or cfg.graph_extraction_llm.entity_resolve_enabled
         )
@@ -499,15 +511,90 @@ class GraphBuilder:
             chunk_section_path = str(chunk_meta.get("section_path") or "")
             chunk_in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
 
-            # 1. Rules extractors
+            # 1. Structural rules (Section/Table/Config). Leaf rules run after LLM (strategy B).
             context = section_extractor.extract(chunk)
             combined = ExtractionResult()
             combined.extend(context)
             combined.extend(DataSpecTableRelationExtractor().extract(chunk, context))
             combined.extend(TableFieldExtractor().extract(chunk, context))
             combined.extend(ConfigBlockExtractor().extract(chunk, context))
-            combined.extend(ChapterLeafExtractor(catalog=catalog).extract(chunk, context))
-            combined.extend(ServerLeafExtractor(catalog=catalog).extract(chunk, context))
+            llm_result = ExtractionResult()
+            # Collect FunctionAreas before LLM (from structural rules only)
+            fa_list = [
+                e.name for e in combined.entities if e.entity_type == "FunctionArea"
+            ]
+
+            # 2. LLM semantic extractor (primary for navigational leaves when enabled)
+            # Gate: backbone neighborhood OR rule hit OR command-rich
+            # OR explicit --doc-category filter (category-scoped full LLM on that slice)
+            if actual_include_llm and llm_extractor:
+                in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
+                rule_hit = rule_result_hits_backbone(combined, backbone_constraints)
+                command_rich = chunk_has_command_signal(str(chunk.get("content") or ""))
+                category_scoped = bool(filters.get("doc_categories"))
+                if not (in_neighborhood or rule_hit or command_rich or category_scoped):
+                    counts["llm_chunks_skipped"] = int(counts.get("llm_chunks_skipped") or 0) + 1
+                else:
+                    if command_rich and not (in_neighborhood or rule_hit or category_scoped):
+                        counts["llm_chunks_command_rich"] = int(counts.get("llm_chunks_command_rich") or 0) + 1
+                    if category_scoped and not (in_neighborhood or rule_hit or command_rich):
+                        counts["llm_chunks_category_scoped"] = int(
+                            counts.get("llm_chunks_category_scoped") or 0
+                        ) + 1
+                    counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
+                    if fa_list:
+                        llm_result = llm_extractor.extract(chunk, function_areas=fa_list)
+                    else:
+                        llm_result = llm_extractor.extract(chunk)
+                    if actual_include_leak_salvage:
+                        from .leak_salvage import (
+                            assess_leak_risk,
+                            build_salvage_note,
+                            merge_salvage_result,
+                        )
+                        leak_reason = assess_leak_risk(
+                            chunk, llm_result, rule_result=combined
+                        )
+                        if leak_reason:
+                            counts["leak_salvage_triggered"] = (
+                                int(counts.get("leak_salvage_triggered") or 0) + 1
+                            )
+                            note = build_salvage_note(leak_reason, chunk)
+                            if fa_list:
+                                salvage_result = llm_extractor.extract(
+                                    chunk, function_areas=fa_list, salvage_note=note
+                                )
+                            else:
+                                salvage_result = llm_extractor.extract(
+                                    chunk, salvage_note=note
+                                )
+                            llm_result, e_add, r_add = merge_salvage_result(
+                                llm_result, salvage_result
+                            )
+                            counts["leak_salvage_entities_added"] = (
+                                int(counts.get("leak_salvage_entities_added") or 0) + e_add
+                            )
+                            counts["leak_salvage_relations_added"] = (
+                                int(counts.get("leak_salvage_relations_added") or 0) + r_add
+                            )
+                            if cfg.graph_extraction_llm.rate_limit_delay > 0:
+                                import time
+                                time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
+                    if cfg.graph_extraction_llm.rate_limit_delay > 0:
+                        import time
+                        time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
+
+            # 3. Leaf rule fallback (ChapterLeaf / ServerLeaf), deduped against LLM leaves
+            leaf_result = ExtractionResult()
+            leaf_result.extend(ChapterLeafExtractor(catalog=catalog).extract(chunk, context))
+            leaf_result.extend(ServerLeafExtractor(catalog=catalog).extract(chunk, context))
+            if actual_include_llm:
+                leaf_result = apply_leaf_rule_fallback(leaf_result, llm_result)
+                counts["leaf_fallback_entities"] = int(counts.get("leaf_fallback_entities") or 0) + len(
+                    leaf_result.entities
+                )
+            combined.extend(leaf_result)
+
             for kind, items in (
                 ("entity", combined.entities), ("relation", combined.relations),
                 ("field", combined.fields), ("link", combined.links),
@@ -639,70 +726,10 @@ class GraphBuilder:
                     candidate_ids[kind].add(candidate_id)
                     rule_candidate_ids.add(candidate_id)
 
-            # Collect FunctionAreas from rule extractors for this chunk
-            fa_list = [
-                e.name for e in combined.entities if e.entity_type == "FunctionArea"
-            ]
-
-            # 2. LLM semantic extractor
-            # Gate: backbone neighborhood OR rule hit OR command-rich
-            # OR explicit --doc-category filter (category-scoped full LLM on that slice)
-            if actual_include_llm and llm_extractor:
-                in_neighborhood = chunk_in_backbone_neighborhood(chunk, backbone_constraints)
-                rule_hit = rule_result_hits_backbone(combined, backbone_constraints)
-                command_rich = chunk_has_command_signal(str(chunk.get("content") or ""))
-                category_scoped = bool(filters.get("doc_categories"))
-                if not (in_neighborhood or rule_hit or command_rich or category_scoped):
-                    counts["llm_chunks_skipped"] = int(counts.get("llm_chunks_skipped") or 0) + 1
-                else:
-                    if command_rich and not (in_neighborhood or rule_hit or category_scoped):
-                        counts["llm_chunks_command_rich"] = int(counts.get("llm_chunks_command_rich") or 0) + 1
-                    if category_scoped and not (in_neighborhood or rule_hit or command_rich):
-                        counts["llm_chunks_category_scoped"] = int(
-                            counts.get("llm_chunks_category_scoped") or 0
-                        ) + 1
-                    counts["llm_chunks_considered"] = int(counts.get("llm_chunks_considered") or 0) + 1
-                    if fa_list:
-                        llm_result = llm_extractor.extract(chunk, function_areas=fa_list)
-                    else:
-                        llm_result = llm_extractor.extract(chunk)
-                    if actual_include_leak_salvage:
-                        from .leak_salvage import (
-                            assess_leak_risk,
-                            build_salvage_note,
-                            merge_salvage_result,
-                        )
-                        leak_reason = assess_leak_risk(
-                            chunk, llm_result, rule_result=combined
-                        )
-                        if leak_reason:
-                            counts["leak_salvage_triggered"] = (
-                                int(counts.get("leak_salvage_triggered") or 0) + 1
-                            )
-                            note = build_salvage_note(leak_reason, chunk)
-                            if fa_list:
-                                salvage_result = llm_extractor.extract(
-                                    chunk, function_areas=fa_list, salvage_note=note
-                                )
-                            else:
-                                salvage_result = llm_extractor.extract(
-                                    chunk, salvage_note=note
-                                )
-                            llm_result, e_add, r_add = merge_salvage_result(
-                                llm_result, salvage_result
-                            )
-                            counts["leak_salvage_entities_added"] = (
-                                int(counts.get("leak_salvage_entities_added") or 0) + e_add
-                            )
-                            counts["leak_salvage_relations_added"] = (
-                                int(counts.get("leak_salvage_relations_added") or 0) + r_add
-                            )
-                            if cfg.graph_extraction_llm.rate_limit_delay > 0:
-                                import time
-                                time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
-                    if cfg.graph_extraction_llm.rate_limit_delay > 0:
-                        import time
-                        time.sleep(cfg.graph_extraction_llm.rate_limit_delay)
+            # Stage LLM candidates (llm_result already computed before leaf fallback)
+            if actual_include_llm and llm_extractor and (
+                llm_result.entities or llm_result.relations or llm_result.diagnostics or llm_result.aliases
+            ):
                     for kind, items in (
                         ("entity", llm_result.entities),
                         ("relation", llm_result.relations),

@@ -404,6 +404,7 @@ def test_prompt_injects_stamptools_exemplars_not_for_server(isolated_storage):
         content="新建工程",
     )
     assert "{extraction_exemplars}" not in tools_prompt
+    assert "uni-proc-under-tool" in tools_prompt
     assert "st-proc-new-project" in tools_prompt
     assert "Golden Extraction Exemplars" in tools_prompt
 
@@ -413,8 +414,8 @@ def test_prompt_injects_stamptools_exemplars_not_for_server(isolated_storage):
         content="systemctl enable redis",
     )
     assert "{extraction_exemplars}" not in server_prompt
+    assert "uni-deploy-proc-command" in server_prompt
     assert "st-proc-new-project" not in server_prompt
-    assert "(none)" in server_prompt
 
 
 def test_prompt_v3_injects_exemplars(isolated_storage):
@@ -422,5 +423,6 @@ def test_prompt_v3_injects_exemplars(isolated_storage):
     cfg.graph_extraction_llm.prompt_version = "v3"
     extractor = LLMGraphExtractor()
     prompt = extractor.build_prompt(doc_category="StampTools", section_path="x", content="y")
-    assert "st-format-data-spec" in prompt
+    assert "uni-proc-under-tool" in prompt
+    assert "st-proc-new-project" in prompt or "uni-format-table" in prompt
     assert "{extraction_exemplars}" not in prompt
