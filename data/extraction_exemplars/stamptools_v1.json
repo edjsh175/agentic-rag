@@ -1,0 +1,141 @@
+{
+  "pack_id": "stamptools_v1",
+  "doc_categories": ["StampTools"],
+  "purpose": "Golden few-shot for Tool handbook extraction: navigational skeleton only (Procedure/Format), not GUI ConfigItem flood.",
+  "exemplars": [
+    {
+      "id": "st-proc-new-project",
+      "scenario": "procedure_under_tool",
+      "doc_category": "StampTools",
+      "section_path": "ObliqueModelBuilder > 工程设置",
+      "content_excerpt": "新建工程\n新建一个倾斜模型数据的编译处理工程。\n纹理格式：设置成果数据的纹理格式。\n工程路径：设置工程文件存储路径。",
+      "good": {
+        "entities": [
+          {"name": "新建工程", "entity_type": "Procedure"}
+        ],
+        "relations": [
+          {"source_name": "ObliqueModelBuilder", "relation_type": "has_procedure", "target_name": "新建工程"}
+        ]
+      },
+      "bad": [
+        "不要把「纹理格式」「工程路径」抽成 ConfigItem",
+        "不要为每个 UI 标签新建实体"
+      ]
+    },
+    {
+      "id": "st-proc-resume-project",
+      "scenario": "procedure_under_tool",
+      "doc_category": "StampTools",
+      "section_path": "UEModelBuilder > 工程设置",
+      "content_excerpt": "继续工程\n工程中断后可从断点继续编译，无需从头开始。",
+      "good": {
+        "entities": [
+          {"name": "继续工程", "entity_type": "Procedure"}
+        ],
+        "relations": [
+          {"source_name": "UEModelBuilder", "relation_type": "has_procedure", "target_name": "继续工程"}
+        ]
+      },
+      "bad": [
+        "不要把「继续工程」标成 Step 或 ConfigItem"
+      ]
+    },
+    {
+      "id": "st-fa-attach-procedure",
+      "scenario": "procedure_under_function_area",
+      "doc_category": "StampTools",
+      "section_path": "PipelineBuilder > 数据管理 > 材质映射",
+      "content_excerpt": "材质映射功能用于将模型材质名称映射为标准材质编码。",
+      "good": {
+        "entities": [
+          {"name": "材质映射", "entity_type": "Procedure"}
+        ],
+        "relations": [
+          {
+            "source_name": "材质映射",
+            "relation_type": "belongs_to",
+            "target_name": "PipelineBuilder::数据管理"
+          }
+        ]
+      },
+      "bad": [
+        "不要新建 entity_type=FunctionArea（FunctionArea 只读、系统预建）",
+        "有可用 FunctionArea 时不要跳过直接挂到 PipelineBuilder"
+      ]
+    },
+    {
+      "id": "st-format-data-spec",
+      "scenario": "format_from_data_spec_table",
+      "doc_category": "StampTools",
+      "section_path": "点云数据处理工具 > 数据规范",
+      "content_excerpt": "| 数据类型 | 数据格式 | 约束与限制 |\n| --- | --- | --- |\n| 点云数据 | Las（*.las） | 激光点云文件 |\n| 高斯泼溅数据 | Ply（*.ply） | 只支持标准ply |",
+      "good": {
+        "entities": [
+          {"name": "Las", "entity_type": "Format"},
+          {"name": "Ply", "entity_type": "Format"}
+        ],
+        "relations": [
+          {"source_name": "点云数据处理工具", "relation_type": "supports_format", "target_name": "Las"},
+          {"source_name": "点云数据处理工具", "relation_type": "supports_format", "target_name": "Ply"}
+        ]
+      },
+      "bad": [
+        "不要把 Las/Ply 抽成 ConfigItem",
+        "不要为表里每个约束单元格建 Constraint 节点"
+      ]
+    },
+    {
+      "id": "st-no-gui-configitem",
+      "scenario": "anti_configitem_gui_labels",
+      "doc_category": "StampTools",
+      "section_path": "TerrainBuilder > 工程设置",
+      "content_excerpt": "处理类型：选择影像或地形处理。\n输出路径：设置成果输出目录。\n坐标系：选择工程坐标系。",
+      "good": {
+        "entities": [],
+        "relations": []
+      },
+      "bad": [
+        "不要把「处理类型」「输出路径」「坐标系」抽成 ConfigItem",
+        "细节留在 chunk，图谱不存 GUI 字段清单"
+      ]
+    },
+    {
+      "id": "st-no-reparent-backbone",
+      "scenario": "respect_backbone_ownership",
+      "doc_category": "StampTools",
+      "section_path": "PipelineBuilder > 概述",
+      "content_excerpt": "PipelineBuilder 是 StampTools 中的管线数据处理工具。",
+      "good": {
+        "entities": [],
+        "relations": []
+      },
+      "bad": [
+        "不要重写官方 belongs_to（例如把 PipelineBuilder 挂到 StampServer 或架构层 Module）",
+        "产品归属以 backbone/catalog 为准，LLM 不 invent 新归属边"
+      ]
+    },
+    {
+      "id": "st-no-fa-fallback-skip",
+      "scenario": "no_function_area_degrade",
+      "doc_category": "StampTools",
+      "section_path": "DOMBuilder > 影像数据的编译发布",
+      "content_excerpt": "影像数据的编译发布\n包含编译与发布两个阶段。",
+      "good": {
+        "entities": [
+          {"name": "影像数据的编译发布", "entity_type": "Procedure"}
+        ],
+        "relations": [
+          {
+            "source_name": "DOMBuilder",
+            "relation_type": "has_procedure",
+            "target_name": "影像数据的编译发布"
+          }
+        ]
+      },
+      "bad": [
+        "无可用 FunctionArea 时可挂 Tool，但仍不要 invent FunctionArea 节点",
+        "不要把「编译」「发布」拆成无证据的 ConfigItem"
+      ]
+    }
+  ]
+}

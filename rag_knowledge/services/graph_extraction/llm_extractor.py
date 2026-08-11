@@ -21,6 +21,7 @@ from . import (
     ExtractionResult
 )
 from .evidence_span import repair_evidence_span
+from .exemplar_pack import format_exemplars_for_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -188,6 +189,7 @@ class LLMGraphExtractor:
             self.prompt_template
             .replace("{backbone_context}", self._backbone_context)
             .replace("{function_area_context}", function_area_context or "None available")
+            .replace("{extraction_exemplars}", format_exemplars_for_prompt(doc_category))
             .replace("{doc_category}", doc_category)
             .replace("{section_path}", section_path)
             .replace("{content}", content)

@@ -47,6 +47,7 @@ from rag_knowledge.services.ollama_health import assert_ollama_reachable
 
 from .chunk_mentions_extractor import ChunkMentionsExtractor
 from .chapter_leaf_extractor import ChapterLeafExtractor
+from .server_leaf_extractor import ServerLeafExtractor
 from . import (
     CandidateNormalizer,
     ConfigBlockExtractor,
@@ -506,6 +507,7 @@ class GraphBuilder:
             combined.extend(TableFieldExtractor().extract(chunk, context))
             combined.extend(ConfigBlockExtractor().extract(chunk, context))
             combined.extend(ChapterLeafExtractor(catalog=catalog).extract(chunk, context))
+            combined.extend(ServerLeafExtractor(catalog=catalog).extract(chunk, context))
             for kind, items in (
                 ("entity", combined.entities), ("relation", combined.relations),
                 ("field", combined.fields), ("link", combined.links),

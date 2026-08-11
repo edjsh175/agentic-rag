@@ -15,6 +15,9 @@ You are a highly accurate technical knowledge graph extractor. Your task is to e
 # Official Product Backbone
 {backbone_context}
 
+# Golden Extraction Exemplars
+{extraction_exemplars}
+
 # Allowed Entity Types
 - Product: A software product (e.g., StampServer, StampTools, StampWebRTC).
 - Tool: A utility or tool executable/script (e.g., PipelineBuilder, ModelBuilder).

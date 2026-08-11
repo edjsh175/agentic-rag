@@ -14,6 +14,9 @@ You are a highly accurate technical knowledge graph extractor. Your task is to e
 # Official Product Backbone
 {backbone_context}
 
+# Golden Extraction Exemplars
+{extraction_exemplars}
+
 # Pre-created FunctionArea Context
 The following FunctionAreas are pre-created for this tool/service and available for attachment:
 {function_area_context}

@@ -51,6 +51,8 @@ scrape_article/
 !/data/product_relation_backbone.json
 !/data/product_relation_backbone_preview.json
 !/data/ingestion_decisions.json
+!/data/extraction_exemplars/
+!/data/extraction_exemplars/**
 !/data/manual_graph_facts.json
 !/data/disambiguation_rules.json
 
