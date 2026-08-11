@@ -168,16 +168,6 @@ _DOCUMENT_PROMPT = PromptTemplate(
     template="[来源: {source}] [类型: {category}]\n{page_content}",
 )
 
-_QUERY_REWRITE_PROMPT = """你是一个查询改写助手。将用户问题改写成适合知识库检索的独立查询。
-规则：
-1. 补全省略的主语和指代（如"它"→具体对象）
-2. 保留关键术语和技术名词，不要改变原意
-3. 如果问题已经清晰完整，只做微调
-4. 输出仅返回改写后的文本
-
-用户问题：{question}
-改写后："""
-
 _CONTEXTUAL_COMPRESSION_PROMPT = """你是检索上下文压缩助手。
 请从给定文档片段中，原样提取与用户问题最相关的一段连续文本。
 
@@ -241,6 +231,10 @@ class RagChain:
         # ---- 历史消息压缩与摘要 ----
         from rag_knowledge.services.history_compressor import HistoryCompressor
         self._history_compressor = HistoryCompressor(cfg.history_compression, cfg)
+
+        # ---- 生成侧打包（compress + budget 唯一入口）----
+        from rag_knowledge.services.conversation_context import GenerationPack
+        self._generation_pack = GenerationPack(self._history_compressor, self._budget)
         self._query_cache = get_query_cache(
             enabled=cfg.cache.query_cache_enabled,
             ttl_seconds=cfg.cache.query_cache_ttl_seconds,
@@ -250,6 +244,10 @@ class RagChain:
 
         # ---- 对话式查询上下文化 ----
         self._contextualizer = QueryContextualizer(cfg)
+
+        # ---- 统一对话理解出口 ----
+        from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
+        self._understanding = DialogueUnderstanding(cfg, contextualizer=self._contextualizer)
 
         # ---- 意图驱动检索计划 ----
         from rag_knowledge.services.query_planner import QueryPlanner
@@ -372,21 +370,9 @@ class RagChain:
         # Do not silently guess when the question is still a vague oral surface term.
         # Full clarify LLM runs on /query/clarify; this is a cheap defense-in-depth gate.
         try:
-            from rag_knowledge.services.query_clarification import (
-                _WIDE_SURFACE_TERMS,
-                _contains_term,
-                _question_is_underspecified,
-            )
+            from rag_knowledge.services.query_surface import is_vague_surface_question
 
-            vague = _question_is_underspecified(question)
-            if not vague:
-                for term in _WIDE_SURFACE_TERMS:
-                    if term == "管线" and not _question_is_underspecified(question):
-                        continue
-                    if _contains_term(question, term):
-                        vague = True
-                        break
-            if vague:
+            if is_vague_surface_question(question):
                 logger.info("backbone_anchor skipped | vague surface question=%s", question[:40])
                 return plan
         except Exception as exc:
@@ -1305,67 +1291,53 @@ class RagChain:
             logger.warning("contextual compression failed, fallback to raw chunk: %s", e)
             return ""
 
-    def _rewrite_query(self, question: str, history: list | None = None) -> str:
-        """将用户问题上下文化，补全指代与省略，提升检索命中率。
+    def _pack_for_generation(
+        self,
+        source_docs: list,
+        context: str,
+        history: list | None,
+        question: str,
+        agent_prompt: str | None = None,
+    ):
+        """生成侧打包；完整 RagChain 走 GenerationPack，测试桩可只 stub compressor/budget。"""
+        packer = getattr(self, "_generation_pack", None)
+        if packer is not None:
+            return packer.pack(
+                source_docs, context, history, question, agent_prompt=agent_prompt,
+            )
 
-        当 history 存在时，使用 Conversation Contextualizer 判断问题是否依赖历史，
-        并将追问改写成独立的检索查询。无 history 或 LLM 不可用时回退到原问题。
-        """
-        # 无历史 → 原问题微调（保留旧逻辑作为简单兜底）
-        if not history:
-            # 含显式技术实体的独立问题不需要 LLM 改写，原问题已足够精准
-            from rag_knowledge.services.query_entity_guard import extract_explicit_entities
-            if extract_explicit_entities(question):
-                return question
-            return self._simple_rewrite(question)
+        from rag_knowledge.services.conversation_context import PackDecision, PackResult
 
-        # 有历史 → 使用对话上下文化器
-        try:
-            result = self._contextualizer.contextualize(question, history)
-            standalone = result.get("standalone_query", question)
-            is_dependent = result.get("is_context_dependent", False)
-            confidence = result.get("confidence", 0.5)
+        history_out, history_summary = self._history_compressor.compress(history)
+        trimmed_docs, trimmed_context, trimmed_history = self._budget.trim(
+            source_docs, context, history_out, question, agent_prompt=agent_prompt,
+        )
+        return PackResult(
+            source_docs=trimmed_docs,
+            context=trimmed_context,
+            history=trimmed_history,
+            history_summary=history_summary,
+            decision=PackDecision(reason="legacy_compressor_budget"),
+        )
 
-            if standalone and len(standalone) > 2 and standalone != question:
-                logger.info(
-                    "Query 上下文化: %s → %s (dependent=%s, confidence=%.2f)",
-                    question[:50], standalone[:60], is_dependent, confidence,
-                )
-                return standalone
-            elif is_dependent and standalone:
-                # 即使文本近似，也记录上下文依赖
-                logger.info(
-                    "Query 上下文依赖但改写变化小: %s (dependent=%s, confidence=%.2f)",
-                    question[:50], is_dependent, confidence,
-                )
-                return standalone
-        except Exception as e:
-            logger.warning("Query 上下文化失败，回退到简单改写: %s", e)
-
-        # 回退：简单改写
-        return self._simple_rewrite(question)
-
-    def _simple_rewrite(self, question: str) -> str:
-        """简单查询改写（无历史时的兜底方案）。"""
-        try:
-            from rag_knowledge.llm_http import chat_role
-
-            rewritten = chat_role(
-                self._cfg,
-                "helper_llm",
-                [{"role": "user", "content": _QUERY_REWRITE_PROMPT.format(question=question)}],
-                temperature=0.0,
-                num_predict=64,
-                timeout=30.0,
-                think=False,
-            ).strip().strip('"')
-            if rewritten and len(rewritten) > 3:
-                logger.info("Query 简单改写: %s → %s", question[:50], rewritten[:60])
-                return rewritten
-        except Exception as e:
-            logger.warning("Query 简单改写失败，使用原问题: %s", e)
-
-        return question
+    def _understand_for_retrieval(
+        self,
+        question: str,
+        history: list | None = None,
+        *,
+        entity_name: str | None = None,
+        doc_category: str | None = None,
+        kb_name: str | None = None,
+    ):
+        """统一 Understanding 入口（检索路径不重复跑澄清）。"""
+        return self._understanding.analyze(
+            question,
+            history=history,
+            entity_name=entity_name,
+            doc_category=doc_category,
+            kb_name=kb_name,
+            run_clarify=False,
+        )
 
     def _build_retrieval_queries(
         self, question: str, history: list | None = None
@@ -1379,22 +1351,16 @@ class RagChain:
     def _build_retrieval_query_specs(
         self, question: str, history: list | None = None
     ) -> list[RetrievalQuery]:
-        """构建带类型和融合权重的多角度检索查询。
+        """构建带类型和融合权重的多角度检索查询（经 DialogueUnderstanding）。"""
+        from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
 
-        当 history 存在时，生成：原始问题 + 上下文化改写 + 来源锚点 + 上一轮主题。
-        无 history 时，只返回改写后的单查询。
-        """
-        if not history:
-            return [RetrievalQuery(self._rewrite_query(question, None), "original", 1.0)]
-
-        try:
-            specs = self._contextualizer.build_query_specs(question, history)
-            if specs:
-                return specs
-        except Exception as e:
-            logger.warning("多查询构建失败，回退到单查询: %s", e)
-
-        return [RetrievalQuery(self._rewrite_query(question, history), "original", 1.0)]
+        result = self._understand_for_retrieval(question, history)
+        self._last_understanding = result
+        specs = DialogueUnderstanding.to_retrieval_queries(result)
+        if specs:
+            return specs
+        q = (question or "").strip()
+        return [RetrievalQuery(q, "original", 1.0)] if q else []
 
     @staticmethod
     def _split_query_specs(
@@ -1830,6 +1796,7 @@ class RagChain:
                         agent_prompt: str | None = None,
                         allow_general_knowledge: bool = True,
                         history_summary: str | None = None,
+                        dialogue_focus: str | None = None,
                         linked_entities: tuple[any, ...] = (),
                         backbone_relation_summary: str = "",
                         backbone_canonical: tuple[str, ...] = (),
@@ -1850,8 +1817,13 @@ class RagChain:
         ).strip()
 
         history_summary_section = ""
+        focus = (dialogue_focus or "").strip()
+        if focus:
+            history_summary_section += (
+                f"## 对话焦点（仅用于理解指代，不作为事实来源）\n{focus}\n\n"
+            )
         if history_summary:
-            history_summary_section = f"## 历史对话摘要\n{history_summary}\n"
+            history_summary_section += f"## 历史对话摘要（非事实来源）\n{history_summary}\n"
 
         entity_hint_section = ""
         approved_graph_relations = []
@@ -2014,19 +1986,25 @@ class RagChain:
             if not source_docs and not allow_general:
                 return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
 
-            # ---- 历史消息压缩与摘要 ----
-            history, history_summary = self._history_compressor.compress(history)
-
-            # ---- Context 自动裁剪 ----
-            source_docs, context, history = self._budget.trim(
-                source_docs, context, history, q, agent_prompt=agent_prompt
+            pack = self._pack_for_generation(
+                source_docs, context, history, q, agent_prompt=agent_prompt,
             )
+            source_docs, context, history = (
+                pack.source_docs, pack.context, pack.history,
+            )
+            history_summary = pack.history_summary
 
             llm = self._build_llm(guarded_model)
+            focus_text = ""
+            last_u = getattr(self, "_last_understanding", None)
+            if last_u is not None:
+                focus_text = getattr(last_u, "dialogue_focus", "") or ""
+
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
                 history_summary=history_summary,
+                dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
                 backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
                 backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
@@ -2051,8 +2029,9 @@ class RagChain:
                 for s in source_docs
             ) or "无匹配"
             logger.info(
-                "查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
-                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking, src_info
+                "查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | pack=%s | %s",
+                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking,
+                pack.decision.compress_fallback, src_info,
             )
 
             if not answer.strip():
@@ -2106,6 +2085,8 @@ class RagChain:
         try:
             t0 = time.time()
             queries = self._build_retrieval_query_specs(q, history)
+            if getattr(self, "_last_understanding", None) is not None:
+                trace.set_understanding(self._last_understanding)
             plan = self._plan_retrieval(q, queries, force_rerank=True)
             trace.mark("plan")
             plan, graph_context, graph_docs = self._prepare_graph_plan(
@@ -2152,16 +2133,27 @@ class RagChain:
                     )
                 return out
 
-            history, history_summary = self._history_compressor.compress(history)
-            source_docs, context, history = self._budget.trim(
-                source_docs, context, history, q, agent_prompt=agent_prompt
+            pack = self._pack_for_generation(
+                source_docs, context, history, q, agent_prompt=agent_prompt,
             )
+            source_docs, context, history = (
+                pack.source_docs, pack.context, pack.history,
+            )
+            history_summary = pack.history_summary
+            trace.set_pack(pack.decision)
+            trace.mark("pack")
 
             llm = self._build_llm(guarded_model)
+            focus_text = ""
+            last_u = getattr(self, "_last_understanding", None)
+            if last_u is not None:
+                focus_text = getattr(last_u, "dialogue_focus", "") or ""
+
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
                 history_summary=history_summary,
+                dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
                 backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
                 backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
@@ -2188,8 +2180,9 @@ class RagChain:
                 for s in source_docs
             ) or "无匹配"
             logger.info(
-                "异步查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | %s",
-                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking, src_info
+                "异步查询完成 | %d 个来源 | %.2fs | deep_mode=%s | rerank=%s | thinking=%s | pack=%s | %s",
+                len(source_docs), elapsed, deep_mode, plan.enable_rerank, thinking,
+                pack.decision.compress_fallback, src_info,
             )
 
             if not answer_content.strip():
@@ -2320,13 +2313,20 @@ class RagChain:
             if pipeline_events:
                 yield {"type": "status", "data": "正在改写 / 构建检索查询..."}
             queries = await asyncio.to_thread(self._build_retrieval_query_specs, q, history)
-            trace.mark("contextualize")
+            if getattr(self, "_last_understanding", None) is not None:
+                trace.set_understanding(self._last_understanding)
+            trace.mark("understand")
             if pipeline_events:
                 yield {
                     "type": "pipeline",
                     "data": {
                         "stage": "queries",
                         "plan": {"queries": serialize_queries(queries)},
+                        "understanding": (
+                            self._last_understanding.to_dict()
+                            if getattr(self, "_last_understanding", None) is not None
+                            else {}
+                        ),
                         "stages": trace.stages_ms,
                     },
                 }
@@ -2488,17 +2488,28 @@ class RagChain:
                 yield {"type": "done"}
                 return
 
-            history, history_summary = self._history_compressor.compress(history)
-            source_docs, context, history = self._budget.trim(
-                source_docs, context, history, q, agent_prompt=agent_prompt
+            pack = self._pack_for_generation(
+                source_docs, context, history, q, agent_prompt=agent_prompt,
             )
+            source_docs, context, history = (
+                pack.source_docs, pack.context, pack.history,
+            )
+            history_summary = pack.history_summary
+            trace.set_pack(pack.decision)
+            trace.mark("pack")
 
             yield {"type": "status", "data": "正在整理答案..."}
+
+            focus_text = ""
+            last_u = getattr(self, "_last_understanding", None)
+            if last_u is not None:
+                focus_text = getattr(last_u, "dialogue_focus", "") or ""
 
             msgs = self._build_messages(
                 q, context, history, agent_prompt=agent_prompt,
                 allow_general_knowledge=allow_general,
                 history_summary=history_summary,
+                dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
                 backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
                 backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),

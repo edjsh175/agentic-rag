@@ -172,6 +172,8 @@ class QaTraceBuilder:
         self._stages_ms: dict[str, float] = {}
         self._plan: dict[str, Any] = {}
         self._retrieval: dict[str, Any] = {"query_hits": [], "candidates": []}
+        self._pack: dict[str, Any] = {}
+        self._understanding: dict[str, Any] = {}
         self._request = {
             "question": question or "",
             "collection_name": collection_name,
@@ -243,6 +245,32 @@ class QaTraceBuilder:
             "candidate_count": len(docs or []),
         }
 
+    def set_pack(self, decision: Any) -> None:
+        if not self._enabled:
+            return
+        if decision is None:
+            self._pack = {}
+            return
+        if hasattr(decision, "to_dict"):
+            self._pack = decision.to_dict()
+        elif isinstance(decision, dict):
+            self._pack = dict(decision)
+        else:
+            self._pack = {"raw": str(decision)}
+
+    def set_understanding(self, result: Any) -> None:
+        if not self._enabled:
+            return
+        if result is None:
+            self._understanding = {}
+            return
+        if hasattr(result, "to_dict"):
+            self._understanding = result.to_dict()
+        elif isinstance(result, dict):
+            self._understanding = dict(result)
+        else:
+            self._understanding = {"raw": str(result)}
+
     def finish(
         self,
         *,
@@ -268,7 +296,9 @@ class QaTraceBuilder:
             "runtime": runtime_fingerprint(self._cfg),
             "stages": self._stages_ms,
             "plan": self._plan,
+            "understanding": self._understanding,
             "retrieval": self._retrieval,
+            "pack": self._pack,
             "evidence": evidence or {},
             "answer": {
                 "text": answer or "",
@@ -295,18 +325,10 @@ class QaTraceStore:
         self._index_path = self._root / "index.jsonl"
         self._lock = threading.Lock()
 
-    def save(self, payload: dict[str, Any]) -> Path:
+    def _summary_from_payload(self, payload: dict[str, Any], rel_file: str) -> dict[str, Any]:
         meta = payload.get("meta") or {}
-        trace_id = str(meta.get("trace_id") or "")
-        if not trace_id:
-            raise ValueError("trace_id required")
-        created = str(meta.get("created_at") or "")
-        day = created[:10].replace("-", "") if len(created) >= 10 else datetime.now().strftime("%Y%m%d")
-        day_dir = self._root / day
-        day_dir.mkdir(parents=True, exist_ok=True)
-        path = day_dir / f"{trace_id}.json"
-        summary = {
-            "trace_id": trace_id,
+        return {
+            "trace_id": str(meta.get("trace_id") or ""),
             "request_id": meta.get("request_id"),
             "created_at": meta.get("created_at"),
             "path": meta.get("path"),
@@ -318,12 +340,26 @@ class QaTraceStore:
             "cited_count": len(((payload.get("evidence") or {}).get("cited") or [])),
             "runtime": payload.get("runtime") or {},
             "feedback": payload.get("feedback"),
-            "file": str(path.relative_to(self._root)).replace("\\", "/"),
+            "file": rel_file.replace("\\", "/"),
         }
+
+    def save(self, payload: dict[str, Any]) -> Path:
+        meta = payload.get("meta") or {}
+        trace_id = str(meta.get("trace_id") or "")
+        if not trace_id:
+            raise ValueError("trace_id required")
+        created = str(meta.get("created_at") or "")
+        day = created[:10].replace("-", "") if len(created) >= 10 else datetime.now().strftime("%Y%m%d")
+        day_dir = self._root / day
+        day_dir.mkdir(parents=True, exist_ok=True)
+        path = day_dir / f"{trace_id}.json"
+        rel_file = str(path.relative_to(self._root)).replace("\\", "/")
+        summary = self._summary_from_payload(payload, rel_file)
         with self._lock:
             path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             with self._index_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(summary, ensure_ascii=False) + "\n")
+            self._heal_index_locked()
             self._prune_locked()
         return path
 
@@ -377,8 +413,12 @@ class QaTraceStore:
         offset: int = 0,
         q: str | None = None,
         errors_only: bool = False,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> dict[str, Any]:
-        rows = list(self._iter_index())
+        with self._lock:
+            self._heal_index_locked()
+            rows = list(self._iter_index())
         rows.reverse()  # newest last in file → newest first
         needle = (q or "").strip().lower()
         if needle:
@@ -390,6 +430,29 @@ class QaTraceStore:
             ]
         if errors_only:
             rows = [r for r in rows if r.get("error")]
+        day_from = (date_from or "").strip()[:10] or None
+        day_to = (date_to or "").strip()[:10] or None
+        if day_from or day_to:
+            filtered: list[dict[str, Any]] = []
+            for r in rows:
+                created = r.get("created_at")
+                if not created:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(created))
+                    if dt.tzinfo is None:
+                        dt = dt.astimezone()
+                    day = dt.astimezone().strftime("%Y-%m-%d")
+                except Exception:
+                    day = str(created)[:10]
+                if len(day) < 10:
+                    continue
+                if day_from and day < day_from:
+                    continue
+                if day_to and day > day_to:
+                    continue
+                filtered.append(r)
+            rows = filtered
         total = len(rows)
         page = rows[offset: offset + max(1, limit)]
         return {"total": total, "items": page, "limit": limit, "offset": offset}
@@ -435,8 +498,80 @@ class QaTraceStore:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
         tmp.replace(self._index_path)
 
+    def _heal_index_locked(self) -> None:
+        """Re-index orphan JSON files, update incomplete index entries, and remove stale entries."""
+        rows = self._iter_index()
+        by_id: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            tid = str(row.get("trace_id") or "").strip()
+            if tid:
+                by_id[tid] = row
+        existing_tids = set()
+        changed = False
+        for path in self._root.glob("*/*.json"):
+            tid = path.stem
+            existing_tids.add(tid)
+            row = by_id.get(tid)
+            is_invalid = (
+                row is None
+                or not row.get("created_at")
+                or not row.get("file")
+                or not row.get("question")
+            )
+            if is_invalid:
+                try:
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("qa_trace heal read failed %s: %s", path, exc)
+                    continue
+                meta = payload.get("meta") or {}
+                if not str(meta.get("trace_id") or "").strip():
+                    meta = {**meta, "trace_id": tid}
+                    payload = {**payload, "meta": meta}
+                created_at = meta.get("created_at")
+                if not created_at:
+                    parent_name = path.parent.name
+                    if len(parent_name) == 8 and parent_name.isdigit():
+                        formatted_date = f"{parent_name[:4]}-{parent_name[4:6]}-{parent_name[6:]}"
+                        meta["created_at"] = f"{formatted_date}T00:00:00+08:00"
+                        payload["meta"] = meta
+                        try:
+                            path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning("qa_trace heal write back failed %s: %s", path, exc)
+                rel = str(path.relative_to(self._root)).replace("\\", "/")
+                by_id[tid] = self._summary_from_payload(payload, rel)
+                changed = True
+        for tid in list(by_id.keys()):
+            if tid not in existing_tids:
+                del by_id[tid]
+                changed = True
+        # Clean up empty YYYYMMDD daily folders to avoid useless residues
+        for p in self._root.iterdir():
+            if p.is_dir() and p.name.isdigit() and len(p.name) == 8:
+                try:
+                    if not any(p.iterdir()):
+                        p.rmdir()
+                except Exception:
+                    pass
+        if changed or len(rows) != len(by_id):
+            def parse_date(r: dict[str, Any]) -> datetime:
+                created = str(r.get("created_at") or "")
+                try:
+                    dt = datetime.fromisoformat(created)
+                    if dt.tzinfo is None:
+                        dt = dt.astimezone()
+                    return dt
+                except Exception:
+                    return datetime.fromtimestamp(0).astimezone()
+            ordered = sorted(by_id.values(), key=parse_date)
+            self._rewrite_index(ordered)
+
     def _prune_locked(self) -> None:
+        """Optional retention. retain_days<=0 and max_traces<=0 means keep forever."""
         qt = self._cfg.qa_trace
+        if qt.retain_days <= 0 and qt.max_traces <= 0:
+            return
         rows = self._iter_index()
         if not rows:
             return

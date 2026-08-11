@@ -1,0 +1,365 @@
+"""
+对话上下文契约与生成侧打包。
+
+SessionState / UnderstandingResult 为唯一状态与理解出口的数据契约；
+GenerationPack 是生成路径 Token 预算的唯一所有者（compress + trim）。
+Phase 2：DialogueFocus 结构化短记忆 + 检索侧短记忆视图。
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal, Optional
+
+logger = logging.getLogger(__name__)
+
+CompressFallback = Literal[
+    "none",
+    "summary_cache",
+    "truncate_recent",
+    "cooldown_truncate",
+    "disabled",
+]
+
+_FOCUS_TOPIC_MAX = 80
+_FOCUS_OPEN_MAX = 120
+_RECENT_ROUNDS_DEFAULT = 2
+_RECENT_CONTENT_CHARS = 120
+
+
+@dataclass
+class DialogueFocus:
+    """结构化对话焦点（非事实来源）。"""
+
+    topic: str = ""
+    confirmed_entity: str = ""
+    open_question: str = ""
+    notes: str = ""
+
+    def to_text(self, *, max_chars: int = 200) -> str:
+        parts: list[str] = []
+        if self.confirmed_entity:
+            parts.append(f"实体:{self.confirmed_entity}")
+        if self.topic:
+            parts.append(f"主题:{self.topic}")
+        if self.open_question:
+            parts.append(f"焦点:{self.open_question}")
+        if self.notes:
+            parts.append(self.notes)
+        text = " | ".join(parts).strip()
+        return text[:max_chars] if text else ""
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "topic": self.topic,
+            "confirmed_entity": self.confirmed_entity,
+            "open_question": self.open_question,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "DialogueFocus":
+        if not isinstance(data, dict):
+            return cls()
+        return cls(
+            topic=str(data.get("topic") or "")[:_FOCUS_TOPIC_MAX],
+            confirmed_entity=str(data.get("confirmed_entity") or "")[:80],
+            open_question=str(data.get("open_question") or "")[:_FOCUS_OPEN_MAX],
+            notes=str(data.get("notes") or "")[:80],
+        )
+
+
+@dataclass
+class SessionTurn:
+    role: str
+    content: str
+    sources: list[dict[str, Any]] | None = None
+
+
+@dataclass
+class SessionState:
+    """会话结构化状态（请求级真相源）。"""
+
+    turns: list[SessionTurn] = field(default_factory=list)
+    last_sources: list[dict[str, Any]] = field(default_factory=list)
+    resolved_entity: str | None = None
+    doc_category: str | None = None
+    rolling_summary: str | None = None
+    dialogue_focus: str | None = None
+    focus: DialogueFocus | None = None
+    chat_id: str | None = None
+
+    def to_history(self) -> list[dict[str, Any]]:
+        """导出下游仍使用的 history list[dict] 形态。"""
+        out: list[dict[str, Any]] = []
+        for turn in self.turns:
+            item: dict[str, Any] = {"role": turn.role, "content": turn.content}
+            if turn.role == "assistant" and turn.sources:
+                item["sources"] = list(turn.sources)
+            out.append(item)
+        return out
+
+
+@dataclass
+class UnderstandingResult:
+    """对话理解出口。"""
+
+    mode: Literal["clarify", "retrieve"] = "retrieve"
+    user_utterance: str = ""
+    resolved_question: str = ""
+    retrieval_queries: list[dict[str, Any]] = field(default_factory=list)
+    filters: dict[str, Any] = field(default_factory=dict)
+    dialogue_focus: str = ""
+    focus: dict[str, str] = field(default_factory=dict)
+    is_context_dependent: bool = False
+    confidence: float = 1.0
+    clarify: dict[str, Any] | None = None
+    rationale: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PackDecision:
+    """GenerationPack 裁剪/压缩决策，供 trace 回放。"""
+
+    compress_fallback: CompressFallback = "none"
+    used_summary: bool = False
+    kept_history_messages: int = 0
+    removed_history_messages: int = 0
+    removed_chunks: int = 0
+    scheduled_background_summary: bool = False
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PackResult:
+    source_docs: list[dict[str, Any]]
+    context: str
+    history: list[dict[str, Any]] | None
+    history_summary: str | None
+    decision: PackDecision
+
+
+def session_from_history(
+    history: list[dict[str, Any]] | None,
+    *,
+    entity_name: str | None = None,
+    doc_category: str | None = None,
+    rolling_summary: str | None = None,
+    dialogue_focus: str | None = None,
+    focus: DialogueFocus | dict[str, Any] | None = None,
+    chat_id: str | None = None,
+) -> SessionState:
+    """从旧版 history[] 适配为 SessionState。"""
+    turns: list[SessionTurn] = []
+    last_sources: list[dict[str, Any]] = []
+    for item in history or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "")
+        content = str(item.get("content") or "")
+        sources = item.get("sources")
+        normalized_sources: list[dict[str, Any]] | None = None
+        if isinstance(sources, list) and sources:
+            normalized_sources = [s for s in sources if isinstance(s, dict)]
+            if role == "assistant":
+                last_sources = list(normalized_sources)
+        turns.append(SessionTurn(role=role, content=content, sources=normalized_sources))
+
+    focus_obj: DialogueFocus | None
+    if isinstance(focus, DialogueFocus):
+        focus_obj = focus
+    elif isinstance(focus, dict):
+        focus_obj = DialogueFocus.from_dict(focus)
+    else:
+        focus_obj = None
+
+    return SessionState(
+        turns=turns,
+        last_sources=last_sources,
+        resolved_entity=entity_name,
+        doc_category=doc_category,
+        rolling_summary=rolling_summary,
+        dialogue_focus=dialogue_focus or (focus_obj.to_text() if focus_obj else None),
+        focus=focus_obj,
+        chat_id=chat_id,
+    )
+
+
+def build_dialogue_focus(
+    question: str,
+    session: SessionState,
+    *,
+    resolved_question: str | None = None,
+) -> DialogueFocus:
+    """从 Session + 当前问句构造结构化焦点（不调用 LLM）。"""
+    entity = (session.resolved_entity or "").strip()
+    topic = ""
+    for turn in reversed(session.turns):
+        if turn.role == "user" and turn.content.strip():
+            topic = turn.content.strip()[:_FOCUS_TOPIC_MAX]
+            break
+    if not topic and session.last_sources:
+        src = session.last_sources[0]
+        topic = str(src.get("section_title") or src.get("file_name") or "")[:_FOCUS_TOPIC_MAX]
+
+    open_q = (resolved_question or question or "").strip()[:_FOCUS_OPEN_MAX]
+    if session.rolling_summary:
+        m = re.search(r"主题[:：]\s*(.+)", session.rolling_summary)
+        if m and not topic:
+            topic = m.group(1).strip()[:_FOCUS_TOPIC_MAX]
+        m2 = re.search(r"实体[:：]\s*(.+)", session.rolling_summary)
+        if m2 and not entity:
+            entity = m2.group(1).strip()[:80]
+
+    return DialogueFocus(
+        topic=topic,
+        confirmed_entity=entity,
+        open_question=open_q,
+        notes="",
+    )
+
+
+def format_retrieval_memory(
+    history: list[dict[str, Any]] | None,
+    *,
+    focus_text: str = "",
+    rolling_summary: str = "",
+    recent_rounds: int = _RECENT_ROUNDS_DEFAULT,
+    content_chars: int = _RECENT_CONTENT_CHARS,
+) -> str:
+    """检索侧短记忆视图：焦点 + 滚动摘要 + 最近少量轮次（替代 6×200 dump）。"""
+    blocks: list[str] = []
+    focus = (focus_text or "").strip()
+    if focus:
+        blocks.append(f"对话焦点：{focus[:200]}")
+
+    summary = (rolling_summary or "").strip()
+    if summary:
+        blocks.append(f"历史摘要：\n{summary[:400]}")
+
+    if history:
+        keep = max(1, int(recent_rounds)) * 2
+        recent = history[-keep:]
+        lines: list[str] = []
+        for h in recent:
+            if not isinstance(h, dict):
+                continue
+            role = h.get("role", "?")
+            content = str(h.get("content") or "")[:content_chars]
+            lines.append(f"{role}: {content}")
+        if lines:
+            blocks.append("最近对话：\n" + "\n".join(lines))
+
+    return "\n\n".join(blocks) if blocks else "（无历史对话）"
+
+
+def extract_source_summaries(
+    source_docs: list[dict[str, Any]] | None,
+    *,
+    limit: int = 4,
+    preview_chars: int = 200,
+) -> list[dict[str, str]]:
+    """从检索返回的 source_documents 提取轻量 SourceSummary（前后端统一字段）。"""
+    if not source_docs:
+        return []
+
+    summaries: list[dict[str, str]] = []
+    for doc in source_docs[:limit]:
+        meta = doc.get("metadata", {}) if isinstance(doc, dict) else {}
+        summary: dict[str, str] = {}
+        for key in (
+            "file_name",
+            "source",
+            "section_title",
+            "page_label",
+            "chunk_id",
+            "citation_id",
+        ):
+            val = meta.get(key)
+            if val is not None and val != "":
+                summary[key] = str(val)
+        content = doc.get("content", "") if isinstance(doc, dict) else ""
+        if content:
+            summary["preview"] = str(content)[:preview_chars]
+        if summary:
+            summaries.append(summary)
+    return summaries
+
+
+class GenerationPack:
+    """生成侧唯一打包入口：历史压缩策略 + token 预算裁剪。"""
+
+    def __init__(self, compressor: Any, budget: Any):
+        self._compressor = compressor
+        self._budget = budget
+
+    def pack(
+        self,
+        source_docs: list[dict[str, Any]],
+        context: str,
+        history: list[dict[str, Any]] | None,
+        question: str,
+        agent_prompt: str | None = None,
+        *,
+        on_cache_miss: str = "truncate_recent",
+    ) -> PackResult:
+        history_before = list(history) if history else []
+        docs_before = len(source_docs or [])
+
+        compress_result = self._compressor.compress_detailed(
+            history,
+            on_cache_miss=on_cache_miss,
+        )
+        packed_history = compress_result.history
+        history_summary = compress_result.summary
+
+        trimmed_docs, trimmed_context, trimmed_history = self._budget.trim(
+            source_docs,
+            context,
+            packed_history,
+            question,
+            agent_prompt=agent_prompt,
+        )
+
+        final_history = list(trimmed_history) if trimmed_history else []
+        removed_history = max(0, len(history_before) - len(final_history))
+        removed_chunks = max(0, docs_before - len(trimmed_docs or []))
+
+        reason_parts = [compress_result.reason] if compress_result.reason else []
+        if removed_history:
+            reason_parts.append(f"budget_removed_history={removed_history}")
+        if removed_chunks:
+            reason_parts.append(f"budget_removed_chunks={removed_chunks}")
+
+        decision = PackDecision(
+            compress_fallback=compress_result.fallback,
+            used_summary=bool(history_summary),
+            kept_history_messages=len(final_history),
+            removed_history_messages=removed_history,
+            removed_chunks=removed_chunks,
+            scheduled_background_summary=compress_result.scheduled_background,
+            reason="; ".join(reason_parts) if reason_parts else "ok",
+        )
+        logger.info(
+            "generation_pack | fallback=%s summary=%s kept_hist=%d removed_hist=%d removed_chunks=%d",
+            decision.compress_fallback,
+            decision.used_summary,
+            decision.kept_history_messages,
+            decision.removed_history_messages,
+            decision.removed_chunks,
+        )
+        return PackResult(
+            source_docs=trimmed_docs,
+            context=trimmed_context,
+            history=trimmed_history,
+            history_summary=history_summary,
+            decision=decision,
+        )

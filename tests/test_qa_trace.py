@@ -200,6 +200,97 @@ def test_store_requires_explicit_config():
         QaTraceStore(None)
 
 
+def test_retain_forever_keeps_old_traces(isolated_storage, monkeypatch):
+    isolated_storage()
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    monkeypatch.setenv("QA_TRACE_RETAIN_DAYS", "0")
+    monkeypatch.setenv("QA_TRACE_MAX_TRACES", "0")
+    Config._instance = None
+    cfg = Config()
+    assert cfg.qa_trace.retain_days == 0
+    assert cfg.qa_trace.max_traces == 0
+
+    store = QaTraceStore(cfg)
+    old_id = "oldtrace000000000000000000000001"
+    day_dir = cfg.data_dir / "qa_traces" / "20200101"
+    day_dir.mkdir(parents=True)
+    payload = {
+        "meta": {
+            "trace_id": old_id,
+            "created_at": "2020-01-01T12:00:00+08:00",
+            "path": "query",
+            "elapsed_ms": 1,
+            "error": None,
+        },
+        "request": {"question": "ancient"},
+        "runtime": {},
+        "stages": {},
+        "plan": {},
+        "retrieval": {"candidate_count": 0},
+        "evidence": {"cited": []},
+        "answer": {"text": "old"},
+    }
+    (day_dir / f"{old_id}.json").write_text(json.dumps(payload), encoding="utf-8")
+    # orphan on disk only — list() should heal and keep forever
+    listed = store.list(limit=20)
+    assert listed["total"] == 1
+    assert listed["items"][0]["trace_id"] == old_id
+    assert (day_dir / f"{old_id}.json").exists()
+
+    b = QaTraceBuilder(question="new", cfg=cfg)
+    b.finish(answer="ok")
+    listed2 = store.list(limit=20)
+    assert listed2["total"] == 2
+    assert (day_dir / f"{old_id}.json").exists()
+
+
+def test_list_date_filter_and_heal_orphans(isolated_storage, monkeypatch):
+    isolated_storage()
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    Config._instance = None
+    cfg = Config()
+    store = QaTraceStore(cfg)
+
+    def _write(day: str, tid: str, created: str, question: str) -> None:
+        day_dir = cfg.data_dir / "qa_traces" / day
+        day_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "meta": {
+                "trace_id": tid,
+                "created_at": created,
+                "path": "query",
+                "elapsed_ms": 10,
+                "error": None,
+            },
+            "request": {"question": question},
+            "runtime": {},
+            "stages": {},
+            "plan": {},
+            "retrieval": {"candidate_count": 1, "candidates": []},
+            "evidence": {"cited": []},
+            "answer": {"text": "a"},
+        }
+        (day_dir / f"{tid}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    _write("20260801", "d1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "2026-08-01T10:00:00+08:00", "day1")
+    _write("20260810", "d2bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "2026-08-10T11:00:00+08:00", "day2")
+    _write("20260810", "d3cccccccccccccccccccccccccccccc", "2026-08-10T12:00:00+08:00", "day2b")
+
+    all_rows = store.list(limit=50)
+    assert all_rows["total"] == 3
+
+    only_10 = store.list(limit=50, date_from="2026-08-10", date_to="2026-08-10")
+    assert only_10["total"] == 2
+    assert {i["trace_id"] for i in only_10["items"]} == {
+        "d2bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "d3cccccccccccccccccccccccccccccc",
+    }
+
+    only_01 = store.list(limit=50, date_from="2026-08-01", date_to="2026-08-01")
+    assert only_01["total"] == 1
+    assert only_01["items"][0]["question"] == "day1"
+
+
 def test_qa_trace_full_request_parameters(isolated_storage, monkeypatch):
     cfg, _db, _chroma, data_dir = isolated_storage()
     monkeypatch.setattr(cfg.qa_trace, "enabled", True)
@@ -235,3 +326,117 @@ def test_qa_trace_full_request_parameters(isolated_storage, monkeypatch):
     assert req.get("agent_prompt") == "你是严谨的技术专家"
     assert req.get("pinned_chunk_ids") == ["chunk_1"]
     assert req.get("excluded_chunk_ids") == ["chunk_9"]
+
+
+def test_qa_trace_heal_timezone_and_empty_dirs(isolated_storage, monkeypatch):
+    isolated_storage()
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    Config._instance = None
+    cfg = Config()
+    store = QaTraceStore(cfg)
+
+    # 1. Test healing of missing created_at from directory name
+    day_dir = cfg.data_dir / "qa_traces" / "20260810"
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    tid_missing_date = "m1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    payload = {
+        "meta": {
+            "trace_id": tid_missing_date,
+            "created_at": None,  # Simulate missing created_at
+            "path": "query",
+            "elapsed_ms": 10,
+            "error": None,
+        },
+        "request": {"question": "missing date test"},
+        "runtime": {},
+        "stages": {},
+        "plan": {},
+        "retrieval": {"candidate_count": 0, "candidates": []},
+        "evidence": {"cited": []},
+        "answer": {"text": "a"},
+    }
+
+    json_path = day_dir / f"{tid_missing_date}.json"
+    json_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    # Run store.list() to trigger self-healing
+    listed = store.list(limit=10)
+    assert listed["total"] == 1
+    # Check that created_at has been restored from folder name "20260810"
+    item = listed["items"][0]
+    assert item["trace_id"] == tid_missing_date
+    assert item["created_at"].startswith("2026-08-10")
+
+    # Also verify that the JSON file on disk was written back with restored date
+    saved_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert saved_payload["meta"]["created_at"].startswith("2026-08-10")
+
+    # 2. Test removal of stale/dead index entries
+    # Manually append a stale entry to the index file
+    stale_tid = "s1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    stale_summary = {
+        "trace_id": stale_tid,
+        "request_id": "stale",
+        "created_at": "2026-08-10T12:00:00+08:00",
+        "path": "query",
+        "file": "20260810/stale.json",
+        "question": "stale question",
+    }
+    with (cfg.data_dir / "qa_traces" / "index.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(stale_summary) + "\n")
+
+    # Before healing, iter_index should return 2 items (m1 + stale)
+    assert len(store._iter_index()) == 2
+
+    # Run list() to trigger healing. Since stale.json does not exist, it should be pruned.
+    listed2 = store.list(limit=10)
+    assert listed2["total"] == 1
+    assert len(store._iter_index()) == 1
+    assert store._iter_index()[0]["trace_id"] == tid_missing_date
+
+    # 3. Test cleaning up of empty daily directories
+    empty_dir = cfg.data_dir / "qa_traces" / "20260723"
+    empty_dir.mkdir(parents=True, exist_ok=True)
+    assert empty_dir.exists()
+
+    # Run list() to trigger healing
+    store.list(limit=10)
+    assert not empty_dir.exists()
+
+    # 4. Test timezone aware date filtering
+    # Write a trace with specific offset (e.g. UTC-5)
+    # 2026-08-10T01:00:00-05:00 corresponds to 2026-08-10T14:00:00+08:00
+    # It should be filtered correctly under timezone-aware comparison.
+    # To check that datetime-aware list filter works, let's write two items:
+    # one with "2026-08-10T23:00:00-01:00" (which is 2026-08-11 in +08:00, but 2026-08-10 in UTC-1)
+    # and verify it converts and filters correctly.
+    tid_tz1 = "t1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    payload_tz1 = {
+        "meta": {
+            "trace_id": tid_tz1,
+            "created_at": "2026-08-10T23:00:00-01:00",
+            "path": "query",
+            "elapsed_ms": 10,
+            "error": None,
+        },
+        "request": {"question": "tz test 1"},
+        "runtime": {},
+        "stages": {},
+        "plan": {},
+        "retrieval": {"candidate_count": 0, "candidates": []},
+        "evidence": {"cited": []},
+        "answer": {"text": "a"},
+    }
+    (day_dir / f"{tid_tz1}.json").write_text(json.dumps(payload_tz1), encoding="utf-8")
+    store.list(limit=10)
+
+    # If we filter for "2026-08-11" or "2026-08-10" using local conversion:
+    # Let's check what local day astimezone() converts it to.
+    from datetime import datetime
+    dt_tz1 = datetime.fromisoformat("2026-08-10T23:00:00-01:00")
+    local_day = dt_tz1.astimezone().strftime("%Y-%m-%d")
+
+    listed_filtered = store.list(limit=10, date_from=local_day, date_to=local_day)
+    tids_filtered = {i["trace_id"] for i in listed_filtered["items"]}
+    assert tid_tz1 in tids_filtered

@@ -577,6 +577,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._query_cache.set = MagicMock()
         chain._aretrieve_uncached = AsyncMock(return_value=([], ""))
         chain._rewrite_query = lambda question, history: question
+        chain._build_retrieval_query_specs = lambda question, history: [question]
         chain._history_compressor = type(
             "HistoryCompressorStub",
             (),

@@ -33,6 +33,8 @@ const error = ref('')
 const liveStatus = ref('')
 const filterQ = ref('')
 const errorsOnly = ref(false)
+const dateFrom = ref('')
+const dateTo = ref('')
 const items = ref<QaTraceSummary[]>([])
 const total = ref(0)
 const selectedId = ref('')
@@ -122,9 +124,11 @@ async function refreshList(selectId?: string) {
   listLoading.value = true
   try {
     const res = await listQaTraces({
-      limit: 80,
+      limit: 200,
       q: filterQ.value.trim() || undefined,
       errors_only: errorsOnly.value || undefined,
+      date_from: dateFrom.value || undefined,
+      date_to: dateTo.value || undefined,
     })
     items.value = res.items || []
     total.value = res.total || 0
@@ -139,6 +143,12 @@ async function refreshList(selectId?: string) {
   } finally {
     listLoading.value = false
   }
+}
+
+function clearDateFilter() {
+  dateFrom.value = ''
+  dateTo.value = ''
+  refreshList()
 }
 
 async function openTrace(traceId: string) {
@@ -517,6 +527,24 @@ onUnmounted(() => {
         <div class="history-tools">
           <div class="search-box">
             <input v-model="filterQ" placeholder="搜索问题关键词 / 追踪 ID" @keyup.enter="refreshList()" />
+          </div>
+          <div class="date-filter-row">
+            <label class="date-field">
+              <span>起始</span>
+              <input v-model="dateFrom" type="date" @change="refreshList()" />
+            </label>
+            <label class="date-field">
+              <span>结束</span>
+              <input v-model="dateTo" type="date" @change="refreshList()" />
+            </label>
+            <button
+              v-if="dateFrom || dateTo"
+              type="button"
+              class="btn-sm ghost"
+              @click="clearDateFilter"
+            >
+              清除日期
+            </button>
           </div>
           <div class="filter-row">
             <label class="check">
@@ -1133,6 +1161,37 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.date-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.date-field input[type="date"] {
+  padding: 4px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  max-width: 138px;
+}
+
+.date-field input[type="date"]:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
 .check {

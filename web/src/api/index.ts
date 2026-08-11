@@ -243,6 +243,8 @@ export async function queryKnowledgeStream(
   entityName?: string,
   pinnedChunkIds?: string[],
   excludedChunkIds?: string[],
+  clarificationQuestion?: string,
+  clarificationSelected?: string,
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
@@ -261,6 +263,8 @@ export async function queryKnowledgeStream(
       pipeline_events: true,
       pinned_chunk_ids: pinnedChunkIds,
       excluded_chunk_ids: excludedChunkIds,
+      clarification_question: clarificationQuestion,
+      clarification_selected: clarificationSelected,
     }),
     signal,
   })
@@ -700,12 +704,16 @@ export async function listQaTraces(params: {
   offset?: number
   q?: string
   errors_only?: boolean
+  date_from?: string
+  date_to?: string
 } = {}, signal?: AbortSignal) {
   const query = new URLSearchParams()
   if (params.limit != null) query.set('limit', String(params.limit))
   if (params.offset != null) query.set('offset', String(params.offset))
   if (params.q) query.set('q', params.q)
   if (params.errors_only) query.set('errors_only', 'true')
+  if (params.date_from) query.set('date_from', params.date_from)
+  if (params.date_to) query.set('date_to', params.date_to)
   const suffix = query.toString() ? `?${query.toString()}` : ''
   return getJSON<QaTraceListResult>(`/admin/qa-traces${suffix}`, signal)
 }

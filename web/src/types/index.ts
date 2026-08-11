@@ -72,6 +72,7 @@ export interface MessageClarification {
   reason?: string
   options: ClarificationOption[]
   selectedId?: string
+  otherText?: string
 }
 
 /** 来源文档片段 */

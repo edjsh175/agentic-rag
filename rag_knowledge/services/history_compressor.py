@@ -5,6 +5,9 @@
 只发送最新几轮原始对话 + 摘要，以此节省上下文 token 且避免完全遗忘。
 
 基于增量总结算法，并使用 LRU 缓存避免每次都调用 LLM 总结。
+
+Phase 0：缓存未命中时默认确定性降级为 truncate_recent（仍后台预热摘要），
+避免当次静默传全量 history。
 """
 import hashlib
 import json
@@ -12,11 +15,29 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Literal, Optional
 
 from rag_knowledge.config import Config, HistoryCompressionConfig
 
 logger = logging.getLogger(__name__)
+
+CacheMissPolicy = Literal["truncate_recent", "async"]
+
+
+@dataclass
+class CompressResult:
+    history: list[dict] | None
+    summary: Optional[str]
+    fallback: Literal[
+        "none",
+        "summary_cache",
+        "truncate_recent",
+        "cooldown_truncate",
+        "disabled",
+    ]
+    scheduled_background: bool = False
+    reason: str = ""
 
 
 class LRUCache:
@@ -91,7 +112,15 @@ class HistoryCompressor:
                 [
                     {
                         "role": "system",
-                        "content": "你是一个严谨且精炼的历史对话摘要助手。你的任务是清晰、扼要地概括对话的历史背景，去掉冗余闲聊，提炼核心结论和需求，仅返回总结后的中文摘要文本，严禁加入任何解释、推理（如 <think></think> 标签）或多余话术。",
+                        "content": (
+                            "你是严谨的历史对话摘要助手。只输出半结构化中文摘要，"
+                            "格式必须恰好四行：\n"
+                            "主题：...\n"
+                            "实体：...\n"
+                            "结论：...\n"
+                            "未决：...\n"
+                            "禁止编造知识库事实；禁止输出解释、<think> 或 markdown。"
+                        ),
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -100,7 +129,7 @@ class HistoryCompressor:
                 timeout=45.0,
                 think=False,
             )
-            return (content or "").strip()
+            return self._ensure_structured_summary((content or "").strip())
         except Exception as e:
             logger.error("历史记录总结调用 LLM 失败: %s", e)
             return ""
@@ -136,8 +165,9 @@ class HistoryCompressor:
                 f"\"\"\"\n{prev_summary}\n\"\"\"\n\n"
                 f"在此之后，用户与助手又进行了如下的追加对话：\n"
                 f"\"\"\"\n{new_text}\n\"\"\"\n\n"
-                f"请结合先前的摘要和这些追加对话，生成一段合并后的最新完整历史对话摘要。\n"
-                f"要求：保留历史的核心背景、之前的关键共识与现在的最新提问进展，精简闲聊，控制在 300 字以内。"
+                f"请合并为最新半结构化摘要，必须恰好四行：\n"
+                f"主题：...\n实体：...\n结论：...\n未决：...\n"
+                f"保留已确认实体与未决问题，删去闲聊，总长不超过 300 字。"
             )
             logger.info(
                 "history_compressor: 增量总结触发 | 使用前缀哈希(前 %d 条)",
@@ -154,78 +184,142 @@ class HistoryCompressor:
             return self._generate_full_summary(older_history)
 
     def _generate_full_summary(self, older_history: list[dict]) -> str:
-        """对全部 older_history 生成全量总结"""
+        """对全部 older_history 生成半结构化摘要。"""
         history_text = self._format_history_text(older_history)
         prompt = (
-            f"请根据以下用户和助手的历史对话，生成一段简洁的中文摘要，"
-            f"概括之前讨论的核心主题、提出的关键需求、达成的共识或做出的重要决策。\n"
-            f"要求：删去无意义的寒暄和重叠讨论，直奔核心，字数控制在 300 字以内。\n\n"
+            f"请根据以下用户和助手的历史对话，生成半结构化中文摘要。\n"
+            f"必须恰好四行：\n"
+            f"主题：...\n实体：...\n结论：...\n未决：...\n"
+            f"要求：删去寒暄与重叠讨论；不编造知识库事实；总长不超过 300 字。\n\n"
             f"对话历史：\n"
             f"\"\"\"\n{history_text}\n\"\"\""
         )
         logger.info("history_compressor: 全量总结触发 | 条数=%d", len(older_history))
         return self._call_llm_summarize(prompt)
 
+    @staticmethod
+    def _ensure_structured_summary(text: str) -> str:
+        """确保摘要为半结构化四行；散文则包裹，避免无约束长文。"""
+        raw = (text or "").strip()
+        if not raw:
+            return ""
+        has_topic = ("主题：" in raw) or ("主题:" in raw)
+        has_entity = ("实体：" in raw) or ("实体:" in raw)
+        if has_topic and has_entity:
+            return raw[:400]
+        compact = " ".join(raw.split())[:200]
+        return (
+            f"主题：对话延续\n"
+            f"实体：\n"
+            f"结论：{compact}\n"
+            f"未决：\n"
+        )
+
     def compress(
-        self, history: list[dict] | None
+        self,
+        history: list[dict] | None,
+        *,
+        on_cache_miss: CacheMissPolicy = "truncate_recent",
     ) -> tuple[list[dict] | None, Optional[str]]:
         """
         压缩历史记录。
 
         参数：
           history: 原始对话历史列表 [{"role": "user", "content": "..."}]
+          on_cache_miss:
+            - truncate_recent（默认）：未命中时立即返回最近 N 轮，后台预热摘要
+            - async：旧行为，未命中时当次仍返回全量 history
 
         返回：
           (recent_history, history_summary)
           - recent_history: 裁剪后保留的最近 N 轮原始对话（可以传给 messages）
           - history_summary: 较早对话的总结摘要（需要注入到 system prompt 中），没有则为 None
         """
+        result = self.compress_detailed(history, on_cache_miss=on_cache_miss)
+        return result.history, result.summary
+
+    def compress_detailed(
+        self,
+        history: list[dict] | None,
+        *,
+        on_cache_miss: CacheMissPolicy = "truncate_recent",
+    ) -> CompressResult:
+        """带决策元数据的压缩，供 GenerationPack / trace 使用。"""
         if not self._cfg.enabled or not history or len(history) < 2:
-            return history, None
+            return CompressResult(
+                history=history,
+                summary=None,
+                fallback="disabled" if not self._cfg.enabled else "none",
+                reason="disabled_or_short",
+            )
 
-        # 确保历史记录是偶数条（轮次整齐）
         total_len = len(history)
-        # 如果最后一条是 user (说明这是客户端在发送 query 前拼接好的上一轮，但正常 history 参数里
-        # 如果包含当前 question，在 RagChain 里 question 是单独作为参数 q 传递的，
-        # routes.py: req.history 里面是之前的完整对话，不包含当前 question)
-        # 偶数条代表完整的问答轮数
         total_rounds = total_len // 2
-
         max_rounds = self._cfg.max_raw_rounds
         min_rounds = self._cfg.min_raw_rounds
 
-        # 轮数未超限，不触发总结
         if total_rounds <= max_rounds:
-            return history, None
+            return CompressResult(
+                history=history,
+                summary=None,
+                fallback="none",
+                reason="within_limit",
+            )
 
-        # 超出上限，切分出 older_history 和 recent_history
-        # 保留最近的 min_rounds 轮为原始消息
         recent_msg_count = min_rounds * 2
         older_history = history[:-recent_msg_count]
         recent_history = history[-recent_msg_count:]
-
-        # 针对 older_history 计算 Hash 缓存 key
         older_hash = self._hash_history(older_history)
+
         with self._lock:
             cached_summary = self._cache.get(older_hash)
             if cached_summary:
                 logger.info("history_compressor: 摘要缓存命中 (0ms) | HASH=%s", older_hash[:8])
-                return recent_history, cached_summary
+                return CompressResult(
+                    history=recent_history,
+                    summary=cached_summary,
+                    fallback="summary_cache",
+                    reason="cache_hit",
+                )
 
             now = time.monotonic()
-            if self._background_task is not None or now < self._cooldown_until:
-                return history, None
+            in_cooldown = now < self._cooldown_until
+            busy = self._background_task is not None
+            scheduled = False
+            if not busy and not in_cooldown:
+                task = threading.Thread(
+                    target=self._summarize_in_background,
+                    args=(older_hash, older_history, history, total_rounds),
+                    name="history-summary",
+                    daemon=True,
+                )
+                self._background_task = task
+                task.start()
+                scheduled = True
 
-            task = threading.Thread(
-                target=self._summarize_in_background,
-                args=(older_hash, older_history, history, total_rounds),
-                name="history-summary",
-                daemon=True,
+        if on_cache_miss == "async" and not in_cooldown:
+            return CompressResult(
+                history=history,
+                summary=None,
+                fallback="none",
+                scheduled_background=scheduled or busy,
+                reason="async_miss_full_history",
             )
-            self._background_task = task
-            task.start()
 
-        return history, None
+        fallback = "cooldown_truncate" if in_cooldown else "truncate_recent"
+        logger.info(
+            "history_compressor: 缓存未命中确定性降级 | fallback=%s | keep=%d | scheduled=%s",
+            fallback,
+            len(recent_history),
+            scheduled or busy,
+        )
+        return CompressResult(
+            history=recent_history,
+            summary=None,
+            fallback=fallback,
+            scheduled_background=scheduled or busy,
+            reason=fallback,
+        )
 
     def _summarize_in_background(
         self,

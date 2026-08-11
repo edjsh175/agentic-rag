@@ -40,13 +40,13 @@ _CONTEXTUALIZE_PROMPT = """你是对话式 RAG 查询上下文化助手。
 
 要求：
 1. 如果当前问题依赖历史（如"再详细说明一下""第3步呢？""为什么？"），
-   请结合最近对话和上一轮来源生成独立问题。
+   请结合对话焦点、历史摘要、最近对话和上一轮来源生成独立问题。
 2. 如果当前问题已经完整独立（包含具体对象、技术名词、错误信息等），
    不要强行改写，只需微调使其更适合检索。
 3. 保留技术名词、文件名、版本号、产品名、章节名。
 4. 输出严格 JSON，不要解释，不要 markdown 代码块。
 
-最近对话：
+检索短记忆：
 {history_text}
 
 上一轮来源摘要：
@@ -235,12 +235,21 @@ class QueryContextualizer:
         self,
         question: str,
         history: list[dict] | None = None,
+        *,
+        protect_entities: bool = True,
+        focus_text: str = "",
+        rolling_summary: str = "",
+        recent_rounds: int = 2,
     ) -> dict[str, Any]:
         """将用户问题上下文化，返回独立检索查询。
 
         Args:
             question: 当前用户问题
             history: 最近几轮对话，每条可含 role/content/sources
+            protect_entities: 是否在此层做实体保护（Understanding 出口会统一保护时可关）
+            focus_text: 结构化对话焦点短文本
+            rolling_summary: 半结构化滚动摘要
+            recent_rounds: 检索短记忆保留的最近轮数
 
         Returns:
             {
@@ -259,7 +268,12 @@ class QueryContextualizer:
                 "confidence": 1.0,
             }
 
-        history_text = self._format_history(history)
+        history_text = self._format_history(
+            history,
+            focus_text=focus_text,
+            rolling_summary=rolling_summary,
+            recent_rounds=recent_rounds,
+        )
         last_user = self._last_user_question(history)
         last_sources = self._last_sources(history)
         sources_text = _extract_source_texts(last_sources)
@@ -273,10 +287,17 @@ class QueryContextualizer:
             logger.warning("LLM 上下文化失败，回退到启发式: %s", e)
             res = self._contextualize_heuristic(q, history_text, last_user)
 
-        # 统一进行实体保护
-        from rag_knowledge.services.query_entity_guard import protect_rewritten_query, protect_query_list
-        res["standalone_query"] = protect_rewritten_query(q, res["standalone_query"], last_user)
-        res["search_queries"] = protect_query_list(q, res["search_queries"], last_user)
+        if protect_entities:
+            from rag_knowledge.services.query_entity_guard import (
+                protect_rewritten_query,
+                protect_query_list,
+            )
+            res["standalone_query"] = protect_rewritten_query(
+                q, res["standalone_query"], last_user
+            )
+            res["search_queries"] = protect_query_list(
+                q, res["search_queries"], last_user
+            )
 
         return res
 
@@ -292,17 +313,56 @@ class QueryContextualizer:
         self,
         question: str,
         history: list[dict] | None = None,
+        *,
+        protect_entities: bool = True,
+        focus_text: str = "",
+        rolling_summary: str = "",
+        recent_rounds: int = 2,
     ) -> list[RetrievalQuery]:
-        """生成带类型与权重的多角度检索查询。
+        """生成带类型与权重的多角度检索查询。"""
+        specs, _meta = self.build_query_specs_with_meta(
+            question,
+            history,
+            protect_entities=protect_entities,
+            focus_text=focus_text,
+            rolling_summary=rolling_summary,
+            recent_rounds=recent_rounds,
+        )
+        return specs
+
+    def build_query_specs_with_meta(
+        self,
+        question: str,
+        history: list[dict] | None = None,
+        *,
+        protect_entities: bool = True,
+        focus_text: str = "",
+        rolling_summary: str = "",
+        recent_rounds: int = 2,
+    ) -> tuple[list[RetrievalQuery], dict[str, Any]]:
+        """生成检索查询，并返回上下文化元数据（供 Understanding 一次消费）。
 
         历史锚点必须同时通过 LLM 判断、置信度门槛和本地启发式判断。
         启发式认为问题独立时拥有否决权，防止错误历史来源污染新问题。
         """
         q = (question or "").strip()
         if not q:
-            return []
+            return [], {
+                "standalone_query": q,
+                "search_queries": [],
+                "is_context_dependent": False,
+                "confidence": 1.0,
+            }
 
-        ctx = self.contextualize(q, history)
+        # 出口保护由 Understanding 统一做时，此处不再保护
+        ctx = self.contextualize(
+            q,
+            history,
+            protect_entities=False,
+            focus_text=focus_text,
+            rolling_summary=rolling_summary,
+            recent_rounds=recent_rounds,
+        )
         standalone = ctx.get("standalone_query", q)
         search_queries = ctx.get("search_queries", [])
         is_dependent = bool(ctx.get("is_context_dependent", False))
@@ -336,12 +396,17 @@ class QueryContextualizer:
 
         seen: set[str] = set()
         result: list[RetrievalQuery] = []
-        from rag_knowledge.services.query_entity_guard import protect_rewritten_query
+        if protect_entities:
+            from rag_knowledge.services.query_entity_guard import protect_rewritten_query
+            protect = lambda text: protect_rewritten_query(q, text, last_user)
+        else:
+            protect = lambda text: text
+
         for candidate in candidates:
             text = candidate.text.strip()
             if not text or len(text) < 2:
                 continue
-            protected_text = protect_rewritten_query(q, text, last_user)
+            protected_text = protect(text)
             normalized = protected_text.casefold()
             if normalized not in seen:
                 seen.add(normalized)
@@ -354,7 +419,7 @@ class QueryContextualizer:
             len(candidates), len(result),
             [(item.kind, item.weight) for item in result[:6]],
         )
-        return result[:6]
+        return result[:6], ctx
 
     def _build_source_anchor_queries(
         self, sources: list[dict] | None
@@ -396,43 +461,31 @@ class QueryContextualizer:
         Returns:
             精简后的来源摘要列表（只含关键元数据，不含完整 chunk 内容）
         """
-        if not source_docs:
-            return []
+        from rag_knowledge.services.conversation_context import extract_source_summaries
 
-        summaries: list[dict] = []
-        for doc in source_docs[:4]:
-            meta = doc.get("metadata", {}) if isinstance(doc, dict) else {}
-            summary: dict[str, str] = {}
-            for key in ("file_name", "source", "section_title", "page_label",
-                         "chunk_id", "citation_id"):
-                val = meta.get(key)
-                if val is not None and val != "":
-                    summary[key] = str(val)
-            # 只取 preview（前 200 字符），不传完整内容
-            content = doc.get("content", "") if isinstance(doc, dict) else ""
-            if content:
-                summary["preview"] = str(content)[:200]
-            if summary:
-                summaries.append(summary)
-
-        return summaries
+        return extract_source_summaries(source_docs)
 
     # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
 
-    def _format_history(self, history: list[dict] | None) -> str:
-        """将 history 格式化为 prompt 可用的文本。"""
-        if not history:
-            return "（无历史对话）"
+    def _format_history(
+        self,
+        history: list[dict] | None,
+        *,
+        focus_text: str = "",
+        rolling_summary: str = "",
+        recent_rounds: int = 2,
+    ) -> str:
+        """将 history 格式化为检索短记忆（焦点 + 摘要 + 最近少量轮次）。"""
+        from rag_knowledge.services.conversation_context import format_retrieval_memory
 
-        recent = history[-6:]  # 最近 6 条
-        lines: list[str] = []
-        for h in recent:
-            role = h.get("role", "?")
-            content = h.get("content", "")[:200]  # 截断每条内容
-            lines.append(f"{role}: {content}")
-        return "\n".join(lines)
+        return format_retrieval_memory(
+            history,
+            focus_text=focus_text,
+            rolling_summary=rolling_summary,
+            recent_rounds=recent_rounds,
+        )
 
     def _last_user_question(self, history: list[dict] | None) -> str:
         """提取上一轮用户问题。"""

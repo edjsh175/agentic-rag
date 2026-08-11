@@ -27,9 +27,22 @@ const emit = defineEmits<{
   feedbackChange: [feedback: 'useful' | 'unuseful']
   pinChunk: [chunkId: string, item: EvidenceItem]
   excludeChunk: [chunkId: string, item: EvidenceItem]
+  cancelClarification: []
 }>()
 
 const showThinking = ref(true)
+const otherInputVal = ref('')
+const showOtherInput = ref(false)
+
+function submitOther() {
+  const text = otherInputVal.value.trim()
+  if (!text) return
+  emit('selectClarificationOption', {
+    id: 'other',
+    label: text,
+    filter: {}
+  })
+}
 
 const isUser = computed(() => props.role === 'user')
 
@@ -89,6 +102,17 @@ function handleContentClick(event: MouseEvent) {
             <span v-if="clarification.trigger" class="clarification-trigger-badge">
               包含「{{ clarification.trigger }}」
             </span>
+            <button
+              v-if="!clarification.selectedId"
+              class="clarification-close-btn"
+              title="关闭并终止回答"
+              @click="emit('cancelClarification')"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
           </div>
           <div class="clarification-question">
             {{ clarification.ask_question }}
@@ -111,6 +135,41 @@ function handleContentClick(event: MouseEvent) {
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </button>
+
+            <!-- 其他（自定义输入）选项 -->
+            <button
+              class="clarification-option-btn is-other-option"
+              :class="{
+                'is-selected': clarification.selectedId === 'other',
+                'is-disabled': clarification.selectedId && clarification.selectedId !== 'other',
+                'is-active': showOtherInput && !clarification.selectedId
+              }"
+              :disabled="!!clarification.selectedId"
+              @click="showOtherInput = !showOtherInput"
+            >
+              <span class="option-badge">+</span>
+              <span class="option-label">{{ clarification.selectedId === 'other' ? (clarification.otherText || '自定义输入') : '其他（自定义输入）' }}</span>
+              <svg v-if="clarification.selectedId === 'other'" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+
+            <!-- 其他输入面板 -->
+            <div v-if="showOtherInput && !clarification.selectedId" class="clarification-other-input-panel">
+              <input
+                v-model="otherInputVal"
+                class="other-input"
+                placeholder="请输入您的具体需求或方向..."
+                @keydown.enter="submitOther"
+              />
+              <button
+                class="other-submit-btn"
+                :disabled="!otherInputVal.trim()"
+                @click="submitOther"
+              >
+                确定
+              </button>
+            </div>
           </div>
         </div>
 
@@ -461,6 +520,8 @@ function handleContentClick(event: MouseEvent) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .clarification-option-btn {
@@ -527,6 +588,74 @@ function handleContentClick(event: MouseEvent) {
 .check-icon {
   flex-shrink: 0;
   color: #3370ff;
+}
+
+.clarification-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clarification-close-btn:hover {
+  background: #f1f5f9;
+  color: #ef4444;
+}
+
+.clarification-other-input-panel {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 4px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+.clarification-other-input-panel .other-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  background: #ffffff;
+}
+
+.clarification-other-input-panel .other-input:focus {
+  border-color: #3370ff;
+}
+
+.clarification-other-input-panel .other-submit-btn {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  background: #3370ff;
+  color: #ffffff;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.clarification-other-input-panel .other-submit-btn:hover:not(:disabled) {
+  background: #1a56db;
+}
+
+.clarification-other-input-panel .other-submit-btn:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 /* ===== 移动端响应式 ===== */

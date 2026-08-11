@@ -75,7 +75,8 @@ class TestHistoryCompressor(unittest.TestCase):
         recent, summary = self.compressor.compress(history)
         elapsed = time.monotonic() - started_at
 
-        self.assertEqual(recent, history)
+        # Phase 0：未命中默认确定性降级为最近 min_raw_rounds 轮
+        self.assertEqual(len(recent), 4)
         self.assertIsNone(summary)
         self.assertLess(elapsed, 0.2)
         self.assertTrue(started.wait(1))
@@ -87,6 +88,28 @@ class TestHistoryCompressor(unittest.TestCase):
         recent, summary = self.compressor.compress(history)
         self.assertEqual(len(recent), 4)
         self.assertEqual(summary, "summary")
+
+    def test_cache_miss_async_policy_keeps_full_history(self):
+        history = [
+            {"role": role, "content": f"m{i}"}
+            for i in range(10)
+            for role in ("user", "assistant")
+        ]
+        started = threading.Event()
+        release = threading.Event()
+
+        def summarize(*_args):
+            started.set()
+            release.wait(1)
+            return "summary"
+
+        self.compressor._generate_summary = summarize
+        recent, summary = self.compressor.compress(history, on_cache_miss="async")
+        self.assertEqual(recent, history)
+        self.assertIsNone(summary)
+        self.assertTrue(started.wait(1))
+        release.set()
+        self.wait_for_background()
 
     def test_failed_summary_enters_global_cooldown(self):
         self.cfg.failure_cooldown_seconds = 300
@@ -103,12 +126,16 @@ class TestHistoryCompressor(unittest.TestCase):
             return ""
 
         self.compressor._generate_summary = fail
-        self.compressor.compress(history)
+        recent, summary = self.compressor.compress(history)
+        self.assertEqual(len(recent), 4)
+        self.assertIsNone(summary)
         self.wait_for_background()
-        self.compressor.compress(history + [
+        recent2, _ = self.compressor.compress(history + [
             {"role": "user", "content": "new"},
             {"role": "assistant", "content": "new"},
         ])
+        # 冷却期内仍确定性截断，且不再调度新任务
+        self.assertEqual(len(recent2), 4)
         self.assertEqual(calls, 1)
 
     def test_no_compression_within_limit(self):
@@ -178,9 +205,10 @@ class TestHistoryCompressor(unittest.TestCase):
         }
         mock_post.return_value = mock_response
 
-        # 首次调用不阻塞，后台生成摘要
+        # 首次调用：确定性截断最近轮，后台生成摘要
         recent, summary = self.compressor.compress(history)
-        self.assertEqual(recent, history)
+        self.assertEqual(len(recent), 4)
+        self.assertEqual(recent[0]["content"], "u4")
         self.assertIsNone(summary)
         self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
@@ -189,7 +217,10 @@ class TestHistoryCompressor(unittest.TestCase):
         recent_cached, summary_cached = self.compressor.compress(history)
         self.assertEqual(len(recent_cached), 4)
         self.assertEqual(recent_cached[0]["content"], "u4")
-        self.assertEqual(summary_cached, "这是 1-3 轮的摘要")
+        self.assertEqual(
+            summary_cached,
+            HistoryCompressor._ensure_structured_summary("这是 1-3 轮的摘要"),
+        )
         self.assertEqual(mock_post.call_count, 1)  # 仍然是 1
 
     @patch("httpx.Client.post")
@@ -216,7 +247,8 @@ class TestHistoryCompressor(unittest.TestCase):
         mock_post.return_value = mock_response1
 
         recent1, summary1 = self.compressor.compress(history_step1)
-        self.assertEqual(recent1, history_step1)
+        self.assertEqual(len(recent1), 4)
+        self.assertEqual(recent1[0]["content"], "u4")
         self.assertIsNone(summary1)
         self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
@@ -241,7 +273,8 @@ class TestHistoryCompressor(unittest.TestCase):
         mock_post.return_value = mock_response2
 
         recent2, summary2 = self.compressor.compress(history_step2)
-        self.assertEqual(recent2, history_step2)
+        self.assertEqual(len(recent2), 4)
+        self.assertEqual(recent2[0]["content"], "u6")
         self.assertIsNone(summary2)
         self.wait_for_background()
         self.assertEqual(mock_post.call_count, 1)
@@ -254,6 +287,28 @@ class TestHistoryCompressor(unittest.TestCase):
         self.assertIn("助手: a4", user_prompt)
         self.assertIn("用户: u5", user_prompt)
         self.assertIn("助手: a5", user_prompt)
+
+        # 缓存命中后应带回半结构化摘要
+        recent3, summary3 = self.compressor.compress(history_step2)
+        self.assertEqual(len(recent3), 4)
+        self.assertEqual(
+            summary3,
+            HistoryCompressor._ensure_structured_summary("Summary-2 (Merged)"),
+        )
+
+
+class TestStructuredSummary(unittest.TestCase):
+    def test_ensure_structured_keeps_four_line_format(self):
+        raw = "主题：管线\n实体：PipelineBuilder\n结论：已确认字段\n未决：部署步骤\n"
+        self.assertEqual(
+            HistoryCompressor._ensure_structured_summary(raw),
+            raw.strip()[:400],
+        )
+
+    def test_ensure_structured_wraps_prose(self):
+        out = HistoryCompressor._ensure_structured_summary("随便写的散文摘要")
+        self.assertIn("主题：对话延续", out)
+        self.assertIn("结论：随便写的散文摘要", out)
 
 
 if __name__ == "__main__":

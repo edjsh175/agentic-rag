@@ -6,6 +6,7 @@ import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, g
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
+import { buildChatHistoryPayload } from '../utils/chatHistory'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
 import SourcePanel from '../components/SourcePanel.vue'
@@ -292,24 +293,7 @@ function selectVision(name: string) {
 }
 /** 切换向量模型由 config.ini 配置，前端不允许用户选择 */
 
-const chatHistory = computed(() => {
-  const msgs = messages.value
-  const list = msgs[msgs.length - 1]?.loading ? msgs.slice(0, -1) : msgs
-  return list.slice(-60).map((m) => ({
-    role: m.role,
-    content: m.content,
-    ...(m.role === 'assistant' && m.sources?.length ? {
-      sources: m.sources.slice(0, 4).map((s) => ({
-        file_name: s.metadata?.file_name || s.metadata?.source || undefined,
-        source: s.metadata?.source || undefined,
-        section_title: s.metadata?.section_title || undefined,
-        page_label: s.metadata?.page_label || undefined,
-        chunk_id: s.metadata?.chunk_id || undefined,
-        preview: s.content?.slice(0, 200) || undefined,
-      }))
-    } : {}),
-  }))
-})
+const chatHistory = computed(() => buildChatHistoryPayload(messages.value))
 const showWelcomeHint = computed(() => messages.value.length === 0)
 
 onMounted(async () => {
@@ -659,16 +643,24 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
 
   const aiIndex = messages.value.findIndex((m) => m.id === aiMsg.id)
   let userText = ''
-  let history: { role: string; content: string }[] = []
+  let history: ReturnType<typeof buildChatHistoryPayload> = []
   if (aiIndex > 0 && messages.value[aiIndex - 1].role === 'user') {
     userText = messages.value[aiIndex - 1].content
-    const previousMsgs = messages.value.slice(0, aiIndex - 1)
-    history = previousMsgs
-      .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
-      .map((m) => ({ role: m.role, content: m.content }))
+    // 保留此前 assistant.sources，供追问 source_anchor；不要只传 role+content
+    history = buildChatHistoryPayload(messages.value.slice(0, aiIndex - 1), {
+      dropTrailingLoading: false,
+    })
   } else {
     userText = messages.value.filter((m) => m.role === 'user').slice(-1)[0]?.content || ''
     history = chatHistory.value.slice(0, -1)
+  }
+
+  const clarificationQuestion = aiMsg.clarification.ask_question
+  const clarificationSelected = option.label
+
+  if (option.id === 'other') {
+    aiMsg.clarification.otherText = option.label
+    userText = `${userText} (${option.label})`
   }
 
   const docCategoryVal = option.filter.doc_category || docCategory.value || undefined
@@ -707,6 +699,9 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
             currentSources.value = sources
             aiMsg.sources = sources
           },
+          onTrace: (traceId) => {
+            aiMsg.trace_id = traceId
+          },
           onNotice: (notice) => {
             showGpuNotice(notice)
           },
@@ -730,6 +725,10 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         allowGeneralKnowledge.value,
         docCategoryVal,
         entityNameVal,
+        undefined,
+        undefined,
+        clarificationQuestion,
+        clarificationSelected,
       )
     } catch {
       aiMsg.status = undefined
@@ -767,6 +766,17 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
     }
     loading.value = false
     abortController.value = null
+  }
+}
+
+/** 取消反问并终止回答 */
+function handleCancelClarification(aiMsg: Message) {
+  if (aiMsg.clarification) {
+    aiMsg.clarification = undefined
+    aiMsg.content = "已终止思考和回答。"
+    aiMsg.loading = false
+    aiMsg.status = undefined
+    persist()
   }
 }
 
@@ -1246,6 +1256,7 @@ function scrollDown() {
             :evidence-pack="msg.evidencePack"
             @citation-click="handleCitationClick(msg, $event)"
             @select-clarification-option="handleSelectClarificationOption(msg, $event)"
+            @cancel-clarification="handleCancelClarification(msg)"
             @feedback-change="handleFeedbackChange(msg, $event)"
             @pin-chunk="handlePinChunk"
             @exclude-chunk="handleExcludeChunk"

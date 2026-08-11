@@ -49,7 +49,7 @@ from rag_knowledge.models.api import (
 from rag_knowledge.models.api import CrawlRequest, CrawlResponse, BlogPostListResponse, BlogPostItem
 from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.document_profiles import normalize_document_profile
-from rag_knowledge.services.query_clarification import QueryClarificationService
+from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.scanner import DirectoryScanner
 from rag_knowledge.services.blog_syncer import BlogPostSyncer
@@ -330,24 +330,30 @@ async def query_clarify(req: ClarifyRequest):
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     entity_name = (req.entity_name or "").strip() or None
-    result = QueryClarificationService().analyze(
+    understood = DialogueUnderstanding().analyze(
         req.question,
         doc_category=doc_category,
         kb_name=kb_name,
         entity_name=entity_name,
+        run_clarify=True,
     )
+    if understood.mode != "clarify" or not understood.clarify:
+        return ClarifyResponse(needs_clarification=False)
+
+    clarify = understood.clarify
     return ClarifyResponse(
-        needs_clarification=result.needs_clarification,
-        ask_question=result.ask_question,
-        trigger=result.trigger,
-        reason=result.reason,
+        needs_clarification=True,
+        ask_question=clarify.get("ask_question"),
+        trigger=clarify.get("trigger"),
+        reason=clarify.get("reason") or understood.rationale,
         options=[
             ClarificationOption(
-                id=opt.id,
-                label=opt.label,
-                filter=ClarificationOptionFilter(**opt.filter.to_dict()),
+                id=opt["id"],
+                label=opt["label"],
+                filter=ClarificationOptionFilter(**(opt.get("filter") or {})),
             )
-            for opt in result.options
+            for opt in (clarify.get("options") or [])
+            if isinstance(opt, dict) and opt.get("id") and opt.get("label")
         ],
     )
 
@@ -1214,13 +1220,20 @@ def list_qa_traces(
     offset: int = 0,
     q: Optional[str] = None,
     errors_only: bool = False,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
 ):
     """List persisted QA pipeline traces for the admin monitor."""
     limit = max(1, min(int(limit or 50), 200))
     offset = max(0, int(offset or 0))
     try:
         return QaTraceListResponse(**QaTraceStore(Config()).list(
-            limit=limit, offset=offset, q=q, errors_only=errors_only,
+            limit=limit,
+            offset=offset,
+            q=q,
+            errors_only=errors_only,
+            date_from=date_from,
+            date_to=date_to,
         ))
     except Exception as e:
         logger.error("列出 qa traces 失败: %s", e)

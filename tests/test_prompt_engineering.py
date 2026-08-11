@@ -267,8 +267,25 @@ class PromptEngineeringTests(unittest.TestCase):
         chain._allow_general_knowledge = True
         chain._ollama_base = "http://localhost:11434"
         chain._llm_model = "test-model"
-        chain._rewrite_query = lambda question, history: question
-        chain._retrieve = lambda *args, **kwargs: (original_docs, "original context")
+        chain._build_retrieval_query_specs = lambda question, history: [question]
+        chain._query_planner = type(
+            "PlannerStub",
+            (),
+            {
+                "plan": lambda self, question, queries, force_rerank=False: type(
+                    "PlanStub",
+                    (),
+                    {
+                        "queries": queries,
+                        "top_k": 4,
+                        "candidate_k": 12,
+                        "enable_rerank": False,
+                        "expand_neighbors": False,
+                    },
+                )()
+            },
+        )()
+        chain._retrieve_multi = lambda *args, **kwargs: (original_docs, "original context")
         chain._search_web = lambda question, docs, context: (docs, context)
         chain._history_compressor = type(
             "HistoryCompressorStub",
@@ -289,8 +306,39 @@ class PromptEngineeringTests(unittest.TestCase):
         chain._build_messages = (
             lambda *args, **kwargs: [{"role": "user", "content": "hello"}]
         )
+        chain._apply_vram_guard = lambda model: (model or "test-model", False)
+        chain._resolve_llm_endpoint = lambda model: type(
+            "EP",
+            (),
+            {
+                "model": model or "test-model",
+                "normalized_provider": lambda self: "ollama",
+                "resolved_base_url": lambda self, default=None: "http://localhost:11434",
+            },
+        )()
+        chain._record_chunk_hit_query = lambda docs: None
+        chain._filter_cited_sources = lambda answer, docs: docs
+        chain._commit_qa_trace = lambda *a, **k: None
+        chain._new_qa_trace = lambda *a, **k: type(
+            "T",
+            (),
+            {
+                "mark": lambda self, s: None,
+                "set_plan": lambda self, p: None,
+                "set_retrieval": lambda self, d: None,
+                "set_pack": lambda self, d: None,
+                "set_understanding": lambda self, d: None,
+                "stages_ms": {},
+            },
+        )()
+        chain._prepare_graph_plan = lambda *a, **k: (a[1] if len(a) > 1 else k.get("plan"), None, [])
+        chain._build_graph_kwargs = lambda *a, **k: {}
+        chain._anchor_protect_names = lambda plan: ()
 
-        with patch("rag_knowledge.services.rag.httpx.AsyncClient", _AsyncClientStub):
+        async def fake_stream(*args, **kwargs):
+            yield "trimmed answer [1]"
+
+        with patch("rag_knowledge.llm_http.achat_stream", fake_stream):
             async def collect():
                 return [event async for event in chain.stream_query("question")]
 

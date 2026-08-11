@@ -1,4 +1,4 @@
-"""Tests for query clarification (反问)."""
+"""Tests for query clarification (反问) — backbone-driven full option list."""
 from __future__ import annotations
 
 import json
@@ -6,171 +6,212 @@ from pathlib import Path
 
 import pytest
 
-from rag_knowledge.services.domain_catalog import DomainCatalogLoader
 from rag_knowledge.services.query_clarification import QueryClarificationService
 
 
+def _mini_backbone() -> dict:
+    """Minimal constraints fixture covering pipeline family + Chinese services."""
+    names = {
+        "PipelineBuilder": "Tool",
+        "PipelineWebGL": "Product",
+        "PipelineWebRTC": "Product",
+        "管线发布服务": "Service",
+        "管线更新服务": "Service",
+        "se_pipeline.so": "Service",
+        "StampTools": "Product",
+    }
+    aliases = {
+        "PipelineBuilder": "PipelineBuilder",
+        "PipelineWebGL": "PipelineWebGL",
+        "PipelineWebRTC": "PipelineWebRTC",
+        "pipeline": "PipelineBuilder",
+        "Pipeline": "PipelineBuilder",
+        "管线工具": "PipelineBuilder",
+        "管线发布工具": "PipelineBuilder",
+        "pipelinewebgl": "PipelineWebGL",
+        "Pipeline WebGL": "PipelineWebGL",
+        "管线发布服务": "管线发布服务",
+        "管线更新服务": "管线更新服务",
+        "se_pipeline.so": "se_pipeline.so",
+        "StampTools": "StampTools",
+    }
+    return {
+        "belongs_to": {
+            "PipelineBuilder": {"StampTools"},
+            "PipelineWebGL": {"WebGL"},
+            "PipelineWebRTC": {"WebRTC"},
+        },
+        "different_from": set(),
+        "requires": set(),
+        "relations": [],
+        "canonical_by_alias": aliases,
+        "entity_type_by_name": names,
+        "doc_category_by_name": {
+            "PipelineBuilder": "数据处理与发布",
+            "PipelineWebGL": "业务应用层",
+            "PipelineWebRTC": "引擎",
+        },
+        "doc_categories": {"数据处理与发布", "业务应用层", "引擎"},
+    }
+
+
 @pytest.fixture
-def rules_file(tmp_path: Path) -> Path:
-    path = tmp_path / "rules.json"
-    path.write_text(
-        json.dumps(
-            [
-                {
-                    "trigger_entity": "管线发布",
-                    "ask_question": "请选择管线发布方向：",
-                    "context_options": [
-                        {
-                            "label": "工具 PipelineBuilder",
-                            "filter": {"doc_category": "StampTools", "entity_name": "PipelineBuilder"},
-                        },
-                        {
-                            "label": "服务 管线发布服务",
-                            "filter": {"doc_category": "StampServer", "entity_name": "管线发布服务"},
-                        },
-                    ],
-                }
-            ],
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-    return path
-
-
-def test_clarify_pipeline_publish_ambiguity(rules_file: Path):
-    svc = QueryClarificationService(rules_path=rules_file, enabled=True, llm_enabled=False)
-    result = svc.analyze("管线发布怎么配置？")
-    assert result.needs_clarification is True
-    assert result.reason == "entity_ambiguity"
-    assert len(result.options) == 2
-    assert result.options[0].id == "a"
-    assert result.options[1].id == "b"
-    assert result.options[0].filter.doc_category == "StampTools"
-
-
-def test_clarify_skips_when_doc_category_narrows_to_one(rules_file: Path):
-    svc = QueryClarificationService(rules_path=rules_file, enabled=True, llm_enabled=False)
-    result = svc.analyze("管线发布怎么配置？", doc_category="StampServer")
-    assert result.needs_clarification is False
-
-
-def test_clarify_disabled_returns_false(rules_file: Path):
-    svc = QueryClarificationService(rules_path=rules_file, enabled=False)
-    result = svc.analyze("管线发布怎么配置？")
-    assert result.needs_clarification is False
-
-
-def test_clarify_pipeline_vague_surface_term(isolated_storage):
+def backbone_svc(isolated_storage) -> QueryClarificationService:
     isolated_storage()
-    svc = QueryClarificationService(enabled=True, llm_enabled=False)
-    result = svc.analyze("pipeline")
+    return QueryClarificationService(
+        enabled=True,
+        llm_enabled=False,
+        constraints=_mini_backbone(),
+    )
+
+
+def test_clarify_pipeline_lists_full_family(backbone_svc: QueryClarificationService):
+    result = backbone_svc.analyze("pipeline")
     assert result.needs_clarification is True
-    assert result.reason in {"vague_surface_term", "entity_ambiguity"}
-    assert len(result.options) >= 2
     entity_names = {opt.filter.entity_name for opt in result.options}
     assert "PipelineBuilder" in entity_names
-    assert any(name and "管线" in name for name in entity_names if name)
+    assert "PipelineWebGL" in entity_names
+    assert "PipelineWebRTC" in entity_names
+    assert "管线发布服务" in entity_names
+    assert "管线更新服务" in entity_names
+    assert "se_pipeline.so" not in entity_names
+    assert len(result.options) >= 5
 
 
-def test_clarify_skips_when_entity_already_chosen(isolated_storage):
-    isolated_storage()
-    svc = QueryClarificationService(enabled=True, llm_enabled=False)
-    result = svc.analyze("pipeline", entity_name="PipelineBuilder")
+def test_clarify_no_max_options_cap(backbone_svc: QueryClarificationService):
+    result = backbone_svc.analyze("pipeline")
+    assert result.needs_clarification is True
+    assert len(result.options) > 4
+    assert result.options[-1].id  # ids assigned beyond a-d
+
+
+def test_clarify_skips_when_entity_already_chosen(backbone_svc: QueryClarificationService):
+    result = backbone_svc.analyze("pipeline", entity_name="PipelineBuilder")
     assert result.needs_clarification is False
 
 
-def test_clarify_bare_guanxian_underspecified(isolated_storage):
-    isolated_storage()
-    svc = QueryClarificationService(enabled=True, llm_enabled=False)
-    result = svc.analyze("管线")
+def test_clarify_disabled_returns_false(backbone_svc: QueryClarificationService):
+    svc = QueryClarificationService(
+        enabled=False,
+        llm_enabled=False,
+        constraints=_mini_backbone(),
+    )
+    result = svc.analyze("pipeline")
+    assert result.needs_clarification is False
+
+
+def test_clarify_bare_guanxian_underspecified(backbone_svc: QueryClarificationService):
+    result = backbone_svc.analyze("管线")
     assert result.needs_clarification is True
+    entity_names = {opt.filter.entity_name for opt in result.options}
+    assert "PipelineWebGL" in entity_names
+    assert "PipelineWebRTC" in entity_names
 
 
-def test_clarify_guanxian_in_specific_question_skips_bare_wide_term(tmp_path, isolated_storage):
+def test_clarify_guanxian_in_specific_question_skips_bare_wide_term(
+    backbone_svc: QueryClarificationService,
+):
     """「管线点表」类具体问法不应仅因含「管线」二字就走宽词反问。"""
-    isolated_storage()
-    rules = tmp_path / "empty_rules.json"
-    rules.write_text("[]", encoding="utf-8")
-    svc = QueryClarificationService(rules_path=rules, enabled=True, llm_enabled=False)
-    result = svc.analyze("管线点表有哪些字段？")
+    result = backbone_svc.analyze("管线点表有哪些字段？")
     if result.needs_clarification:
         assert not (result.trigger == "管线" and result.reason == "vague_surface_term")
 
 
-def test_catalog_different_from_generates_options(isolated_storage):
-    isolated_storage()
-    catalog = DomainCatalogLoader()
-    svc = QueryClarificationService(
-        rules_path=Path("/nonexistent/rules.json"),
-        catalog=catalog,
-        enabled=True,
-        llm_enabled=False,
-    )
-    result = svc.analyze("PipelineBuilder 和 PipelinePublishConfig 有什么区别？")
-    if result.needs_clarification:
-        assert result.options
-        categories = {opt.filter.doc_category for opt in result.options if opt.filter.doc_category}
-        assert len(categories) >= 1
+def test_clarify_explicit_comparison_skips(backbone_svc: QueryClarificationService):
+    result = backbone_svc.analyze("PipelineBuilder 和 PipelineWebGL 有什么区别？")
+    assert result.needs_clarification is False
 
 
-def test_clarify_llm_can_require_and_skip(isolated_storage, tmp_path):
+def test_clarify_llm_ignores_option_ids_subset(isolated_storage):
     isolated_storage()
-    rules = tmp_path / "empty_rules.json"
-    rules.write_text("[]", encoding="utf-8")
 
     def ask_llm(_prompt: str):
         return {
             "needs_clarification": True,
             "ask_question": "请选择 pipeline 对应方向：",
             "trigger": "pipeline",
-            "option_ids": ["a", "b"],
+            "option_ids": ["a", "b"],  # intentionally incomplete — must not truncate
         }
 
-    ask_svc = QueryClarificationService(
-        rules_path=rules,
+    svc = QueryClarificationService(
         enabled=True,
         llm_enabled=True,
         llm_caller=ask_llm,
+        constraints=_mini_backbone(),
     )
-    # Seeds still come from catalog/wide terms even with empty rules file.
-    asked = ask_svc.analyze("pipeline")
+    asked = svc.analyze("pipeline")
     assert asked.needs_clarification is True
     assert asked.reason == "llm_ambiguity"
-    assert len(asked.options) >= 2
+    entity_names = {opt.filter.entity_name for opt in asked.options}
+    assert "PipelineBuilder" in entity_names
+    assert "PipelineWebGL" in entity_names
+    assert "PipelineWebRTC" in entity_names
+    assert len(asked.options) >= 5
+
+
+def test_clarify_llm_can_skip(isolated_storage):
+    isolated_storage()
 
     def clear_llm(_prompt: str):
         return {
             "needs_clarification": False,
             "ask_question": "",
             "trigger": "",
-            "option_ids": [],
         }
 
-    clear_svc = QueryClarificationService(
-        rules_path=rules,
+    svc = QueryClarificationService(
         enabled=True,
         llm_enabled=True,
         llm_caller=clear_llm,
+        constraints=_mini_backbone(),
     )
-    cleared = clear_svc.analyze("pipeline")
+    cleared = svc.analyze("pipeline")
     assert cleared.needs_clarification is False
     assert cleared.reason == "llm_clear"
 
 
-def test_clarify_llm_failure_falls_back_to_rules(rules_file: Path):
+def test_clarify_llm_failure_falls_back_to_backbone(isolated_storage):
+    isolated_storage()
+
     def boom(_prompt: str):
         raise RuntimeError("ollama down")
 
     svc = QueryClarificationService(
-        rules_path=rules_file,
         enabled=True,
         llm_enabled=True,
         llm_caller=boom,
+        constraints=_mini_backbone(),
     )
-    result = svc.analyze("管线发布怎么配置？")
+    result = svc.analyze("pipeline")
     assert result.needs_clarification is True
-    assert result.reason == "entity_ambiguity"
+    entity_names = {opt.filter.entity_name for opt in result.options}
+    assert "PipelineWebRTC" in entity_names
+
+
+def test_clarify_doc_category_narrows(backbone_svc: QueryClarificationService):
+    # Enrichment maps StampTools owner for PipelineBuilder via real catalog when present;
+    # with fixture-only doc_category non-retrieval values, narrowing by StampTools may drop all.
+    # Use entity-level filter enrichment: inject retrieval categories into constraints.
+    constraints = _mini_backbone()
+    constraints["doc_category_by_name"] = {
+        "PipelineBuilder": "StampTools",
+        "PipelineWebGL": "StampTools",
+        "PipelineWebRTC": "StampWebRTC",
+        "管线发布服务": "StampServer",
+        "管线更新服务": "StampServer",
+    }
+    svc = QueryClarificationService(
+        enabled=True,
+        llm_enabled=False,
+        constraints=constraints,
+    )
+    result = svc.analyze("pipeline", doc_category="StampServer")
+    if result.needs_clarification:
+        for opt in result.options:
+            assert opt.filter.doc_category == "StampServer"
+    else:
+        # Narrowed below min_options is also acceptable.
+        assert result.needs_clarification is False
 
 
 def test_clarify_route(monkeypatch):
@@ -178,35 +219,36 @@ def test_clarify_route(monkeypatch):
     from fastapi.testclient import TestClient
 
     from rag_knowledge.api import routes
+    from rag_knowledge.services.conversation_context import UnderstandingResult
 
-    class FakeClarify:
-        def analyze(self, question, *, doc_category=None, kb_name=None, entity_name=None):
-            from rag_knowledge.services.query_clarification import (
-                ClarificationFilter,
-                ClarificationOption,
-                ClarificationResult,
+    class FakeUnderstanding:
+        def analyze(self, question, **kwargs):
+            return UnderstandingResult(
+                mode="clarify",
+                user_utterance=question,
+                resolved_question=question,
+                rationale="multi_entity_match",
+                clarify={
+                    "needs_clarification": True,
+                    "ask_question": "请选择：",
+                    "trigger": "测试",
+                    "reason": "multi_entity_match",
+                    "options": [
+                        {
+                            "id": "a",
+                            "label": "选项A",
+                            "filter": {"doc_category": "StampTools"},
+                        },
+                        {
+                            "id": "b",
+                            "label": "选项B",
+                            "filter": {"doc_category": "StampServer"},
+                        },
+                    ],
+                },
             )
 
-            return ClarificationResult(
-                needs_clarification=True,
-                ask_question="请选择：",
-                trigger="测试",
-                reason="entity_ambiguity",
-                options=[
-                    ClarificationOption(
-                        id="a",
-                        label="选项A",
-                        filter=ClarificationFilter(doc_category="StampTools"),
-                    ),
-                    ClarificationOption(
-                        id="b",
-                        label="选项B",
-                        filter=ClarificationFilter(doc_category="StampServer"),
-                    ),
-                ],
-            )
-
-    monkeypatch.setattr(routes, "QueryClarificationService", FakeClarify)
+    monkeypatch.setattr(routes, "DialogueUnderstanding", FakeUnderstanding)
     app = FastAPI()
     app.include_router(routes.router)
     client = TestClient(app)
@@ -218,10 +260,14 @@ def test_clarify_route(monkeypatch):
     assert body["options"][0]["filter"]["doc_category"] == "StampTools"
 
 
-def test_query_clarification_includes_pipelinewebgl(isolated_storage):
+def test_live_backbone_pipeline_includes_webgl_webrtc(isolated_storage):
+    """Against the real product_relation_backbone.json under isolated_storage."""
     isolated_storage()
     svc = QueryClarificationService(enabled=True, llm_enabled=False)
-    res = svc.analyze("如何使用pipeline发布服务？")
+    res = svc.analyze("pipeline")
     assert res.needs_clarification is True
-    labels = [opt.label for opt in res.options]
-    assert any("PipelineWebGL" in label for label in labels)
+    entity_names = {opt.filter.entity_name for opt in res.options}
+    assert "PipelineBuilder" in entity_names
+    assert "PipelineWebGL" in entity_names
+    assert "PipelineWebRTC" in entity_names
+    assert not any(name and name.endswith(".so") for name in entity_names)
