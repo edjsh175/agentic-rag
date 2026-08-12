@@ -271,15 +271,22 @@ class RagChain:
         self._reranker_enabled = cfg.reranker_enabled
         self._reranker_type = cfg.reranker_type
         self._reranker_model = cfg.reranker_model
+        self._reranker_base_url = getattr(cfg, "reranker_base_url", "") or ""
+        self._reranker_timeout = float(getattr(cfg, "reranker_timeout", 30) or 30)
         self._reranker_top_n = cfg.reranker_top_n
         self._reranker_candidate_k = cfg.reranker_candidate_k
         self._reranker = None
         if self._reranker_enabled:
             try:
                 self._get_reranker()
-                logger.info("重排序器已启用: type=%s, model=%s, top_n=%d, candidate_k=%d",
-                            cfg.reranker_type, cfg.reranker_model,
-                            cfg.reranker_top_n, cfg.reranker_candidate_k)
+                logger.info(
+                    "重排序器已启用: type=%s, model=%s, base_url=%s, top_n=%d, candidate_k=%d",
+                    cfg.reranker_type,
+                    cfg.reranker_model,
+                    self._reranker_base_url or "-",
+                    cfg.reranker_top_n,
+                    cfg.reranker_candidate_k,
+                )
             except Exception as e:
                 logger.warning("重排序器初始化失败，将在检索时降级: %s", e)
 
@@ -289,9 +296,18 @@ class RagChain:
             return None
         if self._reranker is None:
             from rag_knowledge.services.reranker import create_reranker
-            self._reranker = create_reranker(self._reranker_type, self._reranker_model)
-            logger.info("按需创建重排序器: type=%s, model=%s",
-                        self._reranker_type, self._reranker_model)
+            self._reranker = create_reranker(
+                self._reranker_type,
+                self._reranker_model,
+                base_url=self._reranker_base_url or None,
+                timeout=self._reranker_timeout,
+            )
+            logger.info(
+                "按需创建重排序器: type=%s, model=%s, base_url=%s",
+                self._reranker_type,
+                self._reranker_model,
+                self._reranker_base_url or "-",
+            )
         return self._reranker
 
     def _record_chunk_hit_query(self, source_docs: list[dict]) -> None:

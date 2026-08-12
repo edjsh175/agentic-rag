@@ -1,0 +1,4 @@
+FROM rag-backend:cpu-no-reranker
+COPY rag_knowledge/services/reranker.py /app/rag_knowledge/services/reranker.py
+COPY rag_knowledge/config.py /app/rag_knowledge/config.py
+COPY rag_knowledge/services/rag.py /app/rag_knowledge/services/rag.py

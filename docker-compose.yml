@@ -23,6 +23,8 @@ services:
       - /data/rag_python/scrape_article:/app/scrape_article
       - /data/rag_python/scrapingImages:/app/scrapingImages
 
+    ports:
+      - "10605:10605"
     expose:
       - "10605"
 
@@ -52,7 +54,7 @@ services:
         condition: service_healthy
 
     ports:
-      - "80:80"
+      - "18080:80"
 
     volumes:
       - /data/rag_python/scrapingImages:/data/scrapingImages:ro

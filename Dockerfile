@@ -25,10 +25,12 @@ RUN pip install --no-cache-dir -r requirements-base.txt \
 COPY rag_knowledge/ ./rag_knowledge/
 COPY scripts/ ./scripts/
 COPY run.py .
+COPY docker_entrypoint.py .
 COPY run_graph_build.py .
 COPY sync_profiles_to_graph.py .
 COPY sync_product_backbone_to_graph.py .
 
 EXPOSE 10605
 
+# 默认 run.py；若启动阶段外连卡死，可改为：python docker_entrypoint.py
 CMD ["python", "run.py"]

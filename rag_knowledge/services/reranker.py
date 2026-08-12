@@ -2,11 +2,15 @@
 重排序器（Cross-Encoder Reranker）
 
 在粗召回后对候选文档精排，提升检索相关性。
-支持 FlagEmbedding（BGE/Qwen3 Reranker）和 sentence-transformers CrossEncoder。
+支持：
+- FlagEmbedding（BGE/Qwen3 Reranker）本地进程内加载
+- sentence-transformers CrossEncoder
+- HTTP 远程服务（type=http，由 GPU 机提供 /rerank）
 """
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -16,6 +20,8 @@ logger = logging.getLogger(__name__)
 def _resolve_model_name(model_name: str) -> str:
     """Resolve an explicit local model directory and reject partial downloads."""
     raw = model_name.strip()
+    if not raw:
+        return raw
     path = Path(raw).expanduser()
     is_explicit_path = (
         path.is_absolute() or raw.startswith(("./", ".\\")) or path.exists()
@@ -112,17 +118,115 @@ class CrossEncoderReranker(BaseReranker):
 
 
 # ------------------------------------------------------------------
+# HTTP 远程实现（GPU 机独立服务）
+# ------------------------------------------------------------------
+
+def _scores_from_http_payload(data: Any, doc_count: int) -> list[float]:
+    """Parse /rerank JSON into a score list aligned with input document order."""
+    if isinstance(data, list):
+        # TEI-style: [{"index": i, "score": s}, ...]
+        scores = [0.0] * doc_count
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            idx = int(item.get("index", -1))
+            if 0 <= idx < doc_count:
+                scores[idx] = float(item.get("score", 0.0))
+        return scores
+
+    if not isinstance(data, dict):
+        raise ValueError(f"重排序服务返回格式无效: {type(data).__name__}")
+
+    if "scores" in data:
+        scores = list(data["scores"])
+        if len(scores) != doc_count:
+            raise ValueError(
+                f"重排序 scores 长度不匹配: expect {doc_count}, got {len(scores)}"
+            )
+        return [float(s) for s in scores]
+
+    results = data.get("results")
+    if isinstance(results, list):
+        scores = [0.0] * doc_count
+        for item in results:
+            if not isinstance(item, dict):
+                continue
+            idx = int(item.get("index", -1))
+            if 0 <= idx < doc_count:
+                scores[idx] = float(item.get("score", 0.0))
+        return scores
+
+    raise ValueError("重排序服务响应缺少 scores 或 results")
+
+
+class HttpReranker(BaseReranker):
+    """调用远程 /rerank HTTP 服务（建议部署在 GPU 机，如 158）。
+
+    请求::
+        POST {base_url}/rerank
+        {"query": "...", "documents": ["..."], "top_k": 8}
+
+    响应（任选其一）::
+        {"scores": [0.1, 0.9, ...]}                 # 与 documents 等长
+        {"results": [{"index": 0, "score": 0.9}]}  # 或 TEI 风格顶层 list
+    """
+
+    def __init__(self, base_url: str, timeout: float = 30.0, model_name: str = ""):
+        url = (base_url or "").strip().rstrip("/")
+        if not url:
+            raise ValueError("HttpReranker 需要非空 base_url")
+        self._base_url = url
+        self._timeout = float(timeout)
+        self._model_name = (model_name or "").strip()
+
+    def rerank(self, query: str, documents: list[Document], top_k: int) -> list[Document]:
+        if not documents or top_k <= 0:
+            return []
+
+        import httpx
+
+        payload: dict[str, Any] = {
+            "query": query,
+            "documents": [doc.page_content for doc in documents],
+            "top_k": top_k,
+        }
+        if self._model_name:
+            payload["model"] = self._model_name
+
+        endpoint = f"{self._base_url}/rerank"
+        with httpx.Client(timeout=self._timeout) as client:
+            response = client.post(endpoint, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        scores = _scores_from_http_payload(data, len(documents))
+        ranked = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
+        return [doc for doc, _ in ranked[:top_k]]
+
+
+# ------------------------------------------------------------------
 # 工厂函数
 # ------------------------------------------------------------------
 
-def create_reranker(reranker_type: str, model_name: str) -> BaseReranker:
-    """根据类型创建对应的重排序器实例（模型懒加载，首次 rerank() 时才下载/加载）"""
+def create_reranker(
+    reranker_type: str,
+    model_name: str,
+    *,
+    base_url: str | None = None,
+    timeout: float = 30.0,
+) -> BaseReranker:
+    """根据类型创建对应的重排序器实例（本地模型懒加载；HTTP 模式无本地权重）。"""
+    kind = (reranker_type or "").strip().lower()
+    base = (base_url or "").strip() or None
+
+    if kind in ("http", "remote", "api"):
+        return HttpReranker(base_url=base or "", timeout=timeout, model_name=model_name or "")
+
     model_name = _resolve_model_name(model_name)
-    if reranker_type == "bge":
+    if kind == "bge":
         return FlagReranker(model_name)
-    elif reranker_type in ("cross_encoder", "cross-encoder", "sentence_transformers"):
+    if kind in ("cross_encoder", "cross-encoder", "sentence_transformers"):
         return CrossEncoderReranker(model_name)
-    else:
-        raise ValueError(
-            f"不支持的重排序器类型: {reranker_type}，可选: bge, cross_encoder"
-        )
+    raise ValueError(
+        f"不支持的重排序器类型: {reranker_type}，可选: bge, cross_encoder, http"
+    )

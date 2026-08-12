@@ -15,7 +15,9 @@ from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.reranker import (
     CrossEncoderReranker,
     FlagReranker,
+    HttpReranker,
     create_reranker,
+    _scores_from_http_payload,
 )
 
 
@@ -41,8 +43,41 @@ class RerankerUnitTests(unittest.TestCase):
         self.assertIsInstance(
             create_reranker("cross_encoder", "org/model"), CrossEncoderReranker
         )
+        self.assertIsInstance(
+            create_reranker("http", "", base_url="http://127.0.0.1:8001"),
+            HttpReranker,
+        )
         with self.assertRaises(ValueError):
             create_reranker("unknown", "org/model")
+        with self.assertRaises(ValueError):
+            create_reranker("http", "", base_url="")
+
+    def test_http_rerank_uses_scores_payload(self):
+        docs = _docs(3)
+        reranker = HttpReranker("http://rerank.test", timeout=5.0)
+        fake_response = MagicMock()
+        fake_response.raise_for_status = MagicMock()
+        fake_response.json.return_value = {"scores": [0.2, 0.9, 0.5]}
+        fake_client = MagicMock()
+        fake_client.__enter__.return_value = fake_client
+        fake_client.__exit__.return_value = None
+        fake_client.post.return_value = fake_response
+
+        with patch("httpx.Client", return_value=fake_client):
+            result = reranker.rerank("q", docs, 2)
+
+        fake_client.post.assert_called_once()
+        args, kwargs = fake_client.post.call_args
+        self.assertEqual(args[0], "http://rerank.test/rerank")
+        self.assertEqual(kwargs["json"]["documents"], ["doc-0", "doc-1", "doc-2"])
+        self.assertEqual([d.metadata["chunk_id"] for d in result], ["1", "2"])
+
+    def test_http_payload_parser_supports_tei_list(self):
+        scores = _scores_from_http_payload(
+            [{"index": 1, "score": 0.8}, {"index": 0, "score": 0.1}],
+            2,
+        )
+        self.assertEqual(scores, [0.1, 0.8])
 
     def test_flag_model_is_lazy_loaded(self):
         fake_model = MagicMock()
@@ -87,6 +122,8 @@ class RagRerankerIntegrationTests(unittest.TestCase):
         chain._reranker_enabled = False
         chain._reranker_type = "bge"
         chain._reranker_model = "org/model"
+        chain._reranker_base_url = ""
+        chain._reranker_timeout = 30.0
         chain._reranker_top_n = 2
         chain._reranker_candidate_k = 5
         chain._retrieval_k = 4
@@ -119,7 +156,9 @@ class RagRerankerIntegrationTests(unittest.TestCase):
 
         sources, _ = chain._retrieve("q", kb_name="kb", method="hybrid", rerank=True)
 
-        create.assert_called_once_with("bge", "org/model")
+        create.assert_called_once_with(
+            "bge", "org/model", base_url=None, timeout=30.0
+        )
         reranker.rerank.assert_called_once_with("q", docs, 2)
         self.assertEqual([d["metadata"]["chunk_id"] for d in sources], ["4", "3"])
         self.assertEqual(chain._strategy.retrieve.call_args.kwargs["top_k"], 5)

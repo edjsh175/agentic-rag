@@ -410,9 +410,12 @@ class Config:
         )
 
         # ---- 重排序器 (Phase 4) ----
+        # type=bge|cross_encoder 本地加载；type=http 走远程 /rerank（如 GPU 机 158）
         self.reranker_enabled = _get("reranker", "enabled", "false").lower() == "true"
         self.reranker_type = _get("reranker", "type", "bge")
         self.reranker_model = _get("reranker", "model", "BAAI/bge-reranker-v2-m3")
+        self.reranker_base_url = _get("reranker", "base_url", "").strip()
+        self.reranker_timeout = float(_get("reranker", "timeout", "30"))
         self.reranker_top_n = int(_get("reranker", "top_n", "6"))
         self.reranker_candidate_k = int(_get("reranker", "candidate_k", "20"))
 
