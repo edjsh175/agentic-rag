@@ -95,3 +95,7 @@ config-local.ini
 *.bak
 
 
+
+# Handover delivery bundles (Docker image tar + DB; hundreds of MB; deliver offline)
+/deploy/rag_handover_*.zip
+/deploy/rag_handover_*/

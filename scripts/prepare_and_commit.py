@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: add HTTP remote reranker client and refresh Docker deployment docs"
+    commit_msg = "docs: add handover deployment guides and chroma portable import tooling"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
