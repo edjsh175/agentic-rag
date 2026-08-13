@@ -14,7 +14,7 @@ from rag_knowledge.services.query_cache import clear_query_cache
 
 
 DOC_CATEGORIES = (
-    "StampServer", "StampTools", "StampWebRTC", "实景三维", "耕地保护",
+    "StampServer", "StampTools", "StampWebRTC", "StampWebGL", "实景三维", "耕地保护",
     "矢量瓦片", "基础环境", "博客", "其他",
 )
 REVIEW_STATUSES = ("pending", "approved", "rejected")
@@ -29,7 +29,7 @@ def classify_doc_category(file_path: str, file_name: str, kb_name: str) -> str:
     if kb_name == "已发布文章" or "已发布文章" in file_path:
         return "博客"
     text = f"{file_path} {file_name}".lower()
-    for category in ("StampServer", "StampTools", "StampWebRTC"):
+    for category in ("StampServer", "StampTools", "StampWebRTC", "StampWebGL"):
         if category.lower() in text:
             return category
     if "实景三维" in text:

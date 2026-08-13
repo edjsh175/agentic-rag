@@ -81,6 +81,12 @@ _COMMAND_RE = re.compile(
     re.I,
 )
 _ENDPOINT_RE = re.compile(r"\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/\S+)", re.I)
+# StampUtil / Factory 声明行：仅简单形参（params），排除示例调用 StampUtil.xxx(obj.field)
+_SDK_SIGNATURE_RE = re.compile(
+    r"(?m)^\s*((?:StampUtil\.|(?:earth\.)?Factory\.)(\w+))\s*"
+    r"\(\s*(?:[A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)*)?\s*\)\s*;?\s*$"
+)
+_SDK_DECLARATION_FOLLOW_RE = re.compile(r"参数|params\s*[=：:]|请求|request", re.I)
 _TABLE_TITLE_RE = re.compile(r"^\s*(?:表\s*[\d一二三四五六七八九十]+\s*[：:.、-]|table\s*\d+\s*[：:.、-])", re.I)
 _RECORD_RE = re.compile(r"^\s*(?:\d+(?:\.\d+)*[.、）)]|[-*+]\s+)\s*\S+")
 _SUBSTEP_RE = re.compile(r"^\s*\d+\.\d+(?:\.\d+)*[.、）)]?\s*\S+")
@@ -335,16 +341,92 @@ def _build_procedure(docs: list[Document], policy: ChunkPolicy) -> list[Document
     return out
 
 
+def _sdk_declaration_matches(text: str) -> list[re.Match[str]]:
+    """API 声明：签名行后紧跟参数说明；裸调用（如 showHighlightObj(guid)）不算新边界。"""
+    content = text or ""
+    out: list[re.Match[str]] = []
+    for match in _SDK_SIGNATURE_RE.finditer(content):
+        following = content[match.end() : match.end() + 160]
+        if _SDK_DECLARATION_FOLLOW_RE.search(following):
+            out.append(match)
+    return out
+
+
+def _sdk_signature_match(text: str) -> re.Match[str] | None:
+    matches = _sdk_declaration_matches(text)
+    if matches:
+        return matches[0]
+    # 单声明且无「参数」字样时仍当作 API 起点（避免漏检）
+    loose = list(_SDK_SIGNATURE_RE.finditer(text or ""))
+    return loose[0] if len(loose) == 1 else None
+
+
+def _expand_sdk_api_documents(docs: list[Document]) -> list[Document]:
+    """Split a section that declares multiple StampUtil/Factory APIs into atomic units."""
+    out: list[Document] = []
+    for doc in docs:
+        text = doc.page_content or ""
+        matches = _sdk_declaration_matches(text)
+        if len(matches) <= 1:
+            out.append(doc)
+            continue
+        for index, match in enumerate(matches):
+            start = 0 if index == 0 else match.start()
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+            piece = text[start:end].strip()
+            if not piece:
+                continue
+            meta = {
+                **(doc.metadata or {}),
+                "content_role": "api_endpoint",
+                "endpoint": match.group(1),
+                "api_name": match.group(2),
+            }
+            out.append(Document(page_content=piece, metadata=meta))
+    return out
+
+
+def _api_endpoint_label(doc: Document) -> tuple[str, str]:
+    """Return (endpoint, api_name) for HTTP or StampUtil/Factory signatures."""
+    path = str((doc.metadata or {}).get("section_path") or "")
+    text = doc.page_content or ""
+    probe = f"{path}\n{text}"
+    http = _ENDPOINT_RE.search(probe)
+    if http:
+        return f"{http.group(1).upper()} {http.group(2)}", http.group(2)
+    explicit_endpoint = str((doc.metadata or {}).get("endpoint") or "").strip()
+    explicit_name = str((doc.metadata or {}).get("api_name") or "").strip()
+    if explicit_endpoint:
+        return explicit_endpoint, explicit_name or explicit_endpoint.rsplit(".", 1)[-1]
+    sdk = _sdk_signature_match(text) or _sdk_signature_match(path)
+    if sdk:
+        return sdk.group(1), sdk.group(2)
+    first = text.strip().splitlines()[0] if text.strip() else path
+    return first, ""
+
+
+def _annotate_api_sample(doc: Document) -> Document:
+    text = doc.page_content or ""
+    meta = dict(doc.metadata or {})
+    if re.search(r"代码示例|```|await\s+StampUtil\.|Factory\.Create", text, re.I):
+        meta["content_type"] = "code"
+    return Document(page_content=doc.page_content, metadata=meta)
+
+
 def _build_api_doc(docs: list[Document], policy: ChunkPolicy) -> list[Document]:
     out: list[Document] = []
     bucket: list[Document] = []
     endpoint = ""
+    api_name = ""
 
     def flush() -> None:
-        nonlocal endpoint
+        nonlocal endpoint, api_name
         if bucket:
             merged = _merge_documents(list(bucket), "api_endpoint" if endpoint else "ordinary_body", "api_doc")
             merged.metadata["endpoint"] = endpoint
+            if api_name:
+                merged.metadata["api_name"] = api_name
+            merged = _annotate_api_sample(merged)
             if not endpoint or len(merged.page_content) <= policy.soft_max:
                 out.extend(_split_profile_document(merged, policy, repeated_header=endpoint))
             else:
@@ -362,18 +444,25 @@ def _build_api_doc(docs: list[Document], policy: ChunkPolicy) -> list[Document]:
                     role = str((group[0].metadata or {}).get("content_role") or "api_endpoint") if group else "api_endpoint"
                     part = _merge_documents([endpoint_doc, *group], role, "api_doc")
                     part.metadata["endpoint"] = endpoint
+                    if api_name:
+                        part.metadata["api_name"] = api_name
+                    part = _annotate_api_sample(part)
                     out.extend(_split_profile_document(part, policy, repeated_header=endpoint))
             bucket.clear()
             endpoint = ""
+            api_name = ""
 
-    for doc in docs:
+    for doc in _expand_sdk_api_documents(docs):
         canonical_role = str((doc.metadata or {}).get("content_role") or "")
         path = str((doc.metadata or {}).get("section_path") or "")
-        match = _ENDPOINT_RE.search(f"{path}\n{doc.page_content or ''}")
-        if match or canonical_role == "api_endpoint":
+        http = _ENDPOINT_RE.search(f"{path}\n{doc.page_content or ''}")
+        sdk = _sdk_signature_match(doc.page_content or "") or (
+            bool((doc.metadata or {}).get("endpoint")) and canonical_role == "api_endpoint"
+        )
+        if http or sdk or canonical_role == "api_endpoint":
             flush()
-            endpoint = f"{match.group(1).upper()} {match.group(2)}" if match else doc.page_content.strip().splitlines()[0]
-            bucket.append(_copy_doc(doc, content_role="api_endpoint"))
+            endpoint, api_name = _api_endpoint_label(doc)
+            bucket.append(_copy_doc(doc, content_role="api_endpoint", endpoint=endpoint, api_name=api_name))
             continue
         role = canonical_role if canonical_role in {"api_request", "api_response"} else ("api_request" if re.search(r"请求|request", path + doc.page_content[:30], re.I) else (
             "api_response" if re.search(r"响应|response|返回", path + doc.page_content[:30], re.I) else "ordinary_body"

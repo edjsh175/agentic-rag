@@ -191,6 +191,8 @@ class ClarificationConfig:
     min_options: int = 2
     llm_enabled: bool = True
     llm_timeout_seconds: float = 15.0
+    # FR-0b: default False = graph-driven J3 options; True = Phase 0 static four-row menu.
+    j3_options_rollback_static: bool = False
 
 
 class Config:
@@ -568,6 +570,10 @@ class Config:
             min_options=int(_get("clarification", "min_options", "2")),
             llm_enabled=_get("clarification", "llm_enabled", "true").lower() == "true",
             llm_timeout_seconds=float(_get("clarification", "llm_timeout_seconds", "15")),
+            j3_options_rollback_static=_get(
+                "clarification", "j3_options_rollback_static", "false"
+            ).lower()
+            == "true",
         )
 
         self._assert_test_paths_are_isolated(root)

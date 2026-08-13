@@ -148,7 +148,7 @@ def test_classify_doc_category(file_path, file_name, kb_name, expected):
 
 
 def test_category_values_are_product_domains():
-    assert DOC_CATEGORIES == ("StampServer", "StampTools", "StampWebRTC", "实景三维", "耕地保护", "矢量瓦片", "基础环境", "博客", "其他")
+    assert DOC_CATEGORIES == ("StampServer", "StampTools", "StampWebRTC", "StampWebGL", "实景三维", "耕地保护", "矢量瓦片", "基础环境", "博客", "其他")
 
 
 def test_migration_preview_does_not_write(source, file_index):

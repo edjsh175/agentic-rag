@@ -492,7 +492,8 @@ def test_prepare_graph_plan_disabled_without_retriever():
     chain._graph_cfg = GraphRetrievalConfig(enabled=False, query_rewrite_enabled=False)
     plan = RetrievalPlan("definition", [RetrievalQuery("q", "original", 1.0)], 4, 12, False, False, 0.5)
     enriched, context, docs = chain._prepare_graph_plan("q", plan)
-    assert enriched is plan
+    assert list(enriched.queries) == list(plan.queries)
+    assert enriched.intent == plan.intent
     assert context is None
     assert docs == []
 

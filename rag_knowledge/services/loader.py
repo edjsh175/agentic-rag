@@ -945,6 +945,10 @@ class FileLoader:
         metadata = doc.metadata.copy()
         content = doc.page_content
 
+        # api_doc 已在 profile builder 内按 endpoint/soft_max 切分；禁止再被语义/固定切分拆散 API 原子块。
+        if metadata.get("chunking_method") == "api_doc" or str(metadata.get("content_role") or "").startswith("api_"):
+            return [doc]
+
         # Round 0C: keep bounded merge windows, but split oversized source elements.
         if (
             metadata.get("chunking_method") == CHUNKING_METHOD

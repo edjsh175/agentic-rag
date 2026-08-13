@@ -364,6 +364,7 @@ class DocCategoryEnum(str, Enum):
     stamp_server = "StampServer"
     stamp_tools = "StampTools"
     stamp_webrtc = "StampWebRTC"
+    stamp_webgl = "StampWebGL"
     real3d = "实景三维"
     farmland = "耕地保护"
     vector_tile = "矢量瓦片"

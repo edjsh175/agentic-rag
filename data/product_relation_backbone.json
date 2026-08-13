@@ -101,7 +101,11 @@
     {
       "name": "二次开发与集成层",
       "entity_type": "Module",
-      "aliases": [],
+      "aliases": [
+        "二次开发",
+        "接口开发",
+        "二次开发层"
+      ],
       "doc_category": "总体分层框架",
       "layer": "总体分层框架",
       "subtype": "",
@@ -1131,7 +1135,11 @@
     {
       "name": "PipelineWebGL",
       "entity_type": "Product",
-      "aliases": [],
+      "aliases": [
+        "Pipeline WebGL",
+        "管线WebGL",
+        "管线 WebGL"
+      ],
       "doc_category": "业务应用层",
       "layer": "业务应用层",
       "subtype": "",
@@ -1140,7 +1148,11 @@
     {
       "name": "SDK",
       "entity_type": "Module",
-      "aliases": [],
+      "aliases": [
+        "SDK调用",
+        "SDK 调用",
+        "StampUtil"
+      ],
       "doc_category": "二次开发与集成层",
       "layer": "二次开发与集成层",
       "subtype": "",
@@ -1302,7 +1314,13 @@
     {
       "name": "StampWebGL",
       "entity_type": "Product",
-      "aliases": [],
+      "aliases": [
+        "Stamp WebGL",
+        "WebGL接口",
+        "WebGL 接口",
+        "StampGIS WebGL",
+        "StampGIS平台WebGL"
+      ],
       "doc_category": "主干",
       "layer": "主干",
       "subtype": "",
@@ -1311,7 +1329,13 @@
     {
       "name": "StampWebRTC",
       "entity_type": "Product",
-      "aliases": [],
+      "aliases": [
+        "Stamp WebRTC",
+        "WebRTC接口",
+        "WebRTC 接口",
+        "StampGIS WebRTC",
+        "StampGIS平台WebRTC"
+      ],
       "doc_category": "主干",
       "layer": "主干",
       "subtype": "",
@@ -1320,7 +1344,11 @@
     {
       "name": "PipelineWebRTC",
       "entity_type": "Product",
-      "aliases": [],
+      "aliases": [
+        "Pipeline WebRTC",
+        "管线WebRTC",
+        "管线 WebRTC"
+      ],
       "doc_category": "主干",
       "layer": "主干",
       "subtype": "",
@@ -2189,6 +2217,16 @@
       "source": "点云数据处理工具",
       "relation_type": "belongs_to",
       "target": "StampTools"
+    },
+    {
+      "source": "StampWebGL",
+      "relation_type": "different_from",
+      "target": "PipelineWebGL"
+    },
+    {
+      "source": "StampWebRTC",
+      "relation_type": "different_from",
+      "target": "PipelineWebRTC"
     }
   ],
   "confirmed_at": "2026-08-07",

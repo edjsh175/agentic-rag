@@ -54,6 +54,8 @@ export interface ClarificationOption {
   id: string
   label: string
   filter: ClarifyOptionFilter
+  /** backbone_seed | task_exit | rollback_static */
+  source?: string
 }
 
 /** 反问预检响应结构 */
@@ -199,7 +201,7 @@ export interface ChunkStats {
 }
 
 export const DOC_CATEGORIES = [
-  'StampServer', 'StampTools', 'StampWebRTC', '实景三维', '耕地保护',
+  'StampServer', 'StampTools', 'StampWebRTC', 'StampWebGL', '实景三维', '耕地保护',
   '矢量瓦片', '基础环境', '博客', '其他',
 ] as const
 

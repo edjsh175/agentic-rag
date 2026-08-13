@@ -189,6 +189,9 @@ class RetrievalPlan:
     backbone_avoid: tuple[str, ...] = ()
     backbone_relation_summary: str = ""
     backbone_primary_intent: str = ""
+    job: str = ""
+    graph_rewrite_policy: str = ""
+    rewrite_template: str = ""
 
 
 class QueryPlanner:
@@ -215,7 +218,15 @@ class QueryPlanner:
             return self._default_plan(base, force_rerank=force_rerank)
 
         intent, confidence = self._classify_intent(q)
-        queries = self._expand_queries(q, base, intent)
+        from rag_knowledge.services.sdk_code_job import resolve_job
+
+        job_decision = resolve_job(q)
+        job = job_decision.job
+        # FR-4: J3 must not receive Pipeline procedure stage words.
+        if job == "j3":
+            queries = list(base)
+        else:
+            queries = self._expand_queries(q, base, intent)
         from rag_knowledge.services.query_entity_guard import protect_rewritten_query
         protected_queries = []
         for query in queries:
@@ -229,12 +240,13 @@ class QueryPlanner:
             candidate_k = max(candidate_k, _CONFLICT_CANDIDATE_K)
         rerank_requested = force_rerank or rerank_for_intent
         enable_rerank = bool(self._cfg.reranker_enabled and rerank_requested)
-        expand_neighbors = intent in {"procedure", "deployment"}
+        expand_neighbors = intent in {"procedure", "deployment"} and job != "j3"
 
         logger.info(
-            "query_plan | intent=%s confidence=%.2f queries=%d top_k=%d "
+            "query_plan | intent=%s job=%s confidence=%.2f queries=%d top_k=%d "
             "candidate_k=%d rerank=%s neighbors=%s",
             intent,
+            job,
             confidence,
             len(queries),
             top_k,
@@ -251,6 +263,7 @@ class QueryPlanner:
             enable_rerank=enable_rerank,
             expand_neighbors=expand_neighbors,
             confidence=confidence,
+            job=job,
         )
 
     def _default_plan(

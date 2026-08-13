@@ -34,5 +34,7 @@
 
 ## 本机已打交接包（2026-08-13）
 
-目录：`deploy/rag_handover_20260813/`（另有 `deploy/rag_handover_20260813.zip`）
-按包内 `交接部署手册.md` + `MANIFEST.txt` 交付。不含 chroma；不含 Rerank/Ollama 模型权重。
+目录：`deploy/rag_handover_20260813/`
+已含 `rerank_models/bge-reranker-v2-m3/`（自 158 拷贝）。
+另有单文件：`E:\rag_handover_assets\bge-reranker-v2-m3.tar`。
+按包内 `交接部署手册.md` + `MANIFEST.txt` 交付。不含 chroma / Ollama 权重。

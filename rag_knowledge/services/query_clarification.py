@@ -26,6 +26,7 @@ _RETRIEVAL_DOC_CATEGORIES = frozenset({
     "StampServer",
     "StampTools",
     "StampWebRTC",
+    "StampWebGL",
     "实景三维",
     "耕地保护",
     "矢量瓦片",
@@ -37,6 +38,7 @@ _OWNER_TO_DOC_CATEGORY = {
     "stamptools": "StampTools",
     "stampserver": "StampServer",
     "stampwebrtc": "StampWebRTC",
+    "stampwebgl": "StampWebGL",
 }
 
 # Backward-compatible aliases (prefer query_surface public names for new code).
@@ -83,13 +85,17 @@ class ClarificationOption:
     id: str
     label: str
     filter: ClarificationFilter
+    source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
             "filter": self.filter.to_dict(),
         }
+        if self.source:
+            out["source"] = self.source
+        return out
 
 
 @dataclass
@@ -147,6 +153,7 @@ def _assign_option_ids(options: list[ClarificationOption]) -> list[Clarification
                 id=_option_id_at(len(out)),
                 label=raw.label,
                 filter=raw.filter,
+                source=raw.source,
             )
         )
     return out
@@ -552,6 +559,44 @@ class QueryClarificationService:
             kb_name=None,
         )
 
+    def _j3_clarify_result(self, question: str) -> ClarificationResult | None:
+        """FR-0b: J3 options from secondary-dev subgraph (rollback → static menu)."""
+        from rag_knowledge.services.sdk_code_job import (
+            build_j3_clarify_options,
+            j3_clarify_options,
+        )
+
+        clar = getattr(self._cfg, "clarification", None) if self._cfg is not None else None
+        rollback = bool(getattr(clar, "j3_options_rollback_static", False))
+        raw_options: list[dict]
+        if rollback:
+            raw_options = j3_clarify_options()
+        else:
+            constraints = self._load_constraints()
+            raw_options = build_j3_clarify_options(question, constraints)
+
+        options: list[ClarificationOption] = []
+        for raw in raw_options:
+            options.append(
+                ClarificationOption(
+                    id="",
+                    label=str(raw["label"]),
+                    filter=ClarificationFilter(
+                        doc_category=raw.get("doc_category"),
+                        entity_name=raw.get("entity_name"),
+                    ),
+                    source=str(raw.get("source") or "") or None,
+                )
+            )
+        return self._result_from_options(
+            ask_question="请选择二次开发调用面（产品线 / 是否写代码）：",
+            trigger="j3_sdk_code",
+            reason="j3_subject_unclear",
+            options=options,
+            doc_category=None,
+            kb_name=None,
+        )
+
     def analyze(
         self,
         question: str,
@@ -564,9 +609,21 @@ class QueryClarificationService:
         if not self.enabled or not q:
             return ClarificationResult(needs_clarification=False)
 
-        # User already picked an entity for this turn — do not ask again.
-        if entity_name and str(entity_name).strip():
+        from rag_knowledge.services.sdk_code_job import is_j3_aux_selection, resolve_job
+
+        # SDK / 层名选定后仍须产品线 → 继续出卡片，不得当正锚放行
+        if entity_name and str(entity_name).strip() and not is_j3_aux_selection(entity_name):
             return ClarificationResult(needs_clarification=False)
+
+        # D7: J3 write-code intent without product line → D8 card (rule, not LLM).
+        try:
+            decision = resolve_job(q, entity_name=entity_name)
+            if decision.needs_j3_clarify:
+                forced = self._j3_clarify_result(q)
+                if forced is not None:
+                    return forced
+        except Exception as exc:
+            logger.warning("j3 clarify gate failed, continue backbone clarify: %s", exc)
 
         seeds, seed_trigger = self._collect_seed_options(
             q, doc_category=doc_category, kb_name=kb_name,

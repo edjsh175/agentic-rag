@@ -244,6 +244,78 @@ def test_api_doc_splits_oversized_endpoint_by_subrole_and_repeats_endpoint():
     assert {chunk.metadata["content_role"] for chunk in chunks} >= {"api_request", "api_response"}
 
 
+def test_api_doc_keeps_stamputil_signature_params_and_sample_atomic():
+    sample = """StampUtil.createElementLineParams(params);
+
+参数：
+params={
+linewidth:线宽度
+linecolor: 边线颜色
+}
+
+代码示例：
+let paramsObj = await StampUtil.createElementLineParams({
+  guid: guid,
+  name: "PolylineSearch",
+  linewidth: 3,
+  linecolor: "0xffff0000",
+});
+StampUtil.showHighlightObj(paramsObj.guid);
+"""
+    chunks = apply_document_profile(
+        [_doc(sample, "标绘模块 > 创建折线", 1)],
+        DocumentProfile.API_DOC,
+    )
+
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.metadata["endpoint"] == "StampUtil.createElementLineParams"
+    assert chunk.metadata["api_name"] == "createElementLineParams"
+    assert chunk.metadata["content_role"] == "api_endpoint"
+    assert chunk.metadata["content_type"] == "code"
+    assert "linewidth" in chunk.page_content
+    assert "linecolor" in chunk.page_content
+    assert "代码示例" in chunk.page_content
+    assert "showHighlightObj" in chunk.page_content
+
+
+def test_api_doc_splits_multiple_stamputil_signatures_in_one_section():
+    text = """StampUtil.transToSphr(params);
+
+参数：x,y
+
+StampUtil.transToXy(params);
+
+参数：lon,lat
+"""
+    chunks = apply_document_profile(
+        [_doc(text, "坐标值转换", 1)],
+        DocumentProfile.API_DOC,
+    )
+
+    assert len(chunks) == 2
+    assert [c.metadata["api_name"] for c in chunks] == ["transToSphr", "transToXy"]
+    assert chunks[0].metadata["endpoint"] == "StampUtil.transToSphr"
+    assert "transToXy" not in chunks[0].page_content
+    assert "transToSphr" not in chunks[1].page_content
+
+
+def test_api_doc_recognizes_factory_create_signature():
+    text = """earth.Factory.CreateElementLine(params);
+
+参数：
+lineColor
+lineWidth
+"""
+    chunks = apply_document_profile(
+        [_doc(text, "创建折线", 1)],
+        DocumentProfile.API_DOC,
+    )
+    assert len(chunks) == 1
+    assert chunks[0].metadata["endpoint"] == "earth.Factory.CreateElementLine"
+    assert chunks[0].metadata["api_name"] == "CreateElementLine"
+
+
 def test_table_doc_uses_explicit_element_relationships_and_repeats_header():
     policy = ChunkPolicy(
         profile=DocumentProfile.TABLE_DOC,

@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "docs: add handover deployment guides and chroma portable import tooling"
+    commit_msg = "feat: implement SDK code job pipeline, improve document profiles and update manuals"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

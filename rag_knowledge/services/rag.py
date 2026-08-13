@@ -375,10 +375,89 @@ class RagChain:
 
     def _apply_backbone_anchor_rewrite(self, question: str, plan, *, entity_name: str | None = None):
         """Map oral terms onto product backbone before graph/hybrid retrieval."""
+        from rag_knowledge.services.sdk_code_job import (
+            GRAPH_REWRITE_POLICY_DROP,
+            drop_pipeline_graph_rewrites,
+            is_com_selection,
+            is_explorer_selection,
+            is_j3_whitelist,
+            resolve_job,
+            should_skip_backbone_guess,
+            strip_j2_stage_queries,
+        )
+
         graph_cfg = getattr(self, "_graph_cfg", None)
         forced = (entity_name or "").strip()
+        job_decision = resolve_job(question, entity_name=forced or None)
+
+        # Preserve planner job; refine with entity_name when present.
+        plan = replace(
+            plan,
+            job=job_decision.job or getattr(plan, "job", "") or "",
+        )
+
         if forced:
+            if is_com_selection(forced):
+                # Handled by caller short-reject; keep plan without Pipeline rewrite.
+                queries, policy = drop_pipeline_graph_rewrites(strip_j2_stage_queries(plan.queries))
+                return replace(
+                    plan,
+                    queries=queries,
+                    job="j3",
+                    graph_rewrite_policy=policy or GRAPH_REWRITE_POLICY_DROP,
+                    rewrite_template="com_reject",
+                    backbone_canonical=(),
+                    backbone_primary_intent="",
+                )
+            if is_explorer_selection(forced):
+                queries = strip_j2_stage_queries(plan.queries)
+                # D11: Job switch only — do not fabricate backbone canonical.
+                return replace(
+                    plan,
+                    queries=queries,
+                    job="j2",
+                    backbone_canonical=(),
+                    backbone_avoid=(),
+                    backbone_relation_summary="",
+                    backbone_primary_intent="",
+                    graph_rewrite_policy=GRAPH_REWRITE_POLICY_DROP,
+                    rewrite_template="explorer_ops",
+                )
             return self._force_backbone_entity(question, plan, forced)
+
+        # D10 / A8: J3 subject unclear → never LLM-guess Pipeline*.
+        if should_skip_backbone_guess(job_decision):
+            queries = strip_j2_stage_queries(plan.queries)
+            queries, _ = drop_pipeline_graph_rewrites(queries)
+            logger.info(
+                "backbone_anchor skipped | j3_subject_unclear question=%s",
+                (question or "")[:40],
+            )
+            return replace(
+                plan,
+                queries=queries,
+                backbone_canonical=(),
+                backbone_avoid=(),
+                backbone_relation_summary="",
+                backbone_primary_intent="",
+                graph_rewrite_policy=GRAPH_REWRITE_POLICY_DROP,
+                rewrite_template="j3_unclear_no_guess",
+            )
+
+        # Phase 1: named D2 product in question → J3 template directly (no LLM guess).
+        if (
+            job_decision.job == "j3"
+            and job_decision.subject_clear
+            and job_decision.canonical_hint
+            and is_j3_whitelist(job_decision.canonical_hint)
+        ):
+            return self._force_backbone_entity(
+                question, plan, job_decision.canonical_hint
+            )
+
+        if job_decision.job == "j3":
+            # Still strip J2 stages when J3 but not yet forced.
+            plan = replace(plan, queries=strip_j2_stage_queries(plan.queries))
 
         if graph_cfg is None or not getattr(graph_cfg, "query_rewrite_enabled", False):
             return plan
@@ -399,6 +478,10 @@ class RagChain:
                 GraphQueryRewriter,
                 merge_graph_rewrite_queries,
             )
+            from rag_knowledge.services.sdk_code_job import (
+                is_j3_blocklisted,
+                is_j3_whitelist,
+            )
 
             rewriter = getattr(self, "_graph_query_rewriter", None)
             if rewriter is None:
@@ -407,21 +490,58 @@ class RagChain:
             anchor = rewriter.anchor_from_backbone(question)
             if anchor.is_empty():
                 return plan
+
+            canonicals = list(anchor.canonical_entities)
+            # J3 + blocklisted guess → drop rewrite (A6), keep whitelist only.
+            if job_decision.job == "j3":
+                if any(is_j3_blocklisted(c) for c in canonicals) and not any(
+                    is_j3_whitelist(c) for c in canonicals
+                ):
+                    queries = strip_j2_stage_queries(plan.queries)
+                    queries, _ = drop_pipeline_graph_rewrites(queries)
+                    logger.info(
+                        "backbone_anchor dropped | j3_blocklist canonical=%s",
+                        canonicals,
+                    )
+                    return replace(
+                        plan,
+                        queries=queries,
+                        backbone_canonical=(),
+                        backbone_avoid=(),
+                        backbone_relation_summary="",
+                        backbone_primary_intent="",
+                        graph_rewrite_policy=GRAPH_REWRITE_POLICY_DROP,
+                        rewrite_template="j3_blocklist_drop",
+                    )
+
             merged = merge_graph_rewrite_queries(list(plan.queries), list(anchor.retrieval_queries))
+            if job_decision.job == "j3":
+                merged = strip_j2_stage_queries(merged)
+                merged, policy = drop_pipeline_graph_rewrites(merged)
+            else:
+                policy = getattr(plan, "graph_rewrite_policy", "") or ""
             logger.info(
-                "backbone_anchor | intent=%s canonical=%s avoid=%s queries=%d",
+                "backbone_anchor | intent=%s job=%s canonical=%s avoid=%s queries=%d",
                 anchor.primary_intent,
+                job_decision.job,
                 list(anchor.canonical_entities),
                 list(anchor.avoid),
                 len(anchor.retrieval_queries),
             )
+            primary_intent = anchor.primary_intent
+            if job_decision.job == "j3" and any(is_j3_whitelist(c) for c in canonicals):
+                from rag_knowledge.services.sdk_code_job import J3_PRIMARY_INTENT
+
+                primary_intent = J3_PRIMARY_INTENT
             return replace(
                 plan,
                 queries=merged,
                 backbone_canonical=anchor.canonical_entities,
                 backbone_avoid=anchor.avoid,
                 backbone_relation_summary=anchor.relation_summary,
-                backbone_primary_intent=anchor.primary_intent,
+                backbone_primary_intent=primary_intent,
+                graph_rewrite_policy=policy,
+                rewrite_template="j3" if job_decision.job == "j3" else "backbone",
             )
         except Exception as exc:
             logger.warning("backbone anchor rewrite skipped: %s", exc)
@@ -436,6 +556,15 @@ class RagChain:
         )
         from rag_knowledge.services.graph_query_rewrite import merge_graph_rewrite_queries
         from rag_knowledge.services.query_contextualizer import RetrievalQuery
+        from rag_knowledge.services.sdk_code_job import (
+            GRAPH_REWRITE_POLICY_KEEP,
+            J3_PRIMARY_INTENT,
+            build_j3_retrieval_texts,
+            is_j3_aux_selection,
+            is_j3_whitelist,
+            resolve_job,
+            strip_j2_stage_queries,
+        )
 
         constraints = load_backbone_constraints()
         canonical = resolve_canonical(entity_name, constraints) or entity_name
@@ -448,13 +577,61 @@ class RagChain:
         except Exception:
             pass
 
+        decision = resolve_job(question, entity_name=canonical)
         avoid = tuple(avoid_names_for_anchors([canonical], constraints))
+        base_queries = strip_j2_stage_queries(plan.queries)
+
+        # FR-2b: J3 whitelist → sdk_code template, never "{canonical} 介绍".
+        # Aux seeds (SDK / 层) must not become retrieval canonicals.
+        if is_j3_aux_selection(canonical):
+            logger.info("backbone_anchor skip aux seed | canonical=%s", canonical)
+            return replace(
+                plan,
+                job="j3",
+                backbone_canonical=(),
+                backbone_primary_intent=J3_PRIMARY_INTENT,
+                rewrite_template="j3",
+            )
+
+        if is_j3_whitelist(canonical) or decision.job == "j3":
+            if not is_j3_whitelist(canonical):
+                # Non-whitelist force under j3 action — still avoid intro template;
+                # blocklist handled by caller skip; treat as weak name bind.
+                pass
+            texts = build_j3_retrieval_texts(question, canonical)
+            rewrites = [
+                RetrievalQuery(text=t, kind="graph_rewrite", weight=1.1)
+                for t in texts
+            ]
+            merged = merge_graph_rewrite_queries(list(base_queries), rewrites)
+            summary = (
+                f"产品主干锚定（用户澄清选择 / J3）：\n- 锚点：{canonical}\n"
+                f"- 意图：{J3_PRIMARY_INTENT}（二次开发代码示例）"
+            )
+            logger.info(
+                "backbone_anchor forced j3 | canonical=%s avoid=%s queries=%d",
+                canonical,
+                list(avoid),
+                len(rewrites),
+            )
+            return replace(
+                plan,
+                queries=merged,
+                backbone_canonical=(canonical,),
+                backbone_avoid=avoid,
+                backbone_relation_summary=summary,
+                backbone_primary_intent=J3_PRIMARY_INTENT,
+                job="j3",
+                graph_rewrite_policy=GRAPH_REWRITE_POLICY_KEEP,
+                rewrite_template="j3",
+            )
+
         rewrite = RetrievalQuery(
             text=f"{canonical} 介绍",
             kind="graph_rewrite",
             weight=1.1,
         )
-        merged = merge_graph_rewrite_queries(list(plan.queries), [rewrite])
+        merged = merge_graph_rewrite_queries(list(base_queries), [rewrite])
         summary = (
             f"产品主干锚定（用户澄清选择）：\n- 锚点：{canonical}"
         )
@@ -470,6 +647,8 @@ class RagChain:
             backbone_avoid=avoid,
             backbone_relation_summary=summary,
             backbone_primary_intent="product_intro",
+            graph_rewrite_policy=GRAPH_REWRITE_POLICY_KEEP,
+            rewrite_template="product_intro",
         )
 
     def _load_allowlisted_anchor_graph_docs(
@@ -585,6 +764,34 @@ class RagChain:
         entity_name=None,
     ):
         plan = self._apply_backbone_anchor_rewrite(question, plan, entity_name=entity_name)
+
+        from rag_knowledge.services.sdk_code_job import (
+            GRAPH_REWRITE_POLICY_DROP,
+            resolve_job,
+            should_disable_graph_fusion,
+            strip_j2_stage_queries,
+        )
+
+        decision = resolve_job(question, entity_name=entity_name)
+        canonicals = getattr(plan, "backbone_canonical", ()) or ()
+        if should_disable_graph_fusion(decision, canonicals):
+            queries = strip_j2_stage_queries(plan.queries)
+            plan = replace(
+                plan,
+                queries=queries,
+                linked_entities=(),
+                graph_queries=(),
+                graph_chunk_ids=(),
+                graph_fallback_reason="j3_bad_anchor_no_fusion",
+                graph_rewrite_policy=getattr(plan, "graph_rewrite_policy", "")
+                or GRAPH_REWRITE_POLICY_DROP,
+            )
+            logger.info(
+                "graph_fusion skipped | j3_bad_or_unclear canonical=%s",
+                list(canonicals),
+            )
+            return plan, None, []
+
         retriever = getattr(self, "_graph_retriever", None)
         if retriever is None:
             return self._load_allowlisted_anchor_graph_docs(
@@ -1772,7 +1979,7 @@ class RagChain:
                 "手册", "规范", "要求", "字段", "配置", "发布", "工具", "服务",
                 "PipelineBuilder", "DOMBuilder", "DEMBuilder", "TINBuilder",
                 "ModelBuilder", "UEModelBuilder", "ObliqueModelBuilder",
-                "StampTools", "StampServer", "StampWebRTC",
+                "StampTools", "StampServer", "StampWebRTC", "StampWebGL",
             )
             published_hints = ("博客", "新闻", "公告", "资讯", "经验分享", "CSDN")
             if any(hint in normalized for hint in published_hints):
@@ -1970,6 +2177,10 @@ class RagChain:
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
+        rejected = self._com_phase0_reject_if_needed(q, entity_name=entity_name)
+        if rejected is not None:
+            return rejected
+
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
         try:
@@ -2064,6 +2275,32 @@ class RagChain:
             logger.error("查询失败: %s", e)
             return {"answer": f"查询出错: {str(e)}", "source_documents": []}
 
+    def _com_phase0_reject_if_needed(
+        self,
+        question: str,
+        *,
+        entity_name: str | None = None,
+        clarification_selected: str | None = None,
+    ) -> dict | None:
+        """D11: COM/Ax selection → short reject (Phase 0 only StampUtil)."""
+        from rag_knowledge.services.sdk_code_job import (
+            COM_PHASE0_REJECT_ANSWER,
+            is_com_selection,
+            resolve_job,
+        )
+
+        entity = (entity_name or "").strip()
+        selected = (clarification_selected or "").strip()
+        com_picked = is_com_selection(entity) or (
+            bool(selected) and ("COM" in selected or "Ax" in selected)
+        )
+        if not com_picked:
+            return None
+        decision = resolve_job(question, entity_name=entity or "COM")
+        if decision.reason != "com_selected_phase0_reject":
+            return None
+        return {"answer": COM_PHASE0_REJECT_ANSWER, "source_documents": []}
+
     async def aquery(self, question: str, history: list | None = None,
                      llm_model: str | None = None, vision_model: str | None = None,
                      kb_name: str | None = None, doc_category: str | None = None,
@@ -2093,6 +2330,17 @@ class RagChain:
         if _is_greeting(q):
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
+
+        rejected = self._com_phase0_reject_if_needed(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+        )
+        if rejected is not None:
+            tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
+            if tid:
+                rejected = {**rejected, "trace_id": tid}
+            return rejected
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
@@ -2319,6 +2567,20 @@ class RagChain:
         if _is_greeting(q):
             yield {"type": "token", "data": _GREETING_FIXED_REPLY}
             yield {"type": "sources", "data": []}
+            yield {"type": "done"}
+            return
+
+        rejected = self._com_phase0_reject_if_needed(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+        )
+        if rejected is not None:
+            yield {"type": "token", "data": rejected["answer"]}
+            yield {"type": "sources", "data": []}
+            tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
+            if tid:
+                yield {"type": "trace", "data": tid}
             yield {"type": "done"}
             return
 
