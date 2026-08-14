@@ -186,7 +186,9 @@ class RebuildCoordinator:
                     vector_store=staged_store,
                 ).assert_consistent(probe_vector_index=True)
 
-                self._store.disconnect()
+                # commit_swap 把 live handle 改名为 backup；必须绑回 live 名，
+                # 否则 BM25 / GraphResync 会读到旧集合。
+                self._store.bind_collection(live_name)
                 self._scanner.reload_index()
                 self._rebuild_bm25()
                 self._invalidate_retrieval_caches("rebuild_commit")

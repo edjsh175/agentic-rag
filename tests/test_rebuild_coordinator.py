@@ -42,6 +42,11 @@ class TrackingStore:
         self.events.append(("rename_collection", self._collection_name, new_name))
         self._collection_name = new_name
 
+    def bind_collection(self, collection_name: str) -> None:
+        self.events.append(("bind_collection", self._collection_name, collection_name))
+        self._collection_name = collection_name
+        self._store = None
+
     def disconnect(self) -> None:
         self.events.append(("disconnect",))
 
@@ -290,7 +295,7 @@ def test_successful_rebuild_swaps_staging_and_refreshes_live_only_after_commit(
         ("fork", f"rag_knowledge__staging__{OPERATION_ID}"),
         ("rename_collection", "rag_knowledge", f"rag_knowledge__backup__{OPERATION_ID}"),
         ("rename_collection", f"rag_knowledge__staging__{OPERATION_ID}", "rag_knowledge"),
-        ("disconnect",),
+        ("bind_collection", f"rag_knowledge__backup__{OPERATION_ID}", "rag_knowledge"),
     ]
     live_scanner.reload_index.assert_called_once_with()
     live_checker.assert_consistent.assert_not_called()

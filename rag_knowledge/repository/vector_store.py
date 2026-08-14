@@ -422,6 +422,11 @@ class VectorStore:
         store._collection.modify(name=new_name)
         self._collection_name = new_name
 
+    def bind_collection(self, collection_name: str) -> None:
+        """Point this handle at an existing collection without renaming it."""
+        self._store = None
+        self._collection_name = collection_name
+
     def disconnect(self) -> None:
         self._store = None
 
