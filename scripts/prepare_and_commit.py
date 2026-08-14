@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: publish probe scripts for rerank service and refactor rebuild coordinator"
+    commit_msg = "docs: reorganize project manuals, archive historical PRDs, and publish new layout PRD"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

@@ -49,4 +49,4 @@
 - Round 3 规则路径完成至少需要：`rebuild_safe_execute_round3.*`、执行日志、`graph_audit_post_round3.json`、填写后的验收记录与 §10 表。
 - **现场（2026-07-22 起）**：上述 execute 产物与 `data/backups/rag_relational_pre_round3*.db` **已存在**；实 LLM 由「第 3 轮补」按类目补抽完成；第 4 轮 GraphRAG A/B 已 PASS。
 - 导航以 [知识图谱PRD剩余轮次总览](../3_待办清单/知识图谱语义抽取/2026-07-13-知识图谱PRD剩余轮次总览.md) 与 [第4轮阶段总结](../3_待办清单/知识图谱语义抽取/已完成-第4轮-GraphRAG实效验收/2026-07-27-阶段总结.md) 为准。
-- **图谱语义抽取（2026-08-11）**：验收与日常抽图主路径仅 `RAG_CONFIG=config-local.ini`（Ollama + `[graph_extraction.llm] num_ctx/num_predict`）；`config-mix.ini` 外部抽取仅遗留摸底，不得结项。详见 [示例学习与模型本地化 PRD](../3_待办清单/知识图谱语义抽取/2026-08-11-图谱语义抽取示例学习与模型本地化PRD.md)。
+- **图谱语义抽取（2026-08-11）**：验收与日常抽图主路径仅 `RAG_CONFIG=config-local.ini`（Ollama + `[graph_extraction.llm] num_ctx/num_predict`）；`config-mix.ini` 外部抽取仅遗留摸底，不得结项。详见 [示例学习与模型本地化 PRD](../3_待办清单/知识图谱语义抽取/已完成-抽取路径本地化-示例学习/2026-08-11-图谱语义抽取示例学习与模型本地化PRD.md)。
