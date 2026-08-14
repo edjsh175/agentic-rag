@@ -129,3 +129,59 @@ def test_graph_resync_similar_match(tmp_path, tmp_db):
     conn.close()
 
     assert row_link[0] == "new-chunk-200"
+
+
+def test_graph_resync_chunk_ids_backup_reads_backup_collection(tmp_path, tmp_db):
+    """Scanner/rebuild backups only have chunk_ids; text must come from backup collection."""
+    mock_db, db_path = tmp_db
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("INSERT INTO entity_chunk_links VALUES ('link-3', 'e-3', 'old-chunk-3')")
+    conn.commit()
+    conn.close()
+
+    backup_file = tmp_path / "file_index.before.json"
+    backup_file.write_text(
+        json.dumps(
+            {
+                "files": {
+                    "hash-old": {
+                        "file_path": "docs/manual.pdf",
+                        "chunk_ids": ["old-chunk-3"],
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    backup_store = MagicMock()
+    backup_store.get_chunk_stats_source.return_value = {
+        "ids": ["old-chunk-3"],
+        "documents": ["Hello world graph resync text"],
+        "metadatas": [{"source": "docs/manual.pdf", "section_title": "Section 1"}],
+    }
+
+    live_store = MagicMock()
+    live_store.fork.return_value = backup_store
+    live_store.get_chunk_stats_source.return_value = {
+        "ids": ["new-chunk-300"],
+        "documents": ["Hello world graph resync text"],
+        "metadatas": [{"source": "docs/manual.pdf", "section_title": "Section 1"}],
+    }
+
+    service = GraphResyncService(db=mock_db, store=live_store)
+    res = service.resync(
+        index_backup_path=backup_file,
+        backup_collection="rag_knowledge__backup__op1",
+    )
+
+    assert res["remapped_exact"] == 1
+    assert res["orphaned"] == 0
+    live_store.fork.assert_called_once_with("rag_knowledge__backup__op1")
+
+    conn = sqlite3.connect(db_path)
+    row = conn.execute("SELECT chunk_id FROM entity_chunk_links WHERE id = 'link-3'").fetchone()
+    conn.close()
+    assert row[0] == "new-chunk-300"

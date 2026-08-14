@@ -12,8 +12,9 @@
 """
 import json
 import hashlib
-import time
 import logging
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -541,10 +542,7 @@ class DirectoryScanner:
                         entry["chunk_policy_id"] = ""
                         changed = True
                 if changed:
-                    self._index_path.write_text(
-                        json.dumps(index, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
+                    self._atomic_write_json(self._index_path, index)
                 return index
             except Exception as e:
                 logger.warning("索引文件损坏，将重建: %s", e)
@@ -552,12 +550,17 @@ class DirectoryScanner:
 
     def _save_index(self):
         try:
-            self._index_path.write_text(
-                json.dumps(self._index, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            self._atomic_write_json(self._index_path, self._index)
         except Exception as e:
             logger.error("保存索引失败: %s", e)
+
+    @staticmethod
+    def _atomic_write_json(path: Path, payload: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps(payload, ensure_ascii=False, indent=2)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
 
     def _load_dc_map(self) -> dict:
         """加载文档分类映射表"""

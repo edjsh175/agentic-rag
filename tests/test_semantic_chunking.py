@@ -226,6 +226,28 @@ class SemanticChunkerAlgorithmTests(unittest.TestCase):
         self.assertIn("tiny tail", chunks[-1].page_content)
         self.assertGreaterEqual(len(chunks[-1].page_content), 50)
 
+    def test_embed_units_batches_in_groups_of_24(self):
+        _, SemanticChunker = _load_loader_and_chunker()
+        splitter = RecursiveCharacterTextSplitter(chunk_size=240, chunk_overlap=20)
+        call_sizes = []
+
+        class CountingEmbeddings:
+            def embed_documents(self, texts):
+                call_sizes.append(len(texts))
+                return [[1.0, 0.0] for _ in texts]
+
+        units = [f"unit-{i}." for i in range(50)]
+        chunker = SemanticChunker(
+            embeddings=CountingEmbeddings(),
+            fallback_splitter=splitter,
+            max_chunk_size=240,
+            min_chunk_size=1,
+            breakpoint_percentile=80,
+        )
+        vectors = chunker._embed_units(units)
+        self.assertEqual(len(vectors), 50)
+        self.assertEqual(call_sizes, [24, 24, 2])
+
 
 class LoaderSemanticChunkingTests(unittest.TestCase):
     def test_semantic_mode_disables_unstructured_sliding_overlap(self):

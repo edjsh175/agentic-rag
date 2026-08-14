@@ -91,6 +91,8 @@ def test_assert_consistent_accepts_stable_reciprocal_adjacency():
     assert report["summary"]["identity_error_total"] == 0
     assert report["summary"]["profile_error_total"] == 0
     assert report["summary"]["adjacency_error_total"] == 0
+    assert report["summary"]["ann_probe_status"] == "skipped"
+    assert report["summary"]["ann_error_total"] == 0
 
 
 def test_audit_rejects_identity_profile_and_adjacency_mismatches():
@@ -124,3 +126,60 @@ def test_audit_rejects_identity_profile_and_adjacency_mismatches():
     assert report["summary"]["identity_error_total"] == 2
     assert report["summary"]["profile_error_total"] == 2
     assert report["summary"]["adjacency_error_total"] >= 2
+
+
+class _FakeAnnStore:
+    def __init__(self, *, docs=None, error: Exception | None = None):
+        self._docs = docs or []
+        self._error = error
+        self.calls = []
+
+    def search(self, query, k=4, filter=None):
+        self.calls.append({"query": query, "k": k, "filter": filter})
+        if self._error is not None:
+            raise self._error
+        return self._docs
+
+
+def test_audit_ann_probe_fails_when_unfiltered_query_raises():
+    store = _FakeAnnStore(error=RuntimeError("Error finding id"))
+    service = KnowledgeBaseConsistencyService(
+        index_data=_index(["chk_1"]),
+        chunk_snapshot={
+            "ids": ["chk_1"],
+            "documents": ["settings"],
+            "metadatas": [_metadata("chk_1")],
+        },
+        profile_map={"word/manual.docx": "technical_manual"},
+        vector_store=store,
+    )
+
+    report = service.audit(probe_vector_index=True)
+
+    assert report["summary"]["consistent"] is False
+    assert report["summary"]["ann_probe_ok"] is False
+    assert report["summary"]["ann_error_total"] == 1
+    assert report["ann_errors"][0]["reason"] == "unfiltered_query_failed"
+    assert store.calls and store.calls[0]["filter"] is None
+
+
+def test_audit_ann_probe_passes_when_unfiltered_query_returns_docs():
+    from langchain_core.documents import Document
+
+    store = _FakeAnnStore(docs=[Document(page_content="ok", metadata=_metadata("chk_1"))])
+    service = KnowledgeBaseConsistencyService(
+        index_data=_index(["chk_1"]),
+        chunk_snapshot={
+            "ids": ["chk_1"],
+            "documents": ["settings"],
+            "metadatas": [_metadata("chk_1")],
+        },
+        profile_map={"word/manual.docx": "technical_manual"},
+        vector_store=store,
+    )
+
+    report = service.assert_consistent(probe_vector_index=True)
+
+    assert report["summary"]["consistent"] is True
+    assert report["summary"]["ann_probe_ok"] is True
+    assert report["summary"]["ann_probe_status"] == "passed"

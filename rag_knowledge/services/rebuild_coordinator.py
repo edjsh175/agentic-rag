@@ -158,7 +158,8 @@ class RebuildCoordinator:
                     cfg=self._cfg,
                     index_data=index_data,
                     chunk_snapshot=chunk_snapshot,
-                ).assert_consistent()
+                    vector_store=staged_store,
+                ).assert_consistent(probe_vector_index=True)
 
                 self._write_state(state_path, {**base_state, "stage": "committing", "status": "running"})
                 _commit_swap(
@@ -182,7 +183,8 @@ class RebuildCoordinator:
                     cfg=self._cfg,
                     index_data=committed_index_data,
                     chunk_snapshot=committed_chunk_snapshot,
-                ).assert_consistent()
+                    vector_store=staged_store,
+                ).assert_consistent(probe_vector_index=True)
 
                 self._store.disconnect()
                 self._scanner.reload_index()
@@ -193,7 +195,10 @@ class RebuildCoordinator:
                 try:
                     from rag_knowledge.services.graph_resync import GraphResyncService
 
-                    graph_resync_stats = GraphResyncService(store=self._store).resync(index_backup)
+                    graph_resync_stats = GraphResyncService(store=self._store).resync(
+                        index_backup,
+                        backup_collection=backup_name,
+                    )
                 except Exception as resync_exc:
                     import logging
 

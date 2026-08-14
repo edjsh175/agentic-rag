@@ -32,6 +32,15 @@ from rag_knowledge.services.embedding_cache import get_embedding_cache
 logger = logging.getLogger(__name__)
 
 
+logger = logging.getLogger(__name__)
+
+
+def _require_nonempty_vector(vector) -> list[float]:
+    if not vector:
+        raise ValueError("embedding response contained empty vector")
+    return list(vector)
+
+
 class CachedOllamaEmbeddings(OllamaEmbeddings):
     def __init__(self, *, cache, **kwargs):
         super().__init__(**kwargs)
@@ -42,7 +51,7 @@ class CachedOllamaEmbeddings(OllamaEmbeddings):
         if cached is not None:
             return cached
 
-        vector = super().embed_query(text)
+        vector = _require_nonempty_vector(super().embed_query(text))
         self._cache.put(self.model, text, vector)
         return vector
 
@@ -61,18 +70,19 @@ class CachedOllamaEmbeddings(OllamaEmbeddings):
             missing_texts = list(missing.keys())
             vectors = super().embed_documents(missing_texts)
             for text, vector in zip(missing_texts, vectors):
-                self._cache.put(self.model, text, vector)
+                required = _require_nonempty_vector(vector)
+                self._cache.put(self.model, text, required)
                 for index in missing[text]:
-                    results[index] = list(vector)
+                    results[index] = list(required)
 
-        return [vector or [] for vector in results]
+        return [_require_nonempty_vector(vector) for vector in results]
 
     async def aembed_query(self, text: str) -> list[float]:
         cached = self._cache.get(self.model, text)
         if cached is not None:
             return cached
 
-        vector = await super().aembed_query(text)
+        vector = _require_nonempty_vector(await super().aembed_query(text))
         self._cache.put(self.model, text, vector)
         return vector
 
@@ -91,12 +101,12 @@ class CachedOllamaEmbeddings(OllamaEmbeddings):
             missing_texts = list(missing.keys())
             vectors = await super().aembed_documents(missing_texts)
             for text, vector in zip(missing_texts, vectors):
-                self._cache.put(self.model, text, vector)
+                required = _require_nonempty_vector(vector)
+                self._cache.put(self.model, text, required)
                 for index in missing[text]:
-                    results[index] = list(vector)
+                    results[index] = list(required)
 
-        return [vector or [] for vector in results]
-
+        return [_require_nonempty_vector(vector) for vector in results]
 
 class VectorStore:
     """向量数据库操作封装（单例）"""
@@ -133,6 +143,8 @@ class VectorStore:
         self._store: Chroma | None = None
         self._persist_dir = self._safe_persist_path(cfg.chroma_dir)
         self._collection_name = cfg.collection_name
+        self._hnsw_batch_size = max(1, int(getattr(cfg, "hnsw_batch_size", 1000) or 1000))
+        self._hnsw_sync_threshold = max(1, int(getattr(cfg, "hnsw_sync_threshold", 1000) or 1000))
         self._initialized = True
 
     # ------------------------------------------------------------------
@@ -160,11 +172,10 @@ class VectorStore:
                 collection_name=self._collection_name,
                 embedding_function=self._embeddings,
                 persist_directory=self._persist_dir,
-                # 当前语料约 600 chunks，低于 Chroma 默认的 1000 条同步阈值。
-                # 降低阈值，确保小型知识库也会及时生成完整 HNSW 持久化文件。
+                # 仅新建集合时写入；勿再硬编码 batch_size=50（曾导致 HNSW 容量卡死）。
                 collection_metadata={
-                    "hnsw:batch_size": 50,
-                    "hnsw:sync_threshold": 100,
+                    "hnsw:batch_size": self._hnsw_batch_size,
+                    "hnsw:sync_threshold": self._hnsw_sync_threshold,
                 },
             )
         return self._store
@@ -201,9 +212,25 @@ class VectorStore:
         # 远端 Ollama 对超大批量 embed 请求会触发 tokenize 失败（历史事故：全量 scan
         # 漏写 2 本 WebRTC 接口说明书 PDF）。add_documents 分批提交，与
         # scripts/reingest_sdk_api_manuals.py 的 EMBED_BATCH=24 对齐。
-        for start in range(0, len(doc_ids), _EMBED_ADD_BATCH):
-            end = start + _EMBED_ADD_BATCH
-            store.add_documents(chunks[start:end], ids=doc_ids[start:end])
+        # 任一批失败则删除本轮已写入 ID，避免 file_index 未记账的孤儿块。
+        written_ids: list[str] = []
+        try:
+            for start in range(0, len(doc_ids), _EMBED_ADD_BATCH):
+                end = start + _EMBED_ADD_BATCH
+                batch_ids = doc_ids[start:end]
+                store.add_documents(chunks[start:end], ids=batch_ids)
+                written_ids.extend(batch_ids)
+        except Exception:
+            if written_ids:
+                try:
+                    store.delete(written_ids)
+                except Exception as cleanup_exc:
+                    logger.error(
+                        "add_chunks 回滚已写入批次失败 (%d ids): %s",
+                        len(written_ids),
+                        cleanup_exc,
+                    )
+            raise
         return doc_ids
 
     def search(self, query: str, k: int = 4, filter: dict | None = None) -> list[Document]:
@@ -388,6 +415,8 @@ class VectorStore:
         scoped._embeddings = self._embeddings
         scoped._persist_dir = self._persist_dir
         scoped._collection_name = collection_name
+        scoped._hnsw_batch_size = getattr(self, "_hnsw_batch_size", 1000)
+        scoped._hnsw_sync_threshold = getattr(self, "_hnsw_sync_threshold", 1000)
         scoped._store = None
         return scoped
 

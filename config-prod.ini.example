@@ -26,6 +26,9 @@ allow_general_knowledge = true
 persist_directory = /app/chroma_db
 ; ChromaDB 集合名称
 collection_name = rag_knowledge
+; HNSW 仅创建集合时生效；勿再用 batch_size=50（曾导致容量卡死）
+hnsw_batch_size = 1000
+hnsw_sync_threshold = 1000
 
 [text]
 ; 文档分块大小（token 数），越大每块信息越完整，但检索精度下降

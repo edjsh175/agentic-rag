@@ -27,6 +27,24 @@ def _jaccard_similarity(text1: str, text2: str) -> float:
     return intersection / union if union > 0 else 0.0
 
 
+def _chunk_source(meta: dict[str, Any] | None, fallback: str = "") -> str:
+    meta = meta or {}
+    for key in ("source_file", "source", "file_path"):
+        value = str(meta.get(key) or "").strip()
+        if value:
+            return value
+    return str(fallback or "").strip()
+
+
+def _chunk_section(meta: dict[str, Any] | None) -> str:
+    meta = meta or {}
+    for key in ("section_title", "section_path"):
+        value = str(meta.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 class GraphResyncService:
     """Resynchronize graph entity-chunk links and relation evidence chunk IDs after vector store rebuild."""
 
@@ -34,10 +52,15 @@ class GraphResyncService:
         self.db = db or RelationalDB()
         self.store = store or VectorStore()
 
-    def resync(self, index_backup_path: Path | str | None = None) -> dict[str, Any]:
+    def resync(
+        self,
+        index_backup_path: Path | str | None = None,
+        backup_collection: str | None = None,
+        backup_store: Any | None = None,
+    ) -> dict[str, Any]:
         """Perform chunk ID remapping in relational database for graph elements."""
         logger.info("Starting graph chunk ID resynchronization...")
-        
+
         # 1. Fetch all current live chunks from VectorStore
         live_snapshot = self.store.get_chunk_stats_source()
         live_ids = set(live_snapshot.get("ids") or [])
@@ -47,46 +70,46 @@ class GraphResyncService:
         # Index live chunks by (source_file, section_title) -> list of (chunk_id, doc, md5)
         live_index_map: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
         for cid, doc, meta in zip(live_ids, live_docs, live_metas):
-            src_file = str((meta or {}).get("source_file") or "")
-            sec_title = str((meta or {}).get("section_title") or "")
+            src_file = _chunk_source(meta)
+            sec_title = _chunk_section(meta)
             key = (src_file, sec_title)
-            if key not in live_index_map:
-                live_index_map[key] = []
-            live_index_map[key].append((str(cid), doc or "", _text_md5(doc or "")))
+            live_index_map.setdefault(key, []).append(
+                (str(cid), doc or "", _text_md5(doc or ""))
+            )
 
         # 2. Collect unique old chunk IDs referenced in relational DB
         old_chunk_ids = set()
         with self.db._get_conn() as conn:
-            for row in conn.execute("SELECT DISTINCT chunk_id FROM entity_chunk_links WHERE chunk_id != ''").fetchall():
+            for row in conn.execute(
+                "SELECT DISTINCT chunk_id FROM entity_chunk_links WHERE chunk_id != ''"
+            ).fetchall():
                 old_chunk_ids.add(str(row[0]))
-            for row in conn.execute("SELECT DISTINCT source_chunk_id FROM relations WHERE source_chunk_id != ''").fetchall():
+            for row in conn.execute(
+                "SELECT DISTINCT source_chunk_id FROM relations WHERE source_chunk_id != ''"
+            ).fetchall():
                 old_chunk_ids.add(str(row[0]))
-            for row in conn.execute("SELECT DISTINCT source_chunk_id FROM extraction_candidates WHERE source_chunk_id != ''").fetchall():
+            for row in conn.execute(
+                "SELECT DISTINCT source_chunk_id FROM extraction_candidates WHERE source_chunk_id != ''"
+            ).fetchall():
                 old_chunk_ids.add(str(row[0]))
 
         if not old_chunk_ids:
             logger.info("No chunk references found in relational DB to resync.")
-            return {"total_checked": 0, "remapped_exact": 0, "remapped_similar": 0, "orphaned": 0}
+            return {
+                "total_checked": 0,
+                "remapped_exact": 0,
+                "remapped_similar": 0,
+                "orphaned": 0,
+            }
 
-        # 3. Load old index backup data if provided
-        old_chunks_meta: dict[str, dict[str, str]] = {}
-        if index_backup_path:
-            bp = Path(index_backup_path)
-            if bp.exists():
-                try:
-                    raw_data = json.loads(bp.read_text(encoding="utf-8"))
-                    files = raw_data.get("files") or {}
-                    for fpath, finfo in files.items():
-                        for c in finfo.get("chunks") or []:
-                            cid = str(c.get("chunk_id") or "")
-                            if cid:
-                                old_chunks_meta[cid] = {
-                                    "source_file": str(c.get("source_file") or fpath),
-                                    "section_title": str(c.get("section_title") or ""),
-                                    "text": str(c.get("text") or ""),
-                                }
-                except Exception as exc:
-                    logger.warning("Failed to load old index backup %s: %s", bp, exc)
+        # 3. Load old chunk meta: prefer backup index `chunks[]`, else chunk_ids + backup collection
+        resolved_backup = backup_store
+        if resolved_backup is None and backup_collection:
+            resolved_backup = self.store.fork(str(backup_collection))
+        old_chunks_meta = self._load_old_chunks_meta(
+            index_backup_path=index_backup_path,
+            backup_store=resolved_backup,
+        )
 
         # 4. Map old_chunk_id -> new_chunk_id
         id_mapping: dict[str, str] = {}
@@ -170,3 +193,71 @@ class GraphResyncService:
             "orphaned": orphaned_count,
             "remapped_total": len(id_mapping),
         }
+
+    def _load_old_chunks_meta(
+        self,
+        *,
+        index_backup_path: Path | str | None,
+        backup_store: Any | None,
+    ) -> dict[str, dict[str, str]]:
+        old_chunks_meta: dict[str, dict[str, str]] = {}
+        chunk_ids_by_file: list[tuple[str, str]] = []
+
+        if index_backup_path:
+            bp = Path(index_backup_path)
+            if bp.exists():
+                try:
+                    raw_data = json.loads(bp.read_text(encoding="utf-8"))
+                    files = raw_data.get("files") or {}
+                    for fpath, finfo in files.items():
+                        if not isinstance(finfo, dict):
+                            continue
+                        file_path = str(finfo.get("file_path") or fpath or "")
+                        for c in finfo.get("chunks") or []:
+                            if not isinstance(c, dict):
+                                continue
+                            cid = str(c.get("chunk_id") or "")
+                            if not cid:
+                                continue
+                            old_chunks_meta[cid] = {
+                                "source_file": _chunk_source(c, file_path),
+                                "section_title": _chunk_section(c),
+                                "text": str(c.get("text") or ""),
+                            }
+                        for cid in finfo.get("chunk_ids") or []:
+                            chunk_ids_by_file.append((str(cid), file_path))
+                except Exception as exc:
+                    logger.warning("Failed to load old index backup %s: %s", bp, exc)
+
+        # Scanner/rebuild backups only store chunk_ids; pull text from backup collection.
+        missing_ids = [
+            cid
+            for cid, _ in chunk_ids_by_file
+            if cid and cid not in old_chunks_meta
+        ]
+        if missing_ids and backup_store is not None:
+            try:
+                snapshot = backup_store.get_chunk_stats_source()
+            except Exception as exc:
+                logger.warning("Failed to read backup collection snapshot: %s", exc)
+                snapshot = {}
+            docs = snapshot.get("documents") or []
+            metas = snapshot.get("metadatas") or []
+            ids = snapshot.get("ids") or []
+            by_id: dict[str, tuple[str, dict[str, Any]]] = {}
+            for cid, doc, meta in zip(ids, docs, metas):
+                by_id[str(cid)] = (doc or "", dict(meta or {}))
+
+            file_fallback = {cid: fpath for cid, fpath in chunk_ids_by_file}
+            for cid in missing_ids:
+                row = by_id.get(cid)
+                if not row:
+                    continue
+                doc, meta = row
+                old_chunks_meta[cid] = {
+                    "source_file": _chunk_source(meta, file_fallback.get(cid, "")),
+                    "section_title": _chunk_section(meta),
+                    "text": doc,
+                }
+
+        return old_chunks_meta

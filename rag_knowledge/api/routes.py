@@ -1771,13 +1771,16 @@ def detect_duplicate_chunks():
 
 @router.post("/admin/knowledge_graph/resync")
 @router.post("/graph/resync")
-def resync_graph_chunks(index_backup_path: str = ""):
+def resync_graph_chunks(index_backup_path: str = "", backup_collection: str = ""):
     """手动触发图谱 Chunk ID 重新映射绑定与溯源同步"""
     try:
         from rag_knowledge.services.graph_resync import GraphResyncService
 
         bp = Path(index_backup_path) if index_backup_path else None
-        res = GraphResyncService(store=_store).resync(index_backup_path=bp)
+        res = GraphResyncService(store=_store).resync(
+            index_backup_path=bp,
+            backup_collection=backup_collection or None,
+        )
         return {
             "status": "ok",
             "message": "图谱溯源同步完成",

@@ -26,3 +26,24 @@ def test_lookup_returns_empty_map_on_invalid_json(tmp_path):
     index.write_text("{", encoding="utf-8")
     lookup = ChunkIndexLookupService(index)
     assert lookup.all() == {}
+
+
+def test_lookup_reloads_when_file_index_mtime_changes(tmp_path):
+    index = tmp_path / "file_index.json"
+    index.write_text(
+        json.dumps({"files": {"h1": {"chunk_ids": ["c1"], "kb_name": "文章附件"}}}),
+        encoding="utf-8",
+    )
+    lookup = ChunkIndexLookupService(index)
+    assert lookup.by_chunk_id("c1")["kb_name"] == "文章附件"
+
+    index.write_text(
+        json.dumps({"files": {"h1": {"chunk_ids": ["c1"], "kb_name": "已发布文章"}}}),
+        encoding="utf-8",
+    )
+    # Some filesystems have 1s mtime resolution; bump explicitly if unchanged.
+    import os
+    import time
+
+    os.utime(index, (time.time() + 2, time.time() + 2))
+    assert lookup.by_chunk_id("c1")["kb_name"] == "已发布文章"

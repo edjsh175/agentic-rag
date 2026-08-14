@@ -120,8 +120,15 @@ class SemanticChunker:
         if self._embeddings is None or not hasattr(self._embeddings, "embed_documents"):
             raise SemanticChunkingError("embedding model is unavailable")
 
+        # 与 VectorStore.add_chunks 对齐：远端 Ollama 超大批量 embed 会失败。
+        batch_size = 24
+        raw_vectors: list = []
         try:
-            raw_vectors = self._embeddings.embed_documents(units)
+            for start in range(0, len(units), batch_size):
+                batch = units[start : start + batch_size]
+                raw_vectors.extend(self._embeddings.embed_documents(batch))
+        except SemanticChunkingError:
+            raise
         except Exception as exc:
             raise SemanticChunkingError(f"embedding request failed: {exc}") from exc
 

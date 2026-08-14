@@ -99,6 +99,28 @@ def test_vector_store_fork_uses_independent_collection_handle(isolated_storage):
     assert live._collection_name != staged._collection_name
 
 
+def test_new_collection_uses_configured_hnsw_batch_size(isolated_storage):
+    isolated_storage()
+    from rag_knowledge.config import Config
+
+    cfg = Config()
+    live = VectorStore()
+    probe_name = "rag_knowledge__hnsw_probe__test"
+    staged = live.fork(probe_name)
+    try:
+        collection = staged._get_store()._collection
+        meta = dict(collection.metadata or {})
+        assert int(meta.get("hnsw:batch_size")) == int(cfg.hnsw_batch_size)
+        assert int(meta.get("hnsw:sync_threshold")) == int(cfg.hnsw_sync_threshold)
+        assert int(meta.get("hnsw:batch_size")) != 50
+    finally:
+        try:
+            staged._get_store().delete_collection()
+        except Exception:
+            pass
+        staged.disconnect()
+
+
 def test_staging_scan_errors_leave_live_unchanged(tmp_path, fixed_operation_time):
     live_store = TrackingStore()
     live_content = '{"version":1,"files":{"h1":{"chunk_ids":["c1"]}}}'
@@ -132,10 +154,10 @@ def test_staging_consistency_failure_cleans_staging_and_preserves_live(tmp_path,
     staged_scanner.scan.side_effect = _write_staging_index
 
     class FakeConsistencyService:
-        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
             self._staging = index_data is not None
 
-        def assert_consistent(self, *, source=None):
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
             if self._staging:
                 raise KnowledgeBaseConsistencyError({"summary": {"consistent": False}})
             return {"summary": {"consistent": True}}
@@ -169,10 +191,10 @@ def test_commit_swap_rolls_back_when_index_replace_fails(tmp_path, fixed_operati
     staged_scanner.scan.side_effect = _write_staging_index
 
     class AlwaysConsistentService:
-        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
             pass
 
-        def assert_consistent(self, *, source=None):
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
             return {"summary": {"consistent": True}}
 
     monkeypatch.setattr(
@@ -224,15 +246,27 @@ def test_successful_rebuild_swaps_staging_and_refreshes_live_only_after_commit(
     staged_scanner.scan.side_effect = _write_staging_index
 
     class AlwaysConsistentService:
-        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
             pass
 
-        def assert_consistent(self, *, source=None):
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
             return {"summary": {"consistent": True}}
 
     monkeypatch.setattr(
         "rag_knowledge.services.rebuild_coordinator.KnowledgeBaseConsistencyService",
         AlwaysConsistentService,
+    )
+
+    class FakeGraphResync:
+        def __init__(self, store=None):
+            pass
+
+        def resync(self, index_backup_path=None, backup_collection=None, backup_store=None):
+            return {"remapped_exact": 0, "orphaned": 0}
+
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_resync.GraphResyncService",
+        FakeGraphResync,
     )
 
     result = coordinator.run()
@@ -265,6 +299,60 @@ def test_successful_rebuild_swaps_staging_and_refreshes_live_only_after_commit(
     assert not (data_dir / "rebuild_state.json").exists()
 
 
+def test_successful_rebuild_passes_backup_collection_to_graph_resync(
+    tmp_path, fixed_operation_time, monkeypatch
+):
+    live_store = TrackingStore()
+    coordinator, data_dir, live_index, staged_scanner = _make_coordinator(
+        tmp_path,
+        live_store=live_store,
+    )
+    live_index.write_text('{"version":1,"files":{"live":{"chunk_ids":["c1"]}}}', encoding="utf-8")
+    staging_index = data_dir / "rebuild" / OPERATION_ID / "file_index.json"
+    captured = {}
+
+    def _write_staging_index():
+        staging_index.parent.mkdir(parents=True, exist_ok=True)
+        staging_index.write_text(
+            '{"version":1,"files":{"staging":{"chunk_ids":["c2"]}}}',
+            encoding="utf-8",
+        )
+        return {"new_files": 1, "skipped_files": 0, "errors": 0}
+
+    staged_scanner.scan.side_effect = _write_staging_index
+
+    class AlwaysConsistentService:
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
+            pass
+
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
+            return {"summary": {"consistent": True}}
+
+    class FakeGraphResync:
+        def __init__(self, store=None):
+            captured["store"] = store
+
+        def resync(self, index_backup_path=None, backup_collection=None, backup_store=None):
+            captured["index_backup_path"] = Path(index_backup_path) if index_backup_path else None
+            captured["backup_collection"] = backup_collection
+            return {"remapped_exact": 0, "orphaned": 0}
+
+    monkeypatch.setattr(
+        "rag_knowledge.services.rebuild_coordinator.KnowledgeBaseConsistencyService",
+        AlwaysConsistentService,
+    )
+    monkeypatch.setattr(
+        "rag_knowledge.services.graph_resync.GraphResyncService",
+        FakeGraphResync,
+    )
+
+    result = coordinator.run()
+
+    assert captured["backup_collection"] == f"rag_knowledge__backup__{OPERATION_ID}"
+    assert captured["index_backup_path"] == data_dir / "rebuild" / OPERATION_ID / "file_index.before.json"
+    assert result["graph_resync_stats"]["orphaned"] == 0
+
+
 def test_post_commit_validation_failure_does_not_clear_committed_collection(
     tmp_path, fixed_operation_time, monkeypatch
 ):
@@ -288,10 +376,10 @@ def test_post_commit_validation_failure_does_not_clear_committed_collection(
     class FailsAfterCommitService:
         calls = 0
 
-        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
             pass
 
-        def assert_consistent(self, *, source=None):
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
             type(self).calls += 1
             if type(self).calls == 2:
                 raise KnowledgeBaseConsistencyError({"summary": {"consistent": False}})
@@ -361,10 +449,10 @@ def test_rebuild_coordinator_decisions_transaction(tmp_path, fixed_operation_tim
     staged_scanner.scan.side_effect = mock_scan
 
     class AlwaysConsistentService:
-        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None):
+        def __init__(self, *, cfg=None, index_data=None, chunk_snapshot=None, vector_store=None):
             pass
 
-        def assert_consistent(self, *, source=None):
+        def assert_consistent(self, *, source=None, probe_vector_index=None):
             return {"summary": {"consistent": True}}
 
     monkeypatch.setattr(

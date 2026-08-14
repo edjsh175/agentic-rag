@@ -316,6 +316,10 @@ class Config:
         # ---- 向量数据库 ----
         self.chroma_dir = _dir(_get("vector_store", "persist_directory", "./chroma_db"), "./chroma_db")
         self.collection_name = _get("vector_store", "collection_name", "rag_knowledge")
+        # HNSW 仅在创建集合时生效；旧集合改 ini 不热更新，须重建。
+        # 历史硬编码 batch_size=50 曾导致容量卡死（50/N），默认改为 Chroma 量级。
+        self.hnsw_batch_size = int(_get("vector_store", "hnsw_batch_size", "1000"))
+        self.hnsw_sync_threshold = int(_get("vector_store", "hnsw_sync_threshold", "1000"))
 
         # ---- 关系数据库 ----
         self.relational_db_path = _dir(_get("relational_db", "db_path", "./data/rag_relational.db"), "./data/rag_relational.db")

@@ -42,7 +42,8 @@ class KnowledgeBaseConsistencyError(RuntimeError):
             f"unexpected_chroma={summary.get('unexpected_chroma_chunk_total', 0)}, "
             f"identity_errors={summary.get('identity_error_total', 0)}, "
             f"profile_errors={summary.get('profile_error_total', 0)}, "
-            f"adjacency_errors={summary.get('adjacency_error_total', 0)}"
+            f"adjacency_errors={summary.get('adjacency_error_total', 0)}, "
+            f"ann_errors={summary.get('ann_error_total', 0)}"
         )
 
 
@@ -54,13 +55,20 @@ class KnowledgeBaseConsistencyService:
         index_data: dict[str, Any] | None = None,
         chunk_snapshot: dict[str, Any] | None = None,
         profile_map: dict[str, Any] | None = None,
+        vector_store: VectorStore | None = None,
     ):
         self._cfg = cfg
         self._index_data = index_data
         self._chunk_snapshot = chunk_snapshot
         self._profile_map = profile_map
+        self._vector_store = vector_store
 
-    def audit(self, *, source: str | None = None) -> dict[str, Any]:
+    def audit(
+        self,
+        *,
+        source: str | None = None,
+        probe_vector_index: bool | None = None,
+    ) -> dict[str, Any]:
         index_data = self._index_data if self._index_data is not None else self._load_index()
         chunk_snapshot = self._chunk_snapshot if self._chunk_snapshot is not None else VectorStore().get_chunk_stats_source()
 
@@ -162,8 +170,29 @@ class KnowledgeBaseConsistencyService:
         missing_indexed_chunk_ids = sorted(chunk_id for chunk_id in indexed_chunk_ids if chunk_id not in chroma_id_set)
         unexpected_chroma_chunk_ids = sorted(chunk_id for chunk_id in chroma_ids if chunk_id not in indexed_set)
 
+        # 无过滤 ANN 探针：避免「ID 账本一致但 HNSW 已残」假绿。
+        # 注入 chunk_snapshot 的单测默认跳过；正式 audit / assert 默认探测。
+        should_probe = (
+            bool(probe_vector_index)
+            if probe_vector_index is not None
+            else self._chunk_snapshot is None
+        )
+        ann_errors, ann_probe = self._probe_ann(
+            enabled=should_probe,
+            chroma_count=len(chroma_ids),
+        )
+
         summary = {
-            "consistent": not any((missing_indexed_chunk_ids, unexpected_chroma_chunk_ids, identity_errors, profile_errors, adjacency_errors)),
+            "consistent": not any(
+                (
+                    missing_indexed_chunk_ids,
+                    unexpected_chroma_chunk_ids,
+                    identity_errors,
+                    profile_errors,
+                    adjacency_errors,
+                    ann_errors,
+                )
+            ),
             "index_file_total": len(file_entries),
             "index_chunk_total": len(indexed_chunk_ids),
             "chroma_chunk_total": len(chroma_ids),
@@ -172,6 +201,9 @@ class KnowledgeBaseConsistencyService:
             "identity_error_total": len(identity_errors),
             "profile_error_total": len(profile_errors),
             "adjacency_error_total": len(adjacency_errors),
+            "ann_error_total": len(ann_errors),
+            "ann_probe_ok": bool(ann_probe.get("ok")),
+            "ann_probe_status": str(ann_probe.get("status") or ""),
         }
 
         report = {
@@ -182,6 +214,8 @@ class KnowledgeBaseConsistencyService:
             "identity_errors": identity_errors,
             "profile_errors": profile_errors,
             "adjacency_errors": adjacency_errors,
+            "ann_errors": ann_errors,
+            "ann_probe": ann_probe,
         }
         if source is not None:
             filtered = [row for row in source_rows if row["source"] == source]
@@ -192,11 +226,44 @@ class KnowledgeBaseConsistencyService:
             }
         return report
 
-    def assert_consistent(self, *, source: str | None = None) -> dict[str, Any]:
-        report = self.audit(source=source)
+    def assert_consistent(
+        self,
+        *,
+        source: str | None = None,
+        probe_vector_index: bool | None = None,
+    ) -> dict[str, Any]:
+        report = self.audit(source=source, probe_vector_index=probe_vector_index)
         if not report["summary"]["consistent"]:
             raise KnowledgeBaseConsistencyError(report)
         return report
+
+    def _probe_ann(self, *, enabled: bool, chroma_count: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        if not enabled:
+            return [], {"ok": True, "status": "skipped", "reason": "probe_disabled"}
+        if chroma_count <= 0:
+            return [], {"ok": True, "status": "skipped_empty", "reason": "no_chunks"}
+
+        store = self._vector_store or VectorStore()
+        query = "knowledge base vector index health probe"
+        try:
+            docs = store.search(query, k=min(3, chroma_count), filter=None)
+        except Exception as exc:
+            error = {
+                "reason": "unfiltered_query_failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            return [error], {"ok": False, "status": "failed", **error}
+
+        if not docs:
+            error = {"reason": "empty_unfiltered_results"}
+            return [error], {"ok": False, "status": "failed", **error}
+
+        return [], {
+            "ok": True,
+            "status": "passed",
+            "result_count": len(docs),
+            "filter": None,
+        }
 
     def _load_index(self) -> dict[str, Any]:
         cfg = self._cfg or Config()
