@@ -32,9 +32,6 @@ from rag_knowledge.services.embedding_cache import get_embedding_cache
 logger = logging.getLogger(__name__)
 
 
-logger = logging.getLogger(__name__)
-
-
 def _require_nonempty_vector(vector) -> list[float]:
     if not vector:
         raise ValueError("embedding response contained empty vector")
