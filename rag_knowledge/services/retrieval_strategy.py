@@ -262,13 +262,14 @@ class RetrievalStrategy:
         if len(all_ranked) == 1 and query_weights is None and query_labels is None:
             return all_ranked[0][:actual_top_k]
 
-        return self._rrf_fuse(
+        fused = self._rrf_fuse(
             all_ranked,
             rrf_k=self._cfg.retrieval_rrf_k,
             top_k=actual_top_k,
             weights=effective_weights,
             labels=effective_labels,
         )
+        return self._maybe_prefer_sdk_manuals(queries, fused)
 
     async def aretrieve_many(
         self,
@@ -346,13 +347,27 @@ class RetrievalStrategy:
         if len(all_ranked) == 1 and query_weights is None and query_labels is None:
             return all_ranked[0][:actual_top_k]
 
-        return self._rrf_fuse(
+        fused = self._rrf_fuse(
             all_ranked,
             rrf_k=self._cfg.retrieval_rrf_k,
             top_k=actual_top_k,
             weights=effective_weights,
             labels=effective_labels,
         )
+        return self._maybe_prefer_sdk_manuals(queries, fused)
+
+    def _maybe_prefer_sdk_manuals(self, queries, docs: list) -> list:
+        """多查询 RRF 合并后再次优选手册（单路 hybrid 内的 prefer 会被跨查询 RRF 覆盖）。"""
+        from rag_knowledge.services.sdk_code_job import (
+            is_sdk_style_retrieval_query,
+            prefer_sdk_manual_docs,
+        )
+
+        if not queries:
+            return docs
+        if not any(is_sdk_style_retrieval_query(str(q)) for q in queries):
+            return docs
+        return prefer_sdk_manual_docs(docs)
 
     # ------------------------------------------------------------------
     # 内部
@@ -416,6 +431,39 @@ class RetrievalStrategy:
             top_k=top_k or self._cfg.retrieval_top_k,
         )
 
+    def _finalize_sdk_hybrid(
+        self,
+        question: str,
+        branches: list[list[Document]],
+        *,
+        top_k: int,
+        candidate_k: int,
+        labels: list[str] | None = None,
+    ) -> list[Document]:
+        """RRF-fuse Hybrid branches; for SDK/style queries prefer 接口说明书 over Cookbook."""
+        from rag_knowledge.services.sdk_code_job import (
+            build_sdk_manual_bm25_hint,
+            prefer_sdk_manual_docs,
+        )
+
+        hint = build_sdk_manual_bm25_hint(question)
+        pool_k = max(top_k, candidate_k)
+        fused = self._rrf_fuse(
+            branches,
+            rrf_k=self._cfg.retrieval_rrf_k,
+            top_k=pool_k,
+            labels=labels,
+        )
+        if hint:
+            fused = prefer_sdk_manual_docs(fused)
+            logger.info(
+                "sdk_manual_prefer | hint=%r pool=%d returned=%d",
+                hint[:80],
+                pool_k,
+                min(len(fused), top_k),
+            )
+        return fused[:top_k]
+
     def _retrieve_hybrid(
         self,
         question: str,
@@ -431,7 +479,10 @@ class RetrievalStrategy:
                 f"不支持的融合方式: {self._cfg.retrieval_fusion_method}，当前仅支持 rrf"
             )
 
+        from rag_knowledge.services.sdk_code_job import build_sdk_manual_bm25_hint
+
         candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        actual_top_k = top_k or self._cfg.retrieval_top_k
         augmented_query = self._augment_structured_query(question)
         vector_docs = self._retrieve_vector(
             question, kb_name=kb_name,
@@ -443,10 +494,25 @@ class RetrievalStrategy:
             doc_category=doc_category, review_status=review_status,
             top_k=candidate_k,
         )
-        return self._rrf_fuse(
-            [vector_docs, bm25_docs],
-            rrf_k=self._cfg.retrieval_rrf_k,
-            top_k=top_k or self._cfg.retrieval_top_k,
+        branches = [vector_docs, bm25_docs]
+        labels = ["vector", "bm25"]
+        hint = build_sdk_manual_bm25_hint(question)
+        if hint:
+            sdk_docs = self._retrieve_bm25(
+                hint,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                review_status=review_status,
+                top_k=candidate_k,
+            )
+            branches.append(sdk_docs)
+            labels.append("sdk_manual")
+        return self._finalize_sdk_hybrid(
+            question,
+            branches,
+            top_k=actual_top_k,
+            candidate_k=candidate_k,
+            labels=labels,
         )
 
     async def _run_blocking(self, func, *args, **kwargs):
@@ -507,10 +573,14 @@ class RetrievalStrategy:
                 f"不支持的融合方式: {self._cfg.retrieval_fusion_method}，当前仅支持 rrf"
             )
 
+        from rag_knowledge.services.sdk_code_job import build_sdk_manual_bm25_hint
+
         candidate_k = candidate_k or self._cfg.retrieval_candidate_k
+        actual_top_k = top_k or self._cfg.retrieval_top_k
         augmented_query = self._augment_structured_query(question)
+        hint = build_sdk_manual_bm25_hint(question)
         started = time.perf_counter()
-        vector_docs, bm25_docs = await asyncio.gather(
+        tasks = [
             self._aretrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
@@ -521,16 +591,32 @@ class RetrievalStrategy:
                 doc_category=doc_category, review_status=review_status,
                 top_k=candidate_k,
             ),
-        )
+        ]
+        labels = ["vector", "bm25"]
+        if hint:
+            tasks.append(
+                self._aretrieve_bm25(
+                    hint,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    review_status=review_status,
+                    top_k=candidate_k,
+                )
+            )
+            labels.append("sdk_manual")
+        results = await asyncio.gather(*tasks)
         logger.debug(
-            "Hybrid async recall finished | kb=%s | elapsed=%.3fs",
+            "Hybrid async recall finished | kb=%s | branches=%d | elapsed=%.3fs",
             kb_name or "auto",
+            len(results),
             time.perf_counter() - started,
         )
-        return self._rrf_fuse(
-            [vector_docs, bm25_docs],
-            rrf_k=self._cfg.retrieval_rrf_k,
-            top_k=top_k or self._cfg.retrieval_top_k,
+        return self._finalize_sdk_hybrid(
+            question,
+            list(results),
+            top_k=actual_top_k,
+            candidate_k=candidate_k,
+            labels=labels,
         )
 
     @staticmethod

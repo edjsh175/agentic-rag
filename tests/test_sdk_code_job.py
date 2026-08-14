@@ -346,3 +346,137 @@ class TestForceBackboneJ3:
         )
         assert rejected is not None
         assert rejected["answer"] == COM_PHASE0_REJECT_ANSWER
+
+
+class TestSdkManualPrefer:
+    def test_hint_for_polyline_includes_api_name(self):
+        from rag_knowledge.services.sdk_code_job import build_sdk_manual_bm25_hint
+
+        hint = build_sdk_manual_bm25_hint("如何在地图上绘制折线？")
+        assert hint is not None
+        assert "createElementLineParams" in hint
+        assert "接口说明书" in hint
+
+    def test_prefer_manual_over_cookbook(self):
+        from langchain_core.documents import Document
+
+        from rag_knowledge.services.sdk_code_job import prefer_sdk_manual_docs
+
+        cookbook = Document(
+            page_content="linecolor",
+            metadata={
+                "source": "01-webrtc-create-polyline-linecolor-linewidth.md",
+                "rrf_score": 0.02,
+            },
+        )
+        manual = Document(
+            page_content="createElementLineParams linewidth",
+            metadata={
+                "source": "StampGIS平台WebRTC接口说明书.docx",
+                "document_profile": "api_doc",
+                "rrf_score": 0.01,
+            },
+        )
+        ranked = prefer_sdk_manual_docs([cookbook, manual])
+        assert "接口说明书" in ranked[0].metadata["source"]
+        assert ranked[0].metadata["sdk_evidence_tier"] == 0
+        assert ranked[1].metadata["sdk_evidence_tier"] == 2
+
+    def test_multi_query_prefer_applies_after_rrf(self):
+        """多查询 RRF 合并后仍须优选手册（修复 cookbook 挤占 top 的问题）。"""
+        from langchain_core.documents import Document
+
+        from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
+
+        cookbook = Document(
+            page_content="创建折线 线颜色 线宽",
+            metadata={
+                "source": "01-webrtc-create-polyline-linecolor-linewidth.md",
+                "chunk_id": "chk_cookbook_01",
+                "review_status": "approved",
+            },
+        )
+        manual = Document(
+            page_content="StampUtil.createElementLineParams(params) linecolor linewidth",
+            metadata={
+                "source": "StampGIS平台WebRTC接口说明书.docx",
+                "document_profile": "api_doc",
+                "chunk_id": "chk_manual_rtc",
+                "review_status": "approved",
+            },
+        )
+        strategy = RetrievalStrategy()
+        strategy.retrieve = lambda *a, **k: [cookbook, manual]
+        docs = strategy.retrieve_many(
+            ["写一段创建折线的代码", "StampUtil createElementLineParams linecolor"],
+            top_k=4,
+            candidate_k=8,
+        )
+        assert docs, "expected non-empty multi-query result"
+        assert "接口说明书" in docs[0].metadata["source"]
+
+
+class TestTraceClarifyBlock:
+    """FR-7: qa_trace clarify block rebuilt from the J3 gate decision."""
+
+    def test_j3_unclear_plan_records_subgraph_options(self):
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
+        from rag_knowledge.services.query_planner import RetrievalPlan
+        from rag_knowledge.services.rag import RagChain
+
+        chain = object.__new__(RagChain)
+        plan = RetrievalPlan(
+            intent="procedure",
+            queries=[RetrievalQuery("写一段创建折线的代码", "original", 1.0)],
+            top_k=8,
+            candidate_k=24,
+            enable_rerank=False,
+            expand_neighbors=False,
+            confidence=0.9,
+            job="j3",
+            rewrite_template="j3_unclear_no_guess",
+            graph_rewrite_policy="drop",
+        )
+        clarify = RagChain._build_trace_clarify(
+            chain,
+            "写一段创建折线的代码，线颜色设为红色、线宽为 3。",
+            plan,
+            clarification_question=None,
+            clarification_selected=None,
+        )
+        assert clarify["needs_clarification"] is True
+        entities = {o["entity_name"] for o in clarify["options"]}
+        assert "StampWebRTC" in entities and "StampWebGL" in entities
+        assert not any(str(e or "").startswith("Pipeline") for e in entities)
+        sources = {o["source"] for o in clarify["options"]}
+        assert "backbone_seed" in sources
+        assert clarify["selected"] == ""
+
+    def test_selected_j3_plan_records_selection_and_options(self):
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
+        from rag_knowledge.services.query_planner import RetrievalPlan
+        from rag_knowledge.services.rag import RagChain
+
+        chain = object.__new__(RagChain)
+        plan = RetrievalPlan(
+            intent="procedure",
+            queries=[RetrievalQuery("写一段创建折线的代码", "original", 1.0)],
+            top_k=8,
+            candidate_k=24,
+            enable_rerank=False,
+            expand_neighbors=False,
+            confidence=0.9,
+            job="j3",
+            rewrite_template="j3",
+        )
+        clarify = RagChain._build_trace_clarify(
+            chain,
+            "写一段创建折线的代码，线颜色设为红色、线宽为 3。",
+            plan,
+            clarification_question="请选择二次开发调用面：",
+            clarification_selected="StampWebRTC 二次开发（StampUtil）",
+        )
+        assert clarify["needs_clarification"] is True
+        assert clarify["selected"] == "StampWebRTC 二次开发（StampUtil）"
+        entities = {o["entity_name"] for o in clarify["options"]}
+        assert "StampWebRTC" in entities and "StampWebGL" in entities

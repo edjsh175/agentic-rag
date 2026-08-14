@@ -328,6 +328,35 @@ def test_qa_trace_full_request_parameters(isolated_storage, monkeypatch):
     assert req.get("excluded_chunk_ids") == ["chunk_9"]
 
 
+def test_qa_trace_records_clarify_block(isolated_storage, monkeypatch):
+    """FR-7: set_clarify() lands needs/options/selected/option source in the trace."""
+    cfg, _db, _chroma, _data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+    builder = QaTraceBuilder(question="写一段创建折线的代码", cfg=cfg)
+    builder.set_clarify(
+        {
+            "needs_clarification": True,
+            "ask_question": "请选择二次开发调用面（产品线 / 是否写代码）：",
+            "selected": "",
+            "options": [
+                {"label": "StampWebRTC 二次开发（StampUtil）", "entity_name": "StampWebRTC", "source": "backbone_seed"},
+                {"label": "StampWebGL 二次开发（StampUtil）", "entity_name": "StampWebGL", "source": "backbone_seed"},
+            ],
+        }
+    )
+    tid = builder.finish(answer="")
+    store = QaTraceStore(cfg)
+    detail = store.get(tid)
+    clarify = detail.get("clarify", {})
+    assert clarify.get("needs_clarification") is True
+    assert clarify.get("selected") == ""
+    sources = {o.get("source") for o in clarify.get("options", [])}
+    assert sources == {"backbone_seed"}
+    entities = {o.get("entity_name") for o in clarify.get("options", [])}
+    assert {"StampWebRTC", "StampWebGL"} <= entities
+    assert not any(str(e or "").startswith("Pipeline") for e in entities)
+
+
 def test_qa_trace_heal_timezone_and_empty_dirs(isolated_storage, monkeypatch):
     isolated_storage()
     monkeypatch.setenv("QA_TRACE_ENABLED", "true")

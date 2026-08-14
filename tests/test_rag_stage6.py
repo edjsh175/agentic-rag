@@ -120,7 +120,12 @@ class RagStage6Tests(unittest.TestCase):
 
         enriched, context, docs = chain._prepare_graph_plan("question", plan)
 
-        self.assertIs(enriched, plan)
+        # J3/backbone gates enrich the plan (job) before graph retrieval, so the
+        # returned plan may be a new instance; assert the fallback contract instead
+        # of object identity.
+        self.assertEqual(enriched.top_k, plan.top_k)
+        self.assertEqual(enriched.candidate_k, plan.candidate_k)
+        self.assertEqual(enriched.queries, plan.queries)
         self.assertIsNone(context)
         self.assertEqual(docs, [])
 

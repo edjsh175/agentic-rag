@@ -23,6 +23,9 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
+
+# 远端 Ollama 大批量 embed 兼容批次（add_chunks 分批提交，见 add_chunks 注释）
+_EMBED_ADD_BATCH = 24
 from rag_knowledge.ollama_http import OLLAMA_CLIENT_KWARGS
 from rag_knowledge.services.embedding_cache import get_embedding_cache
 
@@ -195,7 +198,12 @@ class VectorStore:
             doc.metadata = self._normalize_metadata(metadata)
             doc_ids.append(doc_id)
         store = self._get_store()
-        store.add_documents(chunks, ids=doc_ids)
+        # 远端 Ollama 对超大批量 embed 请求会触发 tokenize 失败（历史事故：全量 scan
+        # 漏写 2 本 WebRTC 接口说明书 PDF）。add_documents 分批提交，与
+        # scripts/reingest_sdk_api_manuals.py 的 EMBED_BATCH=24 对齐。
+        for start in range(0, len(doc_ids), _EMBED_ADD_BATCH):
+            end = start + _EMBED_ADD_BATCH
+            store.add_documents(chunks[start:end], ids=doc_ids[start:end])
         return doc_ids
 
     def search(self, query: str, k: int = 4, filter: dict | None = None) -> list[Document]:

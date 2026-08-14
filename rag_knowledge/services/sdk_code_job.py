@@ -451,6 +451,103 @@ def drop_pipeline_graph_rewrites(queries: Iterable) -> tuple[list, str]:
     return kept, policy
 
 
+# Map-style / SDK evidence queries (broader than strict J3 action — used for bare Hybrid).
+_SDK_STYLE_RETRIEVAL_RE = re.compile(
+    r"二次开发|StampUtil|接口说明书|折线|多边形|线宽|线颜色|填充|覆盖物|透明|"
+    r"polyline|polygon|linecolor|linewidth|fillcolor|绘制|Vue\s*3?",
+    re.I,
+)
+_COOKBOOK_NAME_RE = re.compile(r"^0[1-5]-(?:webrtc|webgl)-", re.I)
+
+
+def is_sdk_style_retrieval_query(question: str) -> bool:
+    """True when bare Hybrid should prefer 接口说明书 over Cookbook/用户手册."""
+    return bool(_SDK_STYLE_RETRIEVAL_RE.search(question or ""))
+
+
+def build_sdk_manual_bm25_hint(question: str) -> str | None:
+    """Single BM25 hint that pulls api_doc manuals into the Hybrid candidate pool.
+
+    Does not require a resolved canonical (L1 / bare Hybrid path). Cookbook may still
+    match these terms; callers should prefer api_doc via prefer_sdk_manual_docs.
+    """
+    if not is_sdk_style_retrieval_query(question):
+        return None
+    q = question or ""
+    q_cf = q.casefold()
+    parts: list[str] = ["接口说明书", "StampUtil"]
+    if any(
+        h in q_cf
+        for h in ("折线", "线颜色", "线宽", "linecolor", "linewidth", "创建折线", "polyline", "画线")
+    ):
+        parts.extend(["createElementLineParams", "linecolor", "linewidth", "折线"])
+    if any(
+        h in q_cf
+        for h in ("多边形", "填充", "fillcolor", "创建多边形", "polygon", "画面")
+    ):
+        parts.extend(["createElementPolygonParams", "fillcolor", "多边形"])
+    if "透明" in q or "transparent" in q_cf or "transparency" in q_cf:
+        parts.extend(["setLayerTransparent", "透明度"])
+    if re.search(r"(?i)StampUtil|Vue|引入|初始化", q):
+        parts.extend(["引入", "初始化", "环境准备"])
+    if "覆盖物" in q:
+        parts.extend(["覆盖物颜色", "颜色"])
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for term in parts:
+        key = term.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(term)
+    return " ".join(ordered)
+
+
+def sdk_evidence_tier(doc) -> int:
+    """0=接口说明书/api_doc, 1=other, 2=Cookbook对照轨（治本优先时后置）."""
+    meta = getattr(doc, "metadata", None) or {}
+    src = str(meta.get("source") or meta.get("file_name") or "")
+    profile = str(meta.get("document_profile") or "")
+    if profile == "api_doc" or "接口说明书" in src:
+        return 0
+    src_norm = src.replace("\\", "/")
+    name = src_norm.rsplit("/", 1)[-1]
+    if "sdk_cookbook" in src_norm.casefold() or _COOKBOOK_NAME_RE.match(name):
+        return 2
+    return 1
+
+
+def prefer_sdk_manual_docs(docs: list) -> list:
+    """Stable reorder: api_doc/接口说明书 first, Cookbook last; preserve RRF within tier."""
+    from langchain_core.documents import Document
+
+    decorated: list[tuple[int, float, int, object]] = []
+    for index, doc in enumerate(docs or []):
+        meta = getattr(doc, "metadata", None) or {}
+        score = 0.0
+        for key in ("rrf_score", "score", "similarity_score"):
+            if key not in meta:
+                continue
+            try:
+                score = float(meta[key])
+                break
+            except (TypeError, ValueError):
+                continue
+        decorated.append((sdk_evidence_tier(doc), -score, index, doc))
+    decorated.sort()
+    out: list = []
+    for tier, _neg, _index, doc in decorated:
+        meta = dict(getattr(doc, "metadata", None) or {})
+        meta["sdk_evidence_tier"] = tier
+        out.append(
+            Document(
+                page_content=getattr(doc, "page_content", "") or "",
+                metadata=meta,
+            )
+        )
+    return out
+
+
 def build_j3_retrieval_texts(question: str, canonical: str) -> list[str]:
     """J3 rewrite texts after positive anchor (FR-2b / FR-3 / Phase 1). No intro / stage words."""
     q = (question or "").strip()

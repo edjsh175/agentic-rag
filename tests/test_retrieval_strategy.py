@@ -282,6 +282,50 @@ class RetrievalStrategyTests(unittest.TestCase):
         self.assertEqual(store._docs, [])
         self.assertEqual(store._metadatas, [])
 
+    def test_hybrid_sdk_style_adds_manual_branch_and_prefers_api_doc(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_fusion_method="rrf",
+            retrieval_rrf_k=60,
+            retrieval_top_k=2,
+            retrieval_candidate_k=4,
+        )
+        cookbook = Document(
+            page_content="折线 linecolor",
+            metadata={
+                "chunk_id": "cb",
+                "source": "01-webrtc-create-polyline-linecolor-linewidth.md",
+            },
+        )
+        manual = Document(
+            page_content="StampUtil.createElementLineParams linewidth",
+            metadata={
+                "chunk_id": "man",
+                "source": "StampGIS平台WebRTC接口说明书.docx",
+                "document_profile": "api_doc",
+            },
+        )
+        strategy._retrieve_vector = MagicMock(return_value=[cookbook])
+        strategy._augment_structured_query = staticmethod(lambda q: q)
+
+        def fake_bm25(query, **kwargs):
+            if "createElementLineParams" in query or "接口说明书" in query:
+                return [manual, cookbook]
+            return [cookbook]
+
+        strategy._retrieve_bm25 = MagicMock(side_effect=fake_bm25)
+        result = RetrievalStrategy._retrieve_hybrid(
+            strategy,
+            "如何在地图上绘制折线？",
+            kb_name=None,
+            doc_category=None,
+            review_status="approved",
+            top_k=2,
+            candidate_k=4,
+        )
+        self.assertEqual(result[0].metadata["chunk_id"], "man")
+        self.assertEqual(strategy._retrieve_bm25.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

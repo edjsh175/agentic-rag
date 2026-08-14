@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement SDK code job pipeline, improve document profiles and update manuals"
+    commit_msg = "feat: implement J3 e2e acceptance framework, enhance vector store and strategy"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

@@ -177,6 +177,7 @@ class QaTraceBuilder:
         self._retrieval: dict[str, Any] = {"query_hits": [], "candidates": []}
         self._pack: dict[str, Any] = {}
         self._understanding: dict[str, Any] = {}
+        self._clarify: dict[str, Any] = {}
         self._request = {
             "question": question or "",
             "collection_name": collection_name,
@@ -274,6 +275,12 @@ class QaTraceBuilder:
         else:
             self._understanding = {"raw": str(result)}
 
+    def set_clarify(self, clarify: dict[str, Any] | None) -> None:
+        """FR-7: record the clarify gate (needs / options / selected / option source)."""
+        if not self._enabled:
+            return
+        self._clarify = dict(clarify or {})
+
     def finish(
         self,
         *,
@@ -300,6 +307,7 @@ class QaTraceBuilder:
             "stages": self._stages_ms,
             "plan": self._plan,
             "understanding": self._understanding,
+            "clarify": self._clarify,
             "retrieval": self._retrieval,
             "pack": self._pack,
             "evidence": evidence or {},

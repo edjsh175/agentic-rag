@@ -248,7 +248,7 @@ class EntityIdentityService:
             e_norm = normalize_identity_key(e_name)
             for pair in diff_pairs:
                 if len(pair) >= 2:
-                    d1, d2 = normalize_identity_key(pair[0]), normalize_identity_key(pair[1])
+                    d1, d2 = tuple(normalize_identity_key(x) for x in pair)[:2]
                     if (norm_key == d1 and e_norm == d2) or (norm_key == d2 and e_norm == d1):
                         return IdentityDecision(
                             outcome=IdentityOutcome.CONFLICT,
@@ -266,7 +266,7 @@ class EntityIdentityService:
                 b_norm = normalize_identity_key(b_display) or b_key
                 for pair in diff_pairs:
                     if len(pair) >= 2:
-                        d1, d2 = normalize_identity_key(pair[0]), normalize_identity_key(pair[1])
+                        d1, d2 = tuple(normalize_identity_key(x) for x in pair)[:2]
                         if (norm_key == d1 and b_norm == d2) or (norm_key == d2 and b_norm == d1):
                             return IdentityDecision(
                                 outcome=IdentityOutcome.CONFLICT,
