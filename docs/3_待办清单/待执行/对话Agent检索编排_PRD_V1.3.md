@@ -4,7 +4,7 @@
 |------|------|
 | 文档版本 | **V1.3** |
 | 基线日期 | 2026-08-17 |
-| 修订 | V1.3（2026-08-17）：重划「LLM 决策自由 / Harness 不可突破边界」。撤回把 8 秒、`#2` 事实优先级、`head_entity` 强制切题、固定 Staircase 写成架构硬约束；`answer` 退出 Tool Registry；Evidence Gate 明确为治理结果而非模型单方面宣布。 |
+| 修订 | V1.3（2026-08-17）：重划 LLM 决策自由 / Harness 边界。**同日补丁**：取消整请求绝对硬超时（含 8 秒截断歉答）；循环仍受 step / retrieve 次数预算约束。V1.3 其余：撤回 `#2` 事实优先级、`head_entity` 强制切题、固定 Staircase；`answer` 退出 Tool Registry；Evidence Gate 为治理结果。**同日（并行约束）**：标明与 08-14 指称唯一性 PRD 的并行/串行边界，禁止 Agent 重写「何时反问」。 |
 | 状态 | **待实施**（对内 SSE；未批准改前端协议、未批准上 MCP） |
 | 范围 | 将固定 RAG 流水线重构为 **LLM 主导的带工具对话 Agent + Harness Runtime**：理解上下文 → 按需选择实体/图谱/澄清/检索/环境工具 → 观察工具结果 → 动态调整问题与下一步 → Evidence Gate → 有限补检 → 作答 |
 | 实施原则 | **LLM 负责控制流决策，Harness 负责运行时治理，Tools 提供确定能力。** 产品体验像 Chat + Tools；事实只能来自 Evidence Pool；澄清是会话级暂停；检索补检有预算；工具有白名单、Schema、权限与副作用边界。 |
@@ -15,6 +15,8 @@
 > **产品形态（已拍板）**：ChatView 仍走一条 `/query/stream` SSE，用户无感；Agent 编排发生在后端内部。不接 MCP、不把本仓库做成对外工具 sidecar。
 >
 > **与 08-11 PRD 的关系**：08-11 已落地 Session / Understanding / GenerationPack / 短记忆 / `topic_shift`。本文保留 **Dialogue ≠ Evidence**，并在其上将固定 DAG 的控制流升级为 **LLM 主导的 Tool Calling + Harness Runtime**。
+>
+> **与 08-14 PRD 的关系（并行约束，避免踩坑）**：08-14 管「本 Job 合法锚是否唯一」；本文管控制流。二者**不是替代关系**。允许并行：**08-14 收口**（聊天页复验、可选 FR-7）与本文 **Phase 1**（Runtime / Registry / EvidencePool / `retrieve_kb`，`agent_orchestration.enabled` 默认 false）。**禁止并行**：两边同时改 `analyze()` / 卡片选项，或在 Agent 内再写一套「种子 ≥ 2 ⇒ 反问」。**必须串行**：Phase 2 的 `clarify` / `link_entities` 只能调用已收口的 `resolve_anchor_binding()`；Harness 须覆盖「模型想跳过强制 J3 卡」和「点名合法锚后仍全列家族」。Phase 1 不得把澄清收进 Loop。总开关关闭时澄清仍走现有 `/query/clarify`。
 >
 > **V1.3 边界**：Harness 约束越权、超预算、无证据作答、旧证据混入可引用区；不规定 Agent 必须如何改写 query、不得把检索轮次当事实优先级。
 
@@ -73,7 +75,7 @@ Understanding → Plan → Hybrid 检索 → Pack → 生成
 5. **动态问题改写**：Agent 根据用户原话、上下文、已选实体和工具结果形成当前 `resolved_question` / retrieval intent，而不是机械复用原问题。
 6. **动态检索编排**：Agent 可以调用不同“检索能力工具”；本期底层仍由现有 Hybrid ± Rerank + QueryPlanner 实现，后期再开放检索策略档位给 LLM。
 7. **Evidence-aware Loop**：首次检索后，Agent 必须观察 chunk；若不足，针对 Evidence Gap 类型选择恢复策略再检索（非固定 query 阶梯）。
-9. **有限循环**：Agent 可以多次“理解 → 工具 → 观察 → 决策”，但单请求受到全局步数、时间和工具预算约束；知识检索默认最多首次 + 1 次补检，配置最多首次 + 2 次补检。
+9. **有限循环**：Agent 可以多次“理解 → 工具 → 观察 → 决策”，但单请求受 **步数与检索次数** 预算约束（无整请求墙钟硬超时）；知识检索默认最多首次 + 1 次补检，配置最多首次 + 2 次补检。
 10. **环境工具可扩展**：未来可以让 Agent 处理环境读取/操作需求，但统一纳入工具权限与副作用模型，不与知识问答工具混为无约束能力。
 11. **兼容现有产品协议**：ChatView 仍走 `/query/stream` SSE；用户不感知后端从 DAG 到 Tool Calling Agent 的变化。
 12. **完整可观测**：`qa_trace` 能回放 Agent 每次工具选择、工具结果、实体消歧、证据组、补检原因、最终门禁和回退路径。
@@ -100,7 +102,7 @@ Understanding → Plan → Hybrid 检索 → Pack → 生成
 | 编号 | 标准 | 度量 |
 |------|------|------|
 | S1 | 明确知识问题由 Agent 自主判断并调用检索工具，不再依赖固定 DAG 强制进入某个代码节点 | `qa_trace.tools[]` 可见工具决策 |
-| S2 | 宽口径/歧义实体经图谱链接后才出反问；唯一明确实体不无故出卡 | 与 08-14 指称唯一性 PRD 对齐 |
+| S2 | 宽口径/歧义实体经图谱链接后才出反问；唯一明确实体不无故出卡 | 与 08-14 对齐：调用 `resolve_anchor_binding()`，禁止 Agent 另写反问规则 |
 | S3 | 追问且未切题、上一轮 cited chunks 仍覆盖当前问题时可复用 | `route=reuse_evidence`，sources 非空 |
 | S4 | 旧证据未经 `reuse_evidence` 不得进入当前可引用区；`topic_shift` 或澄清 callback 后同此 | trace + 单测 |
 | S5 | 证据不足时 Agent 能识别缺口并再次调用检索工具，且不超过预算 | trace 有补检原因与 `retrieve#2` |
@@ -187,7 +189,7 @@ Understanding → Plan → Hybrid 检索 → Pack → 生成
 │ Step / Time / Token / Tool Budgets                   │
 │ Clarify Pause / SSE                                  │
 │ Evidence Gate / Answer Gate / Citation Governance   │
-│ Error / Timeout / Fallback                           │
+│ Error / Fallback / Heartbeat                         │
 │ Trace / Metrics                                      │
 └──────────────────────────────────────────────────────┘
 ```
@@ -236,9 +238,8 @@ Harness 不负责替 LLM 规划业务流程，而负责运行时治理。
 - side-effect / confirmation 管理；
 - 最大 Agent step；
 - 最大 retrieve attempt；
-- 超时；
-- **SSE 进度心跳（Progress Heartbeat）**：当 Agent 执行超过 `heartbeat_initial_delay`（默认 1.5s）仍未产出最终 `answer` 或 `clarify` 时，Harness 必须下发 `{"type":"heartbeat","phase":"thinking"}`（或复用现有 `phase`）。此后按 `heartbeat_interval` 重复。事件不携带业务内容，只防止前端因无 SSE 而判死。**1.5s 是默认值，不是不可讨论的业务规则。**
-- **绝对硬超时（Absolute Hard Timeout）**：Harness **必须**有从接收完整请求起算的绝对超时，超时截断 Loop，进入 fallback / 歉答，并记录 `timeout`。禁止只靠底层 HTTP 超时兜底。**超时时长可配置**，由部署环境、模型与 SLA 决定，不是架构常数。建议：开发默认偏宽（如 30s）；生产目标用 trace 的 P50/P95 再定（8～15s 仅作当前生产目标讨论值，**不得**写成「所有请求绝对 8 秒」验收项）。
+- **SSE 进度心跳（Progress Heartbeat）**：当 Agent 执行超过 `heartbeat_initial_delay`（默认 1.5s）仍未产出最终 `answer` 或 `clarify` 时，Harness 必须下发 `{"type":"heartbeat","phase":"thinking"}`（或复用现有 `phase`）。此后按 `heartbeat_interval` 重复。事件不携带业务内容，只防止前端因无 SSE 而判死。**心跳不是超时，不得据此截断生成。**
+- **整请求不做绝对硬超时**：Harness **不得**从接单起算墙钟时间，到期无论 LLM 在干嘛都截断进歉答（包括但不限于 8 秒）。请求以 step / retrieve 次数预算、工具失败与用户取消结束。Nginx / 网关若另有连接超时，属于部署层事实，**不是**本 Agent 的正确性条款，也不得写成「超时必须歉答」。
 - SSE 生命周期；
 - `clarify` 会话暂停；
 - `ConversationContext` / `EvidencePool` 生命周期；
@@ -435,6 +436,8 @@ Chat LLM 理解上下文
 - 用户已经点名唯一合法实体；
 - 图谱只返回一个高置信实体；
 - 只是检索结果不足，而不是实体不明确。
+
+**裁决入口（硬约束）**：上列条件不得在 Agent Prompt / Helper LLM / 图邻居计数里各写一份。`clarify` 工具必须调用 08-14 `resolve_anchor_binding()`（及现有 J3 卡构建）。非法锚（如 J3×Pipeline*）不得因「点了名」而正锚检索。模型建议 `clarify=false` 时，若绑定结果要求强制 J3 卡，Harness 仍须出卡。
 
 图谱工具的主要职责是**Entity Resolution**，不是提前替代 RAG。
 
@@ -708,12 +711,13 @@ timeout
 
 - 建立 Tool Registry / Tool Schema；
 - 建立 Agent Loop；
-- Harness 管理 step / timeout / tool whitelist；
+- Harness 管理 step / retrieve 次数预算 / tool whitelist（**无整请求墙钟硬超时**）；
 - Prompt 注入拆为 `ConversationContext` / `EvidencePool`；
 - EvidencePool 按 `question × retrieve_index` 分组；
 - `qa_trace` 增加工具轨迹；
 - 保留现有 `retrieve_kb` 作为知识工具；
-- 总开关关闭可完整回退旧 DAG。
+- 总开关关闭可完整回退旧 DAG；
+- **可与 08-14 收口并行**；本阶段不注册、不调用 `clarify`，不改 `query_clarification.py` / `resolve_anchor_binding()`。
 
 验收：
 
@@ -728,16 +732,20 @@ timeout
 目标：让 Agent 能像聊天一样处理歧义实体。
 
 - 暴露 `link_entities`；
-- 统一 08-14 指称唯一性裁决；
-- Agent 根据候选结果决定是否 `clarify`；
+- **统一 08-14 指称唯一性裁决**：`clarify` 只包 `resolve_anchor_binding()` + 现有 J3 选项构建，禁止重写「何时反问」；
+- Agent 根据候选结果**建议**是否 `clarify`；Harness 以 08-14 绑定结果为准（可拦模型漏问 / 多余全列家族）；
 - `clarify` 结束当前 HTTP；
 - 用户选择后带 resolved entity 重入 Agent；
 - 图关闭时降级到现有 catalog / clarification 规则。
 
+**前置**：08-14 Phase 0 已在运行中的 `/query/clarify` 上复验通过（点名合法锚零反问、无产品写代码仍强制 J3 卡）。不得对着未重启的旧 10605 调 Phase 2。
+
 验收：
 
 - `pipeline` 等宽口径问题能正常消歧；
-- 点名唯一实体不无故反问；
+- 点名唯一实体不无故反问（08-14 C-named-webrtc / C-named-webgl / C-j2-named / C-j1-named）；
+- 无产品写代码仍出 J3 卡且无 Pipeline*（C-unclear-line / C-via-code）；
+- 模型想跳过强制 J3 卡、或点名后仍全列家族 → Harness 拦住（trace 记 `fallback`）；
 - 图谱不确定不会直接污染 EvidencePool。
 
 ### Phase 3 — EvidenceGate + Bounded Recovery Loop
@@ -822,8 +830,7 @@ timeout
 - `agent_orchestration.enabled`（总开关，默认 false，本地可开）
 - `agent_orchestration.max_steps`
 - `agent_orchestration.max_retrieve_attempts`（默认 2 = 首次 + 1 次补检）
-- `agent_orchestration.tool_timeout`
-- `agent_orchestration.absolute_timeout`（硬超时；开发/生产分档，**无架构级 8s 常数**）
+- `agent_orchestration.tool_timeout`（**仅**单次工具调用挂起防护，可选；禁止用作整请求 8 秒歉答）
 - `agent_orchestration.heartbeat_initial_delay`（默认 1.5s）
 - `agent_orchestration.heartbeat_interval`
 - 现有 `[graph_retrieval] enabled` 不因本文改生产默认
@@ -877,8 +884,9 @@ retrieve_high_recall
 | 补检使延迟翻倍 | 默认仅 1 次补检；Evidence 足够立即停止 |
 | LLM 为了多搜而多搜 | 必须输出 Evidence Gap；补检与 gap 绑定 |
 | 证据池累积导致切题粘滞 | 未经 reuse 的旧组不得进可引用区；澄清 callback 冻结歧义轮证据 |
-| Agent 延迟不可控 | 可配置绝对超时 + heartbeat；具体秒数用 trace 定，不写死 8s |
+| Agent 被墙钟掐死 | **不做**整请求绝对超时歉答；用 heartbeat 保活 SSE；用 step / 补检次数限循环 |
 | 图谱每问都反问 | Agent 仅在实体不确定时调用；唯一高置信直接继续 |
+| 与 08-14 双写「要不要问」 | Phase 1 不碰 clarify；Phase 2 只调 `resolve_anchor_binding()`；禁止「种子 ≥ 2 ⇒ 反问」回流；08-14 与 Phase 2 禁止同时改 `analyze()` |
 | 模型用对话区作答 | Prompt 分区 + Evidence Gate + Answer Gate |
 | LLM 乱改检索参数 | 底层参数隐藏在 Tool 内；后期只开放策略档位 |
 | 环境工具误操作 | permission / side_effect / confirmation |
@@ -894,11 +902,12 @@ retrieve_high_recall
 - LLM 直接控制 BM25 / Vector / RRF / MMR；
 - 问答 Agent 内无权限执行重建 / 删除 / 改配置；
 - 为了 Agent 化而推翻已有 RAG、图谱和引用治理；
-- **把 SLA 猜测写成架构常数**（所有请求绝对 8 秒）；
+- 无 Harness 的整请求绝对硬超时（含「超时 8 秒无论模型在干嘛都歉答」）；
 - **把检索轮次当事实优先级**（冲突采信 `#2`）；
 - **`head_entity` 变化 ≡ `topic_shift`**；
 - **固定 Staircase 作为补检状态机**；
-- 把 `answer` 做成普通 Tool Registry 工具以绕过 Answer Gate。
+- 把 `answer` 做成普通 Tool Registry 工具以绕过 Answer Gate；
+- 在 Agent 内重写 08-14「何时反问」，或恢复「家族扩展种子 ≥ 2 ⇒ 反问」。
 
 ---
 
@@ -909,7 +918,7 @@ retrieve_high_recall
 | 编号 | 硬约束 | 执行主体 |
 |------|--------|----------|
 | F1 | 超过 `heartbeat_initial_delay` 无最终事件则发 heartbeat，并按 `heartbeat_interval` 续发 | Harness |
-| F2 | 必须存在可配置的绝对硬超时；超时走 fallback 并记 `timeout` | Harness |
+| F2 | **禁止**整请求绝对硬超时截断歉答；循环结束只看 step / retrieve 预算、工具失败或用户取消 | Harness |
 | F3 | 未经 `reuse_evidence` 的旧 Evidence 组不得进入当前可引用区 | Harness |
 | F4 | `head_entity` 明确变化时旧组默认冻结（不自动进可引用区）；**不**因此强制 `topic_shift` | Harness |
 | F5 | 澄清 callback：歧义轮 Evidence 移出 active、标 FROZEN，trace 保留 | Harness |
@@ -920,8 +929,9 @@ retrieve_high_recall
 | F10 | 最终事实引用必须来自当前 **active** EvidencePool | Answer Gate |
 | F11 | LLM 的 `support` 不能单方面放行知识作答 | Evidence Gate / Answer Gate |
 | F12 | `answer` 不是白名单工具；Generate 只能作为 Loop 终止态经过 Answer Gate | Harness |
+| F13 | `clarify` 以 08-14 `resolve_anchor_binding()` 为准；模型建议不得否决强制 J3 卡，也不得对已绑定合法锚再出家族全列卡 | Harness |
 
-已从硬约束移除：1.5s/8s 常数、`#2` 必须排前且冲突优先、`head_entity` 强制切题、固定 Staircase stage。
+已从硬约束移除：整请求墙钟超时（含 8 秒）、1.5s 当作业务规则、`#2` 必须排前且冲突优先、`head_entity` 强制切题、固定 Staircase stage。
 
 这些边界的目的不是把 Agent 再编译回 DAG。
 
@@ -942,11 +952,11 @@ retrieve_high_recall
 
 ## 十、建议实施顺序（代码未授权前仅作计划）
 
-1. **先做 Runtime 骨架**：Tool Registry、Tool Schema、Harness Budget、Agent Step、trace。
+1. **先做 Runtime 骨架**：Tool Registry、Tool Schema、Harness Budget、Agent Step、trace。**可与 08-14 收口并行**；本步及 2～4 **不**接入 `clarify`。
 2. **建立 ConversationContext / EvidencePool 双对象**：完成 Prompt 分区与 Evidence 生命周期。
 3. **接入现有 `retrieve_kb`**：验证“LLM 选择工具 → 工具结果 → LLM 再决策”闭环。
 4. **接入 `reuse_evidence`**：验证追问与 `topic_shift`。
-5. **接入 `link_entities` + `clarify`**：统一 08-14 裁决器。
+5. **接入 `link_entities` + `clarify`**：统一 08-14 裁决器（`resolve_anchor_binding()`）。**仅当 08-14 Phase 0 已在运行进程复验通过**；不得另写反问规则；Harness 覆盖漏问 J3 / 点名后家族全列。
 6. **实现 EvidenceGate + Gap 类型恢复 + 补检**：首次 + 1 次默认，最多 +2。
 7. **接入 Citation / Answer Gate**：确保 Agent 自由决策不突破事实边界。
 8. **再扩展 web / environment tools**：按权限模型逐步加入。

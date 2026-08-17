@@ -580,6 +580,39 @@ class TestReferentUniqueness:
         assert "StampWebGL" in entities
         assert "PipelineWebGL" in entities
 
+    def test_named_legal_anchor_does_not_call_helper_llm(self):
+        """A5: bound legal anchors must not let Helper LLM reopen a family card."""
+        from rag_knowledge.services.backbone_guard import load_backbone_constraints
+        from rag_knowledge.services.query_clarification import QueryClarificationService
+
+        called: list[str] = []
+
+        def boom(prompt: str):
+            called.append(prompt)
+            return {
+                "needs_clarification": True,
+                "ask_question": "您指的是 StampWebRTC 这个产品还是其他相关的模块或工具？",
+                "trigger": "webrtc",
+            }
+
+        svc = QueryClarificationService(
+            enabled=True,
+            llm_enabled=True,
+            llm_caller=boom,
+            constraints=load_backbone_constraints(),
+        )
+        named = [
+            "在 StampWebRTC 中，如何用代码初始化并加载 StampUtil？",
+            "使用 StampWebGL 接口写一段创建折线的代码，线颜色为红色，线宽为 3。",
+            "在 PipelineBuilder 中如何新建工程？",
+            "StampWebRTC 是什么",
+        ]
+        for q in named:
+            called.clear()
+            result = svc.analyze(q)
+            assert result.needs_clarification is False, q
+            assert called == [], q
+
     def test_com_reject_copy_not_miss_template(self):
         from rag_knowledge.services.rag import RagChain
         from rag_knowledge.services.sdk_code_job import COM_PHASE0_REJECT_ANSWER, COM_SENTINEL

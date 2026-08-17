@@ -25431,7 +25431,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.236196+00:00"
+      "updated_at": "2026-08-17T03:06:54.125830+00:00"
     },
     "dae5c464e7dd5d125d90b16b4894287140e660bdd8db562f10a09c86e4622324": {
       "status": "queued",
@@ -25442,7 +25442,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.261113+00:00"
+      "updated_at": "2026-08-17T03:06:54.151407+00:00"
     },
     "e2ba207c46199a57740c3cb2d83f76fa1d1bb4b684496c53b9efcfef236efda5": {
       "status": "queued",
@@ -25453,7 +25453,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.284566+00:00"
+      "updated_at": "2026-08-17T03:06:54.174330+00:00"
     },
     "fc227985c5cb74815839dbee52064ce137002080ac063f83c90725980fe2f619": {
       "status": "queued",
@@ -25464,7 +25464,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.427917+00:00"
+      "updated_at": "2026-08-17T03:06:54.317449+00:00"
     },
     "722fdc682f09f66a3735b947a2d540f781131f4cc3d4f62b34066d42d82a9d0d": {
       "status": "queued",
@@ -25475,7 +25475,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.449844+00:00"
+      "updated_at": "2026-08-17T03:06:54.340913+00:00"
     },
     "d343b1fe03dbb4c75c9f4a680f371f20e1da24cd7c4d0f28d9606281f60fabd8": {
       "status": "queued",
@@ -25486,7 +25486,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.472766+00:00"
+      "updated_at": "2026-08-17T03:06:54.362840+00:00"
     },
     "0ff2c724fc5d465ddabbe19f895622d780816821596cf4277142a703deb3411f": {
       "status": "queued",
@@ -25497,7 +25497,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.494694+00:00"
+      "updated_at": "2026-08-17T03:06:54.384766+00:00"
     },
     "5278aefa4e5ad2e3bb2c3cfa511e0b0d94ae12fee9a68d005d1092b72613e656": {
       "status": "queued",
@@ -25508,7 +25508,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.516620+00:00"
+      "updated_at": "2026-08-17T03:06:54.408014+00:00"
     },
     "457eb436758c462a82df87918874473db3a412bd76c95e9c39ab1de6b69cd965": {
       "status": "queued",
@@ -25519,7 +25519,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.538547+00:00"
+      "updated_at": "2026-08-17T03:06:54.435058+00:00"
     },
     "aea674e9f412ddb533fb0be8429f58b4af8d42c0bc7a0270a4004cc395a67147": {
       "status": "queued",
@@ -25530,7 +25530,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.574473+00:00"
+      "updated_at": "2026-08-17T03:06:54.469941+00:00"
     },
     "eb4ea467bcfcfc425bffcfb02d92f2cf003fd1cd5755dc94d391eb1fb58466e4": {
       "status": "queued",
@@ -25541,7 +25541,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.596400+00:00"
+      "updated_at": "2026-08-17T03:06:54.491868+00:00"
     },
     "a0a9f262cc9a17adceb49967ac618496b3836919d775b318c28d77cb68b539e6": {
       "status": "queued",
@@ -25552,7 +25552,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.618327+00:00"
+      "updated_at": "2026-08-17T03:06:54.512797+00:00"
     },
     "8674e9edb59f6243c4efaa3a4181fe5964b2ff6a3c71da7b5c72c94a3f17b0c5": {
       "status": "queued",
@@ -25563,7 +25563,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.640254+00:00"
+      "updated_at": "2026-08-17T03:06:54.534724+00:00"
     },
     "ae3dbc63def36cdc4f92eecf911de925915c4a7e9581b38a439f7e64f0ff9397": {
       "status": "queued",
@@ -25574,7 +25574,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.662711+00:00"
+      "updated_at": "2026-08-17T03:06:54.556651+00:00"
     },
     "47e202abab24accd3e5dbee7999620510c72bce4059d019c991b191ca03e89c4": {
       "status": "queued",
@@ -25585,7 +25585,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.685635+00:00"
+      "updated_at": "2026-08-17T03:06:54.579349+00:00"
     },
     "fe365b740fc17ad9a98629dcb5dfa7ce22e5814ead2f342d94799833100030b6": {
       "status": "queued",
@@ -25596,7 +25596,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.708558+00:00"
+      "updated_at": "2026-08-17T03:06:54.600782+00:00"
     },
     "4d630dcd9750e610f9472cd8a2be47db8bdf46981f669c3b3c19f6bf1f8ff291": {
       "status": "queued",
@@ -25607,7 +25607,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.730485+00:00"
+      "updated_at": "2026-08-17T03:06:54.623200+00:00"
     },
     "1932a80a735bb416396d779ad0788f34f5d5a05b45d1d4e8a0484a589422f922": {
       "status": "queued",
@@ -25618,7 +25618,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.755442+00:00"
+      "updated_at": "2026-08-17T03:06:54.648117+00:00"
     },
     "5f2e0c08daaffc8252dc75a11d5c078884b36b1f9a0792ad1c81d85eced501ad": {
       "status": "queued",
@@ -25629,7 +25629,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.780358+00:00"
+      "updated_at": "2026-08-17T03:06:54.671041+00:00"
     },
     "3a26c1aa7d0ffe9d241f6f9e35843e237c32b2f3fffb5b7dcd2f4b73a0bd2590": {
       "status": "queued",
@@ -25640,7 +25640,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.801832+00:00"
+      "updated_at": "2026-08-17T03:06:54.693007+00:00"
     },
     "df4aac28fa8572df3e49eb95697c6ffac911349f1d41481896feb617c602de23": {
       "status": "queued",
@@ -25651,7 +25651,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.824755+00:00"
+      "updated_at": "2026-08-17T03:06:54.714894+00:00"
     },
     "27ca647e28f8647f21dd38b61e31406575da0b76380b61566f8f4e7e2b5fb4ac": {
       "status": "queued",
@@ -25662,7 +25662,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.846726+00:00"
+      "updated_at": "2026-08-17T03:06:54.737006+00:00"
     },
     "d6c237d7be453832dfbe7093a90be212832f4414f04186aab851999c20c4fcef": {
       "status": "queued",
@@ -25673,7 +25673,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.877623+00:00"
+      "updated_at": "2026-08-17T03:06:54.759930+00:00"
     },
     "9d01eeb8f981142b59fa096591666f40944228c8fd34669333196d63f66b460f": {
       "status": "queued",
@@ -25684,7 +25684,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.905529+00:00"
+      "updated_at": "2026-08-17T03:06:54.780876+00:00"
     },
     "be82d36a970fee2dae88726375e89d1fd90715faf679e96b924bfab2518e95e0": {
       "status": "queued",
@@ -25695,7 +25695,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.928452+00:00"
+      "updated_at": "2026-08-17T03:06:54.803857+00:00"
     },
     "9add5549e0910cccc8f410b4a67664517cf0a56199190e4705a32c2aa7187ff6": {
       "status": "queued",
@@ -25706,7 +25706,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.951435+00:00"
+      "updated_at": "2026-08-17T03:06:54.825726+00:00"
     },
     "c13279053d4de093709e78b473e137b163a48225d9bb22df824758fe9e767fb9": {
       "status": "queued",
@@ -25717,7 +25717,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.974640+00:00"
+      "updated_at": "2026-08-17T03:06:54.848197+00:00"
     },
     "4080ee1d6529d4c38a700f7429fd1c8a3e2a6d800a5a099446d58f2bd249bace": {
       "status": "queued",
@@ -25728,7 +25728,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:33.997563+00:00"
+      "updated_at": "2026-08-17T03:06:54.869270+00:00"
     },
     "3fbcdce3589d452c0866205384508535a59fdd08d7fd0af2da077a21598afcc3": {
       "status": "queued",
@@ -25739,7 +25739,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.024472+00:00"
+      "updated_at": "2026-08-17T03:06:54.895183+00:00"
     },
     "490f613c49fe5894ebf54e3eb3a94eec8a79a8e013d21a1e21f9cfdc97302f70": {
       "status": "queued",
@@ -25750,7 +25750,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.047002+00:00"
+      "updated_at": "2026-08-17T03:06:54.916440+00:00"
     },
     "92ce02e76cbd90e9d374aa98beaa7d8664e40607f1379d24ec447eb43b369c9b": {
       "status": "queued",
@@ -25761,7 +25761,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.068929+00:00"
+      "updated_at": "2026-08-17T03:06:54.939364+00:00"
     },
     "43c31f3f5b75e9390ab5f3511c146f5909dd42b285b5eaa4d8b8e52d78925c13": {
       "status": "queued",
@@ -25772,7 +25772,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.092363+00:00"
+      "updated_at": "2026-08-17T03:06:54.963283+00:00"
     },
     "54cdfdaccc2cd6761c8c50ab560c74c22c91c862a6ae35414bf9c253986450bd": {
       "status": "queued",
@@ -25783,7 +25783,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.113293+00:00"
+      "updated_at": "2026-08-17T03:06:54.984715+00:00"
     },
     "8abd33b31e7681f7a5667f3fdae365dbfede94194f52607b4560db7ed0b10f53": {
       "status": "queued",
@@ -25794,7 +25794,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.136216+00:00"
+      "updated_at": "2026-08-17T03:06:55.008142+00:00"
     },
     "bb804e916465a349388ce6a90e0562caa5a86d04e2e39c5e39ec56d0747068dc": {
       "status": "queued",
@@ -25805,7 +25805,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.158143+00:00"
+      "updated_at": "2026-08-17T03:06:55.029072+00:00"
     },
     "056c26e2077d970727e4e765a38c1cd161154301160cbcaa54ec5eaedb78b20b": {
       "status": "queued",
@@ -25816,7 +25816,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.206317+00:00"
+      "updated_at": "2026-08-17T03:06:55.076774+00:00"
     },
     "0f34e0af015d88b8067630e69cb09dfb274c64130275aeaea38b008a38faa333": {
       "status": "queued",
@@ -25827,7 +25827,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.228244+00:00"
+      "updated_at": "2026-08-17T03:06:55.098701+00:00"
     },
     "6f2fffd8e951cafea3634fc3be4a26f6022d683dd3626188752c3269bdbc2b4e": {
       "status": "queued",
@@ -25838,7 +25838,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.250171+00:00"
+      "updated_at": "2026-08-17T03:06:55.120998+00:00"
     },
     "d355e82d4b53c7fcfde19e41c2fb42304729de1b15c96b1f581a593b9f505d1f": {
       "status": "queued",
@@ -25849,7 +25849,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.272097+00:00"
+      "updated_at": "2026-08-17T03:06:55.143521+00:00"
     },
     "ad517398874a88a7f42f935b1f883b27c95e764650e13f7c00796879d427eb0a": {
       "status": "queued",
@@ -25860,7 +25860,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.298585+00:00"
+      "updated_at": "2026-08-17T03:06:55.169734+00:00"
     },
     "e9573d851dc30c39b726c0cfb0356839ba100f6f2fb9ea67b5572accf548bca7": {
       "status": "excluded",
@@ -25871,7 +25871,7 @@
       "format": ".pdf",
       "locator": null,
       "message": "内容与 2ca727efa70847b49f0f67528544d210.pdf 重复",
-      "updated_at": "2026-08-17T02:26:34.323501+00:00"
+      "updated_at": "2026-08-17T03:06:55.194651+00:00"
     },
     "332f36d9127a2e4652ebec4f02065414d5d53ecc9a8ff646250c84dcd4a12c9e": {
       "status": "queued",
@@ -25882,7 +25882,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.346425+00:00"
+      "updated_at": "2026-08-17T03:06:55.216398+00:00"
     },
     "01a595d145959ac1f6378f4fcc06cb34882c3644221733be46cafe09677c56a8": {
       "status": "queued",
@@ -25893,7 +25893,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.368352+00:00"
+      "updated_at": "2026-08-17T03:06:55.238325+00:00"
     },
     "b8e216f744fa1754006ef133dbbf90e2d5c82078d35938868e233a9040ee0818": {
       "status": "queued",
@@ -25904,7 +25904,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.390279+00:00"
+      "updated_at": "2026-08-17T03:06:55.260312+00:00"
     },
     "36e3cfda8f9e9862bf4f4d089682e79e6328b068c822aca2610ceabfb31dbe25": {
       "status": "queued",
@@ -25915,7 +25915,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.412206+00:00"
+      "updated_at": "2026-08-17T03:06:55.282771+00:00"
     },
     "bc8b0634237869eb331323c1b7cf7f2f7e97d19b6054e07d442814ed07752d7e": {
       "status": "queued",
@@ -25926,7 +25926,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.438118+00:00"
+      "updated_at": "2026-08-17T03:06:55.307686+00:00"
     },
     "62275a4d1a8da06216a9b7c8478516278b81f43accad5bc85ecad5df88728dce": {
       "status": "queued",
@@ -25937,7 +25937,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.460045+00:00"
+      "updated_at": "2026-08-17T03:06:55.329657+00:00"
     },
     "cc5908c2d8ea7c971c93f119401a69f111c2e4af314f8f6394af7bceaf567166": {
       "status": "queued",
@@ -25948,7 +25948,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.483965+00:00"
+      "updated_at": "2026-08-17T03:06:55.351091+00:00"
     },
     "a6c2d309e04efe1a673795a414d49d7a9b3bb76b3aec6523eedf981c7e6a79a4": {
       "status": "queued",
@@ -25959,7 +25959,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.506887+00:00"
+      "updated_at": "2026-08-17T03:06:55.374015+00:00"
     },
     "db6cbe1072b9ea9598c41e2312723d945dec04f22807f7e94ab11bddee4186a8": {
       "status": "queued",
@@ -25970,7 +25970,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.527818+00:00"
+      "updated_at": "2026-08-17T03:06:55.395942+00:00"
     },
     "d3ae30d0199d889654f6c7dcc81cc3af8dc1e73ce276b8a36ea4622e2a90be7c": {
       "status": "queued",
@@ -25981,7 +25981,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.555724+00:00"
+      "updated_at": "2026-08-17T03:06:55.419862+00:00"
     },
     "e51a71eb4aafdb99eb8922a469b1adcca5418e0c69d4c00fefb30b9cb443d020": {
       "status": "queued",
@@ -25992,7 +25992,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.577159+00:00"
+      "updated_at": "2026-08-17T03:06:55.444778+00:00"
     },
     "101004301141eade9ae360ae6c80f4792476150d8a4759872d6f14c9f291ea96": {
       "status": "queued",
@@ -26003,7 +26003,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.602075+00:00"
+      "updated_at": "2026-08-17T03:06:55.473674+00:00"
     },
     "5272c6849f9db23fd21c5d029c99123af814ec2eb27c6ac21bfb89d467035c5f": {
       "status": "queued",
@@ -26014,7 +26014,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.624002+00:00"
+      "updated_at": "2026-08-17T03:06:55.499587+00:00"
     },
     "7ae745c0aa2da98b2e05d49a3649ec168bfbd5f69fa00b11d8d6966e0843b0ce": {
       "status": "queued",
@@ -26025,7 +26025,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.645928+00:00"
+      "updated_at": "2026-08-17T03:06:55.524503+00:00"
     },
     "5d9195c6771d39d106eddcdd4a8f31595b57a346dc61220b844498fada03dcdf": {
       "status": "queued",
@@ -26036,7 +26036,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.667855+00:00"
+      "updated_at": "2026-08-17T03:06:55.546430+00:00"
     },
     "b359bc7278f6a2dce96e55fe9c2aebc507fec2228f62f128356e5af82470896a": {
       "status": "queued",
@@ -26047,7 +26047,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.689781+00:00"
+      "updated_at": "2026-08-17T03:06:55.569085+00:00"
     },
     "276f53c66ceb7496ac506aad2416fcacd5c68e513441f8808a9f59ba38a0f622": {
       "status": "queued",
@@ -26058,7 +26058,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.711758+00:00"
+      "updated_at": "2026-08-17T03:06:55.591012+00:00"
     },
     "b238b31ce9a82db1d1a7d5d6c4d8c33277f038a92bf53446f0e69663fa9fe697": {
       "status": "queued",
@@ -26069,7 +26069,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.733634+00:00"
+      "updated_at": "2026-08-17T03:06:55.614106+00:00"
     },
     "98fee2bfd01af39c7f70ea10f8d11506bb0963ae8cebffc3db1190a7f79bf651": {
       "status": "queued",
@@ -26080,7 +26080,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.755561+00:00"
+      "updated_at": "2026-08-17T03:06:55.637289+00:00"
     },
     "ee30e7dedd6b2270b8a0e63f27e30caa8f5f10520c1aaad1aff7ecc8f8b4c328": {
       "status": "queued",
@@ -26091,7 +26091,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.778484+00:00"
+      "updated_at": "2026-08-17T03:06:55.659216+00:00"
     },
     "c3c3233bf0433f0dfb69b30775b0678ada9ef1d200e870e14905b44144b3882a": {
       "status": "queued",
@@ -26102,7 +26102,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.800471+00:00"
+      "updated_at": "2026-08-17T03:06:55.683136+00:00"
     },
     "8df0e4ac44a9d6cc860213e84f6565366787ff5d1ccbc6815c32490cd8bc0de1": {
       "status": "queued",
@@ -26113,7 +26113,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.822398+00:00"
+      "updated_at": "2026-08-17T03:06:55.708053+00:00"
     },
     "e34720ffbd55c5bd49c3123408daa1812c899eb05ffc6384a91cb008d6f11f5e": {
       "status": "queued",
@@ -26124,7 +26124,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.856877+00:00"
+      "updated_at": "2026-08-17T03:06:55.743932+00:00"
     },
     "25240ccdad3d89e964b75c1b2f7a316c1c857f6d9aa4c9fcff6a91fb5819ccdf": {
       "status": "queued",
@@ -26135,7 +26135,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.878803+00:00"
+      "updated_at": "2026-08-17T03:06:55.766856+00:00"
     },
     "828322ba2ba9f814ff939ca00a2ce2c70245181d89617ede896a3251eddc6f26": {
       "status": "queued",
@@ -26146,7 +26146,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.900729+00:00"
+      "updated_at": "2026-08-17T03:06:55.789331+00:00"
     },
     "49533c0d1f3183751fc26bb16bee779306ed4fa33932d9fa43c16815e28d8cdc": {
       "status": "queued",
@@ -26157,7 +26157,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.922656+00:00"
+      "updated_at": "2026-08-17T03:06:55.810763+00:00"
     },
     "0c04482716217584dd06b1765da0258873f133b6a016cfd342e35f72363b7e3d": {
       "status": "queued",
@@ -26168,7 +26168,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.945623+00:00"
+      "updated_at": "2026-08-17T03:06:55.832689+00:00"
     },
     "8e5a48f9cbed81a9d23769de2d4af21b05bc151f946d8f65894e73c2ac9fffff": {
       "status": "queued",
@@ -26179,7 +26179,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.969545+00:00"
+      "updated_at": "2026-08-17T03:06:55.855149+00:00"
     },
     "4b22e127a69a9e939a9c657eaeb2804027b7e0c040197a49ab1c03bdac3a4a13": {
       "status": "queued",
@@ -26190,7 +26190,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:34.992466+00:00"
+      "updated_at": "2026-08-17T03:06:55.876888+00:00"
     },
     "1ae592e31266c22fd2edd7f2c90cbbd5186210d870157e19afe9dfd10e184e5a": {
       "status": "queued",
@@ -26201,7 +26201,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.043837+00:00"
+      "updated_at": "2026-08-17T03:06:55.924730+00:00"
     },
     "f2415a029dbb3d1c1843f4e9b68f69aff4445f640c99d1e145e03d440b95a792": {
       "status": "queued",
@@ -26212,7 +26212,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.066129+00:00"
+      "updated_at": "2026-08-17T03:06:55.947362+00:00"
     },
     "43ee3ec3eb9248fbc25dfda16935d40dacb6ac53f88b7f85d93cb9527ce07a56": {
       "status": "queued",
@@ -26223,7 +26223,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.087597+00:00"
+      "updated_at": "2026-08-17T03:06:55.969289+00:00"
     },
     "59d60a07ad7332358ff4678c365d984bbb730c107db71c734438c5eab99f90bd": {
       "status": "queued",
@@ -26234,7 +26234,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.109522+00:00"
+      "updated_at": "2026-08-17T03:06:55.991216+00:00"
     },
     "688c437b3e79f0eb9de6f6ef9750c81584de5beb1d2098bc51e1f4275247ecc1": {
       "status": "queued",
@@ -26245,7 +26245,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.131449+00:00"
+      "updated_at": "2026-08-17T03:06:56.012145+00:00"
     },
     "381f7ef85ca78a0a35d28a27de92c84e1665b0eeb6d30edc83107ced310cf0ff": {
       "status": "queued",
@@ -26256,7 +26256,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.153375+00:00"
+      "updated_at": "2026-08-17T03:06:56.034073+00:00"
     },
     "999a79b85e7414c29bde5baab281302c96d115a2bc3b9462ead4464a1ed73ee6": {
       "status": "queued",
@@ -26267,7 +26267,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.179442+00:00"
+      "updated_at": "2026-08-17T03:06:56.058989+00:00"
     },
     "bd5866f1cccc26557e88fd5b3794b05ed6e7cac043829dce394692d1167f3532": {
       "status": "queued",
@@ -26278,7 +26278,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.201534+00:00"
+      "updated_at": "2026-08-17T03:06:56.080980+00:00"
     },
     "db71efcb71a88986e3815b4bd5d48d184b14f57d54862369688957e468a5dfa0": {
       "status": "queued",
@@ -26289,7 +26289,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.226452+00:00"
+      "updated_at": "2026-08-17T03:06:56.105897+00:00"
     },
     "5c04828fa52ac03810d67dfea0c5d549bba306d228498e3b94d86cf485abcb40": {
       "status": "queued",
@@ -26300,7 +26300,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.250370+00:00"
+      "updated_at": "2026-08-17T03:06:56.127525+00:00"
     },
     "c562906402a593bbbf89e4e0d59907f312ab77be0ad7d4200e36d7e8380b8e1a": {
       "status": "queued",
@@ -26311,7 +26311,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.272297+00:00"
+      "updated_at": "2026-08-17T03:06:56.149452+00:00"
     },
     "12b5ad12c07e56233150f4e6b2ac3a8da6e269a3bb829ccf8cfeb5fdb3c0417a": {
       "status": "queued",
@@ -26322,7 +26322,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.295763+00:00"
+      "updated_at": "2026-08-17T03:06:56.172150+00:00"
     },
     "9c2f201a02e38f081de49d08f4e8593e0408d75c91c256e012e6a2710d92b927": {
       "status": "queued",
@@ -26333,7 +26333,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.318688+00:00"
+      "updated_at": "2026-08-17T03:06:56.193714+00:00"
     },
     "1d35274ed978a93bac1e394c95bd24cfd843e400f9ac03c87959d11d3bfe5615": {
       "status": "queued",
@@ -26344,7 +26344,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.341610+00:00"
+      "updated_at": "2026-08-17T03:06:56.215640+00:00"
     },
     "a2a201afad4b3bc4cef4f7b18b8fdba1464a1b5b17dccf294620ec00756bf2fb": {
       "status": "queued",
@@ -26355,7 +26355,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.366033+00:00"
+      "updated_at": "2026-08-17T03:06:56.237567+00:00"
     },
     "3cee66b9bde098fc3edf67164af55d4a3e3b2b60366f4a5ed88ec385183d4c03": {
       "status": "queued",
@@ -26366,7 +26366,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.389954+00:00"
+      "updated_at": "2026-08-17T03:06:56.259407+00:00"
     },
     "2ee0e032b64410ae40769361d84b77eae12284a78be1cda9e57cf0b90f11b7ed": {
       "status": "queued",
@@ -26377,7 +26377,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.413874+00:00"
+      "updated_at": "2026-08-17T03:06:56.281882+00:00"
     },
     "ee585312dba174dd97c807531ccc9e05c69e46fb05c8af8e2a470815498d9dde": {
       "status": "queued",
@@ -26388,7 +26388,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.451022+00:00"
+      "updated_at": "2026-08-17T03:06:56.304806+00:00"
     },
     "358753735790f3e0d7e87a2c887b0ecf466c44eef0bc5a4d9661b8b44173cf5a": {
       "status": "queued",
@@ -26399,7 +26399,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.484439+00:00"
+      "updated_at": "2026-08-17T03:06:56.326732+00:00"
     },
     "33edb9159c5d9fb354c65220067325194bce438ec9ff2aed927de35f47bc201c": {
       "status": "queued",
@@ -26410,7 +26410,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.523029+00:00"
+      "updated_at": "2026-08-17T03:06:56.363150+00:00"
     },
     "15bb5b1cdd410f19f57dee9851919a73e2e23673331805750f6830932b3bcd4e": {
       "status": "queued",
@@ -26421,7 +26421,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.545221+00:00"
+      "updated_at": "2026-08-17T03:06:56.385077+00:00"
     },
     "f5678365ced6f055cd7e4d15b97fe9baa9d86577cd31ad14b4d102c6791a08a1": {
       "status": "queued",
@@ -26432,7 +26432,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.571135+00:00"
+      "updated_at": "2026-08-17T03:06:56.408503+00:00"
     },
     "f9d9087f136872888d6de1c4836855d41fd99aa7d3e2f1e9fa405e3938a5932d": {
       "status": "queued",
@@ -26443,7 +26443,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.599042+00:00"
+      "updated_at": "2026-08-17T03:06:56.431007+00:00"
     },
     "832a021715ff74da3218eb9e39a0084cf15c9ccd0c63e662c493bf44462b73e6": {
       "status": "queued",
@@ -26454,7 +26454,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.625952+00:00"
+      "updated_at": "2026-08-17T03:06:56.458872+00:00"
     },
     "3b532e37ed91f13a1abdb5f28bada7d26cbb60f9b06aedb2075bcbde9106e248": {
       "status": "queued",
@@ -26465,7 +26465,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.659436+00:00"
+      "updated_at": "2026-08-17T03:06:56.486324+00:00"
     },
     "063c953468cdc67c687aa06ff6f44c89015efdf2fd1fa5a694240cdacfdef9bd": {
       "status": "queued",
@@ -26476,7 +26476,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.693322+00:00"
+      "updated_at": "2026-08-17T03:06:56.508251+00:00"
     },
     "6d0cb184cecc16e85386b1c26c816dd7cc70d12101fa59118bf6758431609c11": {
       "status": "queued",
@@ -26487,7 +26487,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.717241+00:00"
+      "updated_at": "2026-08-17T03:06:56.530178+00:00"
     },
     "f56c0ff7f1c16b2648b38cc5cde55c312c1e6d4f2366afbfb44a1251e848a723": {
       "status": "queued",
@@ -26498,7 +26498,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.740165+00:00"
+      "updated_at": "2026-08-17T03:06:56.559082+00:00"
     },
     "87e26cb8c4aa53ef02e6ccaf6370a184611ae96265199713d7c0a36e02dc49f7": {
       "status": "queued",
@@ -26509,7 +26509,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.766078+00:00"
+      "updated_at": "2026-08-17T03:06:56.586475+00:00"
     },
     "44376399c3a04c8982f615a9fbcb25da824701857631b26e4e19f50a3eab5606": {
       "status": "queued",
@@ -26520,7 +26520,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.788038+00:00"
+      "updated_at": "2026-08-17T03:06:56.608905+00:00"
     },
     "848dccf040bea484b43a5d1cc344588c59b7e0b9367a3565f5de630bc3b43861": {
       "status": "queued",
@@ -26531,7 +26531,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.809964+00:00"
+      "updated_at": "2026-08-17T03:06:56.630446+00:00"
     },
     "e6f6c36b2ffcb173ba59654dc8be33de9cefcef2152d8b9b2e6e3174e962bff9": {
       "status": "queued",
@@ -26542,7 +26542,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.836382+00:00"
+      "updated_at": "2026-08-17T03:06:56.659350+00:00"
     },
     "07487aa9b78dc51be7ebc0f0b1d2cd82ec03de30c6f09fb8776c2f7a3e8f4dc7": {
       "status": "queued",
@@ -26553,7 +26553,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.858308+00:00"
+      "updated_at": "2026-08-17T03:06:56.682274+00:00"
     },
     "c7354c64af6cb5e8f89543f0885dd06b2578fdfe0b144b315251c799e7032de1": {
       "status": "queued",
@@ -26564,7 +26564,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.880235+00:00"
+      "updated_at": "2026-08-17T03:06:56.707190+00:00"
     },
     "d34331a2722c070a94721f381f3cfc4633fd42b81de45c4f62548158aad957fa": {
       "status": "queued",
@@ -26575,7 +26575,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.903159+00:00"
+      "updated_at": "2026-08-17T03:06:56.732107+00:00"
     },
     "cfbd4f2de5aad30d33810cda89f5a325a571781011adb02a806cd330ea4ce9ce": {
       "status": "queued",
@@ -26586,7 +26586,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.925085+00:00"
+      "updated_at": "2026-08-17T03:06:56.755030+00:00"
     },
     "3213f758f5447ccfd1d1eeb78f5f82c6226d850fda46ea288c9975b20e3362d4": {
       "status": "queued",
@@ -26597,7 +26597,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.948099+00:00"
+      "updated_at": "2026-08-17T03:06:56.776957+00:00"
     },
     "e7d01993d3f5313ee25e28c7ab2e06efd7727cb34c419442e0eb6c58cebb2cfd": {
       "status": "queued",
@@ -26608,7 +26608,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.970742+00:00"
+      "updated_at": "2026-08-17T03:06:56.798686+00:00"
     },
     "16629b25f984bc67634e291409edac07f7a5d4266ba096675e7bddff73a11f9c": {
       "status": "queued",
@@ -26619,7 +26619,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:35.992712+00:00"
+      "updated_at": "2026-08-17T03:06:56.820613+00:00"
     },
     "a38a63c0341df2c8015dc8f397fa65d05e10943500aca05d7f4cfc3bbe82fb2a": {
       "status": "queued",
@@ -26630,7 +26630,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.015592+00:00"
+      "updated_at": "2026-08-17T03:06:56.843536+00:00"
     },
     "ec4a99b5ae13551d7e6956079c0f6ce9a27a93afdbdd51efbe6c891319f83b72": {
       "status": "queued",
@@ -26641,7 +26641,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.037519+00:00"
+      "updated_at": "2026-08-17T03:06:56.865005+00:00"
     },
     "efc401decb26afd94e4bb20e169cbfbf984b63a18679ca9c1a0de69525f63f8d": {
       "status": "queued",
@@ -26652,7 +26652,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.059446+00:00"
+      "updated_at": "2026-08-17T03:06:56.886931+00:00"
     },
     "5c05e0b8922e39a0f4b3d2102e0f16e1cad7a4e03d1a34e048daecdbea499fe2": {
       "status": "queued",
@@ -26663,7 +26663,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.082368+00:00"
+      "updated_at": "2026-08-17T03:06:56.908858+00:00"
     },
     "1364e03b8b582521a91e9c5479557b7149be66de996db6b35c49c8f21e21811c": {
       "status": "queued",
@@ -26674,7 +26674,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.104414+00:00"
+      "updated_at": "2026-08-17T03:06:56.931781+00:00"
     },
     "90513d341578c8eb6afedb7b945c12b4bfc0f7ac61730ab47864c6627eec4a77": {
       "status": "queued",
@@ -26685,7 +26685,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.126341+00:00"
+      "updated_at": "2026-08-17T03:06:56.953237+00:00"
     },
     "58e82987d1cdad2d2131b5626aa22e42d82b62ca606a722267c78348b2fe7f4a": {
       "status": "queued",
@@ -26696,7 +26696,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.149819+00:00"
+      "updated_at": "2026-08-17T03:06:56.977157+00:00"
     },
     "d926af747a114292c7a911f13b6709dd6ebd8f0493661be0cf31973e21b8339a": {
       "status": "queued",
@@ -26707,7 +26707,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.177797+00:00"
+      "updated_at": "2026-08-17T03:06:56.999083+00:00"
     },
     "d0684dd7b22175d18c7a7136da04391e82ba135bbb59f8d93452bf42aeebc96f": {
       "status": "queued",
@@ -26718,7 +26718,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.231570+00:00"
+      "updated_at": "2026-08-17T03:06:57.050911+00:00"
     },
     "fd0224478392445c11858cf6b8e1a1c933102bfad02e212111c23085c49a0dee": {
       "status": "queued",
@@ -26729,7 +26729,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.254720+00:00"
+      "updated_at": "2026-08-17T03:06:57.074043+00:00"
     },
     "90730befa8a9d1c1567d1c06f74d73d3e7016e1c0c2b16f272dbef03f0a5d47c": {
       "status": "queued",
@@ -26740,7 +26740,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.279191+00:00"
+      "updated_at": "2026-08-17T03:06:57.098961+00:00"
     },
     "231b6a79e2c06696036fa480030395dbd7840159703da0f0fa0e76e7e61377df": {
       "status": "queued",
@@ -26751,7 +26751,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.301120+00:00"
+      "updated_at": "2026-08-17T03:06:57.120691+00:00"
     },
     "f366d6579e3464578b02f16e555d3bdd46c71bc3290ff09aa4a394547f904df3": {
       "status": "queued",
@@ -26762,7 +26762,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.323046+00:00"
+      "updated_at": "2026-08-17T03:06:57.143547+00:00"
     },
     "d0e87ed859bbd76170939750bb2ddecdedcf2794f0c20721010fc33af22ec9a6": {
       "status": "queued",
@@ -26773,7 +26773,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.345523+00:00"
+      "updated_at": "2026-08-17T03:06:57.165473+00:00"
     },
     "13705b9e9c4b8cfb8dcd3ad4e6359bfd987a5f0acdb80e9f2ff32a1d09ef3e36": {
       "status": "queued",
@@ -26784,7 +26784,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.367451+00:00"
+      "updated_at": "2026-08-17T03:06:57.186471+00:00"
     },
     "bdb0458603d5415f6ab5173579ce0ed9928fc058fa0db58ad77137d4adba631d": {
       "status": "queued",
@@ -26795,7 +26795,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.390373+00:00"
+      "updated_at": "2026-08-17T03:06:57.208454+00:00"
     },
     "d6a919857dfc6fee19bea4285c341006db0d4d58ab201b7e25c27c3932b24f4e": {
       "status": "queued",
@@ -26806,7 +26806,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.412301+00:00"
+      "updated_at": "2026-08-17T03:06:57.230383+00:00"
     },
     "62bb69a228bdd288494fcc5f17c5bacb033f70ec1a56134ce580a2cc8580082a": {
       "status": "queued",
@@ -26817,7 +26817,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.442199+00:00"
+      "updated_at": "2026-08-17T03:06:57.252309+00:00"
     },
     "91b98ba3568ee8ed04ae216ab0ca588ec52963315c18ccb13114a18db9984512": {
       "status": "queued",
@@ -26828,7 +26828,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.464128+00:00"
+      "updated_at": "2026-08-17T03:06:57.275042+00:00"
     },
     "e8a8fe524507c3314a0f48999ea300dd56afcd9c3c77af253b9f94dffb8c5880": {
       "status": "queued",
@@ -26839,7 +26839,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.488630+00:00"
+      "updated_at": "2026-08-17T03:06:57.296520+00:00"
     },
     "c8e4e5c31362b4c37b78aa232339569f57fbd74438d701566c4bf42896b9d3ff": {
       "status": "queued",
@@ -26850,7 +26850,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.510557+00:00"
+      "updated_at": "2026-08-17T03:06:57.319445+00:00"
     },
     "6802a04d00c8cf0ae3bd11c1b93ff08fcc9e874e1a374ffde65f0a5815624c8b": {
       "status": "queued",
@@ -26861,7 +26861,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.533479+00:00"
+      "updated_at": "2026-08-17T03:06:57.342897+00:00"
     },
     "94189d844ac7bcbe4fe7ca2b4ba92799c9c60914137fc1fecc64312198ba7cb4": {
       "status": "queued",
@@ -26872,7 +26872,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.555405+00:00"
+      "updated_at": "2026-08-17T03:06:57.365820+00:00"
     },
     "7668f1eb40b4b96a54d070159721d18a8a1c51660563dd25a48faaa3058bfd1a": {
       "status": "queued",
@@ -26883,7 +26883,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.579325+00:00"
+      "updated_at": "2026-08-17T03:06:57.387548+00:00"
     },
     "7f2e42134859245e3bc4aa33b8045e95c329348bd1710cfedd3e86234117056a": {
       "status": "queued",
@@ -26894,7 +26894,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.602248+00:00"
+      "updated_at": "2026-08-17T03:06:57.410976+00:00"
     },
     "6daf2bb1d32f8527af4f673079e2c6041e64e9ece6a0ea5638e8d927b8f6ee74": {
       "status": "queued",
@@ -26905,7 +26905,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.625172+00:00"
+      "updated_at": "2026-08-17T03:06:57.433729+00:00"
     },
     "7500f3fb0ce9171da3a8c7e92d6e389a1bbce837eb5698fdc1bee29fddf694d7": {
       "status": "queued",
@@ -26916,7 +26916,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.647098+00:00"
+      "updated_at": "2026-08-17T03:06:57.456196+00:00"
     },
     "430d6bccdefa68700b9ca588becbe678f157526af87b2cab1eee08634860f2ba": {
       "status": "queued",
@@ -26927,7 +26927,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.670022+00:00"
+      "updated_at": "2026-08-17T03:06:57.478124+00:00"
     },
     "f0adc2a1a21c5f8f5c335ec573a646e8077bb6a87268ee7b3fce4760a5b0ca70": {
       "status": "queued",
@@ -26938,7 +26938,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.693942+00:00"
+      "updated_at": "2026-08-17T03:06:57.502042+00:00"
     },
     "307915a8e86d26824116e119d0277d2ba0ff626fa707e1de7df5b81eb16506a8": {
       "status": "queued",
@@ -26949,7 +26949,7 @@
       "format": ".mp4",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.840073+00:00"
+      "updated_at": "2026-08-17T03:06:57.650865+00:00"
     },
     "fef5a5060e04d97b0be73ae7d27d3d1221e4d263d4964b90017bb729d90572c7": {
       "status": "queued",
@@ -26960,7 +26960,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.861999+00:00"
+      "updated_at": "2026-08-17T03:06:57.673788+00:00"
     },
     "4d8beefa303ce418336f0859a3f5614acd2e23bf06c9b1ba64871ee551ab8bb9": {
       "status": "queued",
@@ -26971,7 +26971,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.884923+00:00"
+      "updated_at": "2026-08-17T03:06:57.696329+00:00"
     },
     "ce4dc5ead5aaabdf2c13119d96a3628baa199e4335de1e41b0f157b9d05ebbd4": {
       "status": "queued",
@@ -26982,7 +26982,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.907846+00:00"
+      "updated_at": "2026-08-17T03:06:57.718254+00:00"
     },
     "420e8b7d8156e151b3dceaed1d7e311b97850e8dc3bc2ebba5aeec9c0921a14b": {
       "status": "queued",
@@ -26993,7 +26993,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.929773+00:00"
+      "updated_at": "2026-08-17T03:06:57.740727+00:00"
     },
     "3934ebc969f8f22aed995f490a6a4fc9f0eca22ca2b5e66b28cc53a7f689c636": {
       "status": "queued",
@@ -27004,7 +27004,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.953326+00:00"
+      "updated_at": "2026-08-17T03:06:57.762654+00:00"
     },
     "de84ca1d6268cd8f62e8dfc33d326e856a4c4dbad8e843dc259612bd7f4ca1bd": {
       "status": "queued",
@@ -27015,7 +27015,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:36.977246+00:00"
+      "updated_at": "2026-08-17T03:06:57.784580+00:00"
     },
     "752cdacca420e8eb1b3c8b8c8e5de02d42229cda945f35093e9403600bef3b88": {
       "status": "queued",
@@ -27026,7 +27026,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.000169+00:00"
+      "updated_at": "2026-08-17T03:06:57.807629+00:00"
     },
     "0b4dcc89e25fb785dfbdddbfcd5f4dcd37faa5527b4ebf712efa96831202ad92": {
       "status": "queued",
@@ -27037,7 +27037,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.023093+00:00"
+      "updated_at": "2026-08-17T03:06:57.830552+00:00"
     },
     "d7e3e1c3edf0abca98a39d7777568341bf955c3e79ce6da6951d213e0dd51424": {
       "status": "queued",
@@ -27048,7 +27048,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.048009+00:00"
+      "updated_at": "2026-08-17T03:06:57.854041+00:00"
     },
     "94e576b05de464f7556256b01debefe85f87411b95b2208b51a814693718ff9b": {
       "status": "queued",
@@ -27059,7 +27059,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.070932+00:00"
+      "updated_at": "2026-08-17T03:06:57.875966+00:00"
     },
     "3779eaac1c6ee99ffe3674be1bf8cdf3232bb9875eb1c51d501c1d07319d6394": {
       "status": "queued",
@@ -27070,7 +27070,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.093373+00:00"
+      "updated_at": "2026-08-17T03:06:57.900883+00:00"
     },
     "a0e5b3155f453952bdfd40a06650b62d42224143d5942f80d81ce3f1e84086d7": {
       "status": "queued",
@@ -27081,7 +27081,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.116296+00:00"
+      "updated_at": "2026-08-17T03:06:57.923314+00:00"
     },
     "5bcdb2fbfbb6c809c02f8cdec545e94e68161942a36773397a673d53b1f6071b": {
       "status": "queued",
@@ -27092,7 +27092,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.139219+00:00"
+      "updated_at": "2026-08-17T03:06:57.946788+00:00"
     },
     "808c6a330ee33c86938eda3d5da733a73508a5c849434c095560a325d2640134": {
       "status": "queued",
@@ -27103,7 +27103,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.161650+00:00"
+      "updated_at": "2026-08-17T03:06:57.968717+00:00"
     },
     "a33a58e05cf00bed117872bbf7d7b5ac7dc2fe7313544ebbd3fab420f2e334af": {
       "status": "queued",
@@ -27114,7 +27114,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.186566+00:00"
+      "updated_at": "2026-08-17T03:06:57.991684+00:00"
     },
     "3fbe04d0ea5e9a98dac034e994b6029a4fc442e1cf4ec6bf1d81fed2741ba1e7": {
       "status": "queued",
@@ -27125,7 +27125,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.208746+00:00"
+      "updated_at": "2026-08-17T03:06:58.015067+00:00"
     },
     "28611b9b91ac402199515f2ed97fed0477213debf14222c03ed8351dd9e0451e": {
       "status": "queued",
@@ -27136,7 +27136,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.231672+00:00"
+      "updated_at": "2026-08-17T03:06:58.036994+00:00"
     },
     "9491a1fbabe9f0b7f945031f77143f64824cf783d1cdac2b02b0db0956802310": {
       "status": "queued",
@@ -27147,7 +27147,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.255592+00:00"
+      "updated_at": "2026-08-17T03:06:58.059637+00:00"
     },
     "d49b9c66adfcc380442b603dca76f4f5f43b4a677a7587c123d70ed06848c188": {
       "status": "queued",
@@ -27158,7 +27158,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.277518+00:00"
+      "updated_at": "2026-08-17T03:06:58.082302+00:00"
     },
     "9cc1cb93f7bdfdfdad95dde84181c32282e2e5e8d8a174021b73fe8b0db1bcdd": {
       "status": "queued",
@@ -27169,7 +27169,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.299971+00:00"
+      "updated_at": "2026-08-17T03:06:58.104228+00:00"
     },
     "0734c21c240b550a35d509b03f564b6ad5a914a35fd951529e6c213a4483c76b": {
       "status": "queued",
@@ -27180,7 +27180,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.322262+00:00"
+      "updated_at": "2026-08-17T03:06:58.126155+00:00"
     },
     "6bc65aa3a584119e4a6fd80878d326a259e1896da30df50d14ceb40ce6fbfef1": {
       "status": "queued",
@@ -27191,7 +27191,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.344719+00:00"
+      "updated_at": "2026-08-17T03:06:58.151642+00:00"
     },
     "fd3253245ecf3af1e669eea62d5a0643cacd36f3ff23988b5a60d8aaca75c55e": {
       "status": "queued",
@@ -27202,7 +27202,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.367642+00:00"
+      "updated_at": "2026-08-17T03:06:58.177556+00:00"
     },
     "ec487d4ee9c7c9954625fdea5508f64a808192cc98ed9f563259a894d4d752e8": {
       "status": "queued",
@@ -27213,7 +27213,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.389569+00:00"
+      "updated_at": "2026-08-17T03:06:58.200480+00:00"
     },
     "126720e709c85afb3f93fe9cbdadd3e20bc5d1b27764aa999107e814f24c8407": {
       "status": "queued",
@@ -27224,7 +27224,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.412492+00:00"
+      "updated_at": "2026-08-17T03:06:58.222407+00:00"
     },
     "8618a468213ff40178217604bfc9ad186745c74f5d44aa7aa5ada543fb70228f": {
       "status": "queued",
@@ -27235,7 +27235,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.437409+00:00"
+      "updated_at": "2026-08-17T03:06:58.247861+00:00"
     },
     "799eaa26d1280ec90aa0d673ed4fdcf8f13e0271474f1717b894b10fb6ef24cf": {
       "status": "queued",
@@ -27246,7 +27246,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.459335+00:00"
+      "updated_at": "2026-08-17T03:06:58.269856+00:00"
     },
     "f3e453cd19f9cc0c590e8208c51db8932aaefa602a02e679d689cf4d15b0f15e": {
       "status": "queued",
@@ -27257,7 +27257,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.483255+00:00"
+      "updated_at": "2026-08-17T03:06:58.295307+00:00"
     },
     "f1217962bf6061458bfa4f17d7661aa5d7b7bc6e75e6286b0cec8af334058ebf": {
       "status": "queued",
@@ -27268,7 +27268,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.504779+00:00"
+      "updated_at": "2026-08-17T03:06:58.318230+00:00"
     },
     "7bc83e23080d6c5edd5d7ac134f506960caf1305d0070691a173282ebcbf5a3e": {
       "status": "queued",
@@ -27279,7 +27279,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.527703+00:00"
+      "updated_at": "2026-08-17T03:06:58.342697+00:00"
     },
     "41ab24dd805309fcda295156105056c1701fa0ec719d49e4663bf10e1e129d22": {
       "status": "queued",
@@ -27290,7 +27290,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.550303+00:00"
+      "updated_at": "2026-08-17T03:06:58.365620+00:00"
     },
     "f2bae3747c3d3b44f8abeb35ab175c23684a76bbbd10504cac4d570cc825be47": {
       "status": "queued",
@@ -27301,7 +27301,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.572315+00:00"
+      "updated_at": "2026-08-17T03:06:58.388250+00:00"
     },
     "788e08daa19aa59f7611f9fa41fb61858ed8f630daf7c80aa6d2b90839dbf495": {
       "status": "queued",
@@ -27312,7 +27312,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.595921+00:00"
+      "updated_at": "2026-08-17T03:06:58.412370+00:00"
     },
     "c440bc64fef219046365ce5b55ff0e6e8f638597192d8815db24ad2e528062a4": {
       "status": "queued",
@@ -27323,7 +27323,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.619384+00:00"
+      "updated_at": "2026-08-17T03:06:58.436852+00:00"
     },
     "f59ccde3c08f5b4fa1157593aa7e9f2973127fef5b812dcc4bb7d639294babcb": {
       "status": "queued",
@@ -27334,7 +27334,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.641311+00:00"
+      "updated_at": "2026-08-17T03:06:58.459775+00:00"
     },
     "94f3336b19550a2d8786e59acf0503ea3f8aa83b3b6ad0dd1ab93ef56d418795": {
       "status": "queued",
@@ -27345,7 +27345,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.663238+00:00"
+      "updated_at": "2026-08-17T03:06:58.480707+00:00"
     },
     "9fd21e8fad4061be416fb7fdbd9f529f8a91401501c24bfe517c5963ca947717": {
       "status": "queued",
@@ -27356,7 +27356,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.684700+00:00"
+      "updated_at": "2026-08-17T03:06:58.503628+00:00"
     },
     "e3810b7eae0f8f44a12e8ff748b624d2bfccb87a0a3777c6f92534a20a2a64d1": {
       "status": "queued",
@@ -27367,7 +27367,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.707624+00:00"
+      "updated_at": "2026-08-17T03:06:58.524558+00:00"
     },
     "d5397a6b662b131d01a3dd827eb69b3f493e38c088679f2754791dae4e6ab76c": {
       "status": "queued",
@@ -27378,7 +27378,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.734378+00:00"
+      "updated_at": "2026-08-17T03:06:58.548076+00:00"
     },
     "ec9f3652b7e90b0165dd5df85ef71c58a8cf7d115dc731dff575676aa856f7b9": {
       "status": "queued",
@@ -27389,7 +27389,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.763281+00:00"
+      "updated_at": "2026-08-17T03:06:58.573877+00:00"
     },
     "8553b9adf0e968e46eb2fa67025a3aa227a0d6b1e4e8b65435a942eb443995ba": {
       "status": "queued",
@@ -27400,7 +27400,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.791036+00:00"
+      "updated_at": "2026-08-17T03:06:58.596481+00:00"
     },
     "0c48fc6fd9685ae29e757a6b6211a30e5db785b7cd8c5f60f0524032e7b77228": {
       "status": "queued",
@@ -27411,7 +27411,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.813566+00:00"
+      "updated_at": "2026-08-17T03:06:58.618061+00:00"
     },
     "fe829a453502912d0cc5bc039b36b6c911ff94ab5b214dc45ac8049284044f12": {
       "status": "queued",
@@ -27422,7 +27422,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.837926+00:00"
+      "updated_at": "2026-08-17T03:06:58.638992+00:00"
     },
     "f5232891ba799a0d5914bcbc862b456a2a314313d68a5828f3ce39ba9b98c458": {
       "status": "queued",
@@ -27433,7 +27433,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.863092+00:00"
+      "updated_at": "2026-08-17T03:06:58.660920+00:00"
     },
     "316e4eece7724f93c6b2ae3745ff3a2c8791b16cdcaafbb1caa376939f107f4d": {
       "status": "queued",
@@ -27444,7 +27444,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.892772+00:00"
+      "updated_at": "2026-08-17T03:06:58.682844+00:00"
     },
     "1c009d709b50e3980f8e1746f6ab4ed6e849d286e39ee7eee64f38bb1daa2470": {
       "status": "queued",
@@ -27455,7 +27455,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.914698+00:00"
+      "updated_at": "2026-08-17T03:06:58.704771+00:00"
     },
     "2a3c03fa223b0b82f769633552f044c6eaf30a748a4d70129e0c62912d02c1d5": {
       "status": "queued",
@@ -27466,7 +27466,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.937667+00:00"
+      "updated_at": "2026-08-17T03:06:58.730684+00:00"
     },
     "f2a7f6c87840da1666a924318ec80345894445b91317852ade8cb3240843417b": {
       "status": "queued",
@@ -27477,7 +27477,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.959593+00:00"
+      "updated_at": "2026-08-17T03:06:58.753650+00:00"
     },
     "08966f275a5609b00b57633bade0039b7d3833845ee8cd05e697610cb40f00eb": {
       "status": "queued",
@@ -27488,7 +27488,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:37.981520+00:00"
+      "updated_at": "2026-08-17T03:06:58.776531+00:00"
     },
     "2803f21cdd79a3babcfa281a2bb2197cd98acac9a573a7571fe0c1357fce3680": {
       "status": "queued",
@@ -27499,7 +27499,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.006004+00:00"
+      "updated_at": "2026-08-17T03:06:58.799044+00:00"
     },
     "0324ac433f53f19eafa024c7e6e9bc4dfebc3289872b009fa8c6431651e3d77b": {
       "status": "queued",
@@ -27510,7 +27510,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.028927+00:00"
+      "updated_at": "2026-08-17T03:06:58.821033+00:00"
     },
     "c40ec6faf8669f26b38d890c9467a76729e51a2cc0a4e688751040d6f90919ea": {
       "status": "queued",
@@ -27521,7 +27521,7 @@
       "format": ".jpg",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.051357+00:00"
+      "updated_at": "2026-08-17T03:06:58.845948+00:00"
     },
     "3382274aea310ae3986d74663e8e542213de4abc6acb2315035cc6f209bd6f8e": {
       "status": "queued",
@@ -27532,7 +27532,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.074281+00:00"
+      "updated_at": "2026-08-17T03:06:58.869136+00:00"
     },
     "a713d6e8b089fd621469b4e5a9858520c010e58f92cd82cf1fc9176044f355c3": {
       "status": "queued",
@@ -27543,7 +27543,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.095452+00:00"
+      "updated_at": "2026-08-17T03:06:58.891064+00:00"
     },
     "131828f7f2b66421e9b3ad5de3093a274a566cdad47f3e324166c778a3035975": {
       "status": "queued",
@@ -27554,7 +27554,7 @@
       "format": ".png",
       "locator": null,
       "message": "Image and video ingestion is deferred for this phase.",
-      "updated_at": "2026-08-17T02:26:38.118263+00:00"
+      "updated_at": "2026-08-17T03:06:58.913330+00:00"
     },
     "07b3225c509b5b14c88e682db4a074083082c09ee9a93f2882f7093d7e9984df": {
       "status": "excluded",
@@ -27565,7 +27565,7 @@
       "format": ".rar",
       "locator": null,
       "message": "Archive asset is intentionally excluded from the knowledge corpus.",
-      "updated_at": "2026-08-17T02:26:38.155700+00:00"
+      "updated_at": "2026-08-17T03:06:58.938789+00:00"
     }
   }
 }
