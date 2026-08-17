@@ -43,6 +43,8 @@ _J3_WIDE_TERMS: tuple[str, ...] = (
     "SDK",
     "写代码",
     "写一段",
+    "通过代码",
+    "用代码",
     "代码示例",
     "示例代码",
     "接口调用",
@@ -65,6 +67,8 @@ _J3_ACTION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     for p in (
         r"写代码",
         r"写一段",
+        r"通过代码",
+        r"用代码",
         r"代码示例",
         r"示例代码",
         r"二次开发",
@@ -98,6 +102,40 @@ class JobDecision:
     reason: str = ""
 
 
+# Surface names that never uniquely bind a retrieval canonical (FR-1).
+_FAMILY_SURFACE_CANONICALS: frozenset[str] = frozenset({
+    "WebGL",
+    "WebRTC",
+    "SDK",
+    "Pipeline",
+    "COM",
+    "二次开发与集成层",
+})
+
+
+@dataclass(frozen=True)
+class AnchorBinding:
+    """Single adjudicator: is the legal retrieval canonical uniquely bound?"""
+
+    bound: bool
+    canonical: str | None
+    legal: bool
+    reason: str
+    decision: JobDecision
+
+    @property
+    def show_j3_card(self) -> bool:
+        if self.decision.job != "j3":
+            return False
+        if not self.legal:
+            return True
+        return self.decision.needs_j3_clarify
+
+    @property
+    def skip_generic_clarify(self) -> bool:
+        return self.bound and self.legal
+
+
 def _fold(text: str) -> str:
     return re.sub(r"[\s_\-]+", "", (text or "")).casefold()
 
@@ -116,7 +154,7 @@ def has_j2_protect(question: str) -> bool:
     if not any(p.search(q) for p in _J2_PROTECT_PATTERNS):
         return False
     # Explicit write-code / StampUtil still wins as J3.
-    if re.search(r"(?i)(写代码|写一段|代码示例|StampUtil)", q):
+    if re.search(r"(?i)(写代码|写一段|通过代码|用代码|代码示例|StampUtil)", q):
         return False
     return True
 
@@ -253,6 +291,167 @@ def resolve_job(
     return JobDecision(job="other", subject_clear=True, needs_j3_clarify=False, reason="none")
 
 
+def map_clarification_text(text: str | None) -> str | None:
+    """Map a card label / custom input to a bound entity or sentinel. None = unmapped."""
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    if is_j3_whitelist(raw):
+        return raw.strip()
+    if is_com_selection(raw) or re.search(r"(?i)\bCOM\b|Ax", raw):
+        return COM_SENTINEL
+    if is_explorer_selection(raw) or "桌面端" in raw or re.search(r"(?i)Explorer", raw):
+        return EXPLORER_OPS_SENTINEL
+    if is_j3_aux_selection(raw):
+        return raw.strip()
+    named = named_j3_product(raw)
+    if named:
+        return named
+    from rag_knowledge.services.query_surface import contains_term
+
+    for name in ("PipelineBuilder", "PipelineWebGL", "PipelineWebRTC", "StampWebRTC", "StampWebGL"):
+        if contains_term(raw, name):
+            return name
+    return None
+
+
+def named_specific_canonical(question: str, constraints: dict | None = None) -> str | None:
+    """Unique Product/Tool official name in the question, excluding family surface terms."""
+    from rag_knowledge.services.query_surface import contains_term
+
+    q = (question or "").strip()
+    if not q:
+        return None
+    hits: list[str] = []
+    named = named_j3_product(q)
+    if named:
+        hits.append(named)
+    for name in ("PipelineBuilder", "PipelineWebGL", "PipelineWebRTC"):
+        if contains_term(q, name):
+            hits.append(name)
+    types = (constraints or {}).get("entity_type_by_name") or {}
+    skip = set(_FAMILY_SURFACE_CANONICALS) | set(J3_AUX_OPTION_NAMES) | set(J3_WHITELIST)
+    extra: list[str] = []
+    for name, typ in types.items():
+        if typ not in {"Product", "Tool"}:
+            continue
+        if name in skip or name.startswith("Pipeline"):
+            continue
+        if contains_term(q, name):
+            extra.append(name)
+    extra.sort(key=len, reverse=True)
+    hits.extend(extra)
+    uniq: list[str] = []
+    seen: set[str] = set()
+    for name in hits:
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(name)
+    if len(uniq) == 1:
+        return uniq[0]
+    return None
+
+
+def resolve_anchor_binding(
+    question: str,
+    *,
+    entity_name: str | None = None,
+    clarification_selected: str | None = None,
+    constraints: dict | None = None,
+) -> AnchorBinding:
+    """FR-1: one adjudicator for whether clarification may run."""
+    mapped = (entity_name or "").strip() or map_clarification_text(clarification_selected)
+    if is_j3_aux_selection(mapped):
+        decision = resolve_job(question, entity_name=mapped)
+        return AnchorBinding(
+            bound=False,
+            canonical=None,
+            legal=True,
+            reason=decision.reason or "j3_aux_needs_product",
+            decision=decision,
+        )
+
+    decision = resolve_job(question, entity_name=mapped or None)
+
+    if mapped:
+        if is_j3_blocklisted(mapped) and has_j3_action_intent(question):
+            return AnchorBinding(
+                bound=True,
+                canonical=mapped,
+                legal=False,
+                reason="j3_illegal_anchor",
+                decision=JobDecision(
+                    job="j3",
+                    subject_clear=False,
+                    needs_j3_clarify=True,
+                    canonical_hint=None,
+                    reason="j3_illegal_anchor",
+                ),
+            )
+        canonical = (
+            COM_SENTINEL if is_com_selection(mapped)
+            else None if is_explorer_selection(mapped)
+            else mapped
+        )
+        return AnchorBinding(
+            bound=True,
+            canonical=canonical,
+            legal=True,
+            reason=decision.reason or "entity_selected",
+            decision=decision,
+        )
+
+    specific = named_specific_canonical(question, constraints)
+    if decision.job == "j3":
+        if specific and is_j3_blocklisted(specific):
+            return AnchorBinding(
+                bound=True,
+                canonical=specific,
+                legal=False,
+                reason="j3_illegal_anchor",
+                decision=JobDecision(
+                    job="j3",
+                    subject_clear=False,
+                    needs_j3_clarify=True,
+                    canonical_hint=None,
+                    reason="j3_illegal_anchor",
+                ),
+            )
+        if decision.needs_j3_clarify:
+            return AnchorBinding(
+                bound=False,
+                canonical=None,
+                legal=True,
+                reason=decision.reason or "j3_action",
+                decision=decision,
+            )
+        return AnchorBinding(
+            bound=True,
+            canonical=decision.canonical_hint,
+            legal=True,
+            reason=decision.reason or "j3_named_product",
+            decision=decision,
+        )
+
+    if specific:
+        return AnchorBinding(
+            bound=True,
+            canonical=specific,
+            legal=True,
+            reason="named_specific_canonical",
+            decision=decision,
+        )
+    return AnchorBinding(
+        bound=False,
+        canonical=None,
+        legal=True,
+        reason=decision.reason or "unbound",
+        decision=decision,
+    )
+
+
 def j3_subgraph_universe(constraints: dict) -> set[str]:
     """Candidate canonicals for J3 clarify cards (secondary-dev subgraph)."""
     types = constraints.get("entity_type_by_name") or {}
@@ -328,10 +527,17 @@ def collect_j3_clarify_seed_names(question: str, constraints: dict) -> list[str]
     for sibling in avoid_names_for_anchors(names, constraints):
         _add(sibling)
 
-    # Prefer D2 first for stable card order
-    preferred = ["StampWebRTC", "StampWebGL", "SDK", "二次开发与集成层", "COM"]
-    ordered = [n for n in preferred if n in seen]
-    ordered.extend(n for n in names if n not in ordered)
+    # Prefer D2 first for stable card order (compare folded keys, not official names).
+    preferred = ["StampWebRTC", "StampWebGL", "COM"]
+    folded_present = {_fold(n): n for n in names}
+    ordered: list[str] = []
+    used: set[str] = set()
+    for item in preferred:
+        hit = folded_present.get(_fold(item))
+        if hit and _fold(hit) not in used:
+            ordered.append(hit)
+            used.add(_fold(hit))
+    ordered.extend(n for n in names if _fold(n) not in used)
     return ordered
 
 
@@ -385,19 +591,26 @@ def build_j3_clarify_options(
     *,
     include_explorer: bool = True,
 ) -> list[dict]:
-    """FR-0b: graph-driven J3 options (backbone_seed + optional Explorer task_exit)."""
-    seeds = collect_j3_clarify_seed_names(question, constraints)
+    """FR-4: submitable J3 options are D2 + COM + optional Explorer only."""
+    _ = constraints
     options: list[dict] = []
-    for name in seeds:
+    for name in ("StampWebRTC", "StampWebGL"):
         options.append(
             {
                 "label": _j3_option_label(name),
-                "entity_name": COM_SENTINEL if name == "COM" else name,
+                "entity_name": name,
                 "doc_category": None,
                 "source": OPTION_SOURCE_BACKBONE,
             }
         )
-    # Explorer：Job 分流哨兵，非主干实体
+    options.append(
+        {
+            "label": _j3_option_label(COM_SENTINEL),
+            "entity_name": COM_SENTINEL,
+            "doc_category": None,
+            "source": OPTION_SOURCE_BACKBONE,
+        }
+    )
     if include_explorer and has_j3_action_intent(question):
         options.append(
             {
@@ -411,7 +624,6 @@ def build_j3_clarify_options(
 
 
 COM_PHASE0_REJECT_ANSWER = (
-    "当前知识库中未查询到相关内容。\n\n"
     "首期二次开发代码示例仅覆盖 StampUtil（StampWebRTC / StampWebGL 接口说明书）。"
     "COM / Ax 接口请另行查阅对应手册，或选择 WebRTC / WebGL 二次开发选项后重试。"
 )

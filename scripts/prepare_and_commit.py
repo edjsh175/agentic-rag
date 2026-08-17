@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "docs: publish new PRD for query reference uniqueness and handover guides"
+    commit_msg = "feat: publish conversational agent orchestration PRDs and update query clarification"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

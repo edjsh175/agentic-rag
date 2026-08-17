@@ -33,15 +33,35 @@ const emit = defineEmits<{
 const showThinking = ref(true)
 const otherInputVal = ref('')
 const showOtherInput = ref(false)
+const otherError = ref('')
+
+function foldKey(text: string) {
+  return text.replace(/[\s_\-]+/g, '').toLowerCase()
+}
+
+function matchOtherToOption(text: string): ClarificationOption | null {
+  const needle = foldKey(text)
+  if (needle.length < 3) return null
+  const options = props.clarification?.options || []
+  for (const opt of options) {
+    const ent = foldKey(opt.filter?.entity_name || '')
+    const lab = foldKey(opt.label)
+    if (ent && (needle.includes(ent) || ent.includes(needle))) return opt
+    if (lab && (needle.includes(lab) || lab.includes(needle))) return opt
+  }
+  return null
+}
 
 function submitOther() {
   const text = otherInputVal.value.trim()
   if (!text) return
-  emit('selectClarificationOption', {
-    id: 'other',
-    label: text,
-    filter: {}
-  })
+  const matched = matchOtherToOption(text)
+  if (!matched) {
+    otherError.value = '无法匹配到上方选项。请直接点选，或输入 StampWebRTC / StampWebGL / COM / Explorer。'
+    return
+  }
+  otherError.value = ''
+  emit('selectClarificationOption', { ...matched })
 }
 
 const isUser = computed(() => props.role === 'user')
@@ -170,6 +190,9 @@ function handleContentClick(event: MouseEvent) {
                 确定
               </button>
             </div>
+            <p v-if="otherError && showOtherInput && !clarification.selectedId" class="clarification-other-error">
+              {{ otherError }}
+            </p>
           </div>
         </div>
 
@@ -656,6 +679,12 @@ function handleContentClick(event: MouseEvent) {
   background: #cbd5e1;
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+.clarification-other-error {
+  margin: 6px 4px 0;
+  font-size: 12px;
+  color: #b42318;
 }
 
 /* ===== 移动端响应式 ===== */

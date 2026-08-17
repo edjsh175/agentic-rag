@@ -84,14 +84,11 @@ class TestClarifyD8:
         result = svc.analyze("写一段创建折线的代码，线颜色设为红色、线宽为 3。")
         assert result.needs_clarification is True
         assert result.reason == "j3_subject_unclear"
-        labels = [o.label for o in result.options]
-        assert any("StampWebRTC" in x for x in labels)
-        assert any("StampWebGL" in x for x in labels)
-        entities = {o.filter.entity_name for o in result.options}
-        assert "StampWebRTC" in entities
-        assert "StampWebGL" in entities
+        entities = [o.filter.entity_name for o in result.options]
+        assert entities[:2] == ["StampWebRTC", "StampWebGL"]
+        assert "SDK" not in entities
+        assert "二次开发与集成层" not in entities
         assert "PipelineWebGL" not in entities
-        assert "PipelineBuilder" not in entities
         sources = {o.source for o in result.options}
         assert OPTION_SOURCE_ROLLBACK not in sources
         assert OPTION_SOURCE_BACKBONE in sources
@@ -480,3 +477,131 @@ class TestTraceClarifyBlock:
         assert clarify["selected"] == "StampWebRTC 二次开发（StampUtil）"
         entities = {o["entity_name"] for o in clarify["options"]}
         assert "StampWebRTC" in entities and "StampWebGL" in entities
+
+
+class TestReferentUniqueness:
+    """2026-08-14 PRD: named legal anchor skips family clarify."""
+
+    def _svc(self):
+        from rag_knowledge.services.backbone_guard import load_backbone_constraints
+
+        return QueryClarificationService(
+            enabled=True,
+            llm_enabled=False,
+            constraints=load_backbone_constraints(),
+        )
+
+    def test_named_webrtc_code_skips_clarify(self):
+        from rag_knowledge.services.sdk_code_job import COM_PHASE0_REJECT_ANSWER
+
+        q = "在 StampWebRTC 中，如何用代码初始化并加载 StampUtil？"
+        d = resolve_job(q)
+        assert d.job == "j3"
+        assert d.needs_j3_clarify is False
+        result = self._svc().analyze(q)
+        assert result.needs_clarification is False
+        assert not any(
+            str(o.filter.entity_name or "").startswith("Pipeline") for o in result.options
+        )
+        assert "未查询到相关内容" not in COM_PHASE0_REJECT_ANSWER
+
+    def test_named_webgl_code_skips_clarify(self):
+        q = "使用 StampWebGL 接口写一段创建折线的代码，线颜色为红色，线宽为 3。"
+        result = self._svc().analyze(q)
+        assert result.needs_clarification is False
+        d = resolve_job(q)
+        assert d.canonical_hint == "StampWebGL"
+
+    def test_via_code_still_j3_card(self):
+        q = "如何通过代码修改多边形的填充颜色并设置透明度？"
+        d = resolve_job(q)
+        assert d.job == "j3"
+        assert d.needs_j3_clarify is True
+        result = self._svc().analyze(q)
+        assert result.needs_clarification is True
+        assert result.reason == "j3_subject_unclear"
+        entities = {o.filter.entity_name for o in result.options}
+        assert "StampWebRTC" in entities and "StampWebGL" in entities
+        assert "PipelineWebGL" not in entities
+
+    def test_style_only_not_j3(self):
+        q = "怎么设透明度"
+        d = resolve_job(q)
+        assert d.job != "j3"
+        result = self._svc().analyze(q)
+        assert result.reason != "j3_subject_unclear"
+
+    def test_j3_pipeline_named_stays_j3_card(self):
+        q = "在 PipelineWebGL 中用代码写一段创建多边形的代码，设置填充色。"
+        result = self._svc().analyze(q)
+        assert result.needs_clarification is True
+        assert result.reason == "j3_subject_unclear"
+        entities = {o.filter.entity_name for o in result.options}
+        assert "PipelineWebGL" not in entities
+
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
+        from rag_knowledge.services.query_planner import RetrievalPlan
+        from rag_knowledge.services.rag import RagChain
+
+        chain = object.__new__(RagChain)
+        chain._graph_cfg = MagicMock(query_rewrite_enabled=True)
+        plan = RetrievalPlan(
+            intent="procedure",
+            queries=[RetrievalQuery(q, "original", 1.0)],
+            top_k=8,
+            candidate_k=24,
+            enable_rerank=False,
+            expand_neighbors=False,
+            confidence=0.9,
+        )
+        out = RagChain._apply_backbone_anchor_rewrite(
+            chain, q, plan, entity_name="PipelineWebGL",
+        )
+        assert out.backbone_canonical == ()
+        assert out.rewrite_template == "j3_blocklist_drop"
+
+    def test_j2_named_pipeline_builder_skips_clarify(self):
+        q = "在 PipelineBuilder 中如何新建工程？"
+        d = resolve_job(q)
+        assert d.job == "j2"
+        result = self._svc().analyze(q)
+        assert result.needs_clarification is False
+
+    def test_j1_named_webrtc_skips_clarify(self):
+        result = self._svc().analyze("StampWebRTC 是什么")
+        assert result.needs_clarification is False
+
+    def test_j1_family_webgl_still_clarifies(self):
+        result = self._svc().analyze("WebGL 客户端主要提供哪些三维展示功能？")
+        assert result.needs_clarification is True
+        assert result.reason != "j3_subject_unclear"
+        entities = {o.filter.entity_name for o in result.options}
+        assert "WebGL" in entities
+        assert "StampWebGL" in entities
+        assert "PipelineWebGL" in entities
+
+    def test_com_reject_copy_not_miss_template(self):
+        from rag_knowledge.services.rag import RagChain
+        from rag_knowledge.services.sdk_code_job import COM_PHASE0_REJECT_ANSWER, COM_SENTINEL
+
+        chain = object.__new__(RagChain)
+        rejected = RagChain._com_phase0_reject_if_needed(
+            chain, "写一段创建折线的代码", entity_name=COM_SENTINEL,
+        )
+        assert rejected is not None
+        assert not rejected["answer"].startswith("当前知识库中未查询到相关内容")
+        assert "StampUtil" in rejected["answer"]
+        assert rejected["answer"] == COM_PHASE0_REJECT_ANSWER
+
+    def test_unmapped_selected_does_not_skip_j3_reject(self):
+        from rag_knowledge.services.rag import RagChain
+
+        chain = object.__new__(RagChain)
+        rejected = RagChain._j3_clarify_reject_if_needed(
+            chain,
+            "写一段创建折线的代码，线颜色设为红色、线宽为 3。",
+            entity_name=None,
+            clarification_selected="随便写点别的",
+        )
+        assert rejected is not None
+        assert "请先选择调用面" in rejected["answer"]

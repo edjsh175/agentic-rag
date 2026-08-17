@@ -609,21 +609,22 @@ class QueryClarificationService:
         if not self.enabled or not q:
             return ClarificationResult(needs_clarification=False)
 
-        from rag_knowledge.services.sdk_code_job import is_j3_aux_selection, resolve_job
+        from rag_knowledge.services.sdk_code_job import resolve_anchor_binding
 
-        # SDK / 层名选定后仍须产品线 → 继续出卡片，不得当正锚放行
-        if entity_name and str(entity_name).strip() and not is_j3_aux_selection(entity_name):
-            return ClarificationResult(needs_clarification=False)
-
-        # D7: J3 write-code intent without product line → D8 card (rule, not LLM).
-        try:
-            decision = resolve_job(q, entity_name=entity_name)
-            if decision.needs_j3_clarify:
+        binding = resolve_anchor_binding(
+            q,
+            entity_name=entity_name,
+            constraints=self._load_constraints(),
+        )
+        if binding.show_j3_card:
+            try:
                 forced = self._j3_clarify_result(q)
                 if forced is not None:
                     return forced
-        except Exception as exc:
-            logger.warning("j3 clarify gate failed, continue backbone clarify: %s", exc)
+            except Exception as exc:
+                logger.warning("j3 clarify gate failed, continue backbone clarify: %s", exc)
+        if binding.skip_generic_clarify:
+            return ClarificationResult(needs_clarification=False, reason=binding.reason)
 
         seeds, seed_trigger = self._collect_seed_options(
             q, doc_category=doc_category, kb_name=kb_name,

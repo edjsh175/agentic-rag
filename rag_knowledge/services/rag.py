@@ -462,8 +462,10 @@ class RagChain:
         from rag_knowledge.services.sdk_code_job import (
             GRAPH_REWRITE_POLICY_DROP,
             drop_pipeline_graph_rewrites,
+            has_j3_action_intent,
             is_com_selection,
             is_explorer_selection,
+            is_j3_blocklisted,
             is_j3_whitelist,
             resolve_job,
             should_skip_backbone_guess,
@@ -506,6 +508,22 @@ class RagChain:
                     backbone_primary_intent="",
                     graph_rewrite_policy=GRAPH_REWRITE_POLICY_DROP,
                     rewrite_template="explorer_ops",
+                )
+            if is_j3_blocklisted(forced) and (
+                job_decision.job == "j3" or has_j3_action_intent(question)
+            ):
+                queries = strip_j2_stage_queries(plan.queries)
+                queries, _ = drop_pipeline_graph_rewrites(queries)
+                return replace(
+                    plan,
+                    queries=queries,
+                    job="j3",
+                    backbone_canonical=(),
+                    backbone_avoid=(),
+                    backbone_relation_summary="",
+                    backbone_primary_intent="",
+                    graph_rewrite_policy=GRAPH_REWRITE_POLICY_DROP,
+                    rewrite_template="j3_blocklist_drop",
                 )
             return self._force_backbone_entity(question, plan, forced)
 
@@ -2409,12 +2427,16 @@ class RagChain:
         the backend must never silently LLM-guess a Pipeline* anchor.
         """
         from rag_knowledge.services.sdk_code_job import (
-            j3_clarify_options,
+            is_j3_aux_selection,
+            map_clarification_text,
             resolve_job,
             should_skip_backbone_guess,
         )
 
-        if (entity_name or "").strip() or (clarification_selected or "").strip():
+        mapped = (entity_name or "").strip() or map_clarification_text(clarification_selected)
+        if is_j3_aux_selection(mapped):
+            mapped = ""
+        if mapped:
             return None
         decision = resolve_job(question, entity_name=None)
         if not should_skip_backbone_guess(decision):
@@ -2423,7 +2445,10 @@ class RagChain:
         lines = ["当前问题未指定二次开发产品线，为避免错误引用产品 API，请先选择调用面："]
         try:
             from rag_knowledge.services.backbone_guard import load_backbone_constraints
-            from rag_knowledge.services.sdk_code_job import build_j3_clarify_options
+            from rag_knowledge.services.sdk_code_job import (
+                build_j3_clarify_options,
+                j3_clarify_options,
+            )
 
             clar = getattr(getattr(self, "_cfg", None), "clarification", None)
             rollback = bool(getattr(clar, "j3_options_rollback_static", False))

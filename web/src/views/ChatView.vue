@@ -635,6 +635,11 @@ async function handleCurrentChunkFeedback(chunkId: string, rating: 'down', reaso
 async function handleSelectClarificationOption(aiMsg: Message, option: ClarificationOption) {
   if (!aiMsg.clarification || aiMsg.clarification.selectedId || loading.value) return
 
+  if (option.id === 'other' && !option.filter?.entity_name) {
+    aiMsg.status = '无法匹配自定义输入，请选择卡片上的选项。'
+    return
+  }
+
   aiMsg.clarification.selectedId = option.id
   aiMsg.loading = true
   aiMsg.status = `已选择「${option.label}」，正在检索回答...`
