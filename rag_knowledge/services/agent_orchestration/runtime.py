@@ -368,10 +368,22 @@ class AgentLoop:
         if conv.clarification_callback and decision.tool == "clarify":
             if not self.evidence.citable_docs() and self.budget.can_retrieve():
                 return (
-                    AgentDecision(action="tool_call", tool="retrieve_kb", source="harness"),
+                    AgentDecision(
+                        action="tool_call",
+                        tool="retrieve_kb",
+                        thought="用户已作出澄清选项确认，正在根据选定实体定向检索知识库。",
+                        source="harness",
+                    ),
                     "harness_block_callback_reclarify",
                 )
-            return AgentDecision(action="finish", source="harness"), "harness_block_callback_reclarify"
+            return (
+                AgentDecision(
+                    action="finish",
+                    thought="用户已确认澄清选项且已有相关证据，开始整理回答。",
+                    source="harness",
+                ),
+                "harness_block_callback_reclarify",
+            )
         if self.registry.get("clarify") is None:
             return decision, None
         binding = self._anchor_binding()
@@ -386,16 +398,34 @@ class AgentLoop:
                 return decision, None
             self._j3_force_attempted = True
             return (
-                AgentDecision(action="tool_call", tool="clarify", arguments={}, source="harness"),
+                AgentDecision(
+                    action="tool_call",
+                    tool="clarify",
+                    arguments={},
+                    thought="识别到用户问题包含多义或宽泛产品关键词，发起反问澄清卡片请用户选择明确指代。",
+                    source="harness",
+                ),
                 "harness_force_j3",
             )
         if skip_generic and decision.tool == "clarify" and not show_j3:
             if not self.evidence.citable_docs() and self.budget.can_retrieve():
                 return (
-                    AgentDecision(action="tool_call", tool="retrieve_kb", source="harness"),
+                    AgentDecision(
+                        action="tool_call",
+                        tool="retrieve_kb",
+                        thought="检测到已属于明确命名的产品族，无需多义澄清，直接检索知识库。",
+                        source="harness",
+                    ),
                     "harness_block_named_family",
                 )
-            return AgentDecision(action="finish", source="harness"), "harness_block_named_family"
+            return (
+                AgentDecision(
+                    action="finish",
+                    thought="产品族命名明确，开始基于当前证据组织回答。",
+                    source="harness",
+                ),
+                "harness_block_named_family",
+            )
         return decision, None
 
     def _effective_llm_gate(self, decision: AgentDecision, verdict: dict[str, Any]) -> str:
@@ -465,7 +495,14 @@ class AgentLoop:
         going_retrieve = decision.action == "tool_call" and decision.tool == "retrieve_kb"
         if going_retrieve and self.budget.retrieve_attempts >= 1:
             if not self.budget.can_retrieve():
-                return AgentDecision(action="finish", source="harness"), "retrieve_budget_exhausted"
+                return (
+                    AgentDecision(
+                        action="finish",
+                        thought="检索重试预算已达上限，停止检索并准备总结回答。",
+                        source="harness",
+                    ),
+                    "retrieve_budget_exhausted",
+                )
             gap = self._bind_recovery_gap(decision)
             args = dict(decision.arguments or {})
             args["query"] = gap.query
@@ -473,12 +510,13 @@ class AgentLoop:
             args["recovery_strategy"] = gap.recovery_strategy
             if gap.missing:
                 args["missing"] = gap.missing
+            thought = decision.thought or f"分析发现证据缺口（{gap.gap_type}），采用策略 {gap.recovery_strategy} 发起补充检索：{gap.query}"
             return (
                 AgentDecision(
                     action="tool_call",
                     tool="retrieve_kb",
                     arguments=args,
-                    thought=decision.thought,
+                    thought=thought,
                     source="harness" if decision.source != "llm" else decision.source,
                     gate=llm_gate,
                     gap_type=gap.gap_type,
@@ -507,10 +545,17 @@ class AgentLoop:
             return decision, None
         if self.budget.retrieve_attempts == 0:
             return (
-                AgentDecision(action="tool_call", tool="retrieve_kb", source="harness", gate=llm_gate),
+                AgentDecision(
+                    action="tool_call",
+                    tool="retrieve_kb",
+                    thought="正在执行初次知识库检索以获取支撑证据。",
+                    source="harness",
+                    gate=llm_gate,
+                ),
                 note,
             )
         gap = self._bind_recovery_gap(decision)
+        thought = f"检测到当前证据不足以支撑准确回答，采用策略 {gap.recovery_strategy} 定向补检：{gap.query}"
         return (
             AgentDecision(
                 action="tool_call",
@@ -521,6 +566,7 @@ class AgentLoop:
                     "recovery_strategy": gap.recovery_strategy,
                     **({"missing": gap.missing} if gap.missing else {}),
                 },
+                thought=thought,
                 source="harness",
                 gate=llm_gate,
                 gap_type=gap.gap_type,
@@ -542,6 +588,7 @@ class AgentLoop:
             if recovery_note:
                 self.fallbacks.append(recovery_note)
 
+            # 流式派发当前步的思考过程（实现 Think -> Act -> Observe 交替展示）
             if on_event is not None and decision.thought:
                 await on_event({"type": "thinking", "data": f"{decision.thought}\n"})
 
@@ -604,7 +651,7 @@ class AgentLoop:
                         await on_event({
                             "type": "tool_end",
                             "data": {
-                                "name": "reuse_evidence",
+                               "name": "reuse_evidence",
                                 "ok": False,
                                 "error": blocked,
                                 "step": self.budget.steps_used,
@@ -762,11 +809,17 @@ class AgentLoop:
             data.get("recovery_strategy") or arguments.get("recovery_strategy") or ""
         ).strip()
         missing = str(data.get("missing") or arguments.get("missing") or "").strip()
+        thought = str(data.get("thought") or "").strip()
+        if not thought:
+            if action == "tool_call" and tool_name:
+                thought = f"正在调用工具 {tool_name} 处理当前步骤。"
+            else:
+                thought = "已完成所有前置分析，开始组织回答。"
         return AgentDecision(
             action=action,  # type: ignore[arg-type]
             tool=tool_name,
             arguments=arguments,
-            thought=str(data.get("thought") or ""),
+            thought=thought,
             source="llm",
             gate=gate,
             gap_type=gap_type,
@@ -778,22 +831,60 @@ class AgentLoop:
         conv = self.conversation
         citable = self.evidence.citable_docs()
         if conv.clarification_callback and self.budget.retrieve_attempts == 0:
-            return AgentDecision(action="tool_call", tool="retrieve_kb", source="heuristic")
+            return AgentDecision(
+                action="tool_call",
+                tool="retrieve_kb",
+                source="heuristic",
+                thought="用户已确认歧义选项，结合选定实体进行精准检索。",
+            )
         if conv.understanding is None:
-            return AgentDecision(action="tool_call", tool="understand", source="heuristic")
+            return AgentDecision(
+                action="tool_call",
+                tool="understand",
+                source="heuristic",
+                thought="正在分析用户提问意图与上下文语境...",
+            )
         if not conv.rewritten and conv.understanding.is_context_dependent:
-            return AgentDecision(action="tool_call", tool="rewrite", source="heuristic")
+            return AgentDecision(
+                action="tool_call",
+                tool="rewrite",
+                source="heuristic",
+                thought="检测到当前提问存在代词或上下文指代，正在进行查询改写与补全...",
+            )
         if not citable:
             blocked = self.reuse_blocked_reason()
             if blocked is None and self.evidence.previous_cited_group() is not None:
                 if conv.understanding.is_context_dependent:
-                    return AgentDecision(action="tool_call", tool="reuse_evidence", source="heuristic")
+                    return AgentDecision(
+                        action="tool_call",
+                        tool="reuse_evidence",
+                        source="heuristic",
+                        thought="检测到本轮为针对上文的直接追问，复用已有证据池。",
+                    )
             if not conv.linked_entities and self.registry.get("link_entities") is not None and not any(obs.get("tool") == "link_entities" or obs.get("name") == "link_entities" for obs in self._observations):
-                return AgentDecision(action="tool_call", tool="link_entities", source="heuristic")
+                return AgentDecision(
+                    action="tool_call",
+                    tool="link_entities",
+                    source="heuristic",
+                    thought="识别到问题涉及专用技术模块或产品实体，查询知识图谱进行实体对齐与关系检索。",
+                )
             if self.budget.can_retrieve():
-                return AgentDecision(action="tool_call", tool="retrieve_kb", source="heuristic")
-            return AgentDecision(action="finish", source="heuristic")
-        return AgentDecision(action="finish", source="heuristic")
+                return AgentDecision(
+                    action="tool_call",
+                    tool="retrieve_kb",
+                    source="heuristic",
+                    thought="规划检索条件，正在检索知识库以获取支撑文档片段。",
+                )
+            return AgentDecision(
+                action="finish",
+                source="heuristic",
+                thought="检索预算已耗尽，开始根据当前证据组织回答。",
+            )
+        return AgentDecision(
+            action="finish",
+            source="heuristic",
+            thought="证据池已准备就绪，开始分析证据并生成最终回答。",
+        )
 
     def _evidence_summary(self) -> str:
         parts = []

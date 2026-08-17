@@ -887,3 +887,49 @@ def test_clarify_custom_options_execution():
     assert len(result.clarify["options"]) == 2
 
 
+def test_agent_react_event_stream_interleaved_sequence():
+    conv = ConversationContext.from_request("pipeline", [])
+    pool = EvidencePool(question_id="q")
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    async def link_handler(args):
+        return ToolObservation(tool="link_entities", ok=True, summary="候选实体数: 2", data={})
+
+    async def retrieve_handler(args):
+        pool.add_retrieve([_doc("chk_1", "Pipeline线表")], query=args.get("query"))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 个片段", data={"chunk_ids": ["chk_1"]})
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=4, max_retrieve_attempts=1),
+        registry=build_agent_registry(),
+        handlers={"link_entities": link_handler, "retrieve_kb": retrieve_handler},
+        decide_fn=_seq_decide([
+            AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "pipeline"}, thought="首先识别到产品关键词，检索知识图谱候选实体", source="test"),
+            AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "pipeline"}, thought="已获取候选实体，开始检索相关文档", source="test"),
+            AgentDecision(action="finish", thought="证据充足，开始组织回答", gate="support", source="test"),
+        ]),
+        resolve_binding_fn=lambda _c: _binding(),
+        tool_timeout=0,
+    )
+    result = asyncio.run(loop.run(on_event=on_event))
+    event_types = [e["type"] for e in events]
+    assert event_types == [
+        "thinking",
+        "tool_start",
+        "tool_end",
+        "thinking",
+        "tool_start",
+        "tool_end",
+        "thinking",
+        "status",
+    ]
+    assert "首先识别到产品关键词" in events[0]["data"]
+    assert events[1]["data"]["name"] == "link_entities"
+    assert "已获取候选实体" in events[3]["data"]
+    assert events[4]["data"]["name"] == "retrieve_kb"
+    assert "证据充足" in events[6]["data"]

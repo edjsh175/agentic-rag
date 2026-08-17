@@ -23,6 +23,7 @@ export type AgentTimelineItem =
       content: string
       duration?: string
       isThinking?: boolean
+      _startTime?: number
     }
   | {
       type: 'tool_call'

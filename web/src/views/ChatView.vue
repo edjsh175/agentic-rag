@@ -400,16 +400,17 @@ function createStreamHandler(targetMsg: Message) {
     targetMsg.timelineItems = []
   }
 
-  function getActiveThinkItem() {
+  function getActiveThinkItem(): Extract<AgentTimelineItem, { type: 'think' }> {
     if (!targetMsg.timelineItems) targetMsg.timelineItems = []
     const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
     if (last && last.type === 'think') {
       return last
     }
-    const newItem: AgentTimelineItem = {
+    const newItem: Extract<AgentTimelineItem, { type: 'think' }> = {
       type: 'think',
       content: '',
       isThinking: true,
+      _startTime: Date.now(),
     }
     targetMsg.timelineItems.push(newItem)
     return newItem
@@ -466,6 +467,10 @@ function createStreamHandler(targetMsg: Message) {
           const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
           if (last && last.type === 'think' && last.isThinking) {
             last.isThinking = false
+            if ((last as any)._startTime && !last.duration) {
+              const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
+              last.duration = `${dur}s`
+            }
           }
         }
         targetMsg.content += text
@@ -485,6 +490,10 @@ function createStreamHandler(targetMsg: Message) {
         const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
         if (last && last.type === 'think') {
           last.isThinking = false
+          if ((last as any)._startTime && !last.duration) {
+            const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
+            last.duration = `${dur}s`
+          }
         }
       }
       if (!targetMsg.agentTools) targetMsg.agentTools = []
@@ -586,6 +595,10 @@ function createStreamHandler(targetMsg: Message) {
         const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
         if (last && last.type === 'think') {
           last.isThinking = false
+          if ((last as any)._startTime && !last.duration) {
+            const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
+            last.duration = `${dur}s`
+          }
         }
       }
       scrollDown()
