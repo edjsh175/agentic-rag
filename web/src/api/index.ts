@@ -80,6 +80,7 @@ interface QueryResult {
   source_documents: any[]
   used_model?: string
   downshift_notice?: string
+  clarification?: ClarifyResult
 }
 
 interface UploadResult {
@@ -224,11 +225,14 @@ export async function queryKnowledgeStream(
     onToken: (token: string) => void
     onStatus?: (status: string) => void
     onThinking?: (thought: string) => void
+    onToolStart?: (data: any) => void
+    onToolEnd?: (data: any) => void
     onFinalAnswer?: (answer: string) => void
     onSources: (sources: any[]) => void
     onTrace?: (traceId: string) => void
     onPipeline?: (pipelineData: any) => void
     onNotice?: (notice: string) => void
+    onClarify?: (data: ClarifyResult) => void
     onDone: () => void
     onError: (err: Error) => void
   },
@@ -302,6 +306,10 @@ export async function queryKnowledgeStream(
             callbacks.onStatus?.(event.data)
           } else if (event.type === 'thinking') {
             callbacks.onThinking?.(event.data)
+          } else if (event.type === 'tool_start') {
+            callbacks.onToolStart?.(event.data)
+          } else if (event.type === 'tool_end') {
+            callbacks.onToolEnd?.(event.data)
           } else if (event.type === 'final_answer') {
             callbacks.onFinalAnswer?.(event.data)
           } else if (event.type === 'sources') {
@@ -312,6 +320,8 @@ export async function queryKnowledgeStream(
             callbacks.onPipeline?.(event.data)
           } else if (event.type === 'notice') {
             callbacks.onNotice?.(event.data)
+          } else if (event.type === 'clarify') {
+            callbacks.onClarify?.(event.data)
           } else if (event.type === 'done') {
             callbacks.onDone()
           }
@@ -411,6 +421,9 @@ export interface ModelsResponse {
     llm: string
     embedding: string
     vision: string
+    helper_llm?: string
+    providers?: Record<string, string>
+    agent_orchestration_enabled?: boolean
   }
 }
 
@@ -532,6 +545,12 @@ interface StoredMessage {
   hasImage?: boolean
   sources?: any[]
   clarification?: MessageClarification
+  thinking?: string
+  thinkingDuration?: string
+  agentTools?: any[]
+  timelineItems?: any[]
+  trace_id?: string | null
+  feedback?: 'useful' | 'unuseful' | null
 }
 
 /** 从服务器加载聊天记录；无记录时返回 null，便于回退 localStorage */
@@ -620,6 +639,7 @@ export async function queryAdminDebugStream(
     onFinalAnswer?: (answer: string) => void
     onSources?: (sources: any[]) => void
     onTrace?: (traceId: string) => void
+    onClarify?: (data: ClarifyResult) => void
     onDone?: () => void
     onError?: (err: Error) => void
   },
@@ -688,6 +708,7 @@ export async function queryAdminDebugStream(
           else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
           else if (event.type === 'sources') callbacks.onSources?.(event.data)
           else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)
+          else if (event.type === 'clarify') callbacks.onClarify?.(event.data)
           else if (event.type === 'done') callbacks.onDone?.()
         } catch {
           /* skip */

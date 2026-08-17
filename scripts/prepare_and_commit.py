@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "docs: refine dialogue agent orchestration and reference uniqueness PRDs"
+    commit_msg = "feat: implement conversational agent orchestration and enhance evidence package"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

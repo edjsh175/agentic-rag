@@ -156,6 +156,7 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
 11. 若存在产品主干锚定或已审核知识图谱关系提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用），禁止在主体已命中时直接输出固定未命中提示或规则4空壳句。产品关系类问题可直接使用提示中的已审核知识图谱关系或主干边作为权威关系依据进行回答与梳理；即使 <context> 文本片段中无对应详细描述，也可直接依据该图谱关系作出明确回答并标注“（依据已审核知识图谱关系）”，不得因文本未检索到而盲目拒绝回答；不得把 avoid/易混实体当作回答主体。
+12. 对于专有名词、公司专有工具与系统（如 StampTools、StampServer、StampGIS、PipelineBuilder、StampWebGL、StampWebRTC 等），其功能与定位必须严格以 <context> 和图谱事实为准，严禁与外部同名商业软件（例如 Palantir PipelineBuilder 等外部开源/商业工具）混淆或编造外部软件的通用概念；若 <context> 仅包含局部表格或字段规范，请如实基于局部规范作答并说明未查到更多概述，切勿套用外部软件概念。
 
 ## 输出规则
 
@@ -2120,6 +2121,10 @@ class RagChain:
         hints = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
         return any(hint in normalized for hint in hints)
 
+    def _agent_orchestration_enabled(self) -> bool:
+        orch = getattr(getattr(self, "_cfg", None), "agent_orchestration", None)
+        return bool(orch is not None and getattr(orch, "enabled", False))
+
     @staticmethod
     def _build_messages(question: str, context: str, history: list | None = None,
                         agent_prompt: str | None = None,
@@ -2130,7 +2135,10 @@ class RagChain:
                         backbone_relation_summary: str = "",
                         backbone_canonical: tuple[str, ...] = (),
                         backbone_avoid: tuple[str, ...] = (),
-                        job: str = "") -> list[dict]:
+                        job: str = "",
+                        prompt_layout: str = "dag",
+                        conversation_context_section: str | None = None,
+                        evidence_pool_section: str | None = None) -> list[dict]:
         if allow_general_knowledge:
             general_rule = (
                 "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
@@ -2225,6 +2233,31 @@ class RagChain:
                 + "\n\n"
             )
 
+        job_contract_section = _J3_CONTRACT_SECTION if job == "j3" else ""
+        if prompt_layout == "agent":
+            from rag_knowledge.services.agent_orchestration.runtime import build_agent_messages
+
+            evidence_section = evidence_pool_section or (
+                "## 证据池（EvidencePool）\n"
+                "知识库事实只能来自本区。\n"
+                "<evidence_pool>\n"
+                f"{context or '(暂无)'}\n"
+                "</evidence_pool>"
+            )
+            conversation_section = conversation_context_section or history_summary_section
+            return build_agent_messages(
+                question=question,
+                conversation_section=conversation_section,
+                evidence_section=evidence_section,
+                history=history,
+                agent_prompt=agent_prompt,
+                allow_general_knowledge=allow_general_knowledge,
+                entity_hint_section=entity_hint_section,
+                backbone_anchor_section=backbone_anchor_section,
+                job_contract_section=job_contract_section,
+                max_history=RagChain.MAX_HISTORY,
+            )
+
         prompt = _SYSTEM_PROMPT.format(
             context=context or "(暂无)",
             general_knowledge_rule=general_rule,
@@ -2232,7 +2265,7 @@ class RagChain:
             agent_instructions=(agent_instructions or "无。不得改变以上规则。"),
             entity_hint_section=entity_hint_section,
             backbone_anchor_section=backbone_anchor_section,
-            job_contract_section=_J3_CONTRACT_SECTION if job == "j3" else "",
+            job_contract_section=job_contract_section,
         )
 
         messages = [{"role": "system", "content": prompt}]
@@ -2264,6 +2297,874 @@ class RagChain:
             ))
         return source_docs, self._format_context(source_docs)
 
+    def _apply_pinned_excluded(
+        self,
+        source_docs: list[dict],
+        *,
+        pinned_chunk_ids: list[str] | None = None,
+        excluded_chunk_ids: list[str] | None = None,
+    ) -> list[dict]:
+        docs = list(source_docs or [])
+        if excluded_chunk_ids:
+            ex_set = set(excluded_chunk_ids)
+            docs = [d for d in docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
+        if pinned_chunk_ids:
+            existing_ids = {(d.get("metadata") or {}).get("chunk_id") for d in docs if d.get("metadata")}
+            for pdoc in self._fetch_pinned_chunks(pinned_chunk_ids):
+                pid = (pdoc.get("metadata") or {}).get("chunk_id")
+                if pid and pid not in existing_ids:
+                    docs.insert(0, pdoc)
+                    existing_ids.add(pid)
+        return docs
+
+    async def _retrieve_kb_for_agent(
+        self,
+        question: str,
+        *,
+        history: list | None,
+        kb_name: str | None,
+        doc_category: str | None,
+        entity_name: str | None,
+        web_search: bool,
+        pinned_chunk_ids: list[str] | None,
+        excluded_chunk_ids: list[str] | None,
+        understanding=None,
+        method: str | None = None,
+    ) -> tuple[list[dict], str, Any]:
+        from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
+        from rag_knowledge.services.query_contextualizer import RetrievalQuery
+
+        q = (question or "").strip()
+        if understanding is not None:
+            queries = DialogueUnderstanding.to_retrieval_queries(understanding)
+            resolved = (getattr(understanding, "resolved_question", "") or "").strip()
+            if q and q != resolved:
+                queries = [RetrievalQuery(q, "original", 1.0), *list(queries)]
+            if not queries and q:
+                queries = [RetrievalQuery(q, "original", 1.0)]
+        else:
+            queries = await asyncio.to_thread(self._build_retrieval_query_specs, q, history)
+
+        def _plan():
+            return self._plan_retrieval(q, queries, force_rerank=True)
+
+        plan = await asyncio.to_thread(_plan)
+        plan, graph_context, graph_docs = await asyncio.to_thread(
+            self._prepare_graph_plan,
+            q,
+            plan,
+            kb_name,
+            doc_category,
+            "approved",
+            entity_name,
+        )
+        graph_kwargs = self._build_graph_kwargs(
+            plan, graph_context, graph_docs, include_cache_fields=True,
+        )
+        if hasattr(self, "_aretrieve_multi_uncached"):
+            source_docs, context = await self._aretrieve_multi_uncached(
+                plan.queries,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                method=method,
+                rerank=plan.enable_rerank,
+                web_search=False,
+                plan_top_k=plan.top_k,
+                plan_candidate_k=plan.candidate_k,
+                expand_neighbors=plan.expand_neighbors,
+                intent_plan=getattr(plan, "intent_plan", None),
+                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                protect_names=self._anchor_protect_names(plan),
+                **graph_kwargs,
+            )
+        else:
+            sync_graph_kwargs = self._build_graph_kwargs(
+                plan, graph_context, graph_docs, include_cache_fields=False,
+            )
+
+            def _sync_retrieve():
+                return self._retrieve_multi(
+                    plan.queries,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    method=method,
+                    rerank=plan.enable_rerank,
+                    web_search=False,
+                    plan_top_k=plan.top_k,
+                    plan_candidate_k=plan.candidate_k,
+                    expand_neighbors=plan.expand_neighbors,
+                    intent_plan=getattr(plan, "intent_plan", None),
+                    backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                    protect_names=self._anchor_protect_names(plan),
+                    **sync_graph_kwargs,
+                )
+
+            source_docs, context = await asyncio.to_thread(_sync_retrieve)
+        source_docs = self._apply_pinned_excluded(
+            source_docs,
+            pinned_chunk_ids=pinned_chunk_ids,
+            excluded_chunk_ids=excluded_chunk_ids,
+        )
+        self._record_chunk_hit_query(source_docs)
+        return source_docs, self._format_context(source_docs), plan
+
+    async def _run_agent_turn(
+        self,
+        question: str,
+        *,
+        history: list | None,
+        kb_name: str | None,
+        doc_category: str | None,
+        entity_name: str | None,
+        web_search: bool,
+        pinned_chunk_ids: list[str] | None,
+        excluded_chunk_ids: list[str] | None,
+        clarification_question: str | None,
+        clarification_selected: str | None,
+        on_event=None,
+    ):
+        from rag_knowledge.services.agent_orchestration.models import (
+            AgentBudget,
+            ConversationContext,
+            EvidencePool,
+            ToolObservation,
+        )
+        from rag_knowledge.services.agent_orchestration.runtime import (
+            AgentLoop,
+            build_agent_registry,
+        )
+        from rag_knowledge.services.conversation_context import detect_topic_shift
+
+        orch = getattr(self._cfg, "agent_orchestration", None)
+        conv = ConversationContext.from_request(
+            question,
+            history,
+            entity_name=entity_name,
+            doc_category=doc_category,
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
+        )
+        evidence = EvidencePool(question_id="current")
+        evidence.seed_previous_cited(
+            conv.session.last_sources,
+            head_entity=conv.previous_head_entity,
+        )
+        budget = AgentBudget(
+            max_steps=int(getattr(orch, "max_steps", 8) or 8),
+            max_retrieve_attempts=int(getattr(orch, "max_retrieve_attempts", 2) or 2),
+        )
+
+        async def emit(event: dict) -> None:
+            if on_event is not None:
+                await on_event(event)
+
+        async def handle_understand(_args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在理解问题..."})
+            result = await asyncio.to_thread(
+                lambda: self._understand_for_retrieval(
+                    conv.user_question,
+                    history,
+                    entity_name=conv.head_entity or entity_name,
+                    doc_category=doc_category,
+                    kb_name=kb_name,
+                )
+            )
+            conv.understanding = result
+            conv.resolved_question = result.resolved_question or conv.user_question
+            focus = result.focus if isinstance(result.focus, dict) else {}
+            confirmed = str(focus.get("confirmed_entity") or "").strip()
+            if confirmed and not conv.selected_entity:
+                conv.head_entity = confirmed
+            conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
+            return ToolObservation(
+                tool="understand",
+                ok=True,
+                summary=f"模式: {result.mode}，已解析问题: {conv.resolved_question[:80]}",
+                data={"resolved_question": conv.resolved_question, "mode": result.mode},
+            )
+
+        async def handle_rewrite(args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在改写问题..."})
+            resolved = str(args.get("resolved_question") or "").strip()
+            if not resolved and conv.understanding is not None:
+                resolved = conv.understanding.resolved_question or ""
+            if not resolved:
+                resolved = conv.user_question
+            conv.resolved_question = resolved
+            conv.rewritten = True
+            return ToolObservation(
+                tool="rewrite",
+                ok=True,
+                summary=f"改写后查询: {resolved[:80]}",
+                data={"resolved_question": resolved},
+            )
+
+        async def handle_retrieve(args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在检索知识库..."})
+            query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
+            mode = str(args.get("mode") or "").strip().lower()
+            cat = str(args.get("doc_category") or doc_category or "").strip() or None
+            docs, _context, plan = await self._retrieve_kb_for_agent(
+                query,
+                history=history,
+                kb_name=kb_name,
+                doc_category=cat,
+                entity_name=conv.head_entity or entity_name,
+                web_search=web_search,
+                pinned_chunk_ids=pinned_chunk_ids,
+                excluded_chunk_ids=excluded_chunk_ids,
+                understanding=conv.understanding,
+                method=mode if mode in {"vector", "bm25", "hybrid"} else None,
+            )
+            if conv.understanding is None and getattr(self, "_last_understanding", None) is not None:
+                conv.understanding = self._last_understanding
+                conv.resolved_question = (
+                    conv.understanding.resolved_question or conv.resolved_question
+                )
+            group = evidence.add_retrieve(
+                docs,
+                query=query,
+                head_entity=conv.head_entity,
+                gap_type=str(args.get("gap_type") or "").strip() or None,
+                recovery_strategy=str(args.get("recovery_strategy") or "").strip() or None,
+            )
+            mode_label = f"（模式: {mode}）" if mode else ""
+            summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
+            return ToolObservation(
+                tool="retrieve_kb",
+                ok=True,
+                summary=summary_label,
+                data={"chunk_ids": group.chunk_ids, "plan": plan, "n": len(docs), "mode": mode or "hybrid"},
+            )
+
+        async def handle_reuse(args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在复用已有证据..."})
+            raw_ids = args.get("chunk_ids")
+            chunk_ids = [str(x) for x in raw_ids] if isinstance(raw_ids, list) else None
+            group = evidence.reuse(chunk_ids, head_entity=conv.head_entity)
+            if group is None:
+                return ToolObservation(
+                    tool="reuse_evidence",
+                    ok=False,
+                    summary="无可用复用证据",
+                    error="no_previous_cited",
+                    fallback="reuse_to_retrieve",
+                )
+            return ToolObservation(
+                tool="reuse_evidence",
+                ok=True,
+                summary=f"复用 {len(group.chunk_ids)} 个已有片段",
+                data={"chunk_ids": group.chunk_ids},
+            )
+
+        async def handle_link(_args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在检索图谱与链接实体..."})
+            linked_payload: list[dict] = []
+            graph_on = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
+            retriever = getattr(self, "_graph_retriever", None)
+            linker = getattr(retriever, "linker", None) if graph_on else None
+            relation_summaries: list[str] = []
+            if linker is not None:
+                try:
+                    q_text = str(_args.get("query") or conv.resolved_question or conv.user_question).strip()
+                    linked = linker.link(q_text, "definition")
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("link_entities failed: %s", exc)
+                    linked = ()
+                for item in linked:
+                    linked_payload.append({
+                        "entity_id": getattr(item, "entity_id", "") or "",
+                        "canonical_name": getattr(item, "canonical_name", "") or "",
+                        "entity_type": getattr(item, "entity_type", "") or "",
+                        "confidence": float(getattr(item, "confidence", 0.0) or 0.0),
+                        "match_method": getattr(item, "match_method", "") or "",
+                    })
+                if linked and retriever is not None and getattr(retriever, "expander", None) is not None:
+                    try:
+                        g_context = retriever.expander.expand(linked, "definition", q_text)
+                        if g_context and g_context.relation_ids and getattr(retriever, "db", None) is not None:
+                            for rel_id in g_context.relation_ids[:6]:
+                                rel = retriever.db.get_relation(rel_id)
+                                if rel:
+                                    s_name = rel.get("source_name") or rel.get("source_canonical_name") or rel.get("source_entity_id")
+                                    t_name = rel.get("target_name") or rel.get("target_canonical_name") or rel.get("target_entity_id")
+                                    r_type = rel.get("relation_type")
+                                    if s_name and t_name and r_type:
+                                        relation_summaries.append(f"{s_name} -[{r_type}]-> {t_name}")
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("graph expander in handle_link: %s", exc)
+
+            conv.linked_entities = linked_payload
+            domain_summary = ""
+            if linked_payload:
+                cands_str = ", ".join(f"{c['canonical_name']}({c['entity_type']})" for c in linked_payload[:4])
+                domain_summary = f"已定位实体: {cands_str}"
+                if relation_summaries:
+                    domain_summary += f"；关联关系: {', '.join(relation_summaries)}"
+                conv.domain_context = domain_summary
+            if (
+                len(linked_payload) >= 1
+                and float(linked_payload[0].get("confidence") or 0) >= 0.7
+                and not conv.selected_entity
+            ):
+                name = str(linked_payload[0].get("canonical_name") or "").strip()
+                if name:
+                    conv.head_entity = name
+            summary_text = domain_summary or f"候选实体数: {len(linked_payload)}"
+            return ToolObservation(
+                tool="link_entities",
+                ok=True,
+                summary=summary_text[:120],
+                data={"candidates": linked_payload, "relation_summaries": relation_summaries, "domain_context": domain_summary},
+            )
+
+        async def handle_clarify(_args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在确认问题主体..."})
+            from rag_knowledge.services.query_clarification import QueryClarificationService
+
+            svc = QueryClarificationService()
+            analyzed = await asyncio.to_thread(
+                lambda: svc.analyze(
+                    conv.user_question,
+                    doc_category=doc_category,
+                    kb_name=kb_name,
+                    entity_name=conv.head_entity or entity_name,
+                )
+            )
+            payload = analyzed.to_dict() if analyzed is not None else {"needs_clarification": False}
+            custom_opts = _args.get("options")
+            if not payload.get("needs_clarification") and isinstance(custom_opts, list) and len(custom_opts) >= 2:
+                opts = []
+                for i, opt in enumerate(custom_opts):
+                    lbl = str(opt if isinstance(opt, str) else opt.get("label") or opt.get("entity_name") or f"选项 {i+1}").strip()
+                    opts.append({
+                        "id": f"opt_{i+1}",
+                        "label": lbl,
+                        "filter": {"entity_name": lbl},
+                        "source": "llm_agent",
+                    })
+                payload = {
+                    "needs_clarification": True,
+                    "ask_question": str(_args.get("question") or "请选择您具体关注的模块或方向：").strip(),
+                    "options": opts,
+                }
+            if payload.get("needs_clarification") and len(payload.get("options") or []) >= 2:
+                await emit({"type": "clarify", "data": payload})
+                return ToolObservation(
+                    tool="clarify",
+                    ok=True,
+                    summary=f"弹出反问卡片（{len(payload.get('options') or [])} 个选项）",
+                    data={"pause": True, "clarify": payload},
+                )
+            return ToolObservation(
+                tool="clarify",
+                ok=True,
+                summary="无需反问，主体明确",
+                data={"pause": False, "clarify": payload},
+            )
+
+        async def handle_web_search(args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在检索外部网页..."})
+            query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
+            web_docs, _ = await asyncio.to_thread(self._search_web, query, [], "")
+            group = evidence.add_external(
+                web_docs,
+                query=query,
+                tool="web_search",
+                kind="web_search",
+                head_entity=conv.head_entity,
+            )
+            return ToolObservation(
+                tool="web_search",
+                ok=True,
+                summary=f"召回 {len(group.chunk_ids)} 条网页结果",
+                data={"chunk_ids": group.chunk_ids, "n": len(web_docs)},
+            )
+
+        async def handle_env_status(_args: dict) -> ToolObservation:
+            await emit({"type": "status", "data": "正在读取系统状态..."})
+            status_data = {
+                "server": "running",
+                "kb_name": kb_name or "default",
+                "graph_enabled": bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False)),
+            }
+            return ToolObservation(
+                tool="environment.read_status",
+                ok=True,
+                summary="status=ok",
+                data=status_data,
+            )
+
+        handlers: dict[str, Any] = {
+            "understand": handle_understand,
+            "rewrite": handle_rewrite,
+            "retrieve_kb": handle_retrieve,
+            "reuse_evidence": handle_reuse,
+            "link_entities": handle_link,
+            "clarify": handle_clarify,
+            "environment.read_status": handle_env_status,
+        }
+        if web_search:
+            handlers["web_search"] = handle_web_search
+
+        loop = AgentLoop(
+            conversation=conv,
+            evidence=evidence,
+            budget=budget,
+            registry=build_agent_registry(allow_web_search=bool(web_search)),
+            handlers=handlers,
+            cfg=self._cfg,
+            decide_fn=getattr(self, "_agent_decide_fn", None),
+            tool_timeout=float(getattr(orch, "tool_timeout", 60.0) or 0.0),
+        )
+        return await loop.run(on_event=emit)
+
+    def _agent_answer_docs(self, result):
+        retrieved = result.evidence.citable_docs_renumbered()
+        gate = getattr(result, "answer_gate", None) or {}
+        if gate and not gate.get("allow_knowledge_answer", True):
+            return [], retrieved
+        return retrieved, retrieved
+
+    async def _iter_with_heartbeat(
+        self,
+        agen,
+        *,
+        initial_delay: float,
+        interval: float,
+    ):
+        queue: asyncio.Queue = asyncio.Queue()
+
+        async def produce():
+            try:
+                async for item in agen:
+                    await queue.put(item)
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(produce())
+        next_beat = time.monotonic() + max(0.05, float(initial_delay or 1.5))
+        beat_interval = max(0.2, float(interval or 5.0))
+        terminal = False
+        try:
+            while True:
+                timeout = None if terminal else max(0.05, next_beat - time.monotonic())
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=timeout)
+                except TimeoutError:
+                    if not terminal:
+                        yield {"type": "heartbeat", "phase": "thinking"}
+                        next_beat = time.monotonic() + beat_interval
+                    continue
+                if item is None:
+                    break
+                et = item.get("type")
+                if et in {"token", "final_answer", "done", "clarify"}:
+                    terminal = True
+                yield item
+        finally:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+    async def _stream_agent_query(
+        self,
+        question: str,
+        history: list | None,
+        *,
+        llm_model: str | None,
+        kb_name: str | None,
+        doc_category: str | None,
+        entity_name: str | None,
+        thinking: bool | None,
+        web_search: bool | None,
+        allow_general_knowledge: bool | None,
+        agent_prompt: str | None,
+        pipeline_events: bool,
+        pinned_chunk_ids: list[str] | None,
+        excluded_chunk_ids: list[str] | None,
+        path: str | None,
+        clarification_question: str | None,
+        clarification_selected: str | None,
+        trace,
+    ):
+        q = (question or "").strip()
+        live_events: asyncio.Queue = asyncio.Queue()
+
+        async def on_event(event: dict) -> None:
+            await live_events.put(event)
+
+        async def run_turn():
+            try:
+                return await self._run_agent_turn(
+                    q,
+                    history=history,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    entity_name=entity_name,
+                    web_search=bool(web_search),
+                    pinned_chunk_ids=pinned_chunk_ids,
+                    excluded_chunk_ids=excluded_chunk_ids,
+                    clarification_question=clarification_question,
+                    clarification_selected=clarification_selected,
+                    on_event=on_event,
+                )
+            finally:
+                await live_events.put(None)
+
+        yield {"type": "status", "data": "正在理解问题..."}
+        turn_task = asyncio.create_task(run_turn())
+        while True:
+            event = await live_events.get()
+            if event is None:
+                break
+            yield event
+        result = await turn_task
+
+        if getattr(self, "_last_understanding", None) is None and result.conversation.understanding is not None:
+            self._last_understanding = result.conversation.understanding
+        if result.conversation.understanding is not None:
+            trace.set_understanding(result.conversation.understanding)
+        if result.plan is not None:
+            trace.set_plan(result.plan)
+        trace.set_agent(result.to_trace())
+        if result.route == "clarify" and result.clarify:
+            trace.set_clarify({
+                "needs_clarification": True,
+                "ask_question": result.clarify.get("ask_question"),
+                "selected": clarification_selected,
+                "options": result.clarify.get("options") or [],
+            })
+            tid = self._commit_qa_trace(
+                trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
+            )
+            yield {"type": "clarify", "data": result.clarify}
+            yield {"type": "sources", "data": []}
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "clarify",
+                        "agent": result.to_trace(),
+                        "clarify": result.clarify,
+                    },
+                }
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
+            yield {"type": "done"}
+            return
+        source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+        context = self._format_context(source_docs)
+        trace.set_retrieval(retrieved_source_docs)
+        trace.mark("retrieve")
+
+        allow_general = (
+            self._allow_general_knowledge if allow_general_knowledge is None
+            else allow_general_knowledge
+        )
+        if not source_docs and not allow_general:
+            evidence = build_evidence_pack(NO_KNOWLEDGE_ANSWER, retrieved_source_docs, [])
+            tid = self._commit_qa_trace(
+                trace, answer=NO_KNOWLEDGE_ANSWER,
+                retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
+            )
+            yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
+            yield {"type": "sources", "data": []}
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "done",
+                        "answer": NO_KNOWLEDGE_ANSWER,
+                        "evidence": evidence,
+                        "agent": result.to_trace(),
+                    },
+                }
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
+            yield {"type": "done"}
+            return
+
+        pack = self._pack_for_generation(
+            source_docs, context, history, q, agent_prompt=agent_prompt,
+        )
+        source_docs, context, history = pack.source_docs, pack.context, pack.history
+        history_summary = pack.history_summary
+        trace.set_pack(pack.decision)
+        trace.mark("pack")
+        yield {"type": "status", "data": "正在整理答案..."}
+
+        plan = result.plan
+        msgs = self._build_messages(
+            q, context, history, agent_prompt=agent_prompt,
+            allow_general_knowledge=allow_general,
+            history_summary=history_summary,
+            dialogue_focus=getattr(result.conversation.understanding, "dialogue_focus", "") or "",
+            linked_entities=getattr(plan, "linked_entities", ()) if plan is not None else (),
+            backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "" if plan is not None else "",
+            backbone_canonical=getattr(plan, "backbone_canonical", ()) or () if plan is not None else (),
+            backbone_avoid=getattr(plan, "backbone_avoid", ()) or () if plan is not None else (),
+            job=getattr(plan, "job", "") or "" if plan is not None else "",
+            prompt_layout="agent",
+            conversation_context_section=result.conversation.to_prompt(
+                history_summary=history_summary,
+            ),
+            evidence_pool_section=result.evidence.to_prompt(context),
+        )
+
+        guarded_model, downshifted = self._apply_vram_guard(llm_model)
+        model = guarded_model
+        enable_model_thinking = bool(thinking) and self._need_ollama_thinking(model)
+        if downshifted:
+            yield {"type": "notice", "data": self._downshift_fields(True, guarded_model)["downshift_notice"]}
+
+        from rag_knowledge.llm_http import achat_stream
+
+        ep = self._resolve_llm_endpoint(model)
+        in_thinking_tag = False
+        answer_parts: list[str] = []
+        thinking_parts: list[str] = []
+        try:
+            async for content in achat_stream(
+                ep,
+                msgs,
+                default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                temperature=0.1,
+                timeout=600.0,
+                num_predict=2048,
+                think=bool(enable_model_thinking),
+            ):
+                if not content:
+                    continue
+                if "<think>" in content:
+                    parts = content.split("<think>")
+                    if parts[0]:
+                        answer_parts.append(parts[0])
+                        yield {"type": "token", "data": parts[0]}
+                    in_thinking_tag = True
+                    rest = parts[1]
+                    if "</think>" in rest:
+                        t_parts = rest.split("</think>")
+                        thinking_parts.append(t_parts[0])
+                        yield {"type": "thinking", "data": t_parts[0]}
+                        in_thinking_tag = False
+                        if t_parts[1]:
+                            answer_parts.append(t_parts[1])
+                            yield {"type": "token", "data": t_parts[1]}
+                    else:
+                        thinking_parts.append(rest)
+                        yield {"type": "thinking", "data": rest}
+                elif "</think>" in content:
+                    parts = content.split("</think>")
+                    thinking_parts.append(parts[0])
+                    yield {"type": "thinking", "data": parts[0]}
+                    in_thinking_tag = False
+                    if parts[1]:
+                        answer_parts.append(parts[1])
+                        yield {"type": "token", "data": parts[1]}
+                elif in_thinking_tag:
+                    thinking_parts.append(content)
+                    yield {"type": "thinking", "data": content}
+                else:
+                    answer_parts.append(content)
+                    yield {"type": "token", "data": content}
+        except Exception as stream_exc:
+            logger.error("模型流式调用失败: %s", stream_exc)
+            fail_msg = f"模型调用失败：{stream_exc}"
+            tid = self._commit_qa_trace(
+                trace, answer=fail_msg,
+                retrieved_docs=retrieved_source_docs, context_docs=source_docs,
+                cited_docs=[], error=fail_msg,
+            )
+            yield {"type": "token", "data": fail_msg}
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
+            yield {"type": "done"}
+            return
+
+        trace.mark("generate")
+        answer_text = "".join(answer_parts)
+        if not answer_text.strip():
+            fallback_answer = (
+                "知识库已完成检索，但模型没有返回有效答案，请重试一次。"
+                if source_docs else NO_KNOWLEDGE_ANSWER
+            )
+            answer_text = fallback_answer
+            yield {"type": "token", "data": fallback_answer}
+
+        governed_answer = govern_answer(answer_text, q, source_docs)
+        if governed_answer != answer_text:
+            yield {"type": "final_answer", "data": governed_answer}
+        answer_text = governed_answer
+        cited = self._filter_cited_sources(answer_text, source_docs)
+        evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
+        tid = self._commit_qa_trace(
+            trace,
+            answer=answer_text,
+            retrieved_docs=retrieved_source_docs,
+            context_docs=source_docs,
+            cited_docs=cited,
+        )
+        yield {"type": "sources", "data": cited}
+        if pipeline_events:
+            yield {
+                "type": "pipeline",
+                "data": {
+                    "stage": "done",
+                    "answer": answer_text,
+                    "evidence": evidence,
+                    "source_documents": cited,
+                    "agent": result.to_trace(),
+                },
+            }
+        if tid:
+            yield {"type": "trace", "data": {"trace_id": tid}}
+        yield {"type": "done"}
+
+    async def _aquery_agent(
+        self,
+        question: str,
+        history: list | None,
+        *,
+        llm_model: str | None,
+        kb_name: str | None,
+        doc_category: str | None,
+        entity_name: str | None,
+        thinking: bool | None,
+        web_search: bool | None,
+        allow_general_knowledge: bool | None,
+        agent_prompt: str | None,
+        include_evidence: bool,
+        clarification_question: str | None,
+        clarification_selected: str | None,
+        trace,
+    ) -> dict:
+        q = (question or "").strip()
+        result = await self._run_agent_turn(
+            q,
+            history=history,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            entity_name=entity_name,
+            web_search=bool(web_search),
+            pinned_chunk_ids=None,
+            excluded_chunk_ids=None,
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
+        )
+        if getattr(self, "_last_understanding", None) is None and result.conversation.understanding is not None:
+            self._last_understanding = result.conversation.understanding
+        if result.conversation.understanding is not None:
+            trace.set_understanding(result.conversation.understanding)
+        if result.plan is not None:
+            trace.set_plan(result.plan)
+        trace.set_agent(result.to_trace())
+        if result.route == "clarify" and result.clarify:
+            trace.set_clarify({
+                "needs_clarification": True,
+                "ask_question": result.clarify.get("ask_question"),
+                "selected": clarification_selected,
+                "options": result.clarify.get("options") or [],
+            })
+            tid = self._commit_qa_trace(
+                trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
+            )
+            out = {
+                "answer": "",
+                "source_documents": [],
+                "clarification": result.clarify,
+            }
+            if tid:
+                out["trace_id"] = tid
+            return out
+        source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+        context = self._format_context(source_docs)
+        trace.set_retrieval(retrieved_source_docs)
+        trace.mark("retrieve")
+
+        allow_general = (
+            self._allow_general_knowledge if allow_general_knowledge is None
+            else allow_general_knowledge
+        )
+        if not source_docs and not allow_general:
+            tid = self._commit_qa_trace(
+                trace, answer=NO_KNOWLEDGE_ANSWER,
+                retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
+            )
+            out = {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+            if tid:
+                out["trace_id"] = tid
+            if include_evidence:
+                out["evidence_chain"] = build_evidence_pack(
+                    NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                )
+            return out
+
+        pack = self._pack_for_generation(
+            source_docs, context, history, q, agent_prompt=agent_prompt,
+        )
+        source_docs, context, history = pack.source_docs, pack.context, pack.history
+        history_summary = pack.history_summary
+        trace.set_pack(pack.decision)
+        trace.mark("pack")
+
+        plan = result.plan
+        msgs = self._build_messages(
+            q, context, history, agent_prompt=agent_prompt,
+            allow_general_knowledge=allow_general,
+            history_summary=history_summary,
+            dialogue_focus=getattr(result.conversation.understanding, "dialogue_focus", "") or "",
+            linked_entities=getattr(plan, "linked_entities", ()) if plan is not None else (),
+            backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "" if plan is not None else "",
+            backbone_canonical=getattr(plan, "backbone_canonical", ()) or () if plan is not None else (),
+            backbone_avoid=getattr(plan, "backbone_avoid", ()) or () if plan is not None else (),
+            job=getattr(plan, "job", "") or "" if plan is not None else "",
+            prompt_layout="agent",
+            conversation_context_section=result.conversation.to_prompt(
+                history_summary=history_summary,
+            ),
+            evidence_pool_section=result.evidence.to_prompt(context),
+        )
+        guarded_model, downshifted = self._apply_vram_guard(llm_model)
+        llm = self._build_llm(guarded_model)
+        from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+        lc_msgs = []
+        for m in msgs:
+            if m["role"] == "system":
+                lc_msgs.append(SystemMessage(content=m["content"]))
+            elif m["role"] == "assistant":
+                lc_msgs.append(AIMessage(content=m["content"]))
+            else:
+                lc_msgs.append(HumanMessage(content=m["content"]))
+        answer = await asyncio.to_thread(llm.invoke, lc_msgs)
+        answer_content = answer.content if hasattr(answer, "content") else str(answer)
+        trace.mark("generate")
+        if not answer_content.strip():
+            answer_content = NO_KNOWLEDGE_ANSWER
+        answer_content = govern_answer(answer_content, q, source_docs)
+        cited = self._filter_cited_sources(answer_content, source_docs)
+        evidence = build_evidence_pack(answer_content, retrieved_source_docs, source_docs)
+        tid = self._commit_qa_trace(
+            trace,
+            answer=answer_content,
+            retrieved_docs=retrieved_source_docs,
+            context_docs=source_docs,
+            cited_docs=cited,
+        )
+        out = {
+            "answer": answer_content,
+            "source_documents": cited,
+            **self._downshift_fields(downshifted, guarded_model),
+        }
+        if include_evidence:
+            out["evidence_chain"] = evidence
+        if tid:
+            out["trace_id"] = tid
+        return out
+
     def query(self, question: str, history: list | None = None,
               llm_model: str | None = None, vision_model: str | None = None,
               kb_name: str | None = None, doc_category: str | None = None,
@@ -2288,9 +3189,27 @@ class RagChain:
         rejected = self._com_phase0_reject_if_needed(q, entity_name=entity_name)
         if rejected is not None:
             return rejected
-        rejected = self._j3_clarify_reject_if_needed(q, entity_name=entity_name)
-        if rejected is not None:
-            return rejected
+        if not self._agent_orchestration_enabled():
+            rejected = self._j3_clarify_reject_if_needed(q, entity_name=entity_name)
+            if rejected is not None:
+                return rejected
+
+        if self._agent_orchestration_enabled():
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return asyncio.run(self.aquery(
+                    question, history,
+                    llm_model=llm_model, vision_model=vision_model,
+                    kb_name=kb_name, doc_category=doc_category,
+                    entity_name=entity_name, thinking=thinking,
+                    web_search=web_search,
+                    allow_general_knowledge=allow_general_knowledge,
+                    agent_prompt=agent_prompt,
+                ))
+            raise RuntimeError(
+                "query() cannot run agent orchestration inside a running event loop; use aquery"
+            )
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
@@ -2510,16 +3429,43 @@ class RagChain:
                 rejected = {**rejected, "trace_id": tid}
             return rejected
 
-        rejected = self._j3_clarify_reject_if_needed(
-            q,
-            entity_name=entity_name,
-            clarification_selected=clarification_selected,
-        )
-        if rejected is not None:
-            tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
-            if tid:
-                rejected = {**rejected, "trace_id": tid}
-            return rejected
+        if not self._agent_orchestration_enabled():
+            rejected = self._j3_clarify_reject_if_needed(
+                q,
+                entity_name=entity_name,
+                clarification_selected=clarification_selected,
+            )
+            if rejected is not None:
+                tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
+                if tid:
+                    rejected = {**rejected, "trace_id": tid}
+                return rejected
+
+        if self._agent_orchestration_enabled():
+            try:
+                return await self._aquery_agent(
+                    q, history,
+                    llm_model=llm_model,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    entity_name=entity_name,
+                    thinking=thinking,
+                    web_search=web_search,
+                    allow_general_knowledge=allow_general_knowledge,
+                    agent_prompt=agent_prompt,
+                    include_evidence=include_evidence,
+                    clarification_question=clarification_question,
+                    clarification_selected=clarification_selected,
+                    trace=trace,
+                )
+            except Exception as e:
+                logger.error("异步查询失败: %s", e)
+                err_answer = f"查询出错: {str(e)}"
+                tid = self._commit_qa_trace(trace, answer=err_answer, retrieved_docs=[], error=str(e))
+                out = {"answer": err_answer, "source_documents": []}
+                if tid:
+                    out["trace_id"] = tid
+                return out
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
@@ -2772,18 +3718,57 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        rejected = self._j3_clarify_reject_if_needed(
-            q,
-            entity_name=entity_name,
-            clarification_selected=clarification_selected,
-        )
-        if rejected is not None:
-            yield {"type": "token", "data": rejected["answer"]}
-            yield {"type": "sources", "data": []}
-            tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
-            if tid:
-                yield {"type": "trace", "data": tid}
-            yield {"type": "done"}
+        if not self._agent_orchestration_enabled():
+            rejected = self._j3_clarify_reject_if_needed(
+                q,
+                entity_name=entity_name,
+                clarification_selected=clarification_selected,
+            )
+            if rejected is not None:
+                yield {"type": "token", "data": rejected["answer"]}
+                yield {"type": "sources", "data": []}
+                tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
+                if tid:
+                    yield {"type": "trace", "data": tid}
+                yield {"type": "done"}
+                return
+
+        if self._agent_orchestration_enabled():
+            orch = getattr(self._cfg, "agent_orchestration", None)
+            try:
+                agen = self._stream_agent_query(
+                    q, history,
+                    llm_model=llm_model,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    entity_name=entity_name,
+                    thinking=thinking,
+                    web_search=web_search,
+                    allow_general_knowledge=allow_general_knowledge,
+                    agent_prompt=agent_prompt,
+                    pipeline_events=pipeline_events,
+                    pinned_chunk_ids=pinned_chunk_ids,
+                    excluded_chunk_ids=excluded_chunk_ids,
+                    path=path,
+                    clarification_question=clarification_question,
+                    clarification_selected=clarification_selected,
+                    trace=trace,
+                )
+                async for event in self._iter_with_heartbeat(
+                    agen,
+                    initial_delay=float(getattr(orch, "heartbeat_initial_delay", 1.5) or 1.5),
+                    interval=float(getattr(orch, "heartbeat_interval", 5.0) or 5.0),
+                ):
+                    yield event
+            except Exception as e:
+                logger.error("流式查询失败: %s", e)
+                err_answer = f"查询出错: {str(e)}"
+                tid = self._commit_qa_trace(trace, answer=err_answer, retrieved_docs=[], error=str(e))
+                yield {"type": "token", "data": err_answer}
+                yield {"type": "sources", "data": []}
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
+                yield {"type": "done"}
             return
 
         retrieved_source_docs: list[dict] = []

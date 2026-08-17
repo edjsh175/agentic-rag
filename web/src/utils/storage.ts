@@ -25,6 +25,10 @@ interface StoredMsg {
   feedback?: 'useful' | 'unuseful' | null
   trace_id?: string | null
   clarification?: MessageClarification
+  thinking?: string
+  thinkingDuration?: string
+  agentTools?: any[]
+  timelineItems?: any[]
 }
 
 // ================================================================
@@ -41,6 +45,10 @@ function saveMessages(messages: ChatMessage[]): void {
     feedback: m.feedback,
     trace_id: m.trace_id,
     clarification: m.clarification,
+    thinking: m.thinking,
+    thinkingDuration: m.thinkingDuration,
+    agentTools: m.agentTools,
+    timelineItems: m.timelineItems,
   }))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
@@ -141,6 +149,10 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         feedback: s.feedback,
         trace_id: s.trace_id,
         clarification: s.clarification,
+        thinking: s.thinking,
+        thinkingDuration: s.thinkingDuration,
+        agentTools: s.agentTools,
+        timelineItems: s.timelineItems,
       }
       if (s.hasImage) {
         msg.imageUrl = (await loadImageFromDB(s.id)) ?? undefined
@@ -170,6 +182,10 @@ export async function loadChatState(): Promise<ChatMessage[]> {
         feedback: m.feedback,
         trace_id: m.trace_id,
         clarification: m.clarification,
+        thinking: m.thinking,
+        thinkingDuration: m.thinkingDuration,
+        agentTools: m.agentTools,
+        timelineItems: m.timelineItems,
       }))
       return restoreMessages(stored)
     }
@@ -207,6 +223,10 @@ export async function saveChatState(messages: ChatMessage[]): Promise<void> {
       feedback: m.feedback,
       trace_id: m.trace_id,
       clarification: m.clarification,
+      thinking: m.thinking,
+      thinkingDuration: m.thinkingDuration,
+      agentTools: m.agentTools,
+      timelineItems: m.timelineItems,
     }))
 
   // 2. 写入服务器

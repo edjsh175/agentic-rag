@@ -353,7 +353,7 @@ class GraphQueryRewriter:
 
         raw = chat_role(
             self._cfg,
-            "helper_llm",
+            "llm",
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=384,
@@ -530,7 +530,7 @@ class GraphQueryRewriter:
 
         raw = chat_role(
             self._cfg,
-            "helper_llm",
+            "llm",
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=256,

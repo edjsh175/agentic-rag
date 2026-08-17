@@ -72,3 +72,20 @@ def test_evidence_pack_detects_tls_port_conflict_across_config_and_table_text():
     conflict = next(item for item in pack["conflicts"] if item["key"] == "tls_port")
     assert {value["value"] for value in conflict["values"]} == {"5349", "5439"}
     assert len(conflict["values"]) == 2
+
+
+def test_governance_rejects_hallucinated_body_when_uncited_and_disconnected():
+    source = _source(1, "管线点表字段说明：管点编号、地面高程、特征、附属物设施", section_path="PipelineBuilder > 数据规范 > 管线点表")
+    hallucinated_answer = (
+        "PipelineBuilder 是一个由 Palantir 开发的可视化数据集成平台，"
+        "支持解析 XML、JSON、PDF 数据集并进行 joins 和 unions 操作。"
+    )
+    result = govern_answer(hallucinated_answer, "pipelinebuilder", [source])
+    # The hallucinated Palantir content must be discarded
+    assert "Palantir" not in result
+    assert "XML" not in result
+    # It must fallback to grounded context bullets
+    assert "部分相关内容" in result
+    assert "相关原文要点" in result
+    assert "管线点表" in result
+    assert "[1]" in result

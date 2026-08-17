@@ -136,6 +136,9 @@ def runtime_fingerprint(cfg: Config | None = None) -> dict[str, Any]:
         "retrieval_quality_enabled": bool(cfg.retrieval_quality.enabled),
         "llm_model": cfg.llm_model,
         "helper_llm_model": cfg.helper_llm_model,
+        "agent_orchestration_enabled": bool(
+            getattr(getattr(cfg, "agent_orchestration", None), "enabled", False)
+        ),
     }
 
 
@@ -178,6 +181,7 @@ class QaTraceBuilder:
         self._pack: dict[str, Any] = {}
         self._understanding: dict[str, Any] = {}
         self._clarify: dict[str, Any] = {}
+        self._agent: dict[str, Any] = {}
         self._request = {
             "question": question or "",
             "collection_name": collection_name,
@@ -281,6 +285,11 @@ class QaTraceBuilder:
             return
         self._clarify = dict(clarify or {})
 
+    def set_agent(self, payload: dict[str, Any] | None) -> None:
+        if not self._enabled:
+            return
+        self._agent = dict(payload or {})
+
     def finish(
         self,
         *,
@@ -308,6 +317,7 @@ class QaTraceBuilder:
             "plan": self._plan,
             "understanding": self._understanding,
             "clarify": self._clarify,
+            "agent": self._agent,
             "retrieval": self._retrieval,
             "pack": self._pack,
             "evidence": evidence or {},

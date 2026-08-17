@@ -531,10 +531,10 @@ class QueryContextualizer:
 
         raw = chat_role(
             self._cfg,
-            "helper_llm",
+            "llm",
             [{"role": "user", "content": prompt}],
             temperature=0.0,
-            num_predict=256,
+            num_predict=512,
             timeout=float(self._timeout),
             think=False,
         ).strip()

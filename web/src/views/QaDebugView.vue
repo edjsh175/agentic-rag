@@ -15,6 +15,7 @@ const selectedClarificationOptionId = ref<string | undefined>(undefined)
 
 // 丰富调试参数选择
 const availableModels = ref<{ name: string; type?: string }[]>([])
+const agentOrchestrationEnabled = ref(false)
 const kbList = ref<string[]>([])
 const agents = ref<any[]>([])
 
@@ -292,6 +293,12 @@ async function runActualDebugStream(
           selectedId.value = finishedTraceId
           if (detail.value) detail.value.meta.trace_id = finishedTraceId
         },
+        onClarify: (data) => {
+          if (data?.needs_clarification && data.options?.length >= 2) {
+            debugClarification.value = data
+            liveStatus.value = '检测到潜在歧义，请选择确认...'
+          }
+        },
         onDone: () => {
           liveStatus.value = '执行完成'
         },
@@ -324,14 +331,17 @@ async function runDebug() {
   clarifiedQuestion.value = ''
   selectedClarificationOptionId.value = undefined
 
+  const qText = question.value.trim()
+  clarifiedQuestion.value = qText
+
   abortCtrl?.abort()
   abortCtrl = new AbortController()
   loading.value = true
   error.value = ''
-  liveStatus.value = '歧义预检中...'
+  liveStatus.value = agentOrchestrationEnabled.value ? '发起调试中...' : '歧义预检中...'
   liveAnswer.value = ''
   selectedId.value = '(运行中)'
-  detail.value = emptyDetail(question.value.trim())
+  detail.value = emptyDetail(qText)
   activeTab.value = 'timeline'
 
   const currentOpts: DebugStreamOptions = {
@@ -345,30 +355,31 @@ async function runDebug() {
     agentPrompt: debugAgentPrompt.value || undefined,
   }
 
-  try {
-    const clarifyRes = await queryClarify(
-      question.value.trim(),
-      currentOpts.docCategory,
-      currentOpts.kbName,
-      abortCtrl.signal,
-    )
-    if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
-      debugClarification.value = clarifyRes
-      clarifiedQuestion.value = question.value.trim()
-      loading.value = false
-      liveStatus.value = '检测到潜在歧义，请选择确认...'
-      return
+  if (!agentOrchestrationEnabled.value) {
+    try {
+      const clarifyRes = await queryClarify(
+        qText,
+        currentOpts.docCategory,
+        currentOpts.kbName,
+        abortCtrl.signal,
+      )
+      if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
+        debugClarification.value = clarifyRes
+        loading.value = false
+        liveStatus.value = '检测到潜在歧义，请选择确认...'
+        return
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        liveStatus.value = '已终止调试'
+        loading.value = false
+        return
+      }
+      // 预检服务异常时，优雅降级直接进入调试
     }
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      liveStatus.value = '已终止调试'
-      loading.value = false
-      return
-    }
-    // 预检服务异常时，优雅降级直接进入调试
   }
 
-  await runActualDebugStream(question.value.trim(), currentOpts)
+  await runActualDebugStream(qText, currentOpts)
 }
 
 async function handleSelectClarificationOption(option: ClarificationOption) {
@@ -498,6 +509,7 @@ onMounted(async () => {
   try {
     const modelsResp = await getModels()
     availableModels.value = modelsResp.models || []
+    agentOrchestrationEnabled.value = Boolean(modelsResp.current?.agent_orchestration_enabled)
     const kbs = await getKnowledgeBases()
     kbList.value = kbs.bases || []
     const ags = await getAgents()

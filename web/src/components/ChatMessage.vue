@@ -2,9 +2,12 @@
 import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role, SourceDoc, MessageClarification, ClarificationOption, PipelineStep, EvidencePack, EvidenceItem } from '../types'
+import type { Role, SourceDoc, MessageClarification, ClarificationOption, PipelineStep, EvidencePack, EvidenceItem, AgentToolCall, AgentTimelineItem } from '../types'
 import { decorateCitations } from '../utils/citations'
 import EvidencePanel from './EvidencePanel.vue'
+import AgentThinkingBlock from './AgentThinkingBlock.vue'
+import AgentToolTimeline from './AgentToolTimeline.vue'
+import AgentStepStream from './AgentStepStream.vue'
 
 const props = defineProps<{
   role: Role
@@ -13,6 +16,10 @@ const props = defineProps<{
   loading?: boolean
   status?: string
   thinking?: string
+  isThinking?: boolean
+  thinkingDuration?: string
+  agentTools?: AgentToolCall[]
+  timelineItems?: AgentTimelineItem[]
   sources?: SourceDoc[]
   clarification?: MessageClarification
   feedback?: 'useful' | 'unuseful' | null
@@ -30,7 +37,6 @@ const emit = defineEmits<{
   cancelClarification: []
 }>()
 
-const showThinking = ref(true)
 const otherInputVal = ref('')
 const showOtherInput = ref(false)
 const otherError = ref('')
@@ -58,10 +64,10 @@ function submitOther() {
   const matched = matchOtherToOption(text)
   if (!matched) {
     otherError.value = '无法匹配到上方选项。请直接点选，或输入 StampWebRTC / StampWebGL / COM / Explorer。'
-    return
+  } else {
+    otherError.value = ''
+    emit('selectClarificationOption', { ...matched })
   }
-  otherError.value = ''
-  emit('selectClarificationOption', { ...matched })
 }
 
 const isUser = computed(() => props.role === 'user')
@@ -100,15 +106,29 @@ function handleContentClick(event: MouseEvent) {
       <div class="bubble" :class="{ 'bubble--user': isUser, 'bubble--loading': loading && !content && !clarification }">
         <img v-if="imageUrl" :src="imageUrl" class="msg-image" />
 
-        <div v-if="thinking && !isUser" class="thinking-wrap">
-          <button class="thinking-toggle" @click="showThinking = !showThinking">
-            <svg :class="{ rotated: showThinking }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            深度思考
-          </button>
-          <div v-if="showThinking" class="thinking-content">{{ thinking }}</div>
-        </div>
+        <!-- Coding Agent 完整时序流（Think 与 Tool IN/OUT） -->
+        <AgentStepStream
+          v-if="!isUser && ((timelineItems && timelineItems.length > 0) || (loading && status))"
+          :items="timelineItems || []"
+          :loading="loading"
+          :active-status="status"
+        />
+
+        <!-- 降级兼容：若只有旧版 thinking 且无 timelineItems -->
+        <AgentThinkingBlock
+          v-else-if="thinking && !isUser && (!timelineItems || timelineItems.length === 0)"
+          :thinking="thinking"
+          :is-thinking="isThinking"
+          :duration="thinkingDuration"
+        />
+
+        <!-- 降级兼容：若只有旧版 agentTools 且无 timelineItems -->
+        <AgentToolTimeline
+          v-if="!isUser && (!timelineItems || timelineItems.length === 0) && (agentTools && agentTools.length > 0)"
+          :tools="agentTools || []"
+          :loading="loading"
+          :active-status="status"
+        />
 
         <!-- 歧义反问卡片 -->
         <div v-if="clarification && !isUser" class="clarification-card">
@@ -196,12 +216,7 @@ function handleContentClick(event: MouseEvent) {
           </div>
         </div>
 
-        <div v-if="loading && status" class="stream-status">
-          <span class="status-dot"></span>
-          <span>{{ status }}</span>
-        </div>
-
-        <div v-else-if="loading && !content" class="typing">
+        <div v-if="loading && !content && !thinking && (!agentTools || agentTools.length === 0) && !status" class="typing">
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
@@ -327,7 +342,7 @@ function handleContentClick(event: MouseEvent) {
 }
 
 .body {
-  max-width: 70%;
+  max-width: 85%;
   min-width: 0;
 }
 

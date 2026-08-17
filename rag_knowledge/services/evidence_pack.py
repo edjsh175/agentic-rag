@@ -281,6 +281,21 @@ def _append_evidence_bullets(
     return answer.rstrip() + "\n\n相关原文要点：\n" + "\n".join(bullets)
 
 
+def _has_substantial_grounding(answer: str, context_docs: list[dict[str, Any]]) -> bool:
+    """Check if an uncited answer has substantial keyword/token overlap with context docs."""
+    ans_folded = (answer or "").casefold()
+    overlap_count = 0
+    for doc in context_docs:
+        blob = _doc_blob(doc)
+        tokens = re.findall(r"[\u4e00-\u9fff]{2,}|[a-z0-9_]{3,}", blob)
+        for tok in tokens[:30]:
+            if tok in ans_folded:
+                overlap_count += 1
+                if overlap_count >= 2:
+                    return True
+    return False
+
+
 def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]) -> str:
     """Prevent an uncited or completeness-sensitive answer from overclaiming."""
     answer = (answer or "").strip()
@@ -297,9 +312,12 @@ def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]
 
     cited = cited_sources(answer, docs)
     if not cited:
-        # Keep detailed body; do not wipe with the rule-4 template.
         if docs:
-            return _supplement_uncited_answer(answer, question, docs)
+            if _has_substantial_grounding(answer, docs):
+                return _supplement_uncited_answer(answer, question, docs)
+            repaired = build_partial_grounded_answer(question, docs)
+            if repaired:
+                return _append_evidence_bullets(repaired, question, docs)
         return "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。"
     conflict_notice = _conflict_notice(docs)
     if conflict_notice and "请核对原文" not in answer:

@@ -455,6 +455,7 @@ async def _astream_ollama(
             if resp.status_code != 200:
                 body = await resp.aread()
                 raise RuntimeError(f"ollama stream HTTP {resp.status_code}: {body[:300]!r}")
+            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line:
                     continue
@@ -463,9 +464,20 @@ async def _astream_ollama(
                 except json.JSONDecodeError:
                     continue
                 msg = chunk.get("message") or {}
-                piece = msg.get("content") or ""
-                if piece:
-                    yield piece
+                thinking_piece = msg.get("thinking") or ""
+                content_piece = msg.get("content") or ""
+                if thinking_piece:
+                    if not in_thinking:
+                        yield "<think>"
+                        in_thinking = True
+                    yield thinking_piece
+                if content_piece:
+                    if in_thinking:
+                        yield "</think>"
+                        in_thinking = False
+                    yield content_piece
+            if in_thinking:
+                yield "</think>"
 
 
 async def _astream_openai(
@@ -497,6 +509,7 @@ async def _astream_openai(
             if resp.status_code != 200:
                 body = await resp.aread()
                 raise RuntimeError(f"openai stream HTTP {resp.status_code}: {body[:300]!r}")
+            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line or not line.startswith("data:"):
                     continue
@@ -511,9 +524,20 @@ async def _astream_openai(
                 if not choices:
                     continue
                 delta = choices[0].get("delta") or {}
-                piece = delta.get("content") or ""
-                if piece:
-                    yield piece
+                reasoning_piece = delta.get("reasoning_content") or delta.get("reasoning") or ""
+                content_piece = delta.get("content") or ""
+                if reasoning_piece:
+                    if not in_thinking:
+                        yield "<think>"
+                        in_thinking = True
+                    yield reasoning_piece
+                if content_piece:
+                    if in_thinking:
+                        yield "</think>"
+                        in_thinking = False
+                    yield content_piece
+            if in_thinking:
+                yield "</think>"
 
 
 async def _astream_google(
@@ -541,6 +565,7 @@ async def _astream_google(
             if resp.status_code != 200:
                 raw = await resp.aread()
                 raise RuntimeError(f"google stream HTTP {resp.status_code}: {raw[:300]!r}")
+            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line:
                     continue
@@ -556,8 +581,21 @@ async def _astream_google(
                     continue
                 parts = ((candidates[0].get("content") or {}).get("parts")) or []
                 for part in parts:
-                    if isinstance(part, dict) and part.get("text"):
-                        yield str(part["text"])
+                    if isinstance(part, dict):
+                        thought = part.get("thought") or ""
+                        text = part.get("text") or ""
+                        if thought:
+                            if not in_thinking:
+                                yield "<think>"
+                                in_thinking = True
+                            yield str(thought)
+                        if text:
+                            if in_thinking:
+                                yield "</think>"
+                                in_thinking = False
+                            yield str(text)
+            if in_thinking:
+                yield "</think>"
 
 
 def chat_role(cfg: Any, role: str, messages: list[dict[str, Any]], **kwargs: Any) -> str:

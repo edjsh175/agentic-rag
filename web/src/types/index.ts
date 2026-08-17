@@ -1,6 +1,49 @@
 /** 消息角色 */
 export type Role = 'user' | 'assistant'
 
+/** Agent 工具调用记录 */
+export interface AgentToolCall {
+  name: string
+  ok?: boolean
+  elapsed_ms?: number
+  summary?: string
+  error?: string | null
+  fallback?: string | null
+  arguments?: Record<string, any>
+  observation?: any
+  status?: 'running' | 'success' | 'error' | 'recovery' | 'denied'
+  gap_type?: string
+  recovery_strategy?: string
+}
+
+/** 时序流单个节点（支持 Think 思考块与 Tool Call IN/OUT 卡片） */
+export type AgentTimelineItem =
+  | {
+      type: 'think'
+      content: string
+      duration?: string
+      isThinking?: boolean
+    }
+  | {
+      type: 'tool_call'
+      tool: string
+      label?: string
+      description?: string
+      in?: any
+      out?: any
+      status?: 'running' | 'completed' | 'failed' | 'denied'
+      elapsed_ms?: number
+      exitCode?: number
+      gap_type?: string
+      recovery_strategy?: string
+      error?: string | null
+    }
+  | {
+      type: 'context_inject'
+      label: string
+      details: string
+    }
+
 /** 单条聊天消息 */
 export interface Message {
   id: string
@@ -16,6 +59,14 @@ export interface Message {
   status?: string
   /** 深度思考过程（assistant 消息） */
   thinking?: string
+  /** 是否正在进行深度思考 */
+  isThinking?: boolean
+  /** 思考耗时描述（如 "1.2s"） */
+  thinkingDuration?: string
+  /** Agent 工具执行轨迹 */
+  agentTools?: AgentToolCall[]
+  /** Agent 完整时序流（Think / Tool Call IN/OUT） */
+  timelineItems?: AgentTimelineItem[]
   /** 歧义反问卡片 */
   clarification?: MessageClarification
   /** 用户反馈（useful / unuseful） */

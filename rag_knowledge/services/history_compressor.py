@@ -139,7 +139,7 @@ class HistoryCompressor:
             logger.debug("开始调用 helper_llm 压缩对话历史...")
             content = chat_role(
                 self._main_cfg,
-                "helper_llm",
+                "llm",
                 [
                     {
                         "role": "system",

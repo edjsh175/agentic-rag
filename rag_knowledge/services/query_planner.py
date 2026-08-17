@@ -301,7 +301,7 @@ class QueryPlanner:
 
         raw = chat_role(
             self._cfg,
-            "helper_llm",
+            "llm",
             [{"role": "user", "content": _INTENT_PROMPT.format(question=question)}],
             temperature=0.0,
             num_predict=96,

@@ -195,6 +195,18 @@ class ClarificationConfig:
     j3_options_rollback_static: bool = False
 
 
+@dataclass
+class AgentOrchestrationConfig:
+    """LLM-led tool-calling Agent + Harness (PRD V1.3 Phase 1). Default off → old DAG."""
+    enabled: bool = False
+    max_steps: int = 8
+    max_retrieve_attempts: int = 2
+    # Per-tool hang guard only; never used as a whole-request wall-clock abort.
+    tool_timeout: float = 60.0
+    heartbeat_initial_delay: float = 1.5
+    heartbeat_interval: float = 5.0
+
+
 class Config:
     """配置管理中心（单例），所有模块通过此对象读取配置"""
 
@@ -578,6 +590,22 @@ class Config:
                 "clarification", "j3_options_rollback_static", "false"
             ).lower()
             == "true",
+        )
+
+        self.agent_orchestration = AgentOrchestrationConfig(
+            enabled=_get("agent_orchestration", "enabled", "false").lower() == "true",
+            max_steps=int(_get("agent_orchestration", "max_steps", "8")),
+            max_retrieve_attempts=max(
+                1,
+                min(3, int(_get("agent_orchestration", "max_retrieve_attempts", "2"))),
+            ),
+            tool_timeout=float(_get("agent_orchestration", "tool_timeout", "60")),
+            heartbeat_initial_delay=float(
+                _get("agent_orchestration", "heartbeat_initial_delay", "1.5")
+            ),
+            heartbeat_interval=float(
+                _get("agent_orchestration", "heartbeat_interval", "5")
+            ),
         )
 
         self._assert_test_paths_are_isolated(root)

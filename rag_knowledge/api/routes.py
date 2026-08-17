@@ -206,6 +206,9 @@ def list_models():
                 "compression": _cfg.compression_endpoint.provider,
                 "graph_extraction": _cfg.graph_extraction_endpoint.provider,
             },
+            "agent_orchestration_enabled": bool(
+                getattr(getattr(_cfg, "agent_orchestration", None), "enabled", False)
+            ),
         },
     }
 
@@ -312,6 +315,7 @@ async def query(req: QueryRequest):
             source_documents=result["source_documents"],
             used_model=result.get("used_model"),
             downshift_notice=result.get("downshift_notice"),
+            clarification=result.get("clarification"),
         )
     except Exception as e:
         logger.error("查询失败: %s", e)
@@ -396,6 +400,16 @@ async def query_stream(req: QueryRequest):
 
             if event.get("type") == "status":
                 yield "event: status\n"
+            elif event.get("type") == "heartbeat":
+                yield "event: heartbeat\n"
+            elif event.get("type") == "clarify":
+                yield "event: clarify\n"
+            elif event.get("type") == "thinking":
+                yield "event: thinking\n"
+            elif event.get("type") == "tool_start":
+                yield "event: tool_start\n"
+            elif event.get("type") == "tool_end":
+                yield "event: tool_end\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -1201,6 +1215,10 @@ async def admin_qa_debug_stream(req: QueryRequest):
 
             if event.get("type") == "status":
                 yield "event: status\n"
+            elif event.get("type") == "heartbeat":
+                yield "event: heartbeat\n"
+            elif event.get("type") == "clarify":
+                yield "event: clarify\n"
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(

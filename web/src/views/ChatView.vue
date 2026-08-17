@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'ChatView' })
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats, ClarificationOption, EvidenceItem, GpuStatus } from '../types'
+import type { Message, SourceDoc, Stats, ClarificationOption, ClarifyResult, EvidenceItem, GpuStatus, AgentToolCall, AgentTimelineItem } from '../types'
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getGpuStatus, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
@@ -181,6 +181,7 @@ function showToast(msg: string) {
 }
 
 const availableModels = ref<{ name: string; type?: string }[]>([])
+const agentOrchestrationEnabled = ref(false)
 
 function modelType(name: string, type?: string): string {
   if (type) return type
@@ -306,6 +307,7 @@ onMounted(async () => {
     const modelsResp = await getModels()
     availableModels.value = modelsResp.models
     embeddingModel.value = modelsResp.current.embedding
+    agentOrchestrationEnabled.value = Boolean(modelsResp.current.agent_orchestration_enabled)
 
     const lastDefaultLlm = localStorage.getItem('rag-llm-default-model')
     if (lastDefaultLlm !== modelsResp.current.llm) {
@@ -374,6 +376,293 @@ function handleStop() {
     else last.content = '*（已停止）*'
   }
   persist()
+}
+
+function applyClarification(msg: Message, data: ClarifyResult | undefined) {
+  if (!data?.needs_clarification || !data.options || data.options.length < 2) return false
+  msg.loading = false
+  msg.status = undefined
+  msg.clarification = {
+    ask_question: data.ask_question || '请选择您要查询的具体模块或方向：',
+    trigger: data.trigger,
+    reason: data.reason,
+    options: data.options,
+  }
+  loading.value = false
+  return true
+}
+
+function createStreamHandler(targetMsg: Message) {
+  let inThinkTag = false
+  let thinkStartTime = Date.now()
+
+  if (!targetMsg.timelineItems) {
+    targetMsg.timelineItems = []
+  }
+
+  function getActiveThinkItem() {
+    if (!targetMsg.timelineItems) targetMsg.timelineItems = []
+    const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
+    if (last && last.type === 'think') {
+      return last
+    }
+    const newItem: AgentTimelineItem = {
+      type: 'think',
+      content: '',
+      isThinking: true,
+    }
+    targetMsg.timelineItems.push(newItem)
+    return newItem
+  }
+
+  return {
+    onStatus: (status: string) => {
+      targetMsg.status = status
+      scrollDown()
+    },
+    onToken: (token: string) => {
+      targetMsg.status = undefined
+      targetMsg.loading = false
+
+      let text = token
+      // 检查 <think> 标签流
+      if (!inThinkTag && text.includes('<think>')) {
+        const parts = text.split('<think>')
+        if (parts[0]) {
+          targetMsg.content += parts[0]
+        }
+        inThinkTag = true
+        targetMsg.isThinking = true
+        thinkStartTime = Date.now()
+        text = parts.slice(1).join('<think>')
+      }
+
+      if (inThinkTag) {
+        if (text.includes('</think>')) {
+          const parts = text.split('</think>')
+          const thinkText = parts[0]
+          targetMsg.thinking = (targetMsg.thinking || '') + thinkText
+          const activeThink = getActiveThinkItem()
+          activeThink.content = (activeThink.content || '') + thinkText
+          activeThink.isThinking = false
+          const durSec = ((Date.now() - thinkStartTime) / 1000).toFixed(1)
+          activeThink.duration = `${durSec}s`
+          targetMsg.thinkingDuration = `${durSec}s`
+
+          inThinkTag = false
+          targetMsg.isThinking = false
+          text = parts.slice(1).join('</think>')
+          if (text) {
+            targetMsg.content += text
+          }
+        } else {
+          targetMsg.thinking = (targetMsg.thinking || '') + text
+          const activeThink = getActiveThinkItem()
+          activeThink.content = (activeThink.content || '') + text
+          activeThink.isThinking = true
+        }
+      } else {
+        if (targetMsg.timelineItems) {
+          const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
+          if (last && last.type === 'think' && last.isThinking) {
+            last.isThinking = false
+          }
+        }
+        targetMsg.content += text
+      }
+      scrollDown()
+    },
+    onThinking: (thought: string) => {
+      targetMsg.isThinking = true
+      targetMsg.thinking = (targetMsg.thinking || '') + thought
+      const activeThink = getActiveThinkItem()
+      activeThink.content = (activeThink.content || '') + thought
+      activeThink.isThinking = true
+      scrollDown()
+    },
+    onToolStart: (data: any) => {
+      if (targetMsg.timelineItems) {
+        const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
+        if (last && last.type === 'think') {
+          last.isThinking = false
+        }
+      }
+      if (!targetMsg.agentTools) targetMsg.agentTools = []
+      targetMsg.agentTools.push({
+        name: data.name || 'retrieve_kb',
+        status: 'running',
+        arguments: data.arguments || {},
+        gap_type: data.gap_type,
+        recovery_strategy: data.recovery_strategy,
+      })
+
+      const toolLabel = data.name === 'retrieve_kb' ? '知识库检索' : (data.name === 'web_search' ? '外部网页检索' : data.name)
+      const desc = data.arguments?.query ? String(data.arguments.query) : data.name
+      if (!targetMsg.timelineItems) targetMsg.timelineItems = []
+      targetMsg.timelineItems.push({
+        type: 'tool_call',
+        tool: data.name || 'retrieve_kb',
+        label: toolLabel,
+        description: desc,
+        in: data.arguments || {},
+        status: 'running',
+        gap_type: data.gap_type,
+        recovery_strategy: data.recovery_strategy,
+      })
+      scrollDown()
+    },
+    onToolEnd: (data: any) => {
+      if (!targetMsg.agentTools) targetMsg.agentTools = []
+      let runningIdx = -1
+      for (let i = targetMsg.agentTools.length - 1; i >= 0; i--) {
+        const item = targetMsg.agentTools[i]
+        if (item.name === data.name && item.status === 'running') {
+          runningIdx = i
+          break
+        }
+      }
+      const record: AgentToolCall = {
+        name: data.name || 'retrieve_kb',
+        ok: data.ok,
+        elapsed_ms: data.elapsed_ms,
+        summary: data.summary,
+        error: data.error,
+        fallback: data.fallback,
+        arguments: data.arguments || {},
+        gap_type: data.gap_type,
+        recovery_strategy: data.recovery_strategy,
+        status: data.ok === false ? 'error' : (data.gap_type ? 'recovery' : 'success'),
+      }
+      if (runningIdx >= 0) {
+        targetMsg.agentTools[runningIdx] = record
+      } else {
+        targetMsg.agentTools.push(record)
+      }
+
+      if (targetMsg.timelineItems) {
+        let toolTimelineIdx = -1
+        for (let i = targetMsg.timelineItems.length - 1; i >= 0; i--) {
+          const it = targetMsg.timelineItems[i]
+          if (it.type === 'tool_call' && it.tool === data.name && it.status === 'running') {
+            toolTimelineIdx = i
+            break
+          }
+        }
+        const outData = data.summary ? { summary: data.summary, ok: data.ok } : (data.error ? { error: data.error } : data.data)
+        const toolItem: AgentTimelineItem = {
+          type: 'tool_call',
+          tool: data.name || 'retrieve_kb',
+          label: data.name === 'retrieve_kb' ? '知识库检索' : data.name,
+          description: data.arguments?.query || data.name,
+          in: data.arguments || {},
+          out: outData,
+          status: data.ok === false ? 'failed' : 'completed',
+          elapsed_ms: data.elapsed_ms,
+          exitCode: data.ok === false ? 1 : 0,
+          gap_type: data.gap_type,
+          recovery_strategy: data.recovery_strategy,
+          error: data.error,
+        }
+        if (toolTimelineIdx >= 0) {
+          targetMsg.timelineItems[toolTimelineIdx] = toolItem
+        } else {
+          targetMsg.timelineItems.push(toolItem)
+        }
+      }
+
+      scrollDown()
+    },
+    onFinalAnswer: (answer: string) => {
+      targetMsg.status = undefined
+      let cleanAnswer = answer || ''
+      if (cleanAnswer.includes('<think>')) {
+        const parts = cleanAnswer.split('</think>')
+        cleanAnswer = parts.length > 1 ? parts.slice(1).join('</think>').trim() : parts[0].split('<think>')[0].trim()
+      }
+      targetMsg.content = cleanAnswer
+      targetMsg.loading = false
+      targetMsg.isThinking = false
+      if (targetMsg.timelineItems) {
+        const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
+        if (last && last.type === 'think') {
+          last.isThinking = false
+        }
+      }
+      scrollDown()
+    },
+    onSources: (sources: any[]) => {
+      currentSources.value = sources
+      targetMsg.sources = sources
+    },
+    onTrace: (traceId: string) => {
+      targetMsg.trace_id = traceId
+    },
+    onPipeline: (pipelineData: any) => {
+      if (!targetMsg.pipelineSteps) targetMsg.pipelineSteps = []
+      targetMsg.pipelineSteps.push(pipelineData)
+      if (pipelineData.evidence) {
+        targetMsg.evidencePack = pipelineData.evidence
+      }
+      const agentInfo = pipelineData.agent
+      if (agentInfo) {
+        const toolsList: AgentToolCall[] = []
+        const steps = agentInfo.agent_steps || []
+        const tools = agentInfo.tools || []
+
+        tools.forEach((t: any, idx: number) => {
+          const stepMatch = steps[idx]
+          toolsList.push({
+            name: t.name || 'retrieve_kb',
+            ok: t.ok,
+            elapsed_ms: t.elapsed_ms,
+            summary: t.summary,
+            error: t.error,
+            fallback: t.fallback,
+            arguments: stepMatch?.decision?.arguments || {},
+            gap_type: stepMatch?.decision?.gap_type || t.gap_type,
+            recovery_strategy: stepMatch?.decision?.recovery_strategy || t.recovery_strategy,
+            status: t.ok === false ? 'error' : (stepMatch?.decision?.gap_type ? 'recovery' : 'success')
+          })
+        })
+
+        if (toolsList.length > 0) {
+          targetMsg.agentTools = toolsList
+        }
+      }
+    },
+    onNotice: (notice: string) => {
+      showGpuNotice(notice)
+    },
+    onClarify: (data: ClarifyResult) => {
+      applyClarification(targetMsg, data)
+    },
+    onDone: () => {
+      targetMsg.status = undefined
+      targetMsg.loading = false
+      targetMsg.isThinking = false
+      if (targetMsg.content.includes('<think>')) {
+        const parts = targetMsg.content.split('</think>')
+        targetMsg.content = parts.length > 1 ? parts.slice(1).join('</think>').trim() : parts[0].split('<think>')[0].trim()
+      }
+      if (targetMsg.timelineItems) {
+        targetMsg.timelineItems.forEach(item => {
+          if (item.type === 'think') item.isThinking = false
+          if (item.type === 'tool_call' && item.status === 'running') item.status = 'completed'
+        })
+      }
+      if (targetMsg.thinking && !targetMsg.thinkingDuration && thinkStartTime) {
+        const durSec = ((Date.now() - thinkStartTime) / 1000).toFixed(1)
+        targetMsg.thinkingDuration = `${durSec}s`
+      }
+      loading.value = false
+      abortController.value = null
+      pinnedChunks.value = []
+      excludedChunks.value = []
+      persist()
+      scrollDown()
+    },
+    onError: () => { throw new Error('stream failed') },
+  }
 }
 
 async function handleSend(text: string, image?: File) {
@@ -445,33 +734,35 @@ async function handleSend(text: string, image?: File) {
   try {
     abortController.value = new AbortController()
 
-    // 1. 提问前预检：检测是否有歧义需要反问 (Query Clarification Pre-check)
-    try {
-      const clarifyRes = await queryClarify(
-        text,
-        undefined,
-        currentKb.value && currentKb.value !== '全部知识库' ? currentKb.value : undefined,
-        abortController.value.signal,
-      )
-      if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
-        const msg = lastAiMsg()
-        msg.loading = false
-        msg.status = undefined
-        msg.clarification = {
-          ask_question: clarifyRes.ask_question || '请选择您要查询的具体模块或方向：',
-          trigger: clarifyRes.trigger,
-          reason: clarifyRes.reason,
-          options: clarifyRes.options,
+    // 1. 提问前预检：Agent 关闭时走 /query/clarify；开启时由 stream 的 clarify 事件出卡
+    if (!agentOrchestrationEnabled.value) {
+      try {
+        const clarifyRes = await queryClarify(
+          text,
+          undefined,
+          currentKb.value && currentKb.value !== '全部知识库' ? currentKb.value : undefined,
+          abortController.value.signal,
+        )
+        if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
+          const msg = lastAiMsg()
+          msg.loading = false
+          msg.status = undefined
+          msg.clarification = {
+            ask_question: clarifyRes.ask_question || '请选择您要查询的具体模块或方向：',
+            trigger: clarifyRes.trigger,
+            reason: clarifyRes.reason,
+            options: clarifyRes.options,
+          }
+          loading.value = false
+          abortController.value = null
+          await persist()
+          scrollDown()
+          return
         }
-        loading.value = false
-        abortController.value = null
-        await persist()
-        scrollDown()
-        return
+      } catch (err: any) {
+        if ((err as DOMException)?.name === 'AbortError') throw err
+        // 若预检服务异常，优雅降级为正常检索问答
       }
-    } catch (err: any) {
-      if ((err as DOMException)?.name === 'AbortError') throw err
-      // 若预检服务异常，优雅降级为正常检索问答
     }
 
     // 2. 无歧义或预检跳过，执行常规流式检索问答
@@ -479,61 +770,22 @@ async function handleSend(text: string, image?: File) {
     let streamOk = false
     try {
       const llmModel = currentModel.value || undefined
-      await queryKnowledgeStream(text, history, {
-        onStatus: (status) => {
-          lastAiMsg().status = status
-          scrollDown()
-        },
-        onToken: (token) => {
-          const msg = lastAiMsg()
-          msg.status = undefined
-          msg.content += token
-          msg.loading = false
-          scrollDown()
-        },
-        onThinking: (thought) => {
-          const msg = lastAiMsg()
-          msg.thinking = (msg.thinking || '') + thought
-          scrollDown()
-        },
-        onFinalAnswer: (answer) => {
-          const msg = lastAiMsg()
-          msg.status = undefined
-          msg.content = answer
-          msg.loading = false
-          scrollDown()
-        },
-        onSources: (sources) => {
-          currentSources.value = sources
-          lastAiMsg().sources = sources
-        },
-        onTrace: (traceId) => {
-          lastAiMsg().trace_id = traceId
-        },
-        onPipeline: (pipelineData) => {
-          const msg = lastAiMsg()
-          if (!msg.pipelineSteps) msg.pipelineSteps = []
-          msg.pipelineSteps.push(pipelineData)
-          if (pipelineData.evidence) {
-            msg.evidencePack = pipelineData.evidence
-          }
-        },
-        onNotice: (notice) => {
-          showGpuNotice(notice)
-        },
-        onDone: () => {
-          streamOk = true
-          abortController.value = null
-          lastAiMsg().status = undefined
-          lastAiMsg().loading = false
-          loading.value = false
-          pinnedChunks.value = []
-          excludedChunks.value = []
-          persist()
-          scrollDown()
-        },
-        onError: () => { throw new Error('stream failed') },
-      }, llmModel, currentKb.value, thinkingEnabled.value || undefined, webSearchEnabled.value || undefined, abortController.value?.signal, activeAgent.value?.system_prompt, allowGeneralKnowledge.value, docCategory.value || undefined, entityName.value || undefined, pinnedChunks.value.map(c => c.id), excludedChunks.value.map(c => c.id))
+      await queryKnowledgeStream(
+        text,
+        history,
+        createStreamHandler(lastAiMsg()),
+        llmModel,
+        currentKb.value,
+        thinkingEnabled.value || undefined,
+        webSearchEnabled.value || undefined,
+        abortController.value?.signal,
+        activeAgent.value?.system_prompt,
+        allowGeneralKnowledge.value,
+        docCategory.value || undefined,
+        entityName.value || undefined,
+        pinnedChunks.value.map(c => c.id),
+        excludedChunks.value.map(c => c.id),
+      )
     } catch {
       lastAiMsg().status = undefined
       if (!streamOk && !abortController.value) {
@@ -555,6 +807,7 @@ async function handleSend(text: string, image?: File) {
         msg.loading = false
         currentSources.value = result.source_documents
         msg.sources = result.source_documents
+        applyClarification(msg, result.clarification)
         if (result.downshift_notice) showGpuNotice(result.downshift_notice)
         await persist()
         loading.value = false
@@ -679,48 +932,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
       await queryKnowledgeStream(
         userText,
         history,
-        {
-          onStatus: (status) => {
-            aiMsg.status = status
-            scrollDown()
-          },
-          onToken: (token) => {
-            aiMsg.status = undefined
-            aiMsg.content += token
-            aiMsg.loading = false
-            scrollDown()
-          },
-          onThinking: (thought) => {
-            aiMsg.thinking = (aiMsg.thinking || '') + thought
-            scrollDown()
-          },
-          onFinalAnswer: (answer) => {
-            aiMsg.status = undefined
-            aiMsg.content = answer
-            aiMsg.loading = false
-            scrollDown()
-          },
-          onSources: (sources) => {
-            currentSources.value = sources
-            aiMsg.sources = sources
-          },
-          onTrace: (traceId) => {
-            aiMsg.trace_id = traceId
-          },
-          onNotice: (notice) => {
-            showGpuNotice(notice)
-          },
-          onDone: () => {
-            streamOk = true
-            abortController.value = null
-            aiMsg.status = undefined
-            aiMsg.loading = false
-            loading.value = false
-            persist()
-            scrollDown()
-          },
-          onError: () => { throw new Error('stream failed') },
-        },
+        createStreamHandler(aiMsg),
         llmModel,
         currentKb.value,
         thinkingEnabled.value || undefined,
@@ -755,6 +967,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         aiMsg.loading = false
         currentSources.value = result.source_documents
         aiMsg.sources = result.source_documents
+        applyClarification(aiMsg, result.clarification)
         if (result.downshift_notice) showGpuNotice(result.downshift_notice)
         await persist()
         loading.value = false
@@ -1253,6 +1466,10 @@ function scrollDown() {
             :image-url="msg.imageUrl" :loading="msg.loading"
             :status="msg.status"
             :thinking="msg.thinking"
+            :is-thinking="msg.isThinking"
+            :thinking-duration="msg.thinkingDuration"
+            :agent-tools="msg.agentTools"
+            :timeline-items="msg.timelineItems"
             :sources="msg.sources"
             :clarification="msg.clarification"
             :feedback="msg.feedback"
