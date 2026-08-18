@@ -35,6 +35,7 @@ export type AgentTimelineItem =
       status?: 'running' | 'completed' | 'failed' | 'denied'
       elapsed_ms?: number
       exitCode?: number
+      source?: string
       gap_type?: string
       recovery_strategy?: string
       error?: string | null
@@ -43,6 +44,11 @@ export type AgentTimelineItem =
       type: 'context_inject'
       label: string
       details: string
+    }
+  | {
+      type: 'notice'
+      content: string
+      level?: 'info' | 'warning' | 'error'
     }
 
 /** 单条聊天消息 */
@@ -474,6 +480,131 @@ export interface QaTraceRequest {
   [key: string]: unknown
 }
 
+export interface RetrievalTraceSnapshot {
+  intent?: string
+  applied_weights?: {
+    bm25?: number
+    vector?: number
+    [key: string]: number | undefined
+  }
+  graph_expansion_hops?: number
+  top_k?: number
+  candidate_k?: number
+  effective_mode?: string
+  [key: string]: unknown
+}
+
+export interface AgentStepRecord {
+  step: number
+  decision?: {
+    action?: string
+    tool?: string | null
+    arguments?: Record<string, unknown>
+    thought?: string
+    source?: string
+  }
+  observation?: {
+    name?: string
+    ok?: boolean
+    elapsed_ms?: number
+    summary?: string
+    error?: string | null
+    fallback?: string | null
+    data?: Record<string, unknown>
+  }
+  terminal?: string
+  denied?: string
+}
+
+export interface AgentTraceData {
+  agent_steps?: AgentStepRecord[]
+  tools?: Array<{
+    name?: string
+    ok?: boolean
+    elapsed_ms?: number
+    summary?: string
+    error?: string | null
+    fallback?: string | null
+  }>
+  route?: string
+  conversation_context?: {
+    version?: string
+    topic_shift?: boolean
+    entity_transition?: boolean
+    head_entity?: string | null
+    selected_entity?: string | null
+    resolved_question?: string
+    clarification_callback?: boolean
+    linked_count?: number
+    not_a_fact_source?: boolean
+  }
+  evidence_groups?: Array<{
+    question_id?: string
+    kind?: string
+    retrieve_index?: number | null
+    chunk_ids?: string[]
+    status?: string
+    head_entity?: string | null
+    tool?: string | null
+  }>
+  budget?: {
+    max_steps?: number
+    max_retrieve_attempts?: number
+    steps_used?: number
+    retrieve_attempts?: number
+  }
+  fallback?: string[]
+  retrieve_attempts?: number
+  reuse?: boolean
+  entity_link?: Record<string, unknown>
+  gate?: string
+  answer_gate?: {
+    allow_knowledge_answer?: boolean
+    reason?: string
+  }
+  evidence_gap?: Array<Record<string, unknown>>
+  retrieve_improvement?: number | null
+  retrieval_trace?: RetrievalTraceSnapshot
+  clarify?: {
+    needs_clarification?: boolean
+    reason?: string
+    option_count?: number
+  }
+}
+
+export interface ClarifyTraceData {
+  needs_clarification?: boolean
+  ask_question?: string
+  selected?: string | null
+  options?: Array<{
+    id: string
+    label: string
+    filter?: {
+      doc_category?: string
+      entity_name?: string
+    }
+  }>
+}
+
+export interface UnderstandingTraceData {
+  mode?: string
+  user_utterance?: string
+  resolved_question?: string
+  retrieval_queries?: Array<{ text: string; kind: string; weight: number }>
+  filters?: Record<string, unknown>
+  dialogue_focus?: string
+  focus?: {
+    topic?: string
+    confirmed_entity?: string
+    open_question?: string
+    notes?: string
+  }
+  is_context_dependent?: boolean
+  confidence?: number
+  clarify?: unknown
+  rationale?: string
+}
+
 export interface QaTraceCandidate extends Record<string, unknown> {
   chunk_id?: string
   source?: string
@@ -504,10 +635,16 @@ export interface QaTraceDetail {
     query_hits?: unknown[]
     candidates?: QaTraceCandidate[]
     candidate_count?: number
+    retrieval_trace?: RetrievalTraceSnapshot
   }
+  understanding?: UnderstandingTraceData
+  clarify?: ClarifyTraceData
+  agent?: AgentTraceData
+  pack?: Record<string, unknown>
   evidence: EvidenceChain
   answer: {
     text?: string
+    thinking?: string
     source_documents?: SourceDoc[]
   }
 }

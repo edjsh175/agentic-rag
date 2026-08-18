@@ -97,9 +97,25 @@ function closeInspect() {
 <template>
   <div v-if="(items && items.length > 0) || (loading && activeStatus)" class="step-stream-container">
     <template v-for="(item, index) in items" :key="index">
+      <!-- 0. 状态/回退通知节点 (Notice / Fallback Row) -->
+      <div
+        v-if="item.type === 'notice'"
+        class="disclosure-root notice-root"
+        :data-level="item.level || 'warning'"
+      >
+        <div class="notice-row">
+          <div class="leading-slot">
+            <span class="notice-indicator"></span>
+          </div>
+          <span class="row-title">系统提示</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary notice-content">{{ item.content }}</span>
+        </div>
+      </div>
+
       <!-- 1. 上下文注入节点 (Context Injection Row) -->
       <div
-        v-if="item.type === 'context_inject'"
+        v-else-if="item.type === 'context_inject'"
         class="disclosure-root"
         data-variant="context"
       >
@@ -225,6 +241,8 @@ function closeInspect() {
           >
             {{ getToolSummary(item) }}
           </span>
+          <span v-if="item.source === 'heuristic'" class="row-badge heuristic">启发式降级</span>
+          <span v-else-if="item.gap_type" class="row-badge recovery">策略重试</span>
         </div>
 
         <!-- Expanded Body: Gutter-Labeled IN/OUT Card from DeepSeek-Harness -->
@@ -448,6 +466,68 @@ function closeInspect() {
   margin-left: 6px;
   font-size: 12px;
   color: #94a3b8;
+}
+
+.row-badge {
+  flex: none;
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.row-badge.heuristic {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.row-badge.recovery {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+/* Notice Row */
+.notice-root {
+  margin: 4px 0;
+}
+
+.notice-row {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background-color: #fffbeb;
+  border: 1px solid #fef3c7;
+}
+
+.notice-root[data-level='error'] .notice-row {
+  background-color: #fef2f2;
+  border-color: #fee2e2;
+}
+
+.notice-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+}
+
+.notice-root[data-level='error'] .notice-indicator {
+  background-color: #ef4444;
+}
+
+.notice-content {
+  color: #92400e;
+  font-size: 12px;
+}
+
+.notice-root[data-level='error'] .notice-content {
+  color: #991b1b;
 }
 
 /* Expanded Think Body */

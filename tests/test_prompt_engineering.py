@@ -326,7 +326,7 @@ class PromptEngineeringTests(unittest.TestCase):
                 "mark": lambda self, s: None,
                 "set_plan": lambda self, p: None,
                 "set_clarify": lambda self, d: None,
-                "set_retrieval": lambda self, d: None,
+                "set_retrieval": lambda self, *a, **k: None,
                 "set_pack": lambda self, d: None,
                 "set_understanding": lambda self, d: None,
                 "stages_ms": {},

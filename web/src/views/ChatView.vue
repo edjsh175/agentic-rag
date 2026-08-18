@@ -534,6 +534,7 @@ function createStreamHandler(targetMsg: Message) {
         description: desc,
         in: data.arguments || {},
         status: 'running',
+        source: data.source,
         gap_type: data.gap_type,
         recovery_strategy: data.recovery_strategy,
       })
@@ -587,6 +588,7 @@ function createStreamHandler(targetMsg: Message) {
           status: data.ok === false ? 'failed' : 'completed',
           elapsed_ms: data.elapsed_ms,
           exitCode: data.ok === false ? 1 : 0,
+          source: data.source,
           gap_type: data.gap_type,
           recovery_strategy: data.recovery_strategy,
           error: data.error,
@@ -664,6 +666,13 @@ function createStreamHandler(targetMsg: Message) {
     },
     onNotice: (notice: string) => {
       showGpuNotice(notice)
+      if (!targetMsg.timelineItems) targetMsg.timelineItems = []
+      targetMsg.timelineItems.push({
+        type: 'notice',
+        content: notice,
+        level: 'warning',
+      })
+      scrollDown()
     },
     onClarify: (data: ClarifyResult) => {
       applyClarification(targetMsg, data)

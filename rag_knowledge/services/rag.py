@@ -374,12 +374,27 @@ class RagChain:
             clarification_selected=clarification_selected,
         )
 
+    def _safe_set_retrieval(
+        self,
+        trace: Any,
+        docs: list[dict],
+        *,
+        retrieval_trace: dict[str, Any] | None = None,
+    ) -> None:
+        if trace is None:
+            return
+        try:
+            trace.set_retrieval(docs, retrieval_trace=retrieval_trace)
+        except TypeError:
+            trace.set_retrieval(docs)
+
 
     def _commit_qa_trace(
         self,
         trace: QaTraceBuilder | None,
         *,
         answer: str = "",
+        thinking: str | None = None,
         retrieved_docs: list[dict] | None = None,
         context_docs: list[dict] | None = None,
         cited_docs: list[dict] | None = None,
@@ -396,6 +411,7 @@ class RagChain:
             logger.warning("qa_trace evidence pack failed: %s", exc)
         return trace.finish(
             answer=answer or "",
+            thinking=thinking,
             source_documents=list(cited_docs or []),
             evidence=evidence,
             error=error,
@@ -2871,9 +2887,24 @@ class RagChain:
                 yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
             return
-        source_docs, retrieved_source_docs = self._agent_answer_docs(result)
-        context = self._format_context(source_docs)
-        trace.set_retrieval(
+        from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
+
+        is_direct_chat = (
+            result.route == "direct"
+            or is_meta_or_direct_chat(q)
+            or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        )
+        if is_direct_chat:
+            source_docs = []
+            retrieved_source_docs = []
+            context = ""
+            has_evidence = False
+        else:
+            source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+            context = self._format_context(source_docs)
+            has_evidence = bool(source_docs)
+        self._safe_set_retrieval(
+            trace,
             retrieved_source_docs,
             retrieval_trace=getattr(result, "retrieval_trace", None),
         )
@@ -2883,7 +2914,7 @@ class RagChain:
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        if not source_docs and not allow_general:
+        if not is_direct_chat and not source_docs and not allow_general:
             evidence = build_evidence_pack(NO_KNOWLEDGE_ANSWER, retrieved_source_docs, [])
             tid = self._commit_qa_trace(
                 trace, answer=NO_KNOWLEDGE_ANSWER,
@@ -2916,8 +2947,6 @@ class RagChain:
         yield {"type": "status", "data": "正在整理答案..."}
 
         plan = result.plan
-        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
-        has_evidence = bool(source_docs)
         msgs = self._build_messages(
             q, context, history, agent_prompt=agent_prompt,
             allow_general_knowledge=allow_general,
@@ -3027,6 +3056,7 @@ class RagChain:
         tid = self._commit_qa_trace(
             trace,
             answer=answer_text,
+            thinking="".join(thinking_parts) if thinking_parts else None,
             retrieved_docs=retrieved_source_docs,
             context_docs=source_docs,
             cited_docs=cited,
@@ -3105,7 +3135,8 @@ class RagChain:
             return out
         source_docs, retrieved_source_docs = self._agent_answer_docs(result)
         context = self._format_context(source_docs)
-        trace.set_retrieval(
+        self._safe_set_retrieval(
+            trace,
             retrieved_source_docs,
             retrieval_trace=getattr(result, "retrieval_trace", None),
         )
@@ -3544,7 +3575,29 @@ class RagChain:
             )
             self._record_chunk_hit_query(source_docs)
             retrieved_source_docs = list(source_docs)
-            trace.set_retrieval(retrieved_source_docs)
+            intent_val = getattr(plan, "intent", None) or "general_qa"
+            if intent_val == "exact_parameter":
+                applied_weights = {"bm25": 0.85, "vector": 0.15}
+                graph_expansion_hops = 0
+            elif intent_val == "conceptual_overview":
+                applied_weights = {"bm25": 0.30, "vector": 0.70}
+                graph_expansion_hops = 1
+            elif intent_val == "troubleshooting":
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 1
+            else:
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 1 if getattr(plan, "expand_neighbors", False) else 0
+
+            retrieval_trace_snapshot = {
+                "intent": intent_val,
+                "applied_weights": applied_weights,
+                "graph_expansion_hops": graph_expansion_hops,
+                "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
+                "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
+            }
+            self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
             trace.mark("retrieve")
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
@@ -3950,7 +4003,29 @@ class RagChain:
                             retrieved_source_docs.insert(0, pdoc)
                             existing_ids.add(pid)
 
-                trace.set_retrieval(retrieved_source_docs)
+                intent_val = getattr(plan, "intent", None) or "general_qa"
+                if intent_val == "exact_parameter":
+                    applied_weights = {"bm25": 0.85, "vector": 0.15}
+                    graph_expansion_hops = 0
+                elif intent_val == "conceptual_overview":
+                    applied_weights = {"bm25": 0.30, "vector": 0.70}
+                    graph_expansion_hops = 1
+                elif intent_val == "troubleshooting":
+                    applied_weights = {"bm25": 0.50, "vector": 0.50}
+                    graph_expansion_hops = 1
+                else:
+                    applied_weights = {"bm25": 0.50, "vector": 0.50}
+                    graph_expansion_hops = 1 if getattr(plan, "expand_neighbors", False) else 0
+
+                retrieval_trace_snapshot = {
+                    "intent": intent_val,
+                    "applied_weights": applied_weights,
+                    "graph_expansion_hops": graph_expansion_hops,
+                    "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
+                    "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                    "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
+                }
+                self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
                 trace.mark("retrieve")
                 if pipeline_events:
                     qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
@@ -4046,6 +4121,8 @@ class RagChain:
             ep = self._resolve_llm_endpoint(model)
 
             answer_parts: list[str] = []
+            thinking_parts: list[str] = []
+            in_thinking_tag = False
             try:
                 async for content in achat_stream(
                     ep,
@@ -4057,7 +4134,38 @@ class RagChain:
                     think=bool(enable_model_thinking),
                     num_ctx=self._cfg.context_budget.context_window,
                 ):
-                    if content:
+                    if not content:
+                        continue
+                    if "<think>" in content:
+                        parts = content.split("<think>")
+                        if parts[0]:
+                            answer_parts.append(parts[0])
+                            yield {"type": "token", "data": parts[0]}
+                        in_thinking_tag = True
+                        rest = parts[1]
+                        if "</think>" in rest:
+                            t_parts = rest.split("</think>")
+                            thinking_parts.append(t_parts[0])
+                            yield {"type": "thinking", "data": t_parts[0]}
+                            in_thinking_tag = False
+                            if t_parts[1]:
+                                answer_parts.append(t_parts[1])
+                                yield {"type": "token", "data": t_parts[1]}
+                        else:
+                            thinking_parts.append(rest)
+                            yield {"type": "thinking", "data": rest}
+                    elif "</think>" in content:
+                        parts = content.split("</think>")
+                        thinking_parts.append(parts[0])
+                        yield {"type": "thinking", "data": parts[0]}
+                        in_thinking_tag = False
+                        if parts[1]:
+                            answer_parts.append(parts[1])
+                            yield {"type": "token", "data": parts[1]}
+                    elif in_thinking_tag:
+                        thinking_parts.append(content)
+                        yield {"type": "thinking", "data": content}
+                    else:
                         answer_parts.append(content)
                         yield {"type": "token", "data": content}
             except Exception as stream_exc:
@@ -4102,6 +4210,7 @@ class RagChain:
             tid = self._commit_qa_trace(
                 trace,
                 answer=answer_text,
+                thinking="".join(thinking_parts) if thinking_parts else None,
                 retrieved_docs=retrieved_source_docs,
                 context_docs=source_docs,
                 cited_docs=cited,

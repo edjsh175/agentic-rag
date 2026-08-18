@@ -298,6 +298,7 @@ class QaTraceBuilder:
         self,
         *,
         answer: str = "",
+        thinking: str | None = None,
         source_documents: list[dict[str, Any]] | None = None,
         evidence: dict[str, Any] | None = None,
         error: str | None = None,
@@ -327,6 +328,7 @@ class QaTraceBuilder:
             "evidence": evidence or {},
             "answer": {
                 "text": answer or "",
+                "thinking": thinking or "",
                 "source_documents": source_documents or [],
             },
         }
@@ -352,6 +354,12 @@ class QaTraceStore:
 
     def _summary_from_payload(self, payload: dict[str, Any], rel_file: str) -> dict[str, Any]:
         meta = payload.get("meta") or {}
+        raw_ans = ((payload.get("answer") or {}).get("text") or "").strip()
+        if not raw_ans:
+            if (payload.get("clarify") or {}).get("needs_clarification"):
+                raw_ans = "[歧义待澄清] " + str((payload.get("clarify") or {}).get("ask_question") or "")
+            elif (payload.get("agent") or {}).get("route") == "direct":
+                raw_ans = "[直接会话]"
         return {
             "trace_id": str(meta.get("trace_id") or ""),
             "request_id": meta.get("request_id"),
@@ -360,7 +368,7 @@ class QaTraceStore:
             "elapsed_ms": meta.get("elapsed_ms"),
             "error": meta.get("error"),
             "question": (payload.get("request") or {}).get("question", "")[:200],
-            "answer_preview": ((payload.get("answer") or {}).get("text") or "")[:160],
+            "answer_preview": raw_ans[:160],
             "candidate_count": (payload.get("retrieval") or {}).get("candidate_count", 0),
             "cited_count": len(((payload.get("evidence") or {}).get("cited") or [])),
             "runtime": payload.get("runtime") or {},

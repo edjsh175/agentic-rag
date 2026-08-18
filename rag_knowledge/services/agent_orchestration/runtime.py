@@ -25,6 +25,34 @@ def _labels_overlap(left: str | None, right: str | None) -> bool:
         return False
     return a == b or a in b or b in a
 
+
+_META_CHAT_PATTERNS = [
+    r"刚刚(?:在)?(?:讨论|聊|说|讲)什么",
+    r"刚才(?:在)?(?:讨论|聊|说|讲)什么",
+    r"之前(?:在)?(?:讨论|聊|说|讲)什么",
+    r"我们(?:刚刚|刚才|之前|刚才说了什么|在说什么)",
+    r"你刚才(?:说了什么|说的是什么)",
+    r"总结(?:一下)?(?:我们)?(?:之前的)?对话",
+    r"我(?:刚才|刚刚|之前)(?:问了什么|说了什么)",
+    r"我啥时候(?:说|讲|提|承认)过?",
+    r"我什么时候(?:说|讲|提|承认)过?",
+    r"我没(?:问过|说过|提过)",
+    r"谁说是.+了",
+    r"^(?:你好|您好|hello|hi|在吗|在么|哈喽|谢谢|多谢|再见|拜拜)[!！?？~～\s]*$",
+]
+
+
+def is_meta_or_direct_chat(question: str) -> bool:
+    """判定提问是否为纯元对话/历史回顾/反问/闲聊（无需检索知识库）。"""
+    q = (question or "").strip().lower()
+    if not q:
+        return True
+    for pat in _META_CHAT_PATTERNS:
+        if re.search(pat, q, flags=re.IGNORECASE):
+            return True
+    return False
+
+
 logger = logging.getLogger(__name__)
 
 PHASE1_TOOL_NAMES = frozenset({
@@ -136,7 +164,7 @@ def _repair_and_load_json(json_str: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         pass
 
-    # 2. 尝试修复单引号、Python 关键字与尾随逗号
+    # 2. 尝试修复单引号、Python 关键字与尾随逗号及未闭合引号/大括号
     repaired = json_str
     repaired = re.sub(r"\bTrue\b", "true", repaired)
     repaired = re.sub(r"\bFalse\b", "false", repaired)
@@ -144,6 +172,14 @@ def _repair_and_load_json(json_str: str) -> dict[str, Any] | None:
     repaired = re.sub(r"(?<=[{\s,])'([a-zA-Z0-9_]+)'\s*:", r'"\1":', repaired)
     repaired = re.sub(r":\s*'([^']*)'", r': "\1"', repaired)
     repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+
+    # 检查并闭合未闭合的双引号（若未转义的双引号为奇数个）
+    unescaped_quotes = len(re.findall(r'(?<!\\)"', repaired))
+    if unescaped_quotes % 2 != 0:
+        repaired += '"'
+
+    # 去除结尾悬挂的逗号或冒号
+    repaired = re.sub(r"[,:\s]+$", "", repaired)
 
     open_braces = repaired.count("{")
     close_braces = repaired.count("}")
@@ -156,6 +192,23 @@ def _repair_and_load_json(json_str: str) -> dict[str, Any] | None:
             return data
     except json.JSONDecodeError:
         pass
+
+    # 3. 正则贪婪抽取有效决策键值对（应对深度截断）
+    thought_m = re.search(r'"thought"\s*:\s*"([^"]+)"', json_str)
+    action_m = re.search(r'"action"\s*:\s*"([^"]+)"', json_str)
+    tool_m = re.search(r'"tool"\s*:\s*"([^"]+)"', json_str)
+    query_m = re.search(r'"query"\s*:\s*"([^"]+)"', json_str)
+    if action_m or tool_m:
+        extracted: dict[str, Any] = {}
+        if thought_m:
+            extracted["thought"] = thought_m.group(1)
+        if action_m:
+            extracted["action"] = action_m.group(1)
+        if tool_m:
+            extracted["tool"] = tool_m.group(1)
+        if query_m:
+            extracted["arguments"] = {"query": query_m.group(1)}
+        return extracted
 
     return None
 
@@ -644,6 +697,18 @@ class AgentLoop:
             return decision, None
         if going_retrieve:
             return decision, None
+
+        is_direct_or_meta = (
+            decision.action == "finish"
+            and (
+                is_meta_or_direct_chat(self.conversation.user_question)
+                or getattr(getattr(self.conversation, "understanding", None), "mode", "") == "direct_chat"
+                or (decision.thought and ("无需检索知识库" in decision.thought or "元对话" in decision.thought or "基于会话历史" in decision.thought))
+            )
+        )
+        if is_direct_or_meta:
+            return decision, None
+
         need_recovery = False
         note = None
         if llm_gate == "support" and not verdict.get("allow_knowledge_answer") and self.budget.can_retrieve():
@@ -707,6 +772,20 @@ class AgentLoop:
             if recovery_note:
                 self.fallbacks.append(recovery_note)
 
+            # 若触发回退或恢复策略，向前端派发状态通知（禁用 emoji，使用严谨技术术语）
+            if on_event is not None:
+                if recovery_note and decision.gap_type:
+                    strat_desc = decision.recovery_strategy or "查询重试"
+                    await on_event({
+                        "type": "notice",
+                        "data": f"检索证据存在缺口（{decision.gap_type}），已自动执行恢复策略：{strat_desc}。",
+                    })
+                elif "decide_llm_fallback" in self.fallbacks and decision.source == "heuristic" and self.budget.steps_used == 1:
+                    await on_event({
+                        "type": "notice",
+                        "data": "决策模型调用异常，已自动切换为启发式检索策略。",
+                    })
+
             # 流式派发当前步的思考过程（实现 Think -> Act -> Observe 交替展示）
             if on_event is not None and decision.thought:
                 await on_event({"type": "thinking", "data": f"{decision.thought}\n"})
@@ -735,6 +814,7 @@ class AgentLoop:
                         "name": decision.tool,
                         "arguments": decision.arguments or {},
                         "step": self.budget.steps_used,
+                        "source": decision.source,
                         "gap_type": decision.gap_type,
                         "recovery_strategy": decision.recovery_strategy,
                     },
@@ -895,6 +975,12 @@ class AgentLoop:
     def _decide(self) -> AgentDecision:
         if self._decide_fn is not None:
             return self._decide_fn(self.conversation, self.evidence, self._observations)
+        if is_meta_or_direct_chat(self.conversation.user_question):
+            return AgentDecision(
+                action="finish",
+                source="heuristic",
+                thought="检测到用户当前提问为会话历史回顾/反问释疑/元对话，无需检索知识库，直接基于会话历史进行解答。",
+            )
         try:
             return self._decide_via_llm()
         except Exception as exc:  # noqa: BLE001
@@ -907,6 +993,10 @@ class AgentLoop:
 
         if self._cfg is None:
             raise RuntimeError("cfg required for llm decide")
+        is_helper = bool(getattr(self._cfg, "helper_llm_model", None))
+        role = "helper_llm" if is_helper else "llm"
+        num_predict = 1024 if is_helper else 2048
+        timeout = 25.0 if is_helper else 45.0
         prompt = _DECISION_PROMPT.format(
             tool_list=self.registry.prompt_list(),
             question=self.conversation.user_question,
@@ -916,11 +1006,12 @@ class AgentLoop:
         )
         raw = chat_role(
             self._cfg,
-            "llm",
+            role,
             [{"role": "user", "content": prompt}],
             temperature=0.0,
-            num_predict=512,
-            timeout=30.0,
+            format_json=True,
+            num_predict=num_predict,
+            timeout=timeout,
             think=False,
             num_ctx=self._cfg.context_budget.context_window,
         )
@@ -981,11 +1072,11 @@ class AgentLoop:
                 source="heuristic",
                 thought=f"用户已确认歧义选项，结合选定实体进行精准检索：{q}",
             )
-        if conv.understanding is not None and getattr(conv.understanding, "mode", "") == "direct_chat":
+        if is_meta_or_direct_chat(conv.user_question) or (conv.understanding is not None and getattr(conv.understanding, "mode", "") == "direct_chat"):
             return AgentDecision(
                 action="finish",
                 source="heuristic",
-                thought="检测到用户当前输入为对话纠偏/反问释疑，无需检索知识库，直接基于会话历史进行解答。",
+                thought="检测到用户当前提问为会话历史回顾/反问释疑/元对话，无需检索知识库，直接基于会话历史进行解答。",
             )
         if not citable:
             blocked = self.reuse_blocked_reason()

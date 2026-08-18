@@ -640,6 +640,7 @@ export async function queryAdminDebugStream(
     onStatus?: (status: string) => void
     onPipeline?: (data: any) => void
     onToken?: (token: string) => void
+    onThinking?: (thinking: string) => void
     onFinalAnswer?: (answer: string) => void
     onSources?: (sources: any[]) => void
     onTrace?: (traceId: string) => void
@@ -709,6 +710,7 @@ export async function queryAdminDebugStream(
           if (event.type === 'status') callbacks.onStatus?.(event.data)
           else if (event.type === 'pipeline') callbacks.onPipeline?.(event.data)
           else if (event.type === 'token') callbacks.onToken?.(event.data)
+          else if (event.type === 'thinking') callbacks.onThinking?.(event.data)
           else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
           else if (event.type === 'sources') callbacks.onSources?.(event.data)
           else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)

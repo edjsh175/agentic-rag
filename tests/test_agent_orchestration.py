@@ -1185,6 +1185,253 @@ def test_stream_react_events_order_and_payload():
     assert tool_end_ev["data"]["summary"] == "召回 3 个文档片段"
 
 
+def test_v14_link_entities_is_read_only():
+    conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
+    assert not conv.head_entity
+
+    # 测试 link_entities 工具纯只读性（通过 mock 检验）
+    reg = build_agent_registry()
+    spec = reg.get("link_entities")
+    assert spec is not None
+    assert spec.side_effect == "read"
+
+
+def test_v14_llm_http_default_num_ctx_injection():
+    from rag_knowledge.llm_http import _resolve_default_num_ctx
+    # 当未传 num_ctx 时，默认返回 32768
+    assert _resolve_default_num_ctx(None) >= 32768
+    # 当显式指定时，使用显式值
+    assert _resolve_default_num_ctx(16384) == 16384
+
+
+def test_v14_retrieve_intent_progressive_disclosure():
+    # 验证 retrieve_kb 的 schema 中包含 intent 枚举
+    reg = build_agent_registry()
+    spec = reg.get("retrieve_kb")
+    assert spec is not None
+    props = (spec.input_schema or {}).get("properties", {})
+    assert "intent" in props
+    assert "exact_parameter" in props["intent"]["enum"]
+    assert "conceptual_overview" in props["intent"]["enum"]
+
+
+def test_robust_json_parser_tolerance():
+    # 1. 测试单引号与尾随逗号修复
+    raw_single_quotes = "{'thought': '查询端口', 'action': 'tool_call', 'tool': 'retrieve_kb', 'arguments': {'query': '端口', 'intent': 'exact_parameter',},}"
+    res = parse_json_object(raw_single_quotes)
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "retrieve_kb"
+    assert res["arguments"]["query"] == "端口"
+
+    # 2. 测试 Python None/True 与未闭合大括号
+    raw_python_keywords = "{'thought': '结束', 'action': 'finish', 'tool': None, 'gate': 'support'"
+    res2 = parse_json_object(raw_python_keywords)
+    assert res2["action"] == "finish"
+    assert res2["tool"] is None
+    assert res2["gate"] == "support"
+
+    # 3. 测试截断字符串与未闭合双引号的自动修复
+    raw_truncated_quote = '{"thought": "正在分析参数", "action": "tool_call", "tool": "retrieve_kb", "arguments": {"query": "StampServer 默认端口'
+    res3 = parse_json_object(raw_truncated_quote)
+    assert res3["action"] == "tool_call"
+    assert res3["tool"] == "retrieve_kb"
+    assert "StampServer 默认端口" in res3["arguments"]["query"]
+
+    # 4. 测试深度截断时正则提取有效键值对
+    raw_deep_truncated = '{"thought": "需要检索", "action": "tool_call", "tool": "retrieve_kb", "arguments": {"query": "StampGIS"'
+    res4 = parse_json_object(raw_deep_truncated)
+    assert res4["action"] == "tool_call"
+    assert res4["tool"] == "retrieve_kb"
+    assert res4["arguments"]["query"] == "StampGIS"
+
+
+def test_react_line_format_fallback():
+    # 1. 测试函数调用风格纯文本
+    raw_react_func = """
+<think>分析用户提问，准备检索</think>
+Thought: 正在查询 ModelBuilder 端口配置
+Action: retrieve_kb(query="ModelBuilder 端口", intent="exact_parameter")
+"""
+    res = parse_json_object(raw_react_func)
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "retrieve_kb"
+    assert res["arguments"]["query"] == "ModelBuilder 端口"
+    assert res["arguments"]["intent"] == "exact_parameter"
+    assert "ModelBuilder" in res["thought"]
+
+    # 2. 测试分行结束指令
+    raw_react_finish = """
+Thought: 证据已经充足，准备生成完整回答
+Action: finish
+Gate: support
+"""
+    res2 = parse_json_object(raw_react_finish)
+    assert res2["action"] == "finish"
+    assert res2["gate"] == "support"
+    assert "证据已经充足" in res2["thought"]
+
+
+def test_decision_prompt_has_one_shot():
+    from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
+    assert "示例（One-shot）" in _DECISION_PROMPT
+    assert "StampServer 默认端口" in _DECISION_PROMPT
+
+
+def test_retrieval_trace_explainable_snapshot():
+    # 验证 AgentTurnResult 及 to_trace 中包含 retrieval_trace
+    conv = ConversationContext.from_request("StampServer 默认端口", [])
+    pool = EvidencePool(question_id="q")
+    trace_snapshot = {
+        "intent": "exact_parameter",
+        "applied_weights": {"bm25": 0.85, "vector": 0.15},
+        "graph_expansion_hops": 0,
+        "top_k": 4,
+        "candidate_k": 16,
+        "effective_mode": "hybrid",
+    }
+    result = AgentTurnResult(
+        conversation=conv,
+        evidence=pool,
+        retrieval_trace=trace_snapshot,
+    )
+    trace_dict = result.to_trace()
+    assert "retrieval_trace" in trace_dict
+    assert trace_dict["retrieval_trace"]["intent"] == "exact_parameter"
+    assert trace_dict["retrieval_trace"]["applied_weights"] == {"bm25": 0.85, "vector": 0.15}
+    assert trace_dict["retrieval_trace"]["graph_expansion_hops"] == 0
+
+
+def test_context_conditioned_prompt_hard_isolation():
+    # 1. 状态 A：纯会话释疑且无证据 -> 挂载会话解释 Prompt，无知识库拒答壳
+    explain_msgs = build_agent_messages(
+        question="我啥时候说是PipelineBuilder了？",
+        conversation_section="## 对话上下文\n- 用户此前未指定产品",
+        evidence_section="",
+        is_direct_chat=True,
+        has_evidence=False,
+    )
+    assert len(explain_msgs) >= 1
+    sys_content = explain_msgs[0]["content"]
+    assert "对话状态澄清与释疑助手" in sys_content
+    assert "禁止机械拒答" in sys_content
+    assert "<evidence_pool>" not in sys_content
+
+    # 2. 状态 B：客观知识问答 -> 挂载事实强锁 Prompt
+    strict_msgs = build_agent_messages(
+        question="StampServer 端口是多少？",
+        conversation_section="## 对话上下文\n- 当前实体: StampServer",
+        evidence_section="## 证据池\n<evidence_pool>[1] 端口 8080</evidence_pool>",
+        is_direct_chat=False,
+        has_evidence=True,
+    )
+    sys_strict = strict_msgs[0]["content"]
+    assert "RAG 知识库问答助手" in sys_strict
+    assert "<evidence_pool>" in sys_strict
+    assert "绝对事实强锁" in sys_strict
+
+
+def test_govern_answer_citation_range_and_parameter_guard():
+    from rag_knowledge.services.evidence_pack import govern_answer
+
+    docs = [_doc("chk_1", "StampServer 默认 HTTP 端口为 8080", citation_id=1)]
+
+    # 1. 越界虚假引用标号清洗：模型输出了不存在的 [99]，应被自动剔除，保留合法的 [1]
+    raw_ans = "StampServer 的端口为 8080 [1]，另外某个服务端口为 9090 [99]。"
+    gov_ans = govern_answer(raw_ans, "端口是多少", docs)
+    assert "[1]" in gov_ans
+    assert "[99]" not in gov_ans
+
+    # 2. 未在原文中出现的关键技术参数（如未检索到的 9999 端口）追加安全提示
+    unverified_ans = "StampServer 端口为 8080 [1]，备用端口为 9999 [1]。"
+    gov_ans2 = govern_answer(unverified_ans, "端口是多少", docs)
+    assert "部分参数缺少明确原文依据" in gov_ans2
+
+
+def test_heuristic_decision_never_emits_empty_query():
+    """验证即使发生模型掉线或容错降级，所有工具调用的 query 参数均非空，彻底杜绝 {} 空参数。"""
+    conv = ConversationContext.from_request("PipelineBuilder 字段规范是什么", [])
+    conv.head_entity = "PipelineBuilder"
+    pool = EvidencePool(question_id="q_test")
+    budget = AgentBudget(max_steps=4, max_retrieve_attempts=2)
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={},
+    )
+    decision = loop._decide_heuristic()
+    assert decision.action == "tool_call"
+    assert decision.tool in {"link_entities", "retrieve_kb"}
+    assert decision.arguments.get("query")
+    assert "PipelineBuilder" in decision.arguments["query"]
+
+
+def test_stream_react_events_order_and_payload():
+    """验证流式 ReAct 事件时序与参数规范：Thinking -> ToolStart(含query) -> ToolEnd(含summary)。"""
+    conv = ConversationContext.from_request("StampServer 默认端口", [])
+    pool = EvidencePool(question_id="q_stream")
+    budget = AgentBudget(max_steps=3, max_retrieve_attempts=1)
+
+    events: list[dict] = []
+
+    async def mock_handler(args: dict) -> ToolObservation:
+        pool.add_retrieve([_doc("c1", "8080")], query=args.get("query", ""))
+        return ToolObservation(
+            tool="retrieve_kb",
+            ok=True,
+            summary="召回 3 个文档片段",
+            data={"chunk_ids": ["c1", "c2", "c3"]},
+        )
+
+    async def on_event(ev: dict):
+        events.append(ev)
+
+    def mock_decide(c, e, obs):
+        if not obs:
+            return AgentDecision(
+                action="tool_call",
+                tool="retrieve_kb",
+                arguments={"query": "StampServer 默认端口", "mode": "hybrid"},
+                thought="用户查询 StampServer 的端口配置，调用 retrieve_kb 获取证据。",
+                source="llm",
+            )
+        return AgentDecision(
+            action="finish",
+            thought="已获取端口配置证据，准备组织最终回答。",
+            source="llm",
+        )
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_handler},
+        decide_fn=mock_decide,
+    )
+
+    result = asyncio.run(loop.run(on_event=on_event))
+    assert result.route == "retrieve"
+    assert len(events) >= 3
+
+    # 检查事件类型时序
+    ev_types = [ev["type"] for ev in events]
+    assert "thinking" in ev_types
+    assert "tool_start" in ev_types
+    assert "tool_end" in ev_types
+
+    # 验证 tool_start 中的入参包含非空 query
+    tool_start_ev = next(ev for ev in events if ev["type"] == "tool_start")
+    assert tool_start_ev["data"]["name"] == "retrieve_kb"
+    assert tool_start_ev["data"]["arguments"]["query"] == "StampServer 默认端口"
+
+    # 验证 tool_end 中的结果包含 summary
+    tool_end_ev = next(ev for ev in events if ev["type"] == "tool_end")
+    assert tool_end_ev["data"]["ok"] is True
+    assert tool_end_ev["data"]["summary"] == "召回 3 个文档片段"
+
+
 def test_govern_answer_path_case_insensitivity():
     """验证路径比对时大小写不敏感，避免原文包含大写路径时因模型输出小写而误触发安全警告。"""
     from rag_knowledge.services.evidence_pack import govern_answer
@@ -1201,3 +1448,110 @@ def test_govern_answer_path_case_insensitivity():
     ans_unmatched = "StampServer 默认安装在 D:\\FakePath\\SecretServer 目录下 [1]。"
     gov_ans2 = govern_answer(ans_unmatched, "安装目录在哪", docs)
     assert "部分参数缺少明确原文依据" in gov_ans2
+
+
+def test_meta_chat_direct_finish_without_tools():
+    """验证元对话（如'我们刚刚在讨论什么？'）直接判定为 finish，不调用 retrieve_kb/link_entities，且证据池为空。"""
+    from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
+
+    assert is_meta_or_direct_chat("我们刚刚在讨论什么？") is True
+    assert is_meta_or_direct_chat("你刚才说了什么") is True
+    assert is_meta_or_direct_chat("我啥时候说是PipelineBuilder了？") is True
+    assert is_meta_or_direct_chat("StampServer 默认端口是多少") is False
+
+    conv = ConversationContext.from_request(
+        "我们刚刚在讨论什么？",
+        [
+            {"role": "user", "content": "PipelineBuilder 怎么用"},
+            {"role": "assistant", "content": "PipelineBuilder 是管线建模工具..."},
+        ],
+    )
+    pool = EvidencePool(question_id="q_meta")
+    budget = AgentBudget(max_steps=3, max_retrieve_attempts=1)
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={},
+    )
+    decision = loop._decide()
+    assert decision.action == "finish"
+    assert decision.tool is None
+    assert "会话历史回顾" in decision.thought or "反问释疑" in decision.thought
+
+
+def test_fallback_notice_dispatched_without_emoji():
+    """验证当发生模型决策异常或证据缺口恢复时，系统向前端派发专业无 emoji 的 notice 事件。"""
+    conv = ConversationContext.from_request("StampServer 配置项有哪些", [])
+    pool = EvidencePool(question_id="q_fallback")
+    budget = AgentBudget(max_steps=3, max_retrieve_attempts=1)
+
+    events: list[dict] = []
+
+    async def on_event(ev: dict):
+        events.append(ev)
+
+    async def mock_handler(args: dict) -> ToolObservation:
+        return ToolObservation(
+            tool="retrieve_kb",
+            ok=True,
+            summary="召回 0 个文档片段",
+            data={},
+        )
+
+    def failing_decide_llm():
+        raise RuntimeError("LLM connection timeout")
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_handler},
+    )
+    loop._decide_via_llm = failing_decide_llm
+
+    result = asyncio.run(loop.run(on_event=on_event))
+    notices = [ev["data"] for ev in events if ev["type"] == "notice"]
+    assert len(notices) >= 1
+    notice_text = notices[0]
+    assert "决策模型调用异常" in notice_text or "启发式" in notice_text
+    # 严格验证无 emoji
+    assert "⚠️" not in notice_text
+    assert "💡" not in notice_text
+    assert "❌" not in notice_text
+
+
+def test_direct_meta_chat_never_triggers_forced_retrieval():
+    """验证清空记录或提问'我们刚刚在讨论什么'等元对话时，直接由 Agent 判定并直答，绝不触发强制知识库检索。"""
+    conv = ConversationContext.from_request("我们刚刚在讨论什么？", [])
+    pool = EvidencePool(question_id="q_meta")
+    budget = AgentBudget(max_steps=4, max_retrieve_attempts=2)
+    called_tools = []
+
+    async def mock_retrieve(args):
+        called_tools.append("retrieve_kb")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="不应被调用", data={})
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+    )
+
+    result = asyncio.run(loop.run())
+    # 1. 严格断言：完全没有调用 retrieve_kb 工具
+    assert called_tools == []
+    assert result.retrieve_attempts == 0
+    assert result.route == "direct"
+    assert len(result.evidence.citable_docs()) == 0
+
+    # 2. 验证治理层 govern_answer 保持自然输出，不被误杀为拒答
+    from rag_knowledge.services.evidence_pack import govern_answer
+    raw_answer = "我们刚刚开始新的会话，目前还没有讨论任何具体内容。"
+    governed = govern_answer(raw_answer, "我们刚刚在讨论什么？", [])
+    assert governed == raw_answer
+    assert "检索到相关片段" not in governed

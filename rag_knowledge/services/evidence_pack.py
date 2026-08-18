@@ -371,12 +371,17 @@ def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]
 
     cited = cited_sources(answer, docs)
     if not cited:
-        if docs:
-            if _has_substantial_grounding(answer, docs):
-                return _supplement_uncited_answer(answer, question, docs)
-            repaired = build_partial_grounded_answer(question, docs)
-            if repaired:
-                return _append_evidence_bullets(repaired, question, docs)
+        if not docs:
+            from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
+
+            if is_meta_or_direct_chat(question):
+                return answer
+            return "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。"
+        if _has_substantial_grounding(answer, docs):
+            return _supplement_uncited_answer(answer, question, docs)
+        repaired = build_partial_grounded_answer(question, docs)
+        if repaired:
+            return _append_evidence_bullets(repaired, question, docs)
         return "检索到相关片段，但没有可验证的引用证据，当前无法给出有依据的回答。"
     conflict_notice = _conflict_notice(docs)
     if conflict_notice and "请核对原文" not in answer:

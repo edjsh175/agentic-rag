@@ -5,7 +5,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback, queryClarify, getModels, getKnowledgeBases, getAgents } from '../api'
 import type { DebugStreamOptions } from '../api'
-import type { EvidenceChain, QaTraceDetail, QaTraceSummary, ClarificationOption, ClarifyResult } from '../types'
+import type { EvidenceChain, QaTraceDetail, QaTraceSummary, ClarificationOption, ClarifyResult, RetrievalTraceSnapshot, AgentStepRecord, AgentTraceData } from '../types'
 
 const question = ref('')
 const loading = ref(false)
@@ -41,7 +41,9 @@ const total = ref(0)
 const selectedId = ref('')
 const detail = ref<QaTraceDetail | null>(null)
 const liveAnswer = ref('')
-const activeTab = ref<'timeline' | 'plan' | 'retrieval' | 'evidence' | 'answer'>('timeline')
+const liveThinking = ref('')
+const showThinking = ref(true)
+const activeTab = ref<'timeline' | 'agent' | 'plan' | 'retrieval' | 'evidence' | 'answer'>('timeline')
 let abortCtrl: AbortController | null = null
 
 const mdRenderer = new marked.Renderer()
@@ -82,7 +84,7 @@ function emptyDetail(q: string): QaTraceDetail {
     plan: {},
     retrieval: { candidates: [], candidate_count: 0 },
     evidence: { ...emptyEvidence },
-    answer: { text: '', source_documents: [] },
+    answer: { text: '', thinking: '', source_documents: [] },
   }
 }
 
@@ -110,6 +112,21 @@ const planQueries = computed(() => {
   return Array.isArray(queries) ? queries : []
 })
 const candidates = computed(() => detail.value?.retrieval?.candidates || [])
+
+const retrievalTraceSnapshot = computed<RetrievalTraceSnapshot | null>(() => {
+  return (
+    detail.value?.retrieval?.retrieval_trace ||
+    detail.value?.agent?.retrieval_trace ||
+    null
+  )
+})
+
+const agentData = computed<AgentTraceData | null>(() => detail.value?.agent || null)
+const agentSteps = computed<AgentStepRecord[]>(() => detail.value?.agent?.agent_steps || [])
+const hasAgent = computed(() => Boolean(detail.value?.agent && (detail.value.agent.agent_steps?.length || detail.value.agent.route)))
+const isClarifyTrace = computed(() => Boolean(detail.value?.clarify?.needs_clarification))
+const isDirectChatTrace = computed(() => Boolean(detail.value?.agent?.route === 'direct'))
+const thinkingContent = computed(() => detail.value?.answer?.thinking || liveThinking.value || '')
 
 const runtimeTags = computed(() => {
   const rt = detail.value?.runtime || {}
@@ -158,8 +175,12 @@ async function openTrace(traceId: string) {
   error.value = ''
   liveStatus.value = ''
   liveAnswer.value = ''
+  liveThinking.value = ''
   try {
     detail.value = await getQaTrace(traceId)
+    if (detail.value?.agent && (detail.value.agent.agent_steps?.length || detail.value.agent.route)) {
+      // Agent trace loaded
+    }
   } catch (e: any) {
     error.value = e.message || '加载详情失败'
     detail.value = null
@@ -184,6 +205,9 @@ function applyPipeline(data: any) {
   if (data.runtime) detail.value.runtime = data.runtime
   if (data.request) detail.value.request = { ...detail.value.request, ...data.request }
   if (data.stages) detail.value.stages = { ...detail.value.stages, ...data.stages }
+  if (data.agent) detail.value.agent = data.agent
+  if (data.understanding) detail.value.understanding = data.understanding
+  if (data.clarify) detail.value.clarify = data.clarify
   if (data.plan) {
     detail.value.plan = {
       ...(detail.value.plan || {}),
@@ -204,6 +228,7 @@ function applyPipeline(data: any) {
   if (typeof data.answer === 'string') {
     detail.value.answer = {
       text: data.answer,
+      thinking: detail.value.answer?.thinking || liveThinking.value || '',
       source_documents: data.source_documents || detail.value.answer?.source_documents || [],
     }
     liveAnswer.value = data.answer
@@ -246,6 +271,7 @@ async function runActualDebugStream(
   error.value = ''
   liveStatus.value = '发起调试中...'
   liveAnswer.value = ''
+  liveThinking.value = ''
   selectedId.value = '(运行中)'
   detail.value = emptyDetail(qText)
   activeTab.value = 'timeline'
@@ -270,6 +296,15 @@ async function runActualDebugStream(
             }
           }
           if (activeTab.value !== 'answer') activeTab.value = 'answer'
+        },
+        onThinking: (chunk) => {
+          liveThinking.value += chunk
+          if (detail.value) {
+            detail.value.answer = {
+              ...(detail.value.answer || {}),
+              thinking: liveThinking.value,
+            }
+          }
         },
         onFinalAnswer: (answer) => {
           liveAnswer.value = answer
@@ -818,11 +853,37 @@ onUnmounted(() => {
               <div class="error-title">执行失败详情</div>
               <div class="error-msg">{{ detail.meta.error }}</div>
             </div>
+
+            <!-- 歧义待澄清状态横幅 -->
+            <div v-if="isClarifyTrace && detail.clarify" class="clarify-alert-card margin-top-md">
+              <div class="clarify-alert-header">
+                <span class="clarify-badge">歧义反问状态 (Clarification Paused)</span>
+                <span class="clarify-hint">本轮提问触发歧义反问门禁，已暂停知识库直接检索，等待用户方向澄清</span>
+              </div>
+              <div class="clarify-question-text">{{ detail.clarify.ask_question }}</div>
+              <div v-if="detail.clarify.options?.length" class="clarify-options-grid">
+                <div v-for="opt in detail.clarify.options" :key="opt.id" class="clarify-opt-item">
+                  <span class="opt-tag">选项 {{ opt.id.toUpperCase() }}</span>
+                  <span class="opt-label">{{ opt.label }}</span>
+                  <span v-if="opt.filter?.doc_category" class="opt-filter-tag">{{ opt.filter.doc_category }}</span>
+                  <span v-if="opt.filter?.entity_name" class="opt-filter-tag font-mono">{{ opt.filter.entity_name }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 直接会话状态提示 -->
+            <div v-else-if="isDirectChatTrace" class="direct-chat-banner margin-top-md">
+              <span class="direct-badge">直接会话模式 (Direct Chat)</span>
+              <span class="direct-text">本次对话由 Agent 判定为会话历史回顾/反问释疑/元对话，无需检索知识库，已直接基于上下文与大模型生成解答。</span>
+            </div>
           </div>
 
           <nav class="tabs-nav">
             <button type="button" :class="{ active: activeTab === 'timeline' }" @click="activeTab = 'timeline'">
               耗时分布
+            </button>
+            <button v-if="hasAgent" type="button" :class="{ active: activeTab === 'agent' }" @click="activeTab = 'agent'">
+              Agent 决策与自适应 ({{ agentSteps.length }})
             </button>
             <button type="button" :class="{ active: activeTab === 'plan' }" @click="activeTab = 'plan'">
               检索计划
@@ -838,6 +899,7 @@ onUnmounted(() => {
             </button>
           </nav>
 
+          <!-- 耗时分布 -->
           <section v-if="activeTab === 'timeline'" class="panel-card">
             <h3 class="section-title">流程各阶段耗时统计</h3>
             <div v-if="stages.length" class="stage-timeline">
@@ -859,7 +921,193 @@ onUnmounted(() => {
             </div>
           </section>
 
+          <!-- Agent 编排与自适应决策 Tab -->
+          <section v-else-if="activeTab === 'agent'" class="panel-card">
+            <!-- 算法自适应动态映射快照看板 -->
+            <div v-if="retrievalTraceSnapshot" class="explainable-trace-banner margin-bottom-lg">
+              <div class="banner-title-bar">
+                <div class="b-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <span>算法自适应动态映射快照 (Explainable Retrieval Trace)</span>
+                </div>
+                <span class="intent-pill">检索意图：{{ retrievalTraceSnapshot.intent || 'general_qa' }}</span>
+              </div>
+              <div class="banner-grid">
+                <div class="b-card">
+                  <div class="b-lbl">生效检索权重 (BM25 vs 向量)</div>
+                  <div class="weight-visual">
+                    <div class="weight-bar">
+                      <div class="bar-bm25" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100}%` }"></div>
+                      <div class="bar-vec" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100}%` }"></div>
+                    </div>
+                    <div class="weight-legend">
+                      <span>BM25: {{ ((Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100).toFixed(0) }}%</span>
+                      <span>向量: {{ ((Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">图谱扩展跳数 (Graph Expansion)</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.graph_expansion_hops ?? 0 }}</span>
+                    <span class="num-sub">跳 (Hops)</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">候选容量控制 (Top-K / Candidate-K)</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.top_k ?? 8 }}</span>
+                    <span class="num-sub">/ {{ retrievalTraceSnapshot.candidate_k ?? 20 }}</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">生效检索模式 (Effective Mode)</div>
+                  <div class="b-val-text font-mono">{{ retrievalTraceSnapshot.effective_mode || 'hybrid' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agent 运行门禁与预算指标 -->
+            <div v-if="agentData" class="agent-overview-box margin-bottom-lg">
+              <h3 class="section-title">Agent 路由决策与资源预算</h3>
+              <div class="agent-metric-grid">
+                <div class="agent-metric-item">
+                  <span class="m-lbl">决策路由 (Route)</span>
+                  <span class="m-val route-badge" :class="`route-${agentData.route || 'retrieve'}`">
+                    {{ agentData.route || 'retrieve' }}
+                  </span>
+                </div>
+                <div class="agent-metric-item">
+                  <span class="m-lbl">门禁判定 (LLM Gate)</span>
+                  <span class="m-val" :class="agentData.gate === 'support' ? 'gate-support' : 'gate-insufficient'">
+                    {{ agentData.gate || 'support' }}
+                  </span>
+                </div>
+                <div class="agent-metric-item">
+                  <span class="m-lbl">回答放行原因</span>
+                  <span class="m-val font-mono">{{ agentData.answer_gate?.reason || 'ok' }}</span>
+                </div>
+                <div class="agent-metric-item">
+                  <span class="m-lbl">步骤预算消耗</span>
+                  <span class="m-val font-mono">{{ agentData.budget?.steps_used ?? agentSteps.length }} / {{ agentData.budget?.max_steps ?? 8 }}</span>
+                </div>
+                <div class="agent-metric-item">
+                  <span class="m-lbl">检索尝试次数</span>
+                  <span class="m-val font-mono">{{ agentData.budget?.retrieve_attempts ?? 0 }} / {{ agentData.budget?.max_retrieve_attempts ?? 2 }}</span>
+                </div>
+                <div class="agent-metric-item">
+                  <span class="m-lbl">历史证据复用</span>
+                  <span class="m-val">{{ agentData.reuse ? '已复用' : '未复用' }}</span>
+                </div>
+              </div>
+
+              <!-- 对话焦点与实体消歧状态 -->
+              <div v-if="agentData.conversation_context || detail.understanding" class="agent-context-box margin-top-md">
+                <div class="ctx-title">会话理解与实体对齐状态 (Conversation Context)</div>
+                <div class="ctx-tags">
+                  <span v-if="agentData.conversation_context?.resolved_question" class="ctx-tag">
+                    解析问题：{{ agentData.conversation_context.resolved_question }}
+                  </span>
+                  <span v-if="agentData.conversation_context?.head_entity" class="ctx-tag entity-tag">
+                    当前头实体：{{ agentData.conversation_context.head_entity }}
+                  </span>
+                  <span v-if="agentData.conversation_context?.topic_shift" class="ctx-tag warn-tag">主题发生漂移</span>
+                  <span v-if="agentData.conversation_context?.entity_transition" class="ctx-tag warn-tag">实体发生跳变</span>
+                  <span v-if="detail.understanding?.dialogue_focus" class="ctx-tag">
+                    焦点：{{ detail.understanding.dialogue_focus }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 步骤拆解时间轴 -->
+            <h3 class="section-title">Agent 步骤执行轨迹 (Step-by-Step Execution)</h3>
+            <div v-if="agentSteps.length" class="agent-steps-timeline">
+              <article v-for="st in agentSteps" :key="st.step" class="agent-step-card">
+                <div class="step-header">
+                  <div class="step-badge">第 {{ st.step }} 步</div>
+                  <div class="step-action-tag">
+                    {{ st.decision?.action === 'tool_call' ? `调用工具: ${st.decision?.tool}` : (st.terminal === 'finish' ? '决策完成 (Finish)' : st.terminal || '未知操作') }}
+                  </div>
+                  <span v-if="st.observation?.elapsed_ms != null" class="step-ms">
+                    耗时: {{ formatDuration(st.observation.elapsed_ms) }}
+                  </span>
+                  <span v-if="st.observation?.ok != null" class="step-ok-badge" :class="st.observation.ok ? 'ok-true' : 'ok-false'">
+                    {{ st.observation.ok ? '执行成功' : '失败' }}
+                  </span>
+                </div>
+
+                <!-- AI 决策思考 (Thought) -->
+                <div v-if="st.decision?.thought" class="step-thought-box">
+                  <div class="thought-lbl">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>AI 决策思考 (Decision Thought)：</span>
+                  </div>
+                  <div class="thought-content">{{ st.decision.thought }}</div>
+                </div>
+
+                <!-- 工具执行结果与观测 -->
+                <div v-if="st.observation" class="step-obs-box">
+                  <div class="obs-lbl">工具执行观测 (Observation Summary)：</div>
+                  <div class="obs-summary">{{ st.observation.summary || '无返回摘要' }}</div>
+                  <div v-if="st.observation.error" class="obs-error">
+                    错误: {{ st.observation.error }}
+                  </div>
+                </div>
+
+                <!-- 终端状态或拦截原因 -->
+                <div v-if="st.denied" class="step-denied-tag">拦截原因: {{ st.denied }}</div>
+              </article>
+            </div>
+            <div v-else class="empty-hint">暂无 Agent 步骤记录</div>
+          </section>
+
+          <!-- 检索计划 Tab -->
           <section v-else-if="activeTab === 'plan'" class="panel-card">
+            <!-- 算法自适应动态映射快照看板 -->
+            <div v-if="retrievalTraceSnapshot" class="explainable-trace-banner margin-bottom-lg">
+              <div class="banner-title-bar">
+                <div class="b-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <span>算法自适应动态映射快照 (Explainable Retrieval Trace)</span>
+                </div>
+                <span class="intent-pill">意图：{{ retrievalTraceSnapshot.intent || 'general_qa' }}</span>
+              </div>
+              <div class="banner-grid">
+                <div class="b-card">
+                  <div class="b-lbl">生效检索权重 (BM25 vs 向量)</div>
+                  <div class="weight-visual">
+                    <div class="weight-bar">
+                      <div class="bar-bm25" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100}%` }"></div>
+                      <div class="bar-vec" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100}%` }"></div>
+                    </div>
+                    <div class="weight-legend">
+                      <span>BM25: {{ ((Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100).toFixed(0) }}%</span>
+                      <span>向量: {{ ((Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">图谱扩展跳数 (Graph Expansion)</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.graph_expansion_hops ?? 0 }}</span>
+                    <span class="num-sub">跳</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">Top-K / Candidate-K</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.top_k ?? 8 }}</span>
+                    <span class="num-sub">/ {{ retrievalTraceSnapshot.candidate_k ?? 20 }}</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">生效检索模式</div>
+                  <div class="b-val-text font-mono">{{ retrievalTraceSnapshot.effective_mode || 'hybrid' }}</div>
+                </div>
+              </div>
+            </div>
+
             <h3 class="section-title">改写查询列表 (Queries)</h3>
             <div v-if="planQueries.length" class="query-grid">
               <div v-for="(qq, idx) in planQueries" :key="idx" class="query-card">
@@ -901,7 +1149,52 @@ onUnmounted(() => {
             <pre class="code-block">{{ JSON.stringify(detail.plan || {}, null, 2) }}</pre>
           </section>
 
+          <!-- 检索候选 Tab -->
           <section v-else-if="activeTab === 'retrieval'" class="panel-card">
+            <!-- 算法自适应动态映射快照看板 -->
+            <div v-if="retrievalTraceSnapshot" class="explainable-trace-banner margin-bottom-lg">
+              <div class="banner-title-bar">
+                <div class="b-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <span>算法自适应动态映射快照 (Explainable Retrieval Trace)</span>
+                </div>
+                <span class="intent-pill">意图：{{ retrievalTraceSnapshot.intent || 'general_qa' }}</span>
+              </div>
+              <div class="banner-grid">
+                <div class="b-card">
+                  <div class="b-lbl">生效检索权重 (BM25 vs 向量)</div>
+                  <div class="weight-visual">
+                    <div class="weight-bar">
+                      <div class="bar-bm25" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100}%` }"></div>
+                      <div class="bar-vec" :style="{ width: `${(Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100}%` }"></div>
+                    </div>
+                    <div class="weight-legend">
+                      <span>BM25: {{ ((Number(retrievalTraceSnapshot.applied_weights?.bm25 ?? 0.5)) * 100).toFixed(0) }}%</span>
+                      <span>向量: {{ ((Number(retrievalTraceSnapshot.applied_weights?.vector ?? 0.5)) * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">图谱扩展跳数 (Graph Expansion)</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.graph_expansion_hops ?? 0 }}</span>
+                    <span class="num-sub">跳</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">Top-K / Candidate-K</div>
+                  <div class="b-val-num">
+                    <span class="num-highlight">{{ retrievalTraceSnapshot.top_k ?? 8 }}</span>
+                    <span class="num-sub">/ {{ retrievalTraceSnapshot.candidate_k ?? 20 }}</span>
+                  </div>
+                </div>
+                <div class="b-card">
+                  <div class="b-lbl">生效检索模式</div>
+                  <div class="b-val-text font-mono">{{ retrievalTraceSnapshot.effective_mode || 'hybrid' }}</div>
+                </div>
+              </div>
+            </div>
+
             <div class="panel-header">
               <h3 class="section-title">检索候选切片列表</h3>
               <span class="count-summary">共 {{ detail.retrieval?.candidate_count ?? candidates.length }} 条片段</span>
@@ -950,6 +1243,7 @@ onUnmounted(() => {
             <div v-else class="empty-hint">未获取到检索候选片段</div>
           </section>
 
+          <!-- 证据分析 Tab -->
           <section v-else-if="activeTab === 'evidence'" class="panel-card">
             <div class="evidence-columns">
               <div class="evidence-col col-cited">
@@ -1009,7 +1303,22 @@ onUnmounted(() => {
             </div>
           </section>
 
+          <!-- 回答与来源 Tab -->
           <section v-else class="panel-card">
+            <!-- AI 深度思考 (Thinking Process / CoT) 折叠卡片 -->
+            <div v-if="thinkingContent" class="thinking-box margin-bottom-md">
+              <div class="thinking-header" @click="showThinking = !showThinking">
+                <div class="th-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  <span>AI 深度思考过程 (Thinking Process / CoT)</span>
+                </div>
+                <button type="button" class="btn-toggle-thinking">
+                  {{ showThinking ? '收起思考' : '展开思考' }}
+                </button>
+              </div>
+              <div v-show="showThinking" class="thinking-body markdown-body" v-html="renderMd(thinkingContent)"></div>
+            </div>
+
             <h3 class="section-title">最终生成回答</h3>
             <div class="answer-box">
               <div
@@ -2605,6 +2914,483 @@ button:disabled {
   white-space: pre-wrap;
   word-break: break-all;
   font-family: monospace;
+}
+
+/* 歧义待澄清状态横幅 */
+.clarify-alert-card {
+  padding: 12px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+}
+
+.clarify-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.clarify-badge {
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.clarify-hint {
+  font-size: 12px;
+  color: #92400e;
+}
+
+.clarify-question-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #78350f;
+  margin-bottom: 8px;
+}
+
+.clarify-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.clarify-opt-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #fef3c7;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.opt-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.opt-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.opt-filter-tag {
+  font-size: 11px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* 直接会话提示 */
+.direct-chat-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.direct-badge {
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.direct-text {
+  font-size: 12px;
+  color: #166534;
+}
+
+/* 算法自适应动态映射快照看板 */
+.explainable-trace-banner {
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.banner-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.b-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.intent-pill {
+  background: #1d4ed8;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.banner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.b-card {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.b-lbl {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.weight-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weight-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+
+.bar-bm25 {
+  background: #3b82f6;
+  height: 100%;
+}
+
+.bar-vec {
+  background: #8b5cf6;
+  height: 100%;
+}
+
+.weight-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.b-val-num {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.num-highlight {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.num-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.b-val-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+/* Agent 概览与步骤 */
+.agent-overview-box {
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.agent-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.agent-metric-item {
+  padding: 6px 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.m-lbl {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.m-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.route-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.route-retrieve {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.route-direct {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.route-clarify {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.gate-support {
+  color: #16a34a;
+}
+
+.gate-insufficient {
+  color: #dc2626;
+}
+
+.agent-context-box {
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+.ctx-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.ctx-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ctx-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  color: #334155;
+}
+
+.entity-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.warn-tag {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.agent-steps-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-step-card {
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.step-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.step-action-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.step-ms {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+}
+
+.step-ok-badge {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.ok-true {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ok-false {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.step-thought-box {
+  background: #faf5ff;
+  border: 1px solid #f3e8ff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.thought-lbl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7e22ce;
+  margin-bottom: 4px;
+}
+
+.thought-content {
+  font-size: 12px;
+  color: #4c1d95;
+  line-height: 1.5;
+}
+
+.step-obs-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.obs-lbl {
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 2px;
+}
+
+.obs-summary {
+  color: #1e293b;
+}
+
+.obs-error {
+  color: #dc2626;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.step-denied-tag {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* AI 深度思考 (Thinking Process) 折叠卡片 */
+.thinking-box {
+  background: #fdf4ff;
+  border: 1px solid #f5d0fe;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fae8ff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #86198f;
+}
+
+.btn-toggle-thinking {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: #a21caf;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.thinking-body {
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #701a75;
+  border-top: 1px dashed #f0abfc;
+  background: #ffffff;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 @media (max-width: 1024px) {
