@@ -239,11 +239,12 @@ class QaTraceBuilder:
         docs: list[dict[str, Any]] | None,
         *,
         query_hits: list[dict[str, Any]] | None = None,
+        retrieval_trace: dict[str, Any] | None = None,
     ) -> None:
         if not self._enabled:
             return
         qt = self._cfg.qa_trace
-        self._retrieval = {
+        ret_dict: dict[str, Any] = {
             "query_hits": query_hits or [],
             "candidates": serialize_candidates(
                 docs,
@@ -252,6 +253,9 @@ class QaTraceBuilder:
             ),
             "candidate_count": len(docs or []),
         }
+        if retrieval_trace is not None:
+            ret_dict["retrieval_trace"] = dict(retrieval_trace)
+        self._retrieval = ret_dict
 
     def set_pack(self, decision: Any) -> None:
         if not self._enabled:

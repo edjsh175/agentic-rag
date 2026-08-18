@@ -452,6 +452,7 @@ class AgentTurnResult:
     answer_gate: dict[str, Any] = field(default_factory=dict)
     evidence_gap: list[dict[str, Any]] = field(default_factory=list)
     retrieve_improvement: int | None = None
+    retrieval_trace: dict[str, Any] | None = None
 
     def to_trace(self) -> dict[str, Any]:
         return {
@@ -469,6 +470,7 @@ class AgentTurnResult:
             "answer_gate": dict(self.answer_gate or {}),
             "evidence_gap": list(self.evidence_gap),
             "retrieve_improvement": self.retrieve_improvement,
+            "retrieval_trace": dict(self.retrieval_trace or {}),
             "clarify": {
                 "needs_clarification": bool((self.clarify or {}).get("needs_clarification")),
                 "reason": (self.clarify or {}).get("reason"),

@@ -300,6 +300,9 @@ async def query(req: QueryRequest):
         kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
         entity_name = (req.entity_name or "").strip() or None
+        agent_orchestration_enabled = (
+            True if req.mode == "agent" else False if req.mode == "linear" else req.agent_orchestration_enabled
+        )
         result = await _rag.aquery(req.question, history,
                                    llm_model=req.llm_model, vision_model=req.vision_model,
                                    kb_name=kb_name, doc_category=doc_category,
@@ -308,7 +311,8 @@ async def query(req: QueryRequest):
                                    allow_general_knowledge=req.allow_general_knowledge,
                                    agent_prompt=req.agent_prompt,
                                    clarification_question=req.clarification_question,
-                                   clarification_selected=req.clarification_selected)
+                                   clarification_selected=req.clarification_selected,
+                                   agent_orchestration_enabled=agent_orchestration_enabled)
 
         return QueryResponse(
             answer=result["answer"],
@@ -383,6 +387,9 @@ async def query_stream(req: QueryRequest):
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     entity_name = (req.entity_name or "").strip() or None
+    agent_orchestration_enabled = (
+        True if req.mode == "agent" else False if req.mode == "linear" else req.agent_orchestration_enabled
+    )
 
     async def event_stream():
         async for event in _rag.stream_query(req.question, history,
@@ -396,7 +403,8 @@ async def query_stream(req: QueryRequest):
                                               pinned_chunk_ids=req.pinned_chunk_ids,
                                               excluded_chunk_ids=req.excluded_chunk_ids,
                                               clarification_question=req.clarification_question,
-                                              clarification_selected=req.clarification_selected):
+                                              clarification_selected=req.clarification_selected,
+                                              agent_orchestration_enabled=agent_orchestration_enabled):
 
             if event.get("type") == "status":
                 yield "event: status\n"

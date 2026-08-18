@@ -1,4 +1,4 @@
-﻿# 对话 Agent 检索编排 · 产品需求说明书（PRD）
+# 对话 Agent 检索编排 · 产品需求说明书（PRD）
 
 | 项目 | 内容 |
 |------|------|
@@ -100,38 +100,45 @@
 
 ---
 
-## 四、 标准流式 ReAct 运行循环（模式 B）
+## 四、 标准流式 ReAct 运行循环（对齐 DeepSeek-Harness）
 
-### 4.1 单步决策与流式派发时序
+### 4.1 单循环 Step Boundary 与流式派发时序
+参考 DeepSeek-Harness 原语，系统采用统一单循环驱动器（ReactLoopAgent），彻底消灭“前置决策 + 后置回答”的双脑割裂机制：
+
 ```text
   [用户请求输入]
          │
          ▼
 ┌────────────────────────────────────────────────────────┐
-│ AgentLoop: 构建决策 Prompt (携带 Context, History, Pool) │
-└────────────────────────┬───────────────────────────────┘
-                         │
-                         ▼
-┌────────────────────────────────────────────────────────┐
-│ LLM 生成决策：流式输出 Thought                         │
-│ 边推理语境、意图、改写 query，边决定 Action             │
+│ Step 1: LLM 首次推理 (携带 Persona, @tools, Context)    │
+│  ├─ 流式派发 Thinking: 推理语境、意图、改写精准 query   │
+│  └─ 输出 Action: {"tool": "retrieve_kb", "arguments": {"query": "..."}}
 └────────────────────────┬───────────────────────────────┘
                          │
         ┌────────────────┴────────────────┐
         ▼                                 ▼
    【action = "tool_call"】          【action = "finish"】
         │                                 │
-  Harness 鉴权与 Schema 校验               进入 Answer Gate
+  Harness 鉴权与参数校验 (严禁空 query)       进入 Answer Gate
         │                                 │
-  执行外部真实工具 (如 retrieve_kb)          结合 EvidencePool 生成最终回答
+  派发 tool_start (呈现真实 query)         直接基于历史与上下文生成最终回答
         │                                 │
-  生成 Observation (观察结果)              结束本次会话
+  执行外部真实工具 (如 retrieve_kb)          结束本次会话
         │
-  回填 History，进入下一步循环
+  生成 Observation (观察结果)
+        │
+  派发 tool_end (呈现真实召回摘要)
+        │
+        ▼
+┌────────────────────────────────────────────────────────┐
+│ Step 2: LLM 证据消化与收敛 (回填 Tool Observation)     │
+│  ├─ 流式派发 Thinking: 评估证据充分性，判定信息已完备    │
+│  └─ 输出 Action: "finish" / 流式生成 Answer 正文       │
+└────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 决策数据契约（JSON 格式）
-Agent 决策大脑每一轮输出严格的结构化决策：
+### 4.2 决策数据契约与参数规范
+Agent 决策大脑每一轮输出严格的结构化决策，**严禁生成空参数 `{}`**：
 ```json
 {
   "thought": "分析用户当前问题包含代词指代，上一轮讨论的是管线数据结构，结合上下文改写为具体查询：PipelineBuilder 线表 字段规范。规划调用 retrieve_kb 检索知识库。",
@@ -139,16 +146,21 @@ Agent 决策大脑每一轮输出严格的结构化决策：
   "tool": "retrieve_kb",
   "arguments": {
     "query": "PipelineBuilder 管线线表 字段规范",
-    "mode": "hybrid"
+    "mode": "hybrid",
+    "intent": "exact_parameter"
   },
   "gate": null
 }
 ```
 
-- **前端事件流映射**：
-  1. `thought` 字段内容 → SSE `{"type": "thinking", "data": "..."}` 实时展示在前端“思考”步骤；
-  2. `action="tool_call"` → SSE `{"type": "tool_start", "data": {"name": "retrieve_kb", ...}}` 呈现“动作”步骤；
-  3. 工具执行完毕 → SSE `{"type": "tool_end", "data": {"ok": true, "summary": "召回 3 个文档片段"}}` 呈现“观察”步骤。
+- **严格约束**：
+  1. **入参非空**：`retrieve_kb` / `link_entities` / `web_search` 的 `arguments.query` 必须为有效字符串，严禁传递空字典 `{}` 或空字符串 `""`。
+  2. **前端事件流时序**：
+     - Step 1: `thought` 流 → SSE `{"type": "thinking", "data": "..."}` 实时展示当前思考；
+     - Step 1: `action="tool_call"` → SSE `{"type": "tool_start", "data": {"name": "retrieve_kb", "arguments": {"query": "..."}}}` 呈现动作与真实参数；
+     - Step 1: 工具执行完毕 → SSE `{"type": "tool_end", "data": {"ok": true, "summary": "召回 3 个文档片段"}}` 呈现观察结果；
+     - Step 2: 证据消化 `thought` 流 → SSE `{"type": "thinking", "data": "..."}`；
+     - Step 2: 正文流 → SSE `{"type": "token", "data": "..."}` 流式输出最终回答。
 
 ---
 

@@ -17,15 +17,17 @@ function simpleHash(input: string): string {
 }
 
 function generate(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+  }
   const parts = [
     navigator.userAgent,
     navigator.language,
-    screen.width,
-    screen.height,
     Intl.DateTimeFormat().resolvedOptions().timeZone,
+    Date.now().toString(),
+    Math.random().toString(),
   ]
-  const raw = parts.join('||')
-  return simpleHash(raw)
+  return simpleHash(parts.join('||'))
 }
 
 export function getFingerprint(): string {

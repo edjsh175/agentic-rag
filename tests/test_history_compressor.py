@@ -44,6 +44,8 @@ class TestHistoryCompressor(unittest.TestCase):
         self.main_cfg.ollama_base_url = "http://localhost:11434"
         self.main_cfg.llm_model = "test-model"
         self.main_cfg.helper_llm_model = "helper-model"
+        self.main_cfg.context_budget = MagicMock()
+        self.main_cfg.context_budget.context_window = 4096
         self.compressor = HistoryCompressor(self.cfg, self.main_cfg)
 
     def wait_for_background(self, timeout: float = 2.0):

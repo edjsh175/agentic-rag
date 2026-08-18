@@ -194,6 +194,7 @@ export async function queryKnowledge(
   allowGeneralKnowledge?: boolean,
   docCategory?: string,
   entityName?: string,
+  mode?: 'agent' | 'linear',
 ) {
   const { data } = await http.post<QueryResult>(
     '/query',
@@ -208,6 +209,7 @@ export async function queryKnowledge(
       web_search: webSearch,
       agent_prompt: agentPrompt,
       allow_general_knowledge: allowGeneralKnowledge,
+      mode,
     },
     { signal, timeout: 600_000 },
   )
@@ -249,6 +251,7 @@ export async function queryKnowledgeStream(
   excludedChunkIds?: string[],
   clarificationQuestion?: string,
   clarificationSelected?: string,
+  mode?: 'agent' | 'linear',
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
@@ -269,6 +272,7 @@ export async function queryKnowledgeStream(
       excluded_chunk_ids: excludedChunkIds,
       clarification_question: clarificationQuestion,
       clarification_selected: clarificationSelected,
+      mode,
     }),
     signal,
   })

@@ -39,6 +39,8 @@ class QueryRequest(BaseModel):
     excluded_chunk_ids: Optional[list[str]] = None
     clarification_question: Optional[str] = None
     clarification_selected: Optional[str] = None
+    mode: Optional[Literal["agent", "linear"]] = None
+    agent_orchestration_enabled: Optional[bool] = None
 
 
 

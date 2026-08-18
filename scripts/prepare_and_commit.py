@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement query entity guard and context budget allocation strategy"
+    commit_msg = "feat: support query fingerprint tracing and enhance agent orchestration telemetry"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

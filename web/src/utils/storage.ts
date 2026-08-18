@@ -204,6 +204,14 @@ export async function loadChatState(): Promise<ChatMessage[]> {
 }
 
 /**
+ * 同步写 localStorage（用于 beforeunload 等关窗事件快速落地）
+ */
+export function saveChatStateLocalSync(messages: ChatMessage[]): void {
+  const trimmed = trimMessages(messages)
+  saveMessages(trimmed)
+}
+
+/**
  * 全量保存：写服务器 + 写 localStorage（回退）
  * 自动过滤 loading 消息，裁切超过上限的消息
  */
@@ -212,6 +220,10 @@ export async function saveChatState(messages: ChatMessage[]): Promise<void> {
 
   // 1. 裁切 + 过滤 loading 状态
   const trimmed = trimMessages(messages)
+
+  // 先同步写入 localStorage（避免页面突然关闭导致丢失）
+  saveMessages(trimmed)
+
   const toSave = trimmed
     .filter((m) => !m.loading)
     .map((m) => ({
@@ -241,9 +253,6 @@ export async function saveChatState(messages: ChatMessage[]): Promise<void> {
     .filter((m) => m.imageUrl)
     .map((m) => saveImageToDB(m.id, m.imageUrl!))
   await Promise.all(imageJobs)
-
-  // 4. 写入 localStorage（始终作为回退）
-  saveMessages(trimmed)
 }
 
 /**

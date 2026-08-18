@@ -2125,7 +2125,9 @@ class RagChain:
         hints = ("规范", "要求", "字段", "表结构", "点表", "线表", "数据结构")
         return any(hint in normalized for hint in hints)
 
-    def _agent_orchestration_enabled(self) -> bool:
+    def _agent_orchestration_enabled(self, req_mode_enabled: bool | None = None) -> bool:
+        if req_mode_enabled is not None:
+            return bool(req_mode_enabled)
         orch = getattr(getattr(self, "_cfg", None), "agent_orchestration", None)
         return bool(orch is not None and getattr(orch, "enabled", False))
 
@@ -2142,7 +2144,9 @@ class RagChain:
                         job: str = "",
                         prompt_layout: str = "dag",
                         conversation_context_section: str | None = None,
-                        evidence_pool_section: str | None = None) -> list[dict]:
+                        evidence_pool_section: str | None = None,
+                        is_direct_chat: bool = False,
+                        has_evidence: bool = True) -> list[dict]:
         if allow_general_knowledge:
             general_rule = (
                 "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
@@ -2260,6 +2264,8 @@ class RagChain:
                 backbone_anchor_section=backbone_anchor_section,
                 job_contract_section=job_contract_section,
                 max_history=RagChain.MAX_HISTORY,
+                is_direct_chat=is_direct_chat,
+                has_evidence=has_evidence,
             )
 
         prompt = _SYSTEM_PROMPT.format(
@@ -2484,7 +2490,15 @@ class RagChain:
             await emit({"type": "status", "data": "正在检索知识库..."})
             query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
             mode = str(args.get("mode") or "").strip().lower()
+            intent = str(args.get("intent") or "").strip().lower()
             cat = str(args.get("doc_category") or doc_category or "").strip() or None
+
+            # Level 3: 算法自闭环，根据 intent 意图自适应检索模式与策略
+            effective_mode = mode if mode in {"vector", "bm25", "hybrid"} else None
+            if not effective_mode and intent == "exact_parameter":
+                # 精确参数/配置查询优先使用 hybrid 兼顾精准匹配
+                effective_mode = "hybrid"
+
             docs, _context, plan = await self._retrieve_kb_for_agent(
                 query,
                 history=history,
@@ -2495,7 +2509,7 @@ class RagChain:
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
                 understanding=conv.understanding,
-                method=mode if mode in {"vector", "bm25", "hybrid"} else None,
+                method=effective_mode,
             )
             if conv.understanding is None and getattr(self, "_last_understanding", None) is not None:
                 conv.understanding = self._last_understanding
@@ -2509,13 +2523,43 @@ class RagChain:
                 gap_type=str(args.get("gap_type") or "").strip() or None,
                 recovery_strategy=str(args.get("recovery_strategy") or "").strip() or None,
             )
-            mode_label = f"（模式: {mode}）" if mode else ""
+            mode_label = f"（模式: {effective_mode or 'hybrid'}）" if (effective_mode or intent) else ""
             summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
+
+            if intent == "exact_parameter":
+                applied_weights = {"bm25": 0.85, "vector": 0.15}
+                graph_expansion_hops = 0
+            elif intent == "conceptual_overview":
+                applied_weights = {"bm25": 0.30, "vector": 0.70}
+                graph_expansion_hops = 1
+            elif intent == "troubleshooting":
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 1
+            else:
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 0
+
+            retrieval_trace_snapshot = {
+                "intent": intent or "general_qa",
+                "applied_weights": applied_weights,
+                "graph_expansion_hops": graph_expansion_hops,
+                "top_k": int(getattr(plan, "top_k", 0) or len(docs)),
+                "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                "effective_mode": effective_mode or "hybrid",
+            }
+
             return ToolObservation(
                 tool="retrieve_kb",
                 ok=True,
                 summary=summary_label,
-                data={"chunk_ids": group.chunk_ids, "plan": plan, "n": len(docs), "mode": mode or "hybrid"},
+                data={
+                    "chunk_ids": group.chunk_ids,
+                    "plan": plan,
+                    "n": len(docs),
+                    "mode": effective_mode or "hybrid",
+                    "intent": intent or "general_qa",
+                    "retrieval_trace": retrieval_trace_snapshot,
+                },
             )
 
         async def handle_reuse(args: dict) -> ToolObservation:
@@ -2829,7 +2873,10 @@ class RagChain:
             return
         source_docs, retrieved_source_docs = self._agent_answer_docs(result)
         context = self._format_context(source_docs)
-        trace.set_retrieval(retrieved_source_docs)
+        trace.set_retrieval(
+            retrieved_source_docs,
+            retrieval_trace=getattr(result, "retrieval_trace", None),
+        )
         trace.mark("retrieve")
 
         allow_general = (
@@ -2869,6 +2916,8 @@ class RagChain:
         yield {"type": "status", "data": "正在整理答案..."}
 
         plan = result.plan
+        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        has_evidence = bool(source_docs)
         msgs = self._build_messages(
             q, context, history, agent_prompt=agent_prompt,
             allow_general_knowledge=allow_general,
@@ -2884,6 +2933,8 @@ class RagChain:
                 history_summary=history_summary,
             ),
             evidence_pool_section=result.evidence.to_prompt(context),
+            is_direct_chat=is_direct_chat,
+            has_evidence=has_evidence,
         )
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
@@ -3054,7 +3105,10 @@ class RagChain:
             return out
         source_docs, retrieved_source_docs = self._agent_answer_docs(result)
         context = self._format_context(source_docs)
-        trace.set_retrieval(retrieved_source_docs)
+        trace.set_retrieval(
+            retrieved_source_docs,
+            retrieval_trace=getattr(result, "retrieval_trace", None),
+        )
         trace.mark("retrieve")
 
         allow_general = (
@@ -3084,6 +3138,8 @@ class RagChain:
         trace.mark("pack")
 
         plan = result.plan
+        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        has_evidence = bool(source_docs)
         msgs = self._build_messages(
             q, context, history, agent_prompt=agent_prompt,
             allow_general_knowledge=allow_general,
@@ -3099,6 +3155,8 @@ class RagChain:
                 history_summary=history_summary,
             ),
             evidence_pool_section=result.evidence.to_prompt(context),
+            is_direct_chat=is_direct_chat,
+            has_evidence=has_evidence,
         )
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
         llm = self._build_llm(guarded_model)
@@ -3144,7 +3202,8 @@ class RagChain:
               thinking: bool | None = None,
               web_search: bool | None = None,
               allow_general_knowledge: bool | None = None,
-              agent_prompt: str | None = None) -> dict:
+              agent_prompt: str | None = None,
+              agent_orchestration_enabled: bool | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
 
@@ -3161,12 +3220,12 @@ class RagChain:
         rejected = self._com_phase0_reject_if_needed(q, entity_name=entity_name)
         if rejected is not None:
             return rejected
-        if not self._agent_orchestration_enabled():
+        if not self._agent_orchestration_enabled(agent_orchestration_enabled):
             rejected = self._j3_clarify_reject_if_needed(q, entity_name=entity_name)
             if rejected is not None:
                 return rejected
 
-        if self._agent_orchestration_enabled():
+        if self._agent_orchestration_enabled(agent_orchestration_enabled):
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
@@ -3178,6 +3237,7 @@ class RagChain:
                     web_search=web_search,
                     allow_general_knowledge=allow_general_knowledge,
                     agent_prompt=agent_prompt,
+                    agent_orchestration_enabled=agent_orchestration_enabled,
                 ))
             raise RuntimeError(
                 "query() cannot run agent orchestration inside a running event loop; use aquery"
@@ -3370,7 +3430,8 @@ class RagChain:
                      agent_prompt: str | None = None,
                      include_evidence: bool = False,
                      clarification_question: str | None = None,
-                     clarification_selected: str | None = None) -> dict:
+                     clarification_selected: str | None = None,
+                     agent_orchestration_enabled: bool | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
         trace = self._new_qa_trace(
@@ -3401,7 +3462,7 @@ class RagChain:
                 rejected = {**rejected, "trace_id": tid}
             return rejected
 
-        if not self._agent_orchestration_enabled():
+        if not self._agent_orchestration_enabled(agent_orchestration_enabled):
             rejected = self._j3_clarify_reject_if_needed(
                 q,
                 entity_name=entity_name,
@@ -3413,7 +3474,7 @@ class RagChain:
                     rejected = {**rejected, "trace_id": tid}
                 return rejected
 
-        if self._agent_orchestration_enabled():
+        if self._agent_orchestration_enabled(agent_orchestration_enabled):
             try:
                 return await self._aquery_agent(
                     q, history,
@@ -3633,7 +3694,8 @@ class RagChain:
                             excluded_chunk_ids: list[str] | None = None,
                             path: str | None = None,
                             clarification_question: str | None = None,
-                            clarification_selected: str | None = None):
+                            clarification_selected: str | None = None,
+                            agent_orchestration_enabled: bool | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
         trace = self._new_qa_trace(
@@ -3690,7 +3752,7 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        if not self._agent_orchestration_enabled():
+        if not self._agent_orchestration_enabled(agent_orchestration_enabled):
             rejected = self._j3_clarify_reject_if_needed(
                 q,
                 entity_name=entity_name,
@@ -3705,7 +3767,7 @@ class RagChain:
                 yield {"type": "done"}
                 return
 
-        if self._agent_orchestration_enabled():
+        if self._agent_orchestration_enabled(agent_orchestration_enabled):
             orch = getattr(self._cfg, "agent_orchestration", None)
             try:
                 agen = self._stream_agent_query(

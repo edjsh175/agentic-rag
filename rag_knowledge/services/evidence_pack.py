@@ -296,10 +296,69 @@ def _has_substantial_grounding(answer: str, context_docs: list[dict[str, Any]]) 
     return False
 
 
+def _clean_invalid_citations(answer: str, valid_cids: set[int]) -> str:
+    """剔除越界/编造的引用标号，例如 context 中只有 [1, 2] 但模型输出了 [99]。"""
+    if not valid_cids:
+        return answer
+
+    def _replace_cid(m: re.Match) -> str:
+        cid_str = m.group(1) or m.group(2)
+        try:
+            cid = int(cid_str)
+            if cid in valid_cids:
+                return m.group(0)
+            return ""
+        except (ValueError, TypeError):
+            return ""
+
+    cleaned = _CITATION_RE.sub(_replace_cid, answer)
+    return re.sub(r"[ \t]+", " ", cleaned).strip()
+
+
+def _check_ungrounded_parameters(answer: str, context_docs: list[dict[str, Any]]) -> str:
+    """关键参数与片段锚定校验：若输出具体端口或路径但无原文依据，追加安全提示。"""
+    if not context_docs or "缺少明确原文依据" in answer:
+        return answer
+
+    all_context_blob = " ".join(_doc_blob(d) for d in context_docs)
+    all_context_blob_lower = all_context_blob.casefold()
+
+    ports = re.findall(r"(?:port|端口)\s*(?:=|:|为|是)?\s*(\d{2,5})\b", answer, flags=re.I)
+    paths = re.findall(r"(?:[A-Za-z]:[/\\][A-Za-z0-9_.-]+|[/\\][A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", answer)
+
+    has_ungrounded = False
+    for p in ports:
+        if p not in all_context_blob:
+            has_ungrounded = True
+            break
+    if not has_ungrounded:
+        for p in paths:
+            if len(p) > 3 and p.casefold() not in all_context_blob_lower:
+                has_ungrounded = True
+                break
+
+    if has_ungrounded:
+        return answer.rstrip() + "\n\n（提示：部分参数缺少明确原文依据，请以官方文档为准。）"
+    return answer
+
+
 def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]) -> str:
     """Prevent an uncited or completeness-sensitive answer from overclaiming."""
     answer = (answer or "").strip()
     docs = [doc for doc in (context_docs or []) if isinstance(doc, dict)]
+
+    valid_cids: set[int] = set()
+    for doc in docs:
+        cid = doc.get("metadata", {}).get("citation_id")
+        if cid is not None:
+            try:
+                valid_cids.add(int(cid))
+            except (ValueError, TypeError):
+                pass
+
+    # 1. 过滤越界虚假引用标号（Citation Range Check）
+    if valid_cids:
+        answer = _clean_invalid_citations(answer, valid_cids)
 
     # Empty / fixed miss: repair to rule-4 partial answer when subject context exists.
     if (not answer or answer == NO_KNOWLEDGE_ANSWER) and docs:
@@ -328,4 +387,7 @@ def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]
     # Model (or prior repair) emitted only the rule-4 shell — keep it, attach evidence bullets.
     if docs and _is_thin_partial_answer(answer):
         return _append_evidence_bullets(answer, question, docs)
+
+    # 2. 关键参数后置校验（Parameter Grounding Check）
+    answer = _check_ungrounded_parameters(answer, docs)
     return answer

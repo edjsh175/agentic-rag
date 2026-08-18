@@ -5,7 +5,7 @@ import type { Message, SourceDoc, Stats, ClarificationOption, ClarifyResult, Evi
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getGpuStatus, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
-import { saveChatState, loadChatState, clearChatState } from '../utils/storage'
+import { saveChatState, saveChatStateLocalSync, loadChatState, clearChatState } from '../utils/storage'
 import { buildChatHistoryPayload } from '../utils/chatHistory'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
@@ -182,6 +182,14 @@ function showToast(msg: string) {
 
 const availableModels = ref<{ name: string; type?: string }[]>([])
 const agentOrchestrationEnabled = ref(false)
+const workMode = ref<'agent' | 'linear'>(
+  (localStorage.getItem('rag-work-mode') as 'agent' | 'linear') || 'agent'
+)
+
+function setWorkMode(mode: 'agent' | 'linear') {
+  workMode.value = mode
+  localStorage.setItem('rag-work-mode', mode)
+}
 
 function modelType(name: string, type?: string): string {
   if (type) return type
@@ -308,6 +316,9 @@ onMounted(async () => {
     availableModels.value = modelsResp.models
     embeddingModel.value = modelsResp.current.embedding
     agentOrchestrationEnabled.value = Boolean(modelsResp.current.agent_orchestration_enabled)
+    if (!localStorage.getItem('rag-work-mode')) {
+      workMode.value = agentOrchestrationEnabled.value ? 'agent' : 'linear'
+    }
 
     const lastDefaultLlm = localStorage.getItem('rag-llm-default-model')
     if (lastDefaultLlm !== modelsResp.current.llm) {
@@ -342,9 +353,17 @@ onMounted(async () => {
   } catch { /* 静默 */ }
   refreshGpu()
   gpuPollTimer = window.setInterval(refreshGpu, 5000)
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
+function handleBeforeUnload() {
+  if (initialized.value && messages.value.length > 0) {
+    saveChatStateLocalSync(messages.value)
+  }
+}
+
 onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   clearInterval(gpuPollTimer)
   clearTimeout(gpuNoticeTimer)
   clearTimeout(gpuPopoverTimer)
@@ -747,8 +766,8 @@ async function handleSend(text: string, image?: File) {
   try {
     abortController.value = new AbortController()
 
-    // 1. 提问前预检：Agent 关闭时走 /query/clarify；开启时由 stream 的 clarify 事件出卡
-    if (!agentOrchestrationEnabled.value) {
+    // 1. 提问前预检：线性模式时走 /query/clarify；Agent 模式时由 stream 的 clarify 事件出卡
+    if (workMode.value === 'linear') {
       try {
         const clarifyRes = await queryClarify(
           text,
@@ -798,6 +817,9 @@ async function handleSend(text: string, image?: File) {
         entityName.value || undefined,
         pinnedChunks.value.map(c => c.id),
         excludedChunks.value.map(c => c.id),
+        undefined,
+        undefined,
+        workMode.value,
       )
     } catch {
       lastAiMsg().status = undefined
@@ -814,6 +836,7 @@ async function handleSend(text: string, image?: File) {
           allowGeneralKnowledge.value,
           docCategory.value || undefined,
           entityName.value || undefined,
+          workMode.value,
         )
         const msg = lastAiMsg()
         msg.content = result.answer
@@ -959,6 +982,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         undefined,
         clarificationQuestion,
         clarificationSelected,
+        workMode.value,
       )
     } catch {
       aiMsg.status = undefined
@@ -975,6 +999,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
           allowGeneralKnowledge.value,
           docCategoryVal,
           entityNameVal,
+          workMode.value,
         )
         aiMsg.content = result.answer
         aiMsg.loading = false
@@ -1109,14 +1134,24 @@ async function handleScan() {
 async function handleClear() {
   const ok = await showConfirm('确定清空所有对话记录？')
   if (!ok) return
-  await clearChatState()
-  messages.value = [{
-    id: 'welcome', role: 'assistant',
-    content: '你好！我是 RAG 知识库助手。\n\n你可以输入文字提问，也可以**粘贴或上传图片**让我识别描述。',
-  }]
-  messages.value = []
+
+  // 1. 中止可能正在进行的流式/分析请求，避免旧回调二次污染
+  if (abortController.value) {
+    abortController.value.abort()
+    abortController.value = null
+  }
+  loading.value = false
+
+  // 2. 清空人工干预上下文与来源面板
+  pinnedChunks.value = []
+  excludedChunks.value = []
   currentSources.value = []
   showSources.value = false
+
+  // 3. 清空页面消息并彻底清空持久化存储（服务端/localStorage/IndexedDB）
+  messages.value = []
+  await clearChatState()
+
   showToast('对话已清空')
 }
 
@@ -1511,7 +1546,7 @@ function scrollDown() {
         </span>
       </div>
 
-      <ChatInput :disabled="loading" @send="handleSend" @stop="handleStop" />
+      <ChatInput v-model:mode="workMode" :disabled="loading" @send="handleSend" @stop="handleStop" />
     </div>
 
     <!-- Toast 反馈 -->
