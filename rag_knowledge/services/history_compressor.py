@@ -159,6 +159,7 @@ class HistoryCompressor:
                 num_predict=256,
                 timeout=45.0,
                 think=False,
+                num_ctx=self._main_cfg.context_budget.context_window,
             )
             return self._ensure_structured_summary((content or "").strip())
         except Exception as e:

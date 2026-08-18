@@ -933,3 +933,38 @@ def test_agent_react_event_stream_interleaved_sequence():
     assert "已获取候选实体" in events[3]["data"]
     assert events[4]["data"]["name"] == "retrieve_kb"
     assert "证据充足" in events[6]["data"]
+
+
+def test_v14_tool_registry_and_react_flow():
+    # 1. 验证 Phase 1 注册表中已废除 understand / rewrite
+    p1 = build_phase1_registry()
+    assert "understand" not in p1.names()
+    assert "rewrite" not in p1.names()
+    assert "retrieve_kb" in p1.names()
+    assert "reuse_evidence" in p1.names()
+
+    # 2. 验证 Agent 注册表中同样不含 understand / rewrite
+    agent_reg = build_agent_registry()
+    assert "understand" not in agent_reg.names()
+    assert "rewrite" not in agent_reg.names()
+    assert "link_entities" in agent_reg.names()
+    assert "clarify" in agent_reg.names()
+
+
+def test_v14_link_entities_is_read_only():
+    conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
+    assert not conv.head_entity
+
+    # 测试 link_entities 工具纯只读性（通过 mock 检验）
+    reg = build_agent_registry()
+    spec = reg.get("link_entities")
+    assert spec is not None
+    assert spec.side_effect == "read"
+
+
+def test_v14_llm_http_default_num_ctx_injection():
+    from rag_knowledge.llm_http import _resolve_default_num_ctx
+    # 当未传 num_ctx 时，默认返回 32768
+    assert _resolve_default_num_ctx(None) >= 32768
+    # 当显式指定时，使用显式值
+    assert _resolve_default_num_ctx(16384) == 16384

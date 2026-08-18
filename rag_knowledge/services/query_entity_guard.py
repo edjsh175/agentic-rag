@@ -22,7 +22,7 @@ _STOPWORDS = {
 
 # 常见的全小写技术名词/工具名词
 _KNOWN_TECH_WORDS = {
-    "docker", "k8s", "kubernetes", "nginx", "mysql", "redis", "git", "linux", 
+    "docker", "k8s", "kubernetes", "nginx", "mysql", "redis", "git", "linux",
     "python", "java", "node", "pip", "npm", "yum", "apt", "brew", "webrtc"
 }
 
@@ -35,22 +35,63 @@ _ENTITY_SUFFIXES = (
     "sdk",
 )
 
-def extract_explicit_entities(question: str) -> list[str]:
+_NEGATION_PATTERNS = (
+    re.compile(r"(?:我|谁)\s*(?:啥时候|什么时候|几时|哪儿?|怎么)\s*(?:给你?|跟你?|对你?)?\s*(?:说过?|说是?|提到?|讲过?)\s*([A-Za-z0-9_.-]+)", re.IGNORECASE),
+    re.compile(r"(?:不是|并不是|非|不要|别查|不用|无需|并非)\s*([A-Za-z0-9_.-]+)", re.IGNORECASE),
+    re.compile(r"(?:我没说|我没有说|我没提|我没有提到|我没指|不是指)\s*([A-Za-z0-9_.-]+)", re.IGNORECASE),
+)
+
+_META_QUESTION_PATTERNS = (
+    re.compile(r"(?:我|谁)\s*(?:啥时候|什么时候|几时|哪儿?|怎么)\s*(?:给你?|跟你?)?\s*(?:说过?|说是?|提到?|讲过?)"),
+    re.compile(r"为什么\s*(?:会|要)?\s*(?:说|回答|显示|查|变成)"),
+    re.compile(r"(?:你搞错|搞错了|理解错|你理解错|不是这个意思|不是这意思)"),
+)
+
+
+def detect_correction_or_negation(question: str) -> tuple[bool, list[str]]:
+    """检测用户输入是否为对前文实体/结论的否定、反问或纠偏。
+
+    返回 (is_correction, negated_entities)。
+    """
+    if not question:
+        return False, []
+    q_clean = question.strip()
+    negated: list[str] = []
+    for pat in _NEGATION_PATTERNS:
+        for match in pat.finditer(q_clean):
+            ent = match.group(1).strip(".-_")
+            if ent and ent.lower() not in _STOPWORDS:
+                negated.append(ent)
+
+    is_meta = any(pat.search(q_clean) for pat in _META_QUESTION_PATTERNS)
+    is_correction = bool(negated) or is_meta
+    return is_correction, list(dict.fromkeys(negated))
+
+
+def extract_explicit_entities(question: str, *, exclude_negated: bool = False) -> list[str]:
     """识别当前问题中的显式技术实体。
-    
+
     采用规则过滤，排除非技术实体的常规英文词汇。
     要求实体要么包含至少一个大写字母，要么属于知名的全小写技术名词。
     并处理重叠/包含子串的实体，当它们独立出现时均保留，否则仅保留长实体。
     """
     if not question:
         return []
-    
+
+    negated_set: set[str] = set()
+    if exclude_negated:
+        is_corr, neg_list = detect_correction_or_negation(question)
+        if is_corr:
+            negated_set = {n.casefold() for n in neg_list}
+
     # 1. 提取所有符合条件的英文/拉丁词
     candidates = _ENTITY_PATTERN.findall(question)
     raw_entities = []
     for cand in candidates:
         cand_clean = cand.strip(".-_")
         if len(cand_clean) >= 2 and cand_clean.lower() not in _STOPWORDS:
+            if exclude_negated and cand_clean.casefold() in negated_set:
+                continue
             # 只有包含大写字母，或者是已知的 lowercase 技术词，才被视为技术实体
             is_uppercase = any(c.isupper() for c in cand_clean)
             lower_name = cand_clean.casefold()
@@ -58,7 +99,7 @@ def extract_explicit_entities(question: str) -> list[str]:
             has_entity_suffix = lower_name.endswith(_ENTITY_SUFFIXES)
             if is_uppercase or is_known_tech or has_entity_suffix:
                 raw_entities.append(cand_clean)
-            
+
     # 去重并保留顺序
     seen = set()
     deduped = []
@@ -67,7 +108,7 @@ def extract_explicit_entities(question: str) -> list[str]:
         if e_lower not in seen:
             seen.add(e_lower)
             deduped.append(e)
-            
+
     # 2. 找到每个实体在原问题中的所有起始和结束索引（casefold）
     q_cf = question.casefold()
     entity_spans = {}
@@ -82,7 +123,7 @@ def extract_explicit_entities(question: str) -> list[str]:
             spans.append((idx, idx + len(ent_cf)))
             start = idx + 1
         entity_spans[ent] = spans
-        
+
     # 3. 过滤掉完全被更长实体覆盖的实体（即没有独立出现的短实体）
     filtered_entities = []
     for ent in deduped:
@@ -103,7 +144,7 @@ def extract_explicit_entities(question: str) -> list[str]:
                 break
         if has_independent_occurrence:
             filtered_entities.append(ent)
-            
+
     return filtered_entities
 
 def _filter_substrings(entities: list[str]) -> list[str]:
@@ -121,7 +162,7 @@ def _filter_substrings(entities: list[str]) -> list[str]:
                 break
         if not is_sub:
             kept.append(ent)
-            
+
     # 按照原始列表中的相对顺序返回
     return [e for e in entities if e in kept]
 
@@ -156,7 +197,7 @@ def protect_rewritten_query(
     canonical_by_alias: dict[str, str] | None = None,
 ) -> str:
     """对 LLM 改写结果或启发式改写结果做实体一致性保护。
-    
+
     如果当前问题包含显式实体，但改写后的问题丢失了该实体（例如被历史实体的缩写替换了），
     则将改写后问题中的对应部分替换回当前显式实体。
     对于多实体问题，若改写后任意显式实体缺失，则安全回退到原问题以防止信息丢失。
@@ -166,9 +207,9 @@ def protect_rewritten_query(
     orig_entities = extract_explicit_entities(original_question)
     if not orig_entities:
         return rewritten_query
-        
+
     rewritten_cf = rewritten_query.casefold()
-    
+
     # 针对多显式实体的问题，如果缺失了任何一个，回退到 original_question
     if len(orig_entities) > 1:
         all_present = all(
@@ -178,20 +219,20 @@ def protect_rewritten_query(
         if all_present:
             return rewritten_query
         return original_question
-            
+
     # 针对单显式实体的问题
     orig_ent = orig_entities[0]
-    
+
     # 如果改写后已经包含该实体（或等价 canonical/alias），则无需替换
     if _text_covers_entity(rewritten_query, orig_ent, canonical_by_alias):
         return rewritten_query
-        
+
     rewritten_entities = extract_explicit_entities(rewritten_query)
     last_entities = extract_explicit_entities(last_user_question)
-    
+
     result = rewritten_query
     replaced = False
-    
+
     # 遍历改写后的实体，检查是否属于子串匹配或上一轮被继承的历史实体
     for rew_ent in rewritten_entities:
         rew_ent_cf = rew_ent.casefold()
@@ -204,7 +245,7 @@ def protect_rewritten_query(
             right = canonical_by_alias.get(rew_ent) or canonical_by_alias.get(rew_ent.strip())
             if left and right and left == right:
                 same_backbone = True
-        
+
         if same_backbone:
             return rewritten_query
         if is_sub or is_last:
@@ -212,7 +253,7 @@ def protect_rewritten_query(
             pattern = re.compile(re.escape(rew_ent), re.IGNORECASE)
             result = pattern.sub(orig_ent, result)
             replaced = True
-            
+
     if not replaced:
         # 如果没有找到明显的替换目标，但显式实体确实丢失了
         if rewritten_entities:
@@ -220,7 +261,7 @@ def protect_rewritten_query(
             result = pattern.sub(orig_ent, result)
         else:
             result = f"{orig_ent} {result}"
-            
+
     return result
 
 def protect_query_list(
@@ -260,23 +301,23 @@ def filter_entity_candidates(
     candidate_entities: list[str],
 ) -> list[str]:
     """对候选实体列表做显式实体优先以及长实体优先过滤。
-    
+
     如果原始问题存在显式实体，候选实体中与显式实体构成包含冲突的短实体（且短实体本身未独立显式出现）将被过滤丢弃。
     """
     orig_entities = extract_explicit_entities(original_question)
     if not orig_entities:
         return _filter_substrings(candidate_entities)
-        
+
     filtered: list[str] = []
     orig_entities_cf = [oe.casefold() for oe in orig_entities]
-    
+
     # 1. 过滤与显式实体有冲突但未独立在原问题中出现的候选实体
     for cand in candidate_entities:
         cand_cf = cand.casefold()
         if cand_cf in orig_entities_cf:
             filtered.append(cand)
             continue
-            
+
         conflict = False
         for oe in orig_entities:
             oe_cf = oe.casefold()
@@ -293,7 +334,7 @@ def filter_entity_candidates(
                 break
         if not conflict:
             filtered.append(cand)
-            
+
     # 2. 在保留的候选中过滤子串，但永远不丢弃显式存在于 orig_entities 中的实体
     sorted_ents = sorted(list(set(filtered)), key=len, reverse=True)
     kept: list[str] = []
@@ -302,7 +343,7 @@ def filter_entity_candidates(
         if ent_cf in orig_entities_cf:
             kept.append(ent)
             continue
-            
+
         is_sub = False
         for k in kept:
             k_cf = k.casefold()
@@ -311,5 +352,5 @@ def filter_entity_candidates(
                 break
         if not is_sub:
             kept.append(ent)
-            
+
     return [e for e in filtered if e in kept]

@@ -1559,13 +1559,17 @@ class RagChain:
     def _format_context(source_docs: list[dict]) -> str:
         parts = []
         for item in source_docs:
-            meta = item["metadata"]
+            meta = item.get("metadata") or {}
             label = "外部来源" if meta.get("source_type") == "external" else "知识库来源"
             url = f" URL: {meta['url']}" if meta.get("url") else ""
+            file_name = meta.get("file_name") or meta.get("source") or "未知文件"
+            page_label = meta.get("page_label") or meta.get("page") or "-"
+            cid = meta.get("citation_id", "-")
+            category = meta.get("category") or meta.get("doc_category", "未知")
             parts.append(
-                f"[{meta['citation_id']}] [{label}] 文件: {meta['file_name']} | "
-                f"页码: {meta['page_label']} | 类型: {meta.get('category', '未知')}{url}\n"
-                f"文档片段：{item['content']}"
+                f"[{cid}] [{label}] 文件: {file_name} | "
+                f"页码: {page_label} | 类型: {category}{url}\n"
+                f"文档片段：{item.get('content', '')}"
             )
         return "\n\n---\n\n".join(parts)
 
@@ -2454,50 +2458,27 @@ class RagChain:
             max_retrieve_attempts=int(getattr(orch, "max_retrieve_attempts", 2) or 2),
         )
 
+        # 初始化 ConversationContext 中的 understanding 与 resolved_question
+        initial_understanding = await asyncio.to_thread(
+            lambda: self._understand_for_retrieval(
+                conv.user_question,
+                history,
+                entity_name=conv.head_entity or entity_name,
+                doc_category=doc_category,
+                kb_name=kb_name,
+            )
+        )
+        conv.understanding = initial_understanding
+        conv.resolved_question = initial_understanding.resolved_question or conv.user_question
+        focus = initial_understanding.focus if isinstance(initial_understanding.focus, dict) else {}
+        confirmed = str(focus.get("confirmed_entity") or "").strip()
+        if confirmed and not conv.selected_entity:
+            conv.head_entity = confirmed
+        conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
+
         async def emit(event: dict) -> None:
             if on_event is not None:
                 await on_event(event)
-
-        async def handle_understand(_args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在理解问题..."})
-            result = await asyncio.to_thread(
-                lambda: self._understand_for_retrieval(
-                    conv.user_question,
-                    history,
-                    entity_name=conv.head_entity or entity_name,
-                    doc_category=doc_category,
-                    kb_name=kb_name,
-                )
-            )
-            conv.understanding = result
-            conv.resolved_question = result.resolved_question or conv.user_question
-            focus = result.focus if isinstance(result.focus, dict) else {}
-            confirmed = str(focus.get("confirmed_entity") or "").strip()
-            if confirmed and not conv.selected_entity:
-                conv.head_entity = confirmed
-            conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
-            return ToolObservation(
-                tool="understand",
-                ok=True,
-                summary=f"模式: {result.mode}，已解析问题: {conv.resolved_question[:80]}",
-                data={"resolved_question": conv.resolved_question, "mode": result.mode},
-            )
-
-        async def handle_rewrite(args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在改写问题..."})
-            resolved = str(args.get("resolved_question") or "").strip()
-            if not resolved and conv.understanding is not None:
-                resolved = conv.understanding.resolved_question or ""
-            if not resolved:
-                resolved = conv.user_question
-            conv.resolved_question = resolved
-            conv.rewritten = True
-            return ToolObservation(
-                tool="rewrite",
-                ok=True,
-                summary=f"改写后查询: {resolved[:80]}",
-                data={"resolved_question": resolved},
-            )
 
         async def handle_retrieve(args: dict) -> ToolObservation:
             await emit({"type": "status", "data": "正在检索知识库..."})
@@ -2602,14 +2583,6 @@ class RagChain:
                 if relation_summaries:
                     domain_summary += f"；关联关系: {', '.join(relation_summaries)}"
                 conv.domain_context = domain_summary
-            if (
-                len(linked_payload) >= 1
-                and float(linked_payload[0].get("confidence") or 0) >= 0.7
-                and not conv.selected_entity
-            ):
-                name = str(linked_payload[0].get("canonical_name") or "").strip()
-                if name:
-                    conv.head_entity = name
             summary_text = domain_summary or f"候选实体数: {len(linked_payload)}"
             return ToolObservation(
                 tool="link_entities",
@@ -2696,8 +2669,6 @@ class RagChain:
             )
 
         handlers: dict[str, Any] = {
-            "understand": handle_understand,
-            "rewrite": handle_rewrite,
             "retrieve_kb": handle_retrieve,
             "reuse_evidence": handle_reuse,
             "link_entities": handle_link,
@@ -2936,6 +2907,7 @@ class RagChain:
                 timeout=600.0,
                 num_predict=2048,
                 think=bool(enable_model_thinking),
+                num_ctx=self._cfg.context_budget.context_window,
             ):
                 if not content:
                     continue
@@ -3781,27 +3753,37 @@ class RagChain:
             if getattr(self, "_last_understanding", None) is not None:
                 trace.set_understanding(self._last_understanding)
             trace.mark("understand")
-            if pipeline_events:
-                yield {
-                    "type": "pipeline",
-                    "data": {
-                        "stage": "queries",
-                        "plan": {"queries": serialize_queries(queries)},
-                        "understanding": (
-                            self._last_understanding.to_dict()
-                            if getattr(self, "_last_understanding", None) is not None
-                            else {}
-                        ),
-                        "stages": trace.stages_ms,
-                    },
-                }
-
-            if pipeline_events:
-                yield {"type": "status", "data": "正在规划检索参数..."}
-            plan = await asyncio.to_thread(
-                self._plan_retrieval, q, queries, force_rerank=True,
+            is_direct_chat = (
+                getattr(self, "_last_understanding", None) is not None
+                and getattr(self._last_understanding, "mode", "") == "direct_chat"
             )
-            trace.mark("plan")
+            if is_direct_chat:
+                source_docs = []
+                retrieved_source_docs = []
+                context = ""
+                plan = _FallbackRetrievalPlan([], top_k=0, candidate_k=0, enable_rerank=False)
+            else:
+                if pipeline_events:
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "queries",
+                            "plan": {"queries": serialize_queries(queries)},
+                            "understanding": (
+                                self._last_understanding.to_dict()
+                                if getattr(self, "_last_understanding", None) is not None
+                                else {}
+                            ),
+                            "stages": trace.stages_ms,
+                        },
+                    }
+
+                if pipeline_events:
+                    yield {"type": "status", "data": "正在规划检索参数..."}
+                plan = await asyncio.to_thread(
+                    self._plan_retrieval, q, queries, force_rerank=True,
+                )
+                trace.mark("plan")
             if pipeline_events:
                 yield {
                     "type": "pipeline",
@@ -3812,64 +3794,45 @@ class RagChain:
                     },
                 }
 
-            if pipeline_events:
-                yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
-            plan, graph_context, graph_docs = await asyncio.to_thread(
-                self._prepare_graph_plan,
-                q,
-                plan,
-                kb_name,
-                doc_category,
-                "approved",
-                entity_name,
-            )
-            trace.set_plan(plan)
-            trace.set_clarify(
-                self._build_trace_clarify(
+            if not is_direct_chat:
+                if pipeline_events:
+                    yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
+                plan, graph_context, graph_docs = await asyncio.to_thread(
+                    self._prepare_graph_plan,
                     q,
                     plan,
-                    clarification_question=clarification_question,
-                    clarification_selected=clarification_selected,
+                    kb_name,
+                    doc_category,
+                    "approved",
+                    entity_name,
                 )
-            )
-            trace.mark("graph_rewrite")
-            if pipeline_events:
-                yield {"type": "status", "data": "计划与改写已完成"}
-                yield {
-                    "type": "pipeline",
-                    "data": {
-                        "stage": "graph_rewrite",
-                        "plan": serialize_plan(plan),
-                        "stages": trace.stages_ms,
-                    },
-                }
+                trace.set_plan(plan)
+                trace.set_clarify(
+                    self._build_trace_clarify(
+                        q,
+                        plan,
+                        clarification_question=clarification_question,
+                        clarification_selected=clarification_selected,
+                    )
+                )
+                trace.mark("graph_rewrite")
+                if pipeline_events:
+                    yield {"type": "status", "data": "计划与改写已完成"}
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "graph_rewrite",
+                            "plan": serialize_plan(plan),
+                            "stages": trace.stages_ms,
+                        },
+                    }
 
-            yield {"type": "status", "data": "正在检索知识库..."}
-            graph_kwargs = self._build_graph_kwargs(
-                plan, graph_context, graph_docs, include_cache_fields=True,
-            )
-            if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
-                source_docs, context = await self._aretrieve_multi_uncached(
-                    plan.queries,
-                    kb_name=kb_name,
-                    doc_category=doc_category,
-                    rerank=plan.enable_rerank,
-                    web_search=bool(web_search),
-                    plan_top_k=plan.top_k,
-                    plan_candidate_k=plan.candidate_k,
-                    expand_neighbors=plan.expand_neighbors,
-                    intent_plan=getattr(plan, "intent_plan", None),
-                    backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
-                    protect_names=self._anchor_protect_names(plan),
-                    **graph_kwargs,
+                yield {"type": "status", "data": "正在检索知识库..."}
+                graph_kwargs = self._build_graph_kwargs(
+                    plan, graph_context, graph_docs, include_cache_fields=True,
                 )
-            else:
-                sync_graph_kwargs = self._build_graph_kwargs(
-                    plan, graph_context, graph_docs, include_cache_fields=False,
-                )
-
-                def _sync_retrieve():
-                    return self._retrieve_multi(
+                if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
+                    source_docs, context = await self._aretrieve_multi_uncached(
                         plan.queries,
                         kb_name=kb_name,
                         doc_category=doc_category,
@@ -3881,62 +3844,82 @@ class RagChain:
                         intent_plan=getattr(plan, "intent_plan", None),
                         backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
                         protect_names=self._anchor_protect_names(plan),
-                        **sync_graph_kwargs,
+                        **graph_kwargs,
+                    )
+                else:
+                    sync_graph_kwargs = self._build_graph_kwargs(
+                        plan, graph_context, graph_docs, include_cache_fields=False,
                     )
 
-                source_docs, context = await asyncio.to_thread(_sync_retrieve)
-            self._record_chunk_hit_query(source_docs)
-            retrieved_source_docs = list(source_docs)
+                    def _sync_retrieve():
+                        return self._retrieve_multi(
+                            plan.queries,
+                            kb_name=kb_name,
+                            doc_category=doc_category,
+                            rerank=plan.enable_rerank,
+                            web_search=bool(web_search),
+                            plan_top_k=plan.top_k,
+                            plan_candidate_k=plan.candidate_k,
+                            expand_neighbors=plan.expand_neighbors,
+                            intent_plan=getattr(plan, "intent_plan", None),
+                            backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                            protect_names=self._anchor_protect_names(plan),
+                            **sync_graph_kwargs,
+                        )
 
-            # 干预 1: 排除显式指定忽略的 chunk
-            if excluded_chunk_ids:
-                ex_set = set(excluded_chunk_ids)
-                source_docs = [d for d in source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
-                retrieved_source_docs = [d for d in retrieved_source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
+                    source_docs, context = await asyncio.to_thread(_sync_retrieve)
+                self._record_chunk_hit_query(source_docs)
+                retrieved_source_docs = list(source_docs)
 
-            # 干预 2: 补充显式锁定的 chunk
-            if pinned_chunk_ids:
-                existing_ids = {(d.get("metadata") or {}).get("chunk_id") for d in source_docs if d.get("metadata")}
-                pinned_docs = self._fetch_pinned_chunks(pinned_chunk_ids)
-                for pdoc in pinned_docs:
-                    pid = (pdoc.get("metadata") or {}).get("chunk_id")
-                    if pid and pid not in existing_ids:
-                        source_docs.insert(0, pdoc)
-                        retrieved_source_docs.insert(0, pdoc)
-                        existing_ids.add(pid)
+                # 干预 1: 排除显式指定忽略的 chunk
+                if excluded_chunk_ids:
+                    ex_set = set(excluded_chunk_ids)
+                    source_docs = [d for d in source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
+                    retrieved_source_docs = [d for d in retrieved_source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
 
-            trace.set_retrieval(retrieved_source_docs)
-            trace.mark("retrieve")
-            if pipeline_events:
-                qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
-                max_candidates = int(getattr(qt, "max_candidates", 20) or 20)
-                preview_chars = int(getattr(qt, "max_content_preview", 240) or 240)
-                evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
-                yield {
-                    "type": "status",
-                    "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
-                }
-                yield {
-                    "type": "pipeline",
-                    "data": {
-                        "stage": "retrieve",
-                        "retrieval": {
-                            "query_hits": [],
-                            "candidates": serialize_candidates(
-                                retrieved_source_docs,
-                                max_candidates=max_candidates,
-                                preview_chars=preview_chars,
-                            ),
-                            "candidate_count": len(retrieved_source_docs),
+                # 干预 2: 补充显式锁定的 chunk
+                if pinned_chunk_ids:
+                    existing_ids = {(d.get("metadata") or {}).get("chunk_id") for d in source_docs if d.get("metadata")}
+                    pinned_docs = self._fetch_pinned_chunks(pinned_chunk_ids)
+                    for pdoc in pinned_docs:
+                        pid = (pdoc.get("metadata") or {}).get("chunk_id")
+                        if pid and pid not in existing_ids:
+                            source_docs.insert(0, pdoc)
+                            retrieved_source_docs.insert(0, pdoc)
+                            existing_ids.add(pid)
+
+                trace.set_retrieval(retrieved_source_docs)
+                trace.mark("retrieve")
+                if pipeline_events:
+                    qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
+                    max_candidates = int(getattr(qt, "max_candidates", 20) or 20)
+                    preview_chars = int(getattr(qt, "max_content_preview", 240) or 240)
+                    evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
+                    yield {
+                        "type": "status",
+                        "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
+                    }
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "retrieve",
+                            "retrieval": {
+                                "query_hits": [],
+                                "candidates": serialize_candidates(
+                                    retrieved_source_docs,
+                                    max_candidates=max_candidates,
+                                    preview_chars=preview_chars,
+                                ),
+                                "candidate_count": len(retrieved_source_docs),
+                            },
+                            "evidence": evidence_preview,
+                            "stages": trace.stages_ms,
                         },
-                        "evidence": evidence_preview,
-                        "stages": trace.stages_ms,
-                    },
-                }
+                    }
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
-            if not source_docs and not allow_general:
+            if not source_docs and not allow_general and not is_direct_chat:
                 evidence = build_evidence_pack(
                     NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
                 )
@@ -4010,6 +3993,7 @@ class RagChain:
                     timeout=600.0,
                     num_predict=2048,
                     think=bool(enable_model_thinking),
+                    num_ctx=self._cfg.context_budget.context_window,
                 ):
                     if content:
                         answer_parts.append(content)

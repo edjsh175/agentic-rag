@@ -106,7 +106,7 @@ class SessionState:
 class UnderstandingResult:
     """对话理解出口。"""
 
-    mode: Literal["clarify", "retrieve"] = "retrieve"
+    mode: Literal["clarify", "retrieve", "direct_chat"] = "retrieve"
     user_utterance: str = ""
     resolved_question: str = ""
     retrieval_queries: list[dict[str, Any]] = field(default_factory=list)
@@ -239,11 +239,24 @@ def _previous_anchor_labels(session: SessionState, prev_topic: str) -> list[str]
 def detect_topic_shift(question: str, session: SessionState) -> bool:
     """当前问句显式点名了与上文无关的技术实体时视为主题漂移。
 
+    若问句为纠偏/否定句式且否定了前文实体，同样视为切题/解绑。
     无显式实体（指代/省略追问）不判定漂移，保留锚点。
     """
-    from rag_knowledge.services.query_entity_guard import extract_explicit_entities
+    from rag_knowledge.services.query_entity_guard import (
+        detect_correction_or_negation,
+        extract_explicit_entities,
+    )
 
-    q_ents = extract_explicit_entities(question or "")
+    is_corr, neg_ents = detect_correction_or_negation(question or "")
+    if is_corr and neg_ents:
+        prev_topic = _previous_user_topic(session)
+        anchors = _previous_anchor_labels(session, prev_topic)
+        for ne in neg_ents:
+            for ae in anchors:
+                if _token_overlap(ne, ae):
+                    return True
+
+    q_ents = extract_explicit_entities(question or "", exclude_negated=True)
     if not q_ents:
         return False
 
@@ -273,6 +286,11 @@ def build_dialogue_focus(
     resolved_question: str | None = None,
 ) -> DialogueFocus:
     """从 Session + 当前问句构造结构化焦点（不调用 LLM）。"""
+    from rag_knowledge.services.query_entity_guard import (
+        detect_correction_or_negation,
+        extract_explicit_entities,
+    )
+
     entity = (session.resolved_entity or "").strip()
     prev_topic = _previous_user_topic(session)
     topic = prev_topic
@@ -290,12 +308,14 @@ def build_dialogue_focus(
             entity = m2.group(1).strip()[:80]
 
     notes = ""
-    if detect_topic_shift(question, session):
-        # 切断旧主题粘滞：焦点改为当前问句；冲突实体锚点清空。
-        topic = (question or "").strip()[:_FOCUS_TOPIC_MAX]
-        from rag_knowledge.services.query_entity_guard import extract_explicit_entities
+    is_corr, neg_ents = detect_correction_or_negation(question or "")
+    if is_corr and entity and any(_token_overlap(entity, ne) for ne in neg_ents):
+        entity = ""
+        notes = "correction"
 
-        q_ents = extract_explicit_entities(question or "")
+    if detect_topic_shift(question, session):
+        topic = (question or "").strip()[:_FOCUS_TOPIC_MAX]
+        q_ents = extract_explicit_entities(question or "", exclude_negated=True)
         if entity and q_ents and not any(_token_overlap(entity, e) for e in q_ents):
             entity = ""
         notes = "topic_shift"

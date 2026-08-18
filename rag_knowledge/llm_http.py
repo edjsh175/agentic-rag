@@ -217,6 +217,7 @@ async def achat_stream(
     timeout: float = 600.0,
     num_predict: int | None = 2048,
     think: bool = False,
+    num_ctx: int | None = None,
 ) -> AsyncIterator[str]:
     """Yield assistant text deltas.
 
@@ -241,6 +242,7 @@ async def achat_stream(
                         timeout=timeout,
                         num_predict=num_predict,
                         think=think,
+                        num_ctx=num_ctx,
                     ):
                         yield part
                     return
@@ -277,6 +279,20 @@ async def achat_stream(
             delay = min(delay * 2, 16.0)
 
 
+def _resolve_default_num_ctx(num_ctx: int | None) -> int:
+    if num_ctx is not None and num_ctx > 0:
+        return num_ctx
+    env_val = os.environ.get("OLLAMA_NUM_CTX")
+    if env_val and env_val.isdigit():
+        return int(env_val)
+    try:
+        from rag_knowledge.config import Config
+        cfg = Config()
+        return int(getattr(cfg.context_budget, "context_window", 32768) or 32768)
+    except Exception:
+        return 32768
+
+
 def _chat_ollama(
     endpoint: ModelEndpoint,
     messages: list[dict[str, Any]],
@@ -293,8 +309,7 @@ def _chat_ollama(
     options: dict[str, Any] = {"temperature": temperature}
     if num_predict is not None:
         options["num_predict"] = num_predict
-    if num_ctx is not None:
-        options["num_ctx"] = num_ctx
+    options["num_ctx"] = _resolve_default_num_ctx(num_ctx)
     payload: dict[str, Any] = {
         "model": endpoint.model,
         "messages": messages,
@@ -433,6 +448,7 @@ async def _astream_ollama(
     timeout: float,
     num_predict: int | None,
     think: bool,
+    num_ctx: int | None = None,
 ) -> AsyncIterator[str]:
     base = endpoint.resolved_base_url(default_ollama)
     options: dict[str, Any] = {
@@ -442,6 +458,7 @@ async def _astream_ollama(
     }
     if num_predict is not None:
         options["num_predict"] = num_predict
+    options["num_ctx"] = _resolve_default_num_ctx(num_ctx)
     if think:
         options["thinking"] = True
     payload = {
@@ -601,6 +618,12 @@ async def _astream_google(
 def chat_role(cfg: Any, role: str, messages: list[dict[str, Any]], **kwargs: Any) -> str:
     """Resolve Config.endpoint_for(role) then chat()."""
     endpoint = cfg.endpoint_for(role)
+    if "num_ctx" not in kwargs or kwargs["num_ctx"] is None:
+        budget_win = getattr(getattr(cfg, "context_budget", None), "context_window", None)
+        if budget_win is not None:
+            kwargs["num_ctx"] = int(budget_win)
+        elif getattr(cfg, "context_window", None) is not None:
+            kwargs["num_ctx"] = int(cfg.context_window)
     return chat(
         endpoint,
         messages,

@@ -162,12 +162,16 @@ def _rebuild_context(source_docs: list[dict]) -> str:
     """Rebuild context text from normalized source docs."""
     parts = []
     for item in source_docs:
-        meta = item["metadata"]
+        meta = item.get("metadata") or {}
         label = "外部来源" if meta.get("source_type") == "external" else "知识库来源"
         url = f" URL: {meta['url']}" if meta.get("url") else ""
+        file_name = meta.get("file_name") or meta.get("source") or "未知文件"
+        page_label = meta.get("page_label") or meta.get("page") or "-"
+        cid = meta.get("citation_id", "-")
+        category = meta.get("category") or meta.get("doc_category", "未知")
         parts.append(
-            f"[{meta['citation_id']}] [{label}] 文件: {meta['file_name']} | "
-            f"页码: {meta['page_label']} | 类型: {meta.get('category', '未知')}{url}\n"
-            f"文档片段：{item['content']}"
+            f"[{cid}] [{label}] 文件: {file_name} | "
+            f"页码: {page_label} | 类型: {category}{url}\n"
+            f"文档片段：{item.get('content', '')}"
         )
     return "\n\n---\n\n".join(parts)

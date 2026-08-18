@@ -151,3 +151,24 @@ def test_to_retrieval_queries_roundtrip():
     )
     specs = DialogueUnderstanding.to_retrieval_queries(result)
     assert [s.kind for s in specs] == ["original", "search"]
+
+
+def test_understanding_direct_chat_on_correction_question(isolated_storage):
+    isolated_storage()
+    cfg = MagicMock()
+    contextualizer = MagicMock()
+    understanding = DialogueUnderstanding(cfg, contextualizer=contextualizer)
+    history = [
+        {"role": "user", "content": "pipeline"},
+        {"role": "assistant", "content": "PipelineBuilder 简介..."},
+    ]
+    result = understanding.analyze(
+        "我啥时候给你说是pipelinebuilder了？",
+        history=history,
+        run_clarify=False,
+        entity_name="PipelineBuilder",
+    )
+    assert result.mode == "direct_chat"
+    assert result.is_context_dependent is True
+    assert result.retrieval_queries == []
+    contextualizer.build_query_specs_with_meta.assert_not_called()

@@ -158,6 +158,27 @@ class DialogueUnderstanding:
                 topic_shifted = focus.notes == "topic_shift"
 
         if history:
+            from rag_knowledge.services.query_entity_guard import (
+                detect_correction_or_negation,
+                extract_explicit_entities,
+            )
+
+            is_corr, _neg_ents = detect_correction_or_negation(question)
+            remaining_entities = extract_explicit_entities(question, exclude_negated=True)
+            if is_corr and not remaining_entities:
+                return UnderstandingResult(
+                    mode="direct_chat",
+                    user_utterance=question,
+                    resolved_question=question,
+                    retrieval_queries=[],
+                    filters=filters,
+                    dialogue_focus=focus.to_text(),
+                    focus=focus.to_dict(),
+                    is_context_dependent=True,
+                    confidence=1.0,
+                    rationale="dialogue_correction_or_meta",
+                )
+
             raw_specs, meta = self._contextualizer.build_query_specs_with_meta(
                 question,
                 history,

@@ -116,3 +116,27 @@ def test_protect_accepts_backbone_alias_equivalents():
         protect_rewritten_query(orig, rewritten, canonical_by_alias=aliases)
         == rewritten
     )
+
+
+def test_detect_correction_and_negation():
+    from rag_knowledge.services.query_entity_guard import (
+        detect_correction_or_negation,
+        extract_explicit_entities,
+    )
+
+    is_corr, negs = detect_correction_or_negation("我啥时候给你说是pipelinebuilder了？")
+    assert is_corr is True
+    assert any(n.lower() == "pipelinebuilder" for n in negs)
+
+    # 排除被否定的实体
+    ents = extract_explicit_entities("我啥时候给你说是pipelinebuilder了？", exclude_negated=True)
+    assert "pipelinebuilder" not in [e.lower() for e in ents]
+
+    # 常规提问不应被误判为纠偏/否定
+    is_corr2, negs2 = detect_correction_or_negation("继续说一下工程设置")
+    assert is_corr2 is False
+    assert negs2 == []
+
+    is_corr3, negs3 = detect_correction_or_negation("ModelBuilder如何使用？")
+    assert is_corr3 is False
+    assert negs3 == []
