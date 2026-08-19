@@ -595,10 +595,7 @@ class Config:
         self.agent_orchestration = AgentOrchestrationConfig(
             enabled=_get("agent_orchestration", "enabled", "false").lower() == "true",
             max_steps=int(_get("agent_orchestration", "max_steps", "8")),
-            max_retrieve_attempts=max(
-                1,
-                min(3, int(_get("agent_orchestration", "max_retrieve_attempts", "2"))),
-            ),
+            max_retrieve_attempts=int(_get("agent_orchestration", "max_retrieve_attempts", "8")),
             tool_timeout=float(_get("agent_orchestration", "tool_timeout", "60")),
             heartbeat_initial_delay=float(
                 _get("agent_orchestration", "heartbeat_initial_delay", "1.5")

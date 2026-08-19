@@ -1,15 +1,39 @@
 <script setup lang="ts">
 defineOptions({ name: 'ChatView' })
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats, ClarificationOption, ClarifyResult, EvidenceItem, GpuStatus, AgentToolCall, AgentTimelineItem } from '../types'
+import type { Message, SourceDoc, Stats, ClarificationOption, ClarifyResult, EvidenceItem, GpuStatus, AgentToolCall, AgentTimelineItem, ChatSessionSummary } from '../types'
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getGpuStatus, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
 import type { DocumentProfile } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
-import { saveChatState, saveChatStateLocalSync, loadChatState, clearChatState } from '../utils/storage'
+import {
+  saveSessionState,
+  saveSessionStateLocalSync,
+  loadChatSessions,
+  loadSessionMessages,
+  createChatSession,
+  renameChatSession,
+  deleteChatSession,
+  generateSessionTitle,
+} from '../utils/storage'
 import { buildChatHistoryPayload } from '../utils/chatHistory'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
 import SourcePanel from '../components/SourcePanel.vue'
+
+const sessions = ref<ChatSessionSummary[]>([])
+const activeSessionId = ref<string>('')
+const showSidebar = ref(localStorage.getItem('rag-chat-sidebar') !== 'false')
+const editingSessionId = ref<string | null>(null)
+const editingTitle = ref('')
+const renameInput = ref<HTMLInputElement[] | null>(null)
+
+const currentSession = computed(() => sessions.value.find((s) => s.id === activeSessionId.value))
+const currentSessionTitle = computed(() => currentSession.value?.title || '新建对话')
+
+function toggleSidebar() {
+  showSidebar.value = !showSidebar.value
+  localStorage.setItem('rag-chat-sidebar', String(showSidebar.value))
+}
 
 const messages = ref<Message[]>([])
 const currentSources = ref<SourceDoc[]>([])
@@ -305,8 +329,124 @@ function selectVision(name: string) {
 const chatHistory = computed(() => buildChatHistoryPayload(messages.value))
 const showWelcomeHint = computed(() => messages.value.length === 0)
 
+async function handleNewChat() {
+  if (abortController.value) {
+    abortController.value.abort()
+    abortController.value = null
+  }
+  loading.value = false
+
+  // 如果当前已经是空会话，且没有任何消息，直接跳过新建
+  if (messages.value.length === 0 && currentSession.value && currentSession.value.title === '新建对话') {
+    return
+  }
+
+  const created = await createChatSession('新建对话')
+  activeSessionId.value = created.id
+  sessions.value = [
+    {
+      id: created.id,
+      title: created.title,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      message_count: 0,
+    },
+    ...sessions.value.filter((s) => s.id !== created.id),
+  ]
+  messages.value = []
+  currentSources.value = []
+  showSources.value = false
+  pinnedChunks.value = []
+  excludedChunks.value = []
+}
+
+async function handleSwitchSession(sessionId: string) {
+  if (activeSessionId.value === sessionId) return
+  if (abortController.value) {
+    abortController.value.abort()
+    abortController.value = null
+  }
+  loading.value = false
+
+  activeSessionId.value = sessionId
+  messages.value = await loadSessionMessages(sessionId)
+  const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
+  currentSources.value = withSources.length ? withSources[withSources.length - 1].sources! : []
+  pinnedChunks.value = []
+  excludedChunks.value = []
+  scrollDown()
+}
+
+function startRenameSession(session: ChatSessionSummary, event?: Event) {
+  event?.stopPropagation()
+  editingSessionId.value = session.id
+  editingTitle.value = session.title
+  nextTick(() => {
+    const inputs = renameInput.value
+    if (inputs && inputs.length > 0) {
+      inputs[0]?.focus()
+      inputs[0]?.select()
+    }
+  })
+}
+
+async function commitRenameSession(session: ChatSessionSummary) {
+  if (editingSessionId.value !== session.id) return
+  const newTitle = editingTitle.value.trim()
+  if (newTitle && newTitle !== session.title) {
+    session.title = newTitle
+    await renameChatSession(session.id, newTitle)
+  }
+  editingSessionId.value = null
+}
+
+function cancelRenameSession() {
+  editingSessionId.value = null
+}
+
+async function handleDeleteSession(sessionId: string) {
+  const ok = await showConfirm('确定删除该对话记录？')
+  if (!ok) return
+
+  if (activeSessionId.value === sessionId && abortController.value) {
+    abortController.value.abort()
+    abortController.value = null
+  }
+
+  await deleteChatSession(sessionId)
+  sessions.value = sessions.value.filter((s) => s.id !== sessionId)
+
+  if (activeSessionId.value === sessionId) {
+    if (sessions.value.length > 0) {
+      await handleSwitchSession(sessions.value[0].id)
+    } else {
+      await handleNewChat()
+    }
+  }
+  showToast('对话已删除')
+}
+
 onMounted(async () => {
-  messages.value = await loadChatState()
+  const meta = await loadChatSessions()
+  sessions.value = meta.sessions
+  if (meta.sessions.length > 0) {
+    activeSessionId.value = meta.activeSessionId || meta.sessions[0].id
+    messages.value = await loadSessionMessages(activeSessionId.value)
+  } else {
+    const created = await createChatSession('新建对话')
+    activeSessionId.value = created.id
+    sessions.value = [
+      {
+        id: created.id,
+        title: created.title,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        message_count: 0,
+      },
+    ]
+    messages.value = []
+  }
+
   const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
   currentSources.value = withSources.length ? withSources[withSources.length - 1].sources! : []
   initialized.value = true
@@ -357,8 +497,8 @@ onMounted(async () => {
 })
 
 function handleBeforeUnload() {
-  if (initialized.value && messages.value.length > 0) {
-    saveChatStateLocalSync(messages.value)
+  if (initialized.value && activeSessionId.value && messages.value.length > 0) {
+    saveSessionStateLocalSync(activeSessionId.value, messages.value, currentSession.value?.title)
   }
 }
 
@@ -369,9 +509,18 @@ onUnmounted(() => {
   clearTimeout(gpuPopoverTimer)
 })
 
-async function persist() {
-  if (!initialized.value) return
-  await saveChatState(messages.value)
+async function persist(titleOverride?: string) {
+  if (!initialized.value || !activeSessionId.value) return
+  const s = currentSession.value
+  let title = titleOverride || s?.title
+  if ((!title || title === '新建对话') && messages.value.length > 0) {
+    const firstUserMsg = messages.value.find((m) => m.role === 'user' && m.content)
+    if (firstUserMsg) {
+      title = generateSessionTitle(firstUserMsg.content)
+      if (s) s.title = title
+    }
+  }
+  await saveSessionState(activeSessionId.value, messages.value, title)
 }
 
 async function handleCitationClick(message: Message, citationId: number) {
@@ -1109,7 +1258,7 @@ async function handleScan() {
 }
 
 async function handleClear() {
-  const ok = await showConfirm('确定清空所有对话记录？')
+  const ok = await showConfirm('确定清空当前对话记录？')
   if (!ok) return
 
   // 1. 中止可能正在进行的流式/分析请求，避免旧回调二次污染
@@ -1125,11 +1274,15 @@ async function handleClear() {
   currentSources.value = []
   showSources.value = false
 
-  // 3. 清空页面消息并彻底清空持久化存储（服务端/localStorage/IndexedDB）
+  // 3. 清空页面消息并更新当前会话状态
   messages.value = []
-  await clearChatState()
+  if (activeSessionId.value) {
+    await saveSessionState(activeSessionId.value, [], currentSession.value?.title || '新建对话')
+    const s = sessions.value.find((item) => item.id === activeSessionId.value)
+    if (s) s.message_count = 0
+  }
 
-  showToast('对话已清空')
+  showToast('当前对话已清空')
 }
 
 // ---- 确认弹窗 ----
@@ -1170,10 +1323,91 @@ function scrollDown() {
 
 <template>
   <div class="chat-layout" @click="onLayoutClick">
+    <!-- 左侧历史会话侧边栏 -->
+    <aside class="chat-sidebar" :class="{ 'chat-sidebar--collapsed': !showSidebar }">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" @click="handleNewChat" title="开启新对话">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span class="btn-text">新建对话</span>
+        </button>
+        <button class="toggle-sidebar-btn" @click="toggleSidebar" title="收起会话列表">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="session-list-container">
+        <div v-if="sessions.length === 0" class="session-list-empty">
+          暂无历史对话
+        </div>
+        <div
+          v-for="sess in sessions"
+          :key="sess.id"
+          class="session-item"
+          :class="{ active: sess.id === activeSessionId }"
+          @click="handleSwitchSession(sess.id)"
+        >
+          <svg class="session-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+
+          <!-- 标题展示与行内编辑 -->
+          <div v-if="editingSessionId === sess.id" class="session-title-edit" @click.stop>
+            <input
+              ref="renameInput"
+              v-model="editingTitle"
+              class="session-rename-input"
+              @keydown.enter="commitRenameSession(sess)"
+              @keydown.esc="cancelRenameSession"
+              @blur="commitRenameSession(sess)"
+            />
+          </div>
+          <div v-else class="session-title" :title="sess.title" @dblclick="startRenameSession(sess, $event)">
+            {{ sess.title }}
+          </div>
+
+          <!-- 操作按钮（重命名/删除） -->
+          <div class="session-actions" @click.stop>
+            <button
+              class="session-action-btn"
+              title="重命名"
+              @click="startRenameSession(sess, $event)"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button
+              class="session-action-btn delete-btn"
+              title="删除对话"
+              @click="handleDeleteSession(sess.id)"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
     <div class="chat-main">
       <header class="header">
         <div class="header-left">
-          <h1 class="title">RAG 知识库</h1>
+          <button v-if="!showSidebar" class="sidebar-expand-btn" @click="toggleSidebar" title="展开会话列表">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+          <h1 class="title" :title="currentSessionTitle">{{ currentSessionTitle }}</h1>
           <span v-if="stats" class="stat">{{ stats.total_chunks }} chunks</span>
         </div>
         <div class="header-right">
@@ -1569,7 +1803,213 @@ function scrollDown() {
 </template>
 
 <style scoped>
-.chat-layout { display: flex; height: 100%; background: #fff; }
+.chat-layout { display: flex; height: 100%; background: #fff; overflow: hidden; }
+
+/* 左侧会话侧边栏 */
+.chat-sidebar {
+  width: 250px;
+  height: 100%;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+
+.chat-sidebar--collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+}
+
+.sidebar-header {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.new-chat-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
+  white-space: nowrap;
+}
+
+.new-chat-btn:hover {
+  background: #1d4ed8;
+}
+
+.new-chat-btn:active {
+  transform: scale(0.98);
+}
+
+.toggle-sidebar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toggle-sidebar-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.sidebar-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  margin-right: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-expand-btn:hover {
+  background: #edf2f7;
+  color: #1e293b;
+}
+
+.session-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-list-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #475569;
+  font-size: 13px;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+
+.session-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.session-item.active {
+  background: #e2e8f0;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.session-icon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-title-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-rename-input {
+  width: 100%;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  outline: none;
+  background: #fff;
+  color: #0f172a;
+}
+
+.session-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-actions,
+.session-item.active .session-actions {
+  display: flex;
+}
+
+.session-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.session-action-btn:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+.session-action-btn.delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
 /* 顶部栏 */
@@ -1583,7 +2023,7 @@ function scrollDown() {
   background: #fff;
   flex-shrink: 0;
 }
-.header-left { display: flex; align-items: center; gap: 10px; }
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .header-right {
   display: flex;
   align-items: center;

@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: implement unified intention clarify gate and update pipeline models"
+    commit_msg = "feat: implement multi-session chat storage and session management APIs"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

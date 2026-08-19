@@ -43,6 +43,7 @@ import type {
   ClarifyResult,
   MessageClarification,
   GpuStatus,
+  ChatSessionSummary,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -557,7 +558,125 @@ interface StoredMessage {
   feedback?: 'useful' | 'unuseful' | null
 }
 
-/** 从服务器加载聊天记录；无记录或404时返回 null，便于回退 localStorage */
+/** 获取所有会话列表及当前活跃会话 ID */
+export async function fetchServerSessions(
+  fingerprint: string,
+): Promise<{ active_session_id: string | null; sessions: ChatSessionSummary[] }> {
+  try {
+    const { data } = await http.get<{ active_session_id: string | null; sessions: ChatSessionSummary[] }>(
+      '/chat/sessions',
+      {
+        headers: { 'X-Device-Fingerprint': fingerprint },
+      },
+    )
+    return data || { active_session_id: null, sessions: [] }
+  } catch (e: any) {
+    if (e.response?.status === 404) return { active_session_id: null, sessions: [] }
+    throw e
+  }
+}
+
+/** 创建新会话 */
+export async function createServerSession(
+  fingerprint: string,
+  title?: string,
+  session_id?: string,
+) {
+  const { data } = await http.post(
+    '/chat/sessions',
+    { title, session_id },
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data
+}
+
+/** 获取指定会话的完整消息数据 */
+export async function fetchServerSessionDetail(
+  fingerprint: string,
+  sessionId: string,
+): Promise<{ id: string; title: string; messages: StoredMessage[]; created_at?: string; updated_at?: string } | null> {
+  try {
+    const { data } = await http.get<{
+      id: string
+      title: string
+      messages: StoredMessage[]
+      created_at?: string
+      updated_at?: string
+    }>(`/chat/sessions/${encodeURIComponent(sessionId)}`, {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    })
+    return data
+  } catch (e: any) {
+    if (e.response?.status === 404) return null
+    throw e
+  }
+}
+
+/** 保存或更新指定会话的消息与标题 */
+export async function saveServerSession(
+  fingerprint: string,
+  sessionId: string,
+  messages: StoredMessage[],
+  title?: string,
+) {
+  const { data } = await http.put(
+    `/chat/sessions/${encodeURIComponent(sessionId)}`,
+    { messages, title },
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data
+}
+
+/** 重命名指定会话 */
+export async function renameServerSession(
+  fingerprint: string,
+  sessionId: string,
+  title: string,
+) {
+  const { data } = await http.patch(
+    `/chat/sessions/${encodeURIComponent(sessionId)}/title`,
+    { title },
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data
+}
+
+/** 设置活跃会话 */
+export async function setActiveServerSession(
+  fingerprint: string,
+  sessionId: string,
+) {
+  const { data } = await http.post(
+    `/chat/sessions/${encodeURIComponent(sessionId)}/active`,
+    {},
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data
+}
+
+/** 删除指定会话 */
+export async function deleteServerSession(
+  fingerprint: string,
+  sessionId: string,
+) {
+  const { data } = await http.delete(
+    `/chat/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data
+}
+
+/** 从服务器加载聊天记录；无记录或404时返回 null，便于回退 localStorage（兼容旧单会话接口） */
 export async function loadServerChat(fingerprint: string): Promise<StoredMessage[] | null> {
   try {
     const { data } = await http.get<{ messages: StoredMessage[] }>('/chat/history', {
@@ -571,14 +690,14 @@ export async function loadServerChat(fingerprint: string): Promise<StoredMessage
   }
 }
 
-/** 保存聊天记录到服务器 */
+/** 保存聊天记录到服务器（兼容旧单会话接口） */
 export async function saveServerChat(fingerprint: string, messages: StoredMessage[]) {
   await http.put('/chat/history', { messages }, {
     headers: { 'X-Device-Fingerprint': fingerprint },
   })
 }
 
-/** 删除服务端聊天记录 */
+/** 删除服务端聊天记录（兼容旧单会话接口） */
 export async function deleteServerChat(fingerprint: string) {
   await http.delete('/chat/history', {
     headers: { 'X-Device-Fingerprint': fingerprint },

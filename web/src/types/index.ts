@@ -100,6 +100,24 @@ export interface PipelineStep {
   stages_ms?: Record<string, number>
 }
 
+/** 会话摘要（列表展示） */
+export interface ChatSessionSummary {
+  id: string
+  title: string
+  created_at?: string
+  updated_at?: string
+  message_count?: number
+}
+
+/** 会话详情（含消息） */
+export interface ChatSessionDetail {
+  id: string
+  title: string
+  created_at?: string
+  updated_at?: string
+  messages: Message[]
+}
+
 /** 反问选项过滤器 */
 export interface ClarifyOptionFilter {
   doc_category?: string

@@ -58,27 +58,32 @@ class AgentDecision:
             "thought": self.thought,
             "source": self.source,
         }
-        if self.gate:
-            payload["gate"] = self.gate
         if self.gap_type:
             payload["gap_type"] = self.gap_type
         if self.recovery_strategy:
             payload["recovery_strategy"] = self.recovery_strategy
+        if self.gate:
+            payload["gate"] = self.gate
         return payload
 
 
 @dataclass
 class AgentBudget:
-    max_steps: int
-    max_retrieve_attempts: int
+    max_steps: int = 8
+    max_retrieve_attempts: int | None = None
+    hard_retrieve_cap: int = 8
     steps_used: int = 0
     retrieve_attempts: int = 0
+    call_history: list[tuple[str, str]] = field(default_factory=list)
 
     def can_step(self) -> bool:
         return self.steps_used < self.max_steps
 
+    def effective_max_retrieves(self) -> int:
+        return self.max_retrieve_attempts if self.max_retrieve_attempts is not None else self.hard_retrieve_cap
+
     def can_retrieve(self) -> bool:
-        return self.retrieve_attempts < self.max_retrieve_attempts
+        return self.retrieve_attempts < self.effective_max_retrieves()
 
     def consume_step(self) -> bool:
         if not self.can_step():
@@ -92,10 +97,22 @@ class AgentBudget:
         self.retrieve_attempts += 1
         return True
 
+    def record_call(self, tool: str, query: str = "") -> None:
+        self.call_history.append((tool, (query or "").strip().lower()))
+
+    def is_cycle(self, tool: str, query: str = "") -> bool:
+        """Detect if the agent is stuck in an identical tool+query loop."""
+        norm_q = (query or "").strip().lower()
+        if not norm_q:
+            return False
+        recent = [item for item in self.call_history[-2:] if item[0] == tool and item[1] == norm_q]
+        return len(recent) >= 1
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "max_steps": self.max_steps,
-            "max_retrieve_attempts": self.max_retrieve_attempts,
+            "max_retrieve_attempts": self.effective_max_retrieves(),
+            "hard_retrieve_cap": self.hard_retrieve_cap,
             "steps_used": self.steps_used,
             "retrieve_attempts": self.retrieve_attempts,
         }

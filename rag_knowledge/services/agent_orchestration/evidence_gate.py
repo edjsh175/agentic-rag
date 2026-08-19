@@ -47,19 +47,12 @@ STRATEGY_LABELS: dict[str, str] = {
 
 
 def format_recovery_notice(gap_type: str, strategy: str) -> str:
-    """Format a user-friendly, professional progress notice without exposing raw enum names."""
-    if strategy == "strip_modifiers":
-        if gap_type == "low_relevance":
-            return "当前检索相关度较低，已自动精简关键词并发起二次深入检索。"
-        return "未获取到足够直接匹配内容，已自动精简关键词并发起二次检索。"
-    if strategy == "broaden_semantics":
-        return "当前匹配范围较窄，已自动扩展概念语义重新检索。"
-    if strategy == "add_missing_attribute":
-        return "正在补充关键属性信息并发起定向检索。"
-    if strategy == "increase_entity_constraint":
-        return "正在锁定核心实体约束并发起精准检索。"
-    strat_label = STRATEGY_LABELS.get(strategy, "优化检索策略")
-    return f"正在采用【{strat_label}】发起补充检索。"
+    """Format a user-friendly, professional progress notice adhering to PRD V1.5 natural semantics."""
+    if strategy == "add_missing_attribute" or gap_type in {"missing_fact", "missing_relation"}:
+        return "发现当前资料缺少关键事实，正在进一步深入查询..."
+    if strategy == "broaden_semantics" or gap_type == "missing_scope":
+        return "正在从相关资料中进一步深入核实关键范围与概念..."
+    return "发现当前资料缺少关键信息，正在进一步深入查询..."
 
 
 def format_recovery_thought(gap_type: str, strategy: str, query: str) -> str:

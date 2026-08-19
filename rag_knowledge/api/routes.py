@@ -1039,12 +1039,89 @@ def sync_published_posts():
 
 
 # ------------------------------------------------------------------
-# 聊天记录（服务端持久化）
+# 聊天记录（服务端持久化与多会话管理）
 # ------------------------------------------------------------------
+
+@router.get("/chat/sessions")
+def list_chat_sessions(x_device_fingerprint: str = Header(...)):
+    """获取所有会话列表及当前活跃会话"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    return _chat_storage.list_sessions(x_device_fingerprint)
+
+
+@router.post("/chat/sessions")
+def create_chat_session(body: dict | None = None, x_device_fingerprint: str = Header(...)):
+    """创建新会话"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    title = body.get("title") if body else None
+    session_id = body.get("session_id") if body else None
+    session = _chat_storage.create_session(x_device_fingerprint, title=title, session_id=session_id)
+    return session
+
+
+@router.get("/chat/sessions/{session_id}")
+def get_chat_session(session_id: str, x_device_fingerprint: str = Header(...)):
+    """获取指定会话详情与消息"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    session = _chat_storage.get_session(x_device_fingerprint, session_id)
+    if session is None:
+        raise HTTPException(404, detail="会话不存在")
+    return session
+
+
+@router.put("/chat/sessions/{session_id}")
+def save_chat_session(session_id: str, body: dict, x_device_fingerprint: str = Header(...)):
+    """保存或更新指定会话的消息与标题"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    messages = body.get("messages", [])
+    title = body.get("title")
+    saved = _chat_storage.save_session(x_device_fingerprint, session_id, messages, title=title)
+    return saved
+
+
+@router.patch("/chat/sessions/{session_id}/title")
+def rename_chat_session(session_id: str, body: dict, x_device_fingerprint: str = Header(...)):
+    """重命名会话"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    title = body.get("title", "").strip()
+    if not title:
+        raise HTTPException(400, detail="标题不能为空")
+    ok = _chat_storage.rename_session(x_device_fingerprint, session_id, title)
+    if not ok:
+        raise HTTPException(404, detail="会话不存在")
+    return {"message": "ok", "title": title}
+
+
+@router.post("/chat/sessions/{session_id}/active")
+def set_active_chat_session(session_id: str, x_device_fingerprint: str = Header(...)):
+    """设置当前活跃会话"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    ok = _chat_storage.set_active_session(x_device_fingerprint, session_id)
+    if not ok:
+        raise HTTPException(404, detail="会话不存在")
+    return {"message": "ok"}
+
+
+@router.delete("/chat/sessions/{session_id}")
+def delete_chat_session(session_id: str, x_device_fingerprint: str = Header(...)):
+    """删除指定会话"""
+    if _chat_storage is None:
+        raise HTTPException(503, detail="聊天记录服务未初始化")
+    ok = _chat_storage.delete_session(x_device_fingerprint, session_id)
+    if not ok:
+        raise HTTPException(404, detail="会话不存在")
+    return {"message": "已删除"}
+
 
 @router.get("/chat/history")
 def get_chat_history(x_device_fingerprint: str = Header(...)):
-    """获取用户聊天记录"""
+    """获取当前活跃会话聊天记录（兼容旧接口）"""
     if _chat_storage is None:
         raise HTTPException(503, detail="聊天记录服务未初始化")
     data = _chat_storage.load(x_device_fingerprint)
@@ -1055,7 +1132,7 @@ def get_chat_history(x_device_fingerprint: str = Header(...)):
 
 @router.put("/chat/history")
 def save_chat_history(body: dict, x_device_fingerprint: str = Header(...)):
-    """保存用户聊天记录"""
+    """保存用户聊天记录（兼容旧接口）"""
     if _chat_storage is None:
         raise HTTPException(503, detail="聊天记录服务未初始化")
     messages = body.get("messages", [])
@@ -1065,7 +1142,7 @@ def save_chat_history(body: dict, x_device_fingerprint: str = Header(...)):
 
 @router.delete("/chat/history")
 def delete_chat_history(x_device_fingerprint: str = Header(...)):
-    """删除用户聊天记录"""
+    """删除用户全部聊天记录（兼容旧接口）"""
     if _chat_storage is None:
         raise HTTPException(503, detail="聊天记录服务未初始化")
     _chat_storage.delete(x_device_fingerprint)

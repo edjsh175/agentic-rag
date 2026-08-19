@@ -2485,9 +2485,10 @@ class RagChain:
             conv.session.last_sources,
             head_entity=conv.previous_head_entity,
         )
+        raw_cap = getattr(orch, "hard_retrieve_cap", None) or getattr(orch, "max_retrieve_attempts", None)
         budget = AgentBudget(
             max_steps=int(getattr(orch, "max_steps", 8) or 8),
-            max_retrieve_attempts=int(getattr(orch, "max_retrieve_attempts", 2) or 2),
+            hard_retrieve_cap=int(raw_cap or 8),
         )
 
         # 初始化 ConversationContext 中的 understanding 与 resolved_question

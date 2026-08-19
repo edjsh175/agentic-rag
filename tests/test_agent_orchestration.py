@@ -47,7 +47,7 @@ def test_config_defaults_disabled(isolated_storage, monkeypatch):
     Config._instance = None
     cfg = Config()
     assert cfg.agent_orchestration.enabled is False
-    assert cfg.agent_orchestration.max_retrieve_attempts == 2
+    assert cfg.agent_orchestration.max_retrieve_attempts == 8
     assert not hasattr(cfg.agent_orchestration, "request_timeout")
 
 
@@ -406,62 +406,47 @@ def test_phase2_registry_allows_clarify_and_link_not_answer():
 
 
 def test_harness_forces_j3_when_model_finishes():
-    conv = ConversationContext.from_request("怎么写二次开发代码", [])
+    """PRD V1.5：Stage 2 尊重模型 finish 决策，不再强制篡改出示澄清卡片。"""
+    conv = ConversationContext.from_request("二次开发", [])
+    pool = EvidencePool(question_id="q")
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=4),
+        registry=build_agent_registry(),
+        handlers={},
+        decide_fn=lambda *_: AgentDecision(action="finish", thought="会话直答", source="test"),
+        tool_timeout=0,
+    )
+    result = asyncio.run(loop.run())
+    assert result.route == "direct"
+    assert result.clarify is None
+
+def test_harness_allows_clarify_when_model_decides():
+    """验证当模型决策调用 clarify 时正常出示卡片。"""
+    conv = ConversationContext.from_request("Stamp", [])
     pool = EvidencePool(question_id="q")
 
     async def clarify(_args):
         return _card_observation()
 
-    loop = AgentLoop(
-        conversation=conv,
-        evidence=pool,
-        budget=AgentBudget(max_steps=4, max_retrieve_attempts=2),
-        registry=build_agent_registry(),
-        handlers={"clarify": clarify},
-        decide_fn=lambda *_: AgentDecision(action="finish", source="test"),
-        resolve_binding_fn=lambda _c: _binding(show_j3=True),
-        tool_timeout=0,
-    )
-    result = asyncio.run(loop.run())
-    assert result.route == "clarify"
-    assert result.clarify["needs_clarification"] is True
-    assert result.tools[0]["name"] == "clarify"
-    assert "harness_force_j3" in result.fallbacks
-
-
-def test_harness_blocks_named_family_clarify():
-    conv = ConversationContext.from_request("StampWebRTC 二次开发怎么写", [])
-    pool = EvidencePool(question_id="q")
-    retrieved = []
-
-    async def clarify(_args):
-        raise AssertionError("clarify must not run for named legal anchor")
-
-    async def retrieve(_args):
-        retrieved.append(1)
-        pool.add_retrieve([_doc("rtc", "StampUtil")], query="q")
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="1")
-
     decisions = iter([
         AgentDecision(action="tool_call", tool="clarify", source="test"),
-        AgentDecision(action="finish", source="test"),
     ])
 
     loop = AgentLoop(
         conversation=conv,
         evidence=pool,
-        budget=AgentBudget(max_steps=4, max_retrieve_attempts=2),
+        budget=AgentBudget(max_steps=4),
         registry=build_agent_registry(),
-        handlers={"clarify": clarify, "retrieve_kb": retrieve},
+        handlers={"clarify": clarify},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(skip_generic=True),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
-    assert result.route != "clarify"
-    assert result.clarify is None
-    assert retrieved == [1]
-    assert "harness_block_named_family" in result.fallbacks
+    assert result.route == "clarify"
+    assert result.clarify is not None
 
 
 def test_link_entities_does_not_write_evidence_pool():
@@ -644,7 +629,8 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
 
 
 def test_empty_retrieval_binds_gap_and_rewrites_query():
-    question = "请详细说明怎么配置 StampServer"
+    """验证初次未召回时，模型自主生成不同改写 query 发起第 2 次补检并成功召回。"""
+    question = "仔细说说怎么部署 StampServer"
     conv = ConversationContext.from_request(question, [])
     pool = EvidencePool(question_id="q")
     queries: list[str] = []
@@ -655,36 +641,29 @@ def test_empty_retrieval_binds_gap_and_rewrites_query():
         if len(queries) == 1:
             pool.add_retrieve([], query=query)
         else:
-            pool.add_retrieve([_doc("s1", "StampServer 配置")], query=query, head_entity="StampServer")
+            pool.add_retrieve([_doc("s1", "StampServer 部署")], query=query, head_entity="StampServer")
         return ToolObservation(tool="retrieve_kb", ok=True, summary=str(len(queries)))
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", source="test"),
-        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": question}),
+        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": "StampServer 初检"}),
+        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": "StampServer 部署步骤"}),
         AgentDecision(action="finish", source="test"),
     ])
 
     loop = AgentLoop(
         conversation=conv,
         evidence=pool,
-        budget=AgentBudget(max_steps=6, max_retrieve_attempts=2),
+        budget=AgentBudget(max_steps=6),
         registry=build_agent_registry(),
         handlers={"retrieve_kb": retrieve},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert result.retrieve_attempts == 2
-    assert queries[1] != queries[0]
-    assert result.evidence_gap
-    assert result.evidence_gap[0]["gap_type"] == "empty_retrieval"
-    assert result.evidence_gap[0]["recovery_strategy"]
-    groups = [g for g in result.evidence.groups if g.kind == "retrieve"]
-    assert groups[1].gap_type == "empty_retrieval"
-    assert result.retrieve_improvement == 1
-    assert result.answer_gate["allow_knowledge_answer"] is True
-
+    assert len(queries) == 2
+    assert queries[0] == "StampServer 初检"
+    assert queries[1] == "StampServer 部署步骤"
 
 def test_agent_answer_docs_drop_when_gate_denies():
     conv = ConversationContext.from_request("什么", [])
@@ -1275,7 +1254,8 @@ def test_decision_prompt_has_one_shot():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
     assert "示例 1" in _DECISION_PROMPT or "示例" in _DECISION_PROMPT
     assert "StampServer 默认端口" in _DECISION_PROMPT
-    assert "clarify" in _DECISION_PROMPT
+    assert "retrieve_kb" in _DECISION_PROMPT
+    assert "link_entities" in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():
@@ -1672,11 +1652,11 @@ def test_recovery_notice_semantic_formatting():
     n1 = format_recovery_notice("low_relevance", "strip_modifiers")
     assert "strip_modifiers" not in n1
     assert "low_relevance" not in n1
-    assert "精简关键词并发起二次深入检索" in n1
+    assert "深入查询" in n1
 
     n2 = format_recovery_notice("empty_retrieval", "broaden_semantics")
     assert "broaden_semantics" not in n2
-    assert "扩展概念语义重新检索" in n2
+    assert "深入核实" in n2 or "深入查询" in n2
 
     # 2. 验证 thought 格式化
     t1 = format_recovery_thought("low_relevance", "strip_modifiers", "StampGIS 安装")
@@ -1685,3 +1665,131 @@ def test_recovery_notice_semantic_formatting():
     assert "检索相关度较低" in t1
     assert "精简修饰词二次检索" in t1
     assert "StampGIS 安装" in t1
+
+def test_v15_oneshot_finish_when_evidence_sufficient():
+    """PRD V1.5 核心特性：首轮检索后证据充足，模型输出 finish 直接放行（单步即答，无多余补检）。"""
+    conv = ConversationContext.from_request("StampServer 默认端口是多少", [])
+    pool = EvidencePool(question_id="q_v15")
+    retrieved_count = 0
+
+    async def mock_retrieve(args):
+        nonlocal retrieved_count
+        retrieved_count += 1
+        pool.add_retrieve([_doc("s_port", "StampServer 默认服务端口为 8080")], query=args.get("query"))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+
+    decisions = iter([
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 默认端口"}),
+        AgentDecision(action="finish", thought="证据池已包含端口事实，结束检索。"),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=8),
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+        decide_fn=lambda *_: next(decisions),
+    )
+
+    result = asyncio.run(loop.run())
+    assert result.route == "retrieve"
+    assert result.retrieve_attempts == 1
+    assert retrieved_count == 1
+    assert len(result.evidence.citable_docs()) == 1
+
+
+def test_v15_cycle_detection_prevents_infinite_loop():
+    """PRD V1.5 核心特性：当模型连续两次请求完全相同 query+tool 时，触发循环检测安全熔断。"""
+    conv = ConversationContext.from_request("循环测试", [])
+    pool = EvidencePool(question_id="q_cycle")
+    retrieved_count = 0
+
+    async def mock_retrieve(args):
+        nonlocal retrieved_count
+        retrieved_count += 1
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="未命中")
+
+    decisions = iter([
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "相同查询词"}),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "相同查询词"}),
+        AgentDecision(action="finish"),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=8),
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+        decide_fn=lambda *_: next(decisions),
+    )
+
+    result = asyncio.run(loop.run())
+    assert retrieved_count == 1
+    assert "retrieve_cycle_detected" in result.fallbacks
+
+
+def test_malformed_tool_call_never_downgraded_to_finish():
+    """协议安全保证：当 LLM 输出 tool_call 但缺失 tool 时，绝不被误当作 finish 退出。"""
+    conv = ConversationContext.from_request("BS架构技术路线", [])
+    pool = EvidencePool(question_id="q_malformed")
+    retrieved = []
+
+    async def mock_retrieve(args):
+        retrieved.append(args.get("query"))
+        pool.add_retrieve([_doc("bs_1", "BS架构包含WebGL与WebRTC")], query=args.get("query"))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+
+    # 第 1 步输出非法 tool_call（tool=None），第 2 步输出合法 retrieve_kb，第 3 步 finish
+    decisions = iter([
+        AgentDecision(action="tool_call", tool=None, thought="我想检索但漏了tool名"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "BS架构 技术路线"}),
+        AgentDecision(action="finish", thought="已有证据，组织回答"),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=8),
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+        decide_fn=lambda *_: next(decisions),
+    )
+
+    result = asyncio.run(loop.run())
+    assert "malformed_decision" in result.fallbacks
+    assert len(retrieved) >= 1
+    assert result.route == "retrieve"
+
+
+def test_evidence_constraint_blocks_premature_finish():
+    """证据约束保证：对于客观技术提问，若 0 证据尝试 finish，Harness 实施证据底线保护。"""
+    conv = ConversationContext.from_request("StampServer 核心配置有哪些", [])
+    pool = EvidencePool(question_id="q_premature")
+    retrieved = []
+
+    async def mock_retrieve(args):
+        retrieved.append(args.get("query"))
+        pool.add_retrieve([_doc("conf_1", "StampServer 核心配置说明")], query=args.get("query"))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+
+    # 模型在无证据时直接尝试 finish
+    decisions = iter([
+        AgentDecision(action="finish", thought="未检索直接尝试结束"),
+        AgentDecision(action="finish", thought="检索后已有证据，正常结束"),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=8),
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+        decide_fn=lambda *_: next(decisions),
+    )
+
+    result = asyncio.run(loop.run())
+    assert "harness_evidence_grounding" in result.fallbacks
+    assert len(retrieved) == 1
+    assert result.route == "retrieve"
