@@ -775,38 +775,6 @@ async function handleSend(text: string, image?: File) {
   try {
     abortController.value = new AbortController()
 
-    // 1. 提问前预检：线性模式时走 /query/clarify；Agent 模式时由 stream 的 clarify 事件出卡
-    if (workMode.value === 'linear') {
-      try {
-        const clarifyRes = await queryClarify(
-          text,
-          undefined,
-          currentKb.value && currentKb.value !== '全部知识库' ? currentKb.value : undefined,
-          abortController.value.signal,
-        )
-        if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
-          const msg = lastAiMsg()
-          msg.loading = false
-          msg.status = undefined
-          msg.clarification = {
-            ask_question: clarifyRes.ask_question || '请选择您要查询的具体模块或方向：',
-            trigger: clarifyRes.trigger,
-            reason: clarifyRes.reason,
-            options: clarifyRes.options,
-          }
-          loading.value = false
-          abortController.value = null
-          await persist()
-          scrollDown()
-          return
-        }
-      } catch (err: any) {
-        if ((err as DOMException)?.name === 'AbortError') throw err
-        // 若预检服务异常，优雅降级为正常检索问答
-      }
-    }
-
-    // 2. 无歧义或预检跳过，执行常规流式检索问答
     const history = chatHistory.value.slice(0, -1)
     let streamOk = false
     try {

@@ -418,7 +418,7 @@ async def query_stream(req: QueryRequest):
                 yield "event: tool_start\n"
             elif event.get("type") == "tool_end":
                 yield "event: tool_end\n"
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -1227,7 +1227,7 @@ async def admin_qa_debug_stream(req: QueryRequest):
                 yield "event: heartbeat\n"
             elif event.get("type") == "clarify":
                 yield "event: clarify\n"
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         event_stream(),

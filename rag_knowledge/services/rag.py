@@ -1670,6 +1670,16 @@ class RagChain:
             decision=PackDecision(reason="legacy_compressor_budget"),
         )
 
+    def _get_understanding_service(self):
+        und = getattr(self, "_understanding", None)
+        if und is not None:
+            return und
+        from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
+        cfg = getattr(self, "_cfg", None) or Config()
+        ctx = getattr(self, "_contextualizer", None)
+        self._understanding = DialogueUnderstanding(cfg, contextualizer=ctx)
+        return self._understanding
+
     def _understand_for_retrieval(
         self,
         question: str,
@@ -1680,7 +1690,7 @@ class RagChain:
         kb_name: str | None = None,
     ):
         """统一 Understanding 入口（检索路径不重复跑澄清）。"""
-        return self._understanding.analyze(
+        return self._get_understanding_service().analyze(
             question,
             history=history,
             entity_name=entity_name,
@@ -2570,7 +2580,7 @@ class RagChain:
                 summary=summary_label,
                 data={
                     "chunk_ids": group.chunk_ids,
-                    "plan": plan,
+                    "plan": serialize_plan(plan),
                     "n": len(docs),
                     "mode": effective_mode or "hybrid",
                     "intent": intent or "general_qa",
@@ -2666,6 +2676,8 @@ class RagChain:
             )
             payload = analyzed.to_dict() if analyzed is not None else {"needs_clarification": False}
             custom_opts = _args.get("options")
+            if isinstance(custom_opts, str):
+                custom_opts = [s.strip() for s in re.split(r"[,，;；\n]+", custom_opts) if s.strip()]
             if not payload.get("needs_clarification") and isinstance(custom_opts, list) and len(custom_opts) >= 2:
                 opts = []
                 for i, opt in enumerate(custom_opts):
@@ -2682,11 +2694,10 @@ class RagChain:
                     "options": opts,
                 }
             if payload.get("needs_clarification") and len(payload.get("options") or []) >= 2:
-                await emit({"type": "clarify", "data": payload})
                 return ToolObservation(
                     tool="clarify",
                     ok=True,
-                    summary=f"弹出反问卡片（{len(payload.get('options') or [])} 个选项）",
+                    summary=f"出示反问澄清卡片（{len(payload.get('options') or [])} 个选项）",
                     data={"pause": True, "clarify": payload},
                 )
             return ToolObservation(
@@ -2889,20 +2900,23 @@ class RagChain:
             return
         from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
 
-        is_direct_chat = (
-            result.route == "direct"
-            or is_meta_or_direct_chat(q)
-            or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
-        )
-        if is_direct_chat:
+        # 第一性原则：以 Agent 实际执行产物为准。若已有可引用证据，绝不能因静态正则而抹杀
+        has_citable_evidence = bool(result.evidence.citable_docs())
+        if has_citable_evidence:
+            is_direct_chat = False
+            source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+            context = self._format_context(source_docs)
+            has_evidence = bool(source_docs)
+        else:
+            is_direct_chat = (
+                result.route == "direct"
+                or is_meta_or_direct_chat(q)
+                or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+            )
             source_docs = []
             retrieved_source_docs = []
             context = ""
             has_evidence = False
-        else:
-            source_docs, retrieved_source_docs = self._agent_answer_docs(result)
-            context = self._format_context(source_docs)
-            has_evidence = bool(source_docs)
         self._safe_set_retrieval(
             trace,
             retrieved_source_docs,
@@ -3493,6 +3507,38 @@ class RagChain:
                 rejected = {**rejected, "trace_id": tid}
             return rejected
 
+        if not (clarification_selected and str(clarification_selected).strip()):
+            understood = await asyncio.to_thread(
+                lambda: self._get_understanding_service().analyze(
+                    q,
+                    history=history,
+                    entity_name=entity_name,
+                    doc_category=doc_category,
+                    kb_name=kb_name,
+                    run_clarify=True,
+                )
+            )
+            if understood.mode == "clarify" and understood.clarify:
+                clarify_data = understood.clarify
+                trace.set_understanding(understood)
+                trace.set_clarify({
+                    "needs_clarification": True,
+                    "ask_question": clarify_data.get("ask_question"),
+                    "selected": None,
+                    "options": clarify_data.get("options") or [],
+                })
+                tid = self._commit_qa_trace(
+                    trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
+                )
+                res = {
+                    "answer": "",
+                    "source_documents": [],
+                    "clarification": clarify_data,
+                }
+                if tid:
+                    res["trace_id"] = tid
+                return res
+
         if not self._agent_orchestration_enabled(agent_orchestration_enabled):
             rejected = self._j3_clarify_reject_if_needed(
                 q,
@@ -3804,6 +3850,44 @@ class RagChain:
                 yield {"type": "trace", "data": tid}
             yield {"type": "done"}
             return
+
+        if not (clarification_selected and str(clarification_selected).strip()):
+            understood = await asyncio.to_thread(
+                lambda: self._get_understanding_service().analyze(
+                    q,
+                    history=history,
+                    entity_name=entity_name,
+                    doc_category=doc_category,
+                    kb_name=kb_name,
+                    run_clarify=True,
+                )
+            )
+            if understood.mode == "clarify" and understood.clarify:
+                clarify_data = understood.clarify
+                trace.set_understanding(understood)
+                trace.set_clarify({
+                    "needs_clarification": True,
+                    "ask_question": clarify_data.get("ask_question"),
+                    "selected": None,
+                    "options": clarify_data.get("options") or [],
+                })
+                tid = self._commit_qa_trace(
+                    trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
+                )
+                yield {"type": "clarify", "data": clarify_data}
+                yield {"type": "sources", "data": []}
+                if pipeline_events:
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "clarify",
+                            "clarify": clarify_data,
+                        },
+                    }
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
+                yield {"type": "done"}
+                return
 
         if not self._agent_orchestration_enabled(agent_orchestration_enabled):
             rejected = self._j3_clarify_reject_if_needed(

@@ -390,30 +390,6 @@ async function runDebug() {
     agentPrompt: debugAgentPrompt.value || undefined,
   }
 
-  if (!agentOrchestrationEnabled.value) {
-    try {
-      const clarifyRes = await queryClarify(
-        qText,
-        currentOpts.docCategory,
-        currentOpts.kbName,
-        abortCtrl.signal,
-      )
-      if (clarifyRes && clarifyRes.needs_clarification && clarifyRes.options.length >= 2) {
-        debugClarification.value = clarifyRes
-        loading.value = false
-        liveStatus.value = '检测到潜在歧义，请选择确认...'
-        return
-      }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
-        liveStatus.value = '已终止调试'
-        loading.value = false
-        return
-      }
-      // 预检服务异常时，优雅降级直接进入调试
-    }
-  }
-
   await runActualDebugStream(qText, currentOpts)
 }
 

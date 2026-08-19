@@ -80,6 +80,23 @@ function getToolSummary(item: Extract<AgentTimelineItem, { type: 'tool_call' }>)
   return item.tool
 }
 
+function formatNoticeContent(raw: string): string {
+  if (!raw) return ''
+  if (raw.includes('strip_modifiers') || raw.includes('low_relevance')) {
+    return '当前检索相关度较低，已自动精简关键词并发起二次深入检索。'
+  }
+  if (raw.includes('broaden_semantics')) {
+    return '当前匹配范围较窄，已自动扩展概念语义重新检索。'
+  }
+  if (raw.includes('add_missing_attribute')) {
+    return '正在补充关键属性信息并发起定向检索。'
+  }
+  if (raw.includes('increase_entity_constraint')) {
+    return '正在锁定核心实体约束并发起精准检索。'
+  }
+  return raw
+}
+
 const showInspectModal = ref(false)
 const inspectPayload = ref<any>(null)
 
@@ -109,7 +126,7 @@ function closeInspect() {
           </div>
           <span class="row-title">系统提示</span>
           <span class="dot-sep" aria-hidden="true"></span>
-          <span class="row-summary notice-content">{{ item.content }}</span>
+          <span class="row-summary notice-content">{{ formatNoticeContent(item.content) }}</span>
         </div>
       </div>
 

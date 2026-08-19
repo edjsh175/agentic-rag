@@ -557,8 +557,8 @@ interface StoredMessage {
   feedback?: 'useful' | 'unuseful' | null
 }
 
-/** 从服务器加载聊天记录；无记录时返回 null，便于回退 localStorage */
-export async function loadServerChat(fingerprint: string) {
+/** 从服务器加载聊天记录；无记录或404时返回 null，便于回退 localStorage */
+export async function loadServerChat(fingerprint: string): Promise<StoredMessage[] | null> {
   try {
     const { data } = await http.get<{ messages: StoredMessage[] }>('/chat/history', {
       headers: { 'X-Device-Fingerprint': fingerprint },

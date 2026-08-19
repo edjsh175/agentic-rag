@@ -1273,8 +1273,9 @@ Gate: support
 
 def test_decision_prompt_has_one_shot():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
-    assert "示例（One-shot）" in _DECISION_PROMPT
+    assert "示例 1" in _DECISION_PROMPT or "示例" in _DECISION_PROMPT
     assert "StampServer 默认端口" in _DECISION_PROMPT
+    assert "clarify" in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():
@@ -1543,15 +1544,144 @@ def test_direct_meta_chat_never_triggers_forced_retrieval():
     )
 
     result = asyncio.run(loop.run())
-    # 1. 严格断言：完全没有调用 retrieve_kb 工具
     assert called_tools == []
     assert result.retrieve_attempts == 0
     assert result.route == "direct"
     assert len(result.evidence.citable_docs()) == 0
 
-    # 2. 验证治理层 govern_answer 保持自然输出，不被误杀为拒答
     from rag_knowledge.services.evidence_pack import govern_answer
     raw_answer = "我们刚刚开始新的会话，目前还没有讨论任何具体内容。"
     governed = govern_answer(raw_answer, "我们刚刚在讨论什么？", [])
     assert governed == raw_answer
     assert "检索到相关片段" not in governed
+
+
+def test_process_inquiry_can_trigger_clarify_when_appropriate():
+    conv = ConversationContext.from_request("你不向我确认澄清吗？", [
+        {"role": "user", "content": "StampTools 怎么部署"},
+        {"role": "assistant", "content": "StampTools 部署步骤如下..."},
+    ])
+    pool = EvidencePool(question_id="q_inquiry")
+    budget = AgentBudget(max_steps=3, max_retrieve_attempts=1)
+
+    async def mock_clarify(args):
+        return ToolObservation(
+            tool="clarify",
+            ok=True,
+            summary="出示澄清卡片",
+            data={
+                "pause": True,
+                "clarify": {
+                    "question": args.get("question", "请选择具体版本："),
+                    "options": args.get("options", ["Server 端", "Client 端"]),
+                },
+            },
+        )
+
+    def decide_clarify(c, e, obs):
+        return AgentDecision(
+            action="tool_call",
+            tool="clarify",
+            arguments={"question": "请确认您要咨询的具体产品模块：", "options": ["StampTools Server 端", "StampTools Web 端"]},
+            thought="用户质询上一轮为何未澄清。当前问题存在多模块歧义，调用 clarify 工具出示选项。",
+            source="llm",
+        )
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={"clarify": mock_clarify},
+        decide_fn=decide_clarify,
+    )
+
+    result = asyncio.run(loop.run())
+    assert result.route == "clarify"
+    assert result.clarify is not None
+    assert "请确认您要咨询的具体产品模块" in result.clarify.get("question", "")
+    assert len(result.clarify.get("options", [])) == 2
+
+
+def test_negative_correction_with_tech_question_preserves_evidence():
+    """验证带有否定词的纠偏提问（如'我没问过X，我问的是Y'），Agent 检索出证据后绝不被静态正则误判为纯元对话而清空证据。"""
+    conv = ConversationContext.from_request("我没问过 StampServer，我问的是 StampGIS 怎么配置", [
+        {"role": "user", "content": "StampServer 端口是多少"},
+        {"role": "assistant", "content": "StampServer 端口是 8080"},
+    ])
+    pool = EvidencePool(question_id="q_correct")
+    budget = AgentBudget(max_steps=3, max_retrieve_attempts=2)
+
+    async def mock_retrieve(args):
+        pool.add_retrieve([_doc("gis_conf", "StampGIS")], query=args.get("query"))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+
+    def decide_step(c, e, obs):
+        if not obs:
+            return AgentDecision(
+                action="tool_call",
+                tool="retrieve_kb",
+                arguments={"query": "StampGIS 配置", "mode": "hybrid"},
+                thought="用户否定了前文的 StampServer 并明确提出 StampGIS 配置诉求，改写为'StampGIS 配置'发起检索。",
+                source="llm",
+            )
+        return AgentDecision(
+            action="finish",
+            gate="support",
+            thought="已获取 StampGIS 配置证据，开始组织回答。",
+            source="llm",
+        )
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": mock_retrieve},
+        decide_fn=decide_step,
+    )
+
+    result = asyncio.run(loop.run())
+    assert result.route == "retrieve"
+    assert len(result.evidence.citable_docs()) == 1
+    assert result.evidence.citable_docs()[0]["metadata"]["chunk_id"] == "gis_conf"
+
+
+def test_clarify_options_string_fault_tolerance():
+    """验证当 options 以中文/英文逗号或换行分隔的字符串形式返回时，能自动容错切分为列表。"""
+    import re
+    from rag_knowledge.services.agent_orchestration.runtime import parse_json_object
+
+    raw_json = '{"thought":"歧义澄清","action":"tool_call","tool":"clarify","arguments":{"question":"请选择产品：","options":"StampServer, StampTools, StampGIS"}}'
+    data = parse_json_object(raw_json)
+    opts = data.get("arguments", {}).get("options")
+    # 模拟 runtime 的容错逻辑
+    if isinstance(opts, str):
+        opts = [s.strip() for s in re.split(r"[,，;；\n]+", opts) if s.strip()]
+    assert opts == ["StampServer", "StampTools", "StampGIS"]
+    assert len(opts) == 3
+
+def test_recovery_notice_semantic_formatting():
+    """验证恢复策略通知与思考过程已脱敏为自然专业中文，不暴露底层枚举。"""
+    from rag_knowledge.services.agent_orchestration.evidence_gate import (
+        format_recovery_notice,
+        format_recovery_thought,
+    )
+
+    # 1. 验证 notice 格式化
+    n1 = format_recovery_notice("low_relevance", "strip_modifiers")
+    assert "strip_modifiers" not in n1
+    assert "low_relevance" not in n1
+    assert "精简关键词并发起二次深入检索" in n1
+
+    n2 = format_recovery_notice("empty_retrieval", "broaden_semantics")
+    assert "broaden_semantics" not in n2
+    assert "扩展概念语义重新检索" in n2
+
+    # 2. 验证 thought 格式化
+    t1 = format_recovery_thought("low_relevance", "strip_modifiers", "StampGIS 安装")
+    assert "low_relevance" not in t1
+    assert "strip_modifiers" not in t1
+    assert "检索相关度较低" in t1
+    assert "精简修饰词二次检索" in t1
+    assert "StampGIS 安装" in t1

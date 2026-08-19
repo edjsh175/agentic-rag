@@ -164,7 +164,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
 
 /**
  * 全量加载：服务器优先 → localStorage 回退
- * 无数据时返回欢迎消息
+ * 无数据时返回空数组
  */
 export async function loadChatState(): Promise<ChatMessage[]> {
   const fingerprint = getFingerprint()
@@ -172,7 +172,7 @@ export async function loadChatState(): Promise<ChatMessage[]> {
   // 1. 尝试从服务器加载
   try {
     const serverMessages = await loadServerChat(fingerprint)
-    if (serverMessages) {
+    if (serverMessages && serverMessages.length > 0) {
       const stored: StoredMsg[] = serverMessages.map((m: any) => ({
         id: m.id,
         role: m.role,
@@ -187,19 +187,21 @@ export async function loadChatState(): Promise<ChatMessage[]> {
         agentTools: m.agentTools,
         timelineItems: m.timelineItems,
       }))
+      // 同步刷新本地缓存保持一致
+      saveMessages(stored as any)
       return restoreMessages(stored)
     }
   } catch {
-    // 服务器不可用，继续 fallback
+    // 仅在服务器不可用/网络异常时，使用 localStorage 离线兜底
   }
 
-  // 2. 回退到 localStorage
+  // 2. 离线回退到 localStorage
   const stored = loadMessages()
   if (stored.length > 0) {
     return restoreMessages(stored)
   }
 
-  // 3. 无数据 → 欢迎消息
+  // 3. 无数据
   return []
 }
 
