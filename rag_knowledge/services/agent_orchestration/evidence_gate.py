@@ -164,6 +164,33 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
     if not chunk_ids:
         return {"allow_knowledge_answer": False, "reason": "no_citable_chunk"}
 
+    scope = conversation.scope
+    identity_scope_id = str(getattr(scope, "scope_id", "") or "")
+    grant_groups = [
+        group for group in evidence.groups
+        if group.status == "ACTIVE" and group.kind == "retrieve" and group.grant_id
+    ]
+    for group in grant_groups:
+        for doc in group.docs:
+            meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+            if meta.get("source_type") == "external":
+                continue
+            if str(meta.get("grant_id") or "") != str(group.grant_id or ""):
+                return {"allow_knowledge_answer": False, "reason": "grant_id_mismatch"}
+            if meta.get("grant_admitted") is not True:
+                return {"allow_knowledge_answer": False, "reason": "grant_not_admitted"}
+            if identity_scope_id and str(meta.get("identity_scope_id") or "") != identity_scope_id:
+                return {"allow_knowledge_answer": False, "reason": "identity_scope_mismatch"}
+            target = str(group.target_entity or "").strip().casefold()
+            actual = str(
+                meta.get("evidence_target_entity")
+                or meta.get("scope_entity")
+                or meta.get("document_entity")
+                or ""
+            ).strip().casefold()
+            if target and actual and target != actual:
+                return {"allow_knowledge_answer": False, "reason": "grant_target_mismatch"}
+
     head = conversation.head_entity or conversation.selected_entity
     if head:
         active_heads = [
@@ -182,7 +209,12 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
         canon = resolve_canonical(head, constraints) or head
         scope = conversation.scope
 
-        if scope is not None and getattr(scope, "is_identity_locked", False):
+        is_legacy_evidence_scope = bool(
+            scope is not None
+            and hasattr(scope, "admissible_entities")
+            and not hasattr(scope, "forbidden_rebindings")
+        )
+        if is_legacy_evidence_scope and getattr(scope, "is_identity_locked", False):
             from rag_knowledge.services.relation_policy import is_scope_traversal_relation
 
             scope_id = str(getattr(scope, "scope_id", "") or "")
@@ -223,8 +255,8 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
                     "provenance_reason": invalid_reasons[0],
                     "refusal_text": f"知识库中暂未找到与 {canon} 对齐且来源可验证的已审核文档内容，无法可靠回答。",
                 }
-        else:
-            # 未锁定主体时保留旧的启发式对齐逻辑，作为迁移期兼容路径。
+        elif not grant_groups:
+            # 无 V1.6 Grant 的旧路径继续使用启发式对齐，作为迁移期兼容逻辑。
             from rag_knowledge.services.anchor_chunk_filter import chunk_matches_anchor
             from langchain_core.documents import Document
 
@@ -261,6 +293,166 @@ def classify_rule_gap(conversation: ConversationContext, evidence: EvidencePool)
     if reason in {"empty_pool", "no_citable_chunk"}:
         return EvidenceGap(gap_type="empty_retrieval")
     return EvidenceGap(gap_type="low_relevance")
+
+
+_CITATION_RE = re.compile(r"\[(\d+)\]|\((\d+)\)")
+_RELATION_CLAIM_RE = re.compile(
+    r"依赖(?:于)?|需要|要求|属于|包含|调用|使用|连接|关联|协同|配合|联动|交互|"
+    r"不同于|区别于|别名|导致|解决|关系|depends\s+on|requires|belongs\s+to|"
+    r"uses|causes|solved\s+by|different\s+from",
+    re.IGNORECASE,
+)
+_RELATION_TYPE_HINTS: tuple[tuple[re.Pattern[str], frozenset[str]], ...] = (
+    (re.compile(r"依赖(?:于)?|depends\s+on", re.IGNORECASE), frozenset({"depends_on", "requires"})),
+    (re.compile(r"需要|要求|requires", re.IGNORECASE), frozenset({"requires", "depends_on"})),
+    (re.compile(r"属于|belongs\s+to", re.IGNORECASE), frozenset({"belongs_to"})),
+    (re.compile(r"不同于|区别于|different\s+from", re.IGNORECASE), frozenset({"different_from"})),
+    (re.compile(r"导致|causes", re.IGNORECASE), frozenset({"causes"})),
+    (re.compile(r"解决|solved\s+by", re.IGNORECASE), frozenset({"solved_by"})),
+    (re.compile(r"使用|uses", re.IGNORECASE), frozenset({"uses_config", "requires", "depends_on"})),
+)
+
+
+def _expected_relation_types(segment: str) -> frozenset[str]:
+    expected: set[str] = set()
+    for pattern, relation_types in _RELATION_TYPE_HINTS:
+        if pattern.search(segment or ""):
+            expected.update(relation_types)
+    return frozenset(expected)
+
+
+def evaluate_claim_alignment(
+    answer: str,
+    evidence: EvidencePool,
+    source_docs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Entity-level Claim Guard for V1.6.
+
+    This is intentionally deterministic and conservative: it checks that a claim
+    naming entity B cites evidence grouped for B, and that a cross-entity relation
+    claim cites an explicit relation-evidence item rather than composing two
+    unrelated entity chunks.
+    """
+    text = str(answer or "").strip()
+    if not text:
+        return {"allow_claims": True, "reason": "empty_answer", "violations": []}
+
+    citation_map: dict[int, dict[str, Any]] = {}
+    for doc in source_docs or []:
+        if not isinstance(doc, dict):
+            continue
+        meta = doc.get("metadata") or {}
+        try:
+            citation_id = int(meta.get("citation_id"))
+        except (TypeError, ValueError):
+            continue
+        citation_map[citation_id] = meta
+
+    entity_names: list[str] = []
+    seen_entities: set[str] = set()
+    for group in evidence.groups:
+        if group.status != "ACTIVE":
+            continue
+        target = str(group.target_entity or "").strip()
+        if target and target.casefold() not in seen_entities:
+            seen_entities.add(target.casefold())
+            entity_names.append(target)
+        if group.kind == "relation":
+            for item in group.provenance:
+                if not isinstance(item, dict):
+                    continue
+                for key in ("source_entity", "target_entity"):
+                    value = str(item.get(key) or "").strip()
+                    if value and value.casefold() not in seen_entities:
+                        seen_entities.add(value.casefold())
+                        entity_names.append(value)
+
+    relation_groups = [
+        group for group in evidence.groups
+        if group.status == "ACTIVE" and group.kind == "relation" and group.relation_key
+    ]
+    violations: list[dict[str, Any]] = []
+    segments = [
+        match.group(0).strip()
+        for match in re.finditer(
+            r"[^。！？!?；;\n]+[。！？!?；;]?(?:\s*(?:\[\d+\]|\(\d+\)))*",
+            text,
+        )
+        if match.group(0).strip()
+    ]
+    for segment in segments:
+        citation_ids: list[int] = []
+        for match in _CITATION_RE.finditer(segment):
+            raw = match.group(1) or match.group(2)
+            try:
+                citation_ids.append(int(raw))
+            except (TypeError, ValueError):
+                continue
+        if not citation_ids:
+            continue
+
+        cited_meta = [citation_map[cid] for cid in citation_ids if cid in citation_map]
+        mentioned = [name for name in entity_names if name.casefold() in segment.casefold()]
+        for entity in mentioned:
+            aligned = False
+            for meta in cited_meta:
+                target = str(
+                    meta.get("evidence_target_entity")
+                    or meta.get("document_entity")
+                    or meta.get("scope_entity")
+                    or ""
+                ).strip()
+                relation_key = str(meta.get("relation_key") or "").strip()
+                if target and target.casefold() == entity.casefold():
+                    aligned = True
+                    break
+                if relation_key and entity.casefold() in relation_key.casefold():
+                    aligned = True
+                    break
+            if not aligned:
+                violations.append({
+                    "type": "entity_claim_misaligned",
+                    "entity": entity,
+                    "citations": citation_ids,
+                    "segment": segment[:240],
+                })
+
+        relation_claim = len(mentioned) >= 2 and bool(_RELATION_CLAIM_RE.search(segment))
+        if relation_claim:
+            relation_supported = False
+            expected_relation_types = _expected_relation_types(segment)
+            for meta in cited_meta:
+                relation_key = str(meta.get("relation_key") or "").strip()
+                relation_type = str(meta.get("relation_type") or "").strip()
+                if not relation_type:
+                    match = re.search(r"-\[([^\]]+)\]->", relation_key)
+                    relation_type = match.group(1).strip() if match else ""
+                entities_match = bool(
+                    relation_key
+                    and all(name.casefold() in relation_key.casefold() for name in mentioned)
+                )
+                type_match = not expected_relation_types or relation_type in expected_relation_types
+                if entities_match and type_match:
+                    relation_supported = True
+                    break
+            if not relation_supported:
+                # A relation group that exists but was not cited still cannot support the claim.
+                available_keys = [str(group.relation_key) for group in relation_groups]
+                violations.append({
+                    "type": "relation_claim_without_relation_evidence",
+                    "entities": mentioned,
+                    "citations": citation_ids,
+                    "available_relation_keys": available_keys[:8],
+                    "segment": segment[:240],
+                })
+
+    if violations:
+        return {
+            "allow_claims": False,
+            "reason": violations[0]["type"],
+            "violations": violations,
+        }
+    return {"allow_claims": True, "reason": "ok", "violations": []}
 
 
 def retrieve_improvement(evidence: EvidencePool) -> int | None:

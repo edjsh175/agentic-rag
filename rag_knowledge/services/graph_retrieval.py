@@ -930,6 +930,30 @@ class GraphRetriever:
             else:
                 linked = self.linker.link_queries(queries, intent, original_question=question)
             context = self.expander.expand(linked, intent, question=question)
+            if norm_scope is not None and getattr(norm_scope, "grant_id", None):
+                # V1.6: a tool-step Grant authorizes evidence for its target only.
+                # Graph neighbors may be used by GrantResolver to authorize a later step,
+                # but they must not enter this step's candidate/evidence pool implicitly.
+                target_ids = tuple(dict.fromkeys(item.entity_id for item in linked))
+                target_chunks: list[str] = []
+                target_queries: list[str] = []
+                for entity_id in target_ids:
+                    entity = self.db.get_entity(entity_id) or {}
+                    name = str(entity.get("name") or "").strip()
+                    if name and name not in target_queries:
+                        target_queries.append(name)
+                    for link in self.db.list_links(entity_id=entity_id):
+                        chunk_id = str(link.get("chunk_id") or "").strip()
+                        if chunk_id and chunk_id not in target_chunks and len(target_chunks) < self.expander.max_chunks:
+                            target_chunks.append(chunk_id)
+                context = replace(
+                    context,
+                    expanded_entity_ids=target_ids,
+                    relation_ids=(),
+                    chunk_ids=tuple(target_chunks),
+                    retrieval_queries=tuple(target_queries),
+                    fallback_reason=None if target_chunks else "no_graph_evidence",
+                )
             context = replace(
                 context,
                 guard=self.guard_builder.build(question, intent, linked, context),

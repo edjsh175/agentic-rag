@@ -113,6 +113,7 @@ class UnderstandingResult:
     filters: dict[str, Any] = field(default_factory=dict)
     dialogue_focus: str = ""
     focus: dict[str, str] = field(default_factory=dict)
+    semantic_task_context: dict[str, Any] = field(default_factory=dict)
     is_context_dependent: bool = False
     confidence: float = 1.0
     clarify: dict[str, Any] | None = None

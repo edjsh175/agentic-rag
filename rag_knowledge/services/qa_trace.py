@@ -143,6 +143,13 @@ def serialize_candidates(
             "provenance_source_type": meta.get("provenance_source_type") or "",
             "provenance_path": meta.get("provenance_path"),
             "scope_rejection_reason": meta.get("scope_rejection_reason") or "",
+            "identity_scope_id": meta.get("identity_scope_id") or "",
+            "identity_primary_entity": meta.get("identity_primary_entity") or "",
+            "grant_id": meta.get("grant_id") or "",
+            "grant_admitted": meta.get("grant_admitted"),
+            "grant_source_type": meta.get("grant_source_type") or "",
+            "grant_source_ref": meta.get("grant_source_ref") or "",
+            "evidence_target_entity": meta.get("evidence_target_entity") or "",
             "content_preview": content[:preview_chars],
         })
     return out
@@ -159,6 +166,10 @@ def runtime_fingerprint(cfg: Config | None = None) -> dict[str, Any]:
         "retrieval_quality_enabled": bool(cfg.retrieval_quality.enabled),
         "llm_model": cfg.llm_model,
         "helper_llm_model": cfg.helper_llm_model,
+        "semantic_verifier_enabled": bool(
+            getattr(cfg, "semantic_verifier_enabled", False)
+        ),
+        "semantic_verifier_model": getattr(cfg, "semantic_verifier_model", None),
         "agent_orchestration_enabled": bool(
             getattr(getattr(cfg, "agent_orchestration", None), "enabled", False)
         ),
@@ -206,6 +217,7 @@ class QaTraceBuilder:
         self._understanding: dict[str, Any] = {}
         self._clarify: dict[str, Any] = {}
         self._agent: dict[str, Any] = {}
+        self._grounding: dict[str, Any] = {}
         self._runtime_overrides: dict[str, Any] = {}
         self._retrieval_diagnostics_token = None
         self._request = {
@@ -331,6 +343,11 @@ class QaTraceBuilder:
             return
         self._agent = dict(payload or {})
 
+    def set_grounding(self, payload: dict[str, Any] | None) -> None:
+        if not self._enabled:
+            return
+        self._grounding = dict(payload or {})
+
     def set_runtime_override(self, **kwargs) -> None:
         if not self._enabled:
             return
@@ -382,6 +399,7 @@ class QaTraceBuilder:
             "understanding": self._understanding,
             "clarify": self._clarify,
             "agent": self._agent,
+            "grounding": self._grounding,
             "retrieval": self._retrieval,
             "pack": self._pack,
             "evidence": evidence or {},

@@ -59,14 +59,23 @@ class RetrievalStrategy:
         return scope
 
     @staticmethod
+    def _requires_structural_admission(scope: Any) -> bool:
+        if scope is None:
+            return False
+        if getattr(scope, "target_entities", None) or getattr(scope, "materialized_chunk_ids", None):
+            return True
+        return bool(getattr(scope, "is_identity_locked", False) and hasattr(scope, "is_structurally_admissible"))
+
+    @staticmethod
     def _filter_by_scope(docs: list[Document], scope: Any) -> list[Document]:
-        """执行最终 Structural Eligibility 校验并写入可审计的 Scope admission 元数据。"""
+        """Execute final structural admission for either a legacy scope or one step-level Grant."""
         if not docs or scope is None:
             return docs
         norm_scope = RetrievalStrategy._normalize_scope(scope)
-        if norm_scope is None or not getattr(norm_scope, "is_identity_locked", False):
+        if norm_scope is None or not RetrievalStrategy._requires_structural_admission(norm_scope):
             return docs
 
+        is_grant = hasattr(norm_scope, "grant_id")
         filtered: list[Document] = []
         for doc in docs:
             meta = doc.metadata or {}
@@ -79,24 +88,41 @@ class RetrievalStrategy:
             ).strip()
             if not norm_scope.is_structurally_admissible(doc_ent, chunk_id):
                 logger.debug(
-                    "Scope rejected chunk | entity=%s chunk=%s scope=%s",
+                    "Structural admission rejected chunk | entity=%s chunk=%s ref=%s",
                     doc_ent or "<unscoped>",
                     chunk_id,
-                    getattr(norm_scope, "scope_id", ""),
+                    getattr(norm_scope, "grant_id", None) or getattr(norm_scope, "scope_id", ""),
                 )
                 continue
 
             provenance = norm_scope.get_provenance(doc_ent) if doc_ent else None
-            meta["scope_id"] = getattr(norm_scope, "scope_id", "")
-            meta["scope_root"] = getattr(norm_scope, "primary_root", None) or ""
-            binding = getattr(norm_scope, "binding_strength", None)
-            meta["scope_binding_strength"] = getattr(binding, "value", binding) or ""
-            meta["scope_admitted"] = True
-            meta["scope_admission_reason"] = (
-                "materialized_chunk"
-                if chunk_id and getattr(norm_scope, "materialized_chunk_ids", None) and chunk_id in norm_scope.materialized_chunk_ids
-                else "admissible_entity"
-            )
+            if is_grant:
+                is_materialized = bool(
+                    chunk_id and chunk_id in (getattr(norm_scope, "materialized_chunk_ids", None) or ())
+                )
+                meta["grant_id"] = getattr(norm_scope, "grant_id", "")
+                meta["identity_scope_id"] = getattr(norm_scope, "identity_scope_id", "")
+                meta["grant_target_entities"] = list(getattr(norm_scope, "target_entities", ()) or ())
+                meta["grant_source_type"] = getattr(norm_scope, "source_type", "")
+                meta["grant_source_ref"] = getattr(norm_scope, "source_ref", "")
+                meta["grant_admitted"] = True
+                meta["evidence_target_entity"] = (
+                    getattr(norm_scope, "primary_root", None) if is_materialized else doc_ent
+                ) or getattr(norm_scope, "primary_root", None) or ""
+                meta["scope_id"] = getattr(norm_scope, "identity_scope_id", "")
+                meta["scope_admitted"] = True
+                meta["scope_admission_reason"] = "materialized_chunk" if is_materialized else "exploration_grant"
+            else:
+                meta["scope_id"] = getattr(norm_scope, "scope_id", "")
+                meta["scope_root"] = getattr(norm_scope, "primary_root", None) or ""
+                binding = getattr(norm_scope, "binding_strength", None)
+                meta["scope_binding_strength"] = getattr(binding, "value", binding) or ""
+                meta["scope_admitted"] = True
+                meta["scope_admission_reason"] = (
+                    "materialized_chunk"
+                    if chunk_id and getattr(norm_scope, "materialized_chunk_ids", None) and chunk_id in norm_scope.materialized_chunk_ids
+                    else "admissible_entity"
+                )
             if provenance is not None:
                 meta["provenance_source_type"] = provenance.source_type
                 meta["provenance_path"] = provenance.to_dict()
@@ -532,9 +558,10 @@ class RetrievalStrategy:
         if cat:
             conditions.append({"doc_category": cat})
 
-        if norm_scope is not None and getattr(norm_scope, "is_identity_locked", False):
+        if norm_scope is not None and self._requires_structural_admission(norm_scope):
             scope_branches: list[dict] = []
-            admissible = sorted(getattr(norm_scope, "admissible_entities", None) or ())
+            targets = sorted(getattr(norm_scope, "target_entities", None) or ())
+            admissible = targets or sorted(getattr(norm_scope, "admissible_entities", None) or ())
             materialized = sorted(getattr(norm_scope, "materialized_chunk_ids", None) or ())
             if admissible:
                 scope_branches.append({"document_entity": {"$in": admissible}})

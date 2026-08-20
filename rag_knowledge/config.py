@@ -288,6 +288,23 @@ class Config:
         self.helper_llm_endpoint = _load_endpoint(
             "helper_llm", legacy_model_key="helper_llm", default_model="gemma3:4b"
         )
+        if ini.has_section("model.semantic_verifier"):
+            self.semantic_verifier_endpoint = _load_endpoint(
+                "semantic_verifier",
+                legacy_model_key="helper_llm",
+                default_model=self.helper_llm_endpoint.model,
+            )
+        else:
+            helper_ep = self.helper_llm_endpoint
+            self.semantic_verifier_endpoint = ModelEndpoint(
+                role="semantic_verifier",
+                provider=helper_ep.provider,
+                model=helper_ep.model,
+                base_url=helper_ep.base_url,
+                api_key_env=helper_ep.api_key_env,
+                max_retries=helper_ep.max_retries,
+                concurrency_limit=helper_ep.concurrency_limit,
+            )
         self.vision_endpoint = _load_endpoint(
             "vision", legacy_model_key="vision", default_model="qwen3-vl:8b"
         )
@@ -301,6 +318,7 @@ class Config:
         self.embedding_model = self.embedding_endpoint.model
         self.llm_model = self.llm_endpoint.model
         self.helper_llm_model = self.helper_llm_endpoint.model
+        self.semantic_verifier_model = self.semantic_verifier_endpoint.model
         self.vision_model = self.vision_endpoint.model
 
         # ---- GPU Agent 显存监控（gpu-agent sidecar，默认 11435 端口）----
@@ -324,6 +342,33 @@ class Config:
         self.allow_general_knowledge = _get(
             "answer", "allow_general_knowledge", "false"
         ).lower() == "true"
+        self.semantic_verifier_enabled = _get(
+            "answer", "semantic_verifier_enabled", "false"
+        ).strip().lower() in ("1", "true", "yes")
+        self.semantic_verifier_timeout = float(_get(
+            "answer", "semantic_verifier_timeout", "30"
+        ))
+        self.semantic_verifier_max_claims = max(1, int(_get(
+            "answer", "semantic_verifier_max_claims", "12"
+        )))
+        self.semantic_verifier_max_evidence_chars = max(200, int(_get(
+            "answer", "semantic_verifier_max_evidence_chars", "1800"
+        )))
+        self.semantic_verifier_activation_report = _dir(_get(
+            "answer", "semantic_verifier_activation_report", "./data/semantic_verifier_activation.json"
+        ), "./data/semantic_verifier_activation.json")
+        self.semantic_verifier_activation_min_residual_cases = max(1, int(_get(
+            "answer", "semantic_verifier_activation_min_residual_cases", "20"
+        )))
+        self.semantic_verifier_activation_min_accuracy = float(_get(
+            "answer", "semantic_verifier_activation_min_accuracy", "0.95"
+        ))
+        self.semantic_verifier_activation_max_false_accept_rate = float(_get(
+            "answer", "semantic_verifier_activation_max_false_accept_rate", "0"
+        ))
+        self.semantic_verifier_activation_max_invalid_rate = float(_get(
+            "answer", "semantic_verifier_activation_max_invalid_rate", "0.02"
+        ))
 
         # ---- 向量数据库 ----
         self.chroma_dir = _dir(_get("vector_store", "persist_directory", "./chroma_db"), "./chroma_db")
@@ -622,6 +667,7 @@ class Config:
             "embedding": self.embedding_endpoint,
             "llm": self.llm_endpoint,
             "helper_llm": self.helper_llm_endpoint,
+            "semantic_verifier": self.semantic_verifier_endpoint,
             "vision": self.vision_endpoint,
             "compression": self.compression_endpoint,
             "graph_extraction": self.graph_extraction_endpoint,

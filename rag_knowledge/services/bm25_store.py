@@ -73,7 +73,15 @@ class BM25Store:
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
 
         norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
-        is_locked = bool(norm_scope and getattr(norm_scope, "is_identity_locked", False))
+        structural_filter = bool(
+            norm_scope
+            and hasattr(norm_scope, "is_structurally_admissible")
+            and (
+                getattr(norm_scope, "target_entities", None)
+                or getattr(norm_scope, "materialized_chunk_ids", None)
+                or getattr(norm_scope, "is_identity_locked", False)
+            )
+        )
 
         # 前置过滤元数据与结构准入条件，收集 top_k 个
         results: list[Document] = []
@@ -93,7 +101,7 @@ class BM25Store:
                 continue
             if doc_category and meta.get("doc_category") != doc_category:
                 continue
-            if is_locked:
+            if structural_filter:
                 doc_ent = str(meta.get("document_entity") or meta.get("entity_name") or "").strip()
                 chunk_id = str(meta.get("chunk_id") or "").strip()
                 if not norm_scope.is_structurally_admissible(doc_ent, chunk_id):

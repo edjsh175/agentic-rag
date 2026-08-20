@@ -133,6 +133,13 @@ def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):
         "metadata": {"chunk_id": "x", "source": "doc.md"},
     }])
     builder.mark("generate")
+    builder.set_grounding({
+        "policy": "strict_kb",
+        "verdict": "fail",
+        "candidate_attempts": 2,
+        "final_mode": "deterministic_fallback",
+        "fallback_used": True,
+    })
     tid = builder.finish(
         answer="当前知识库中未查询到相关内容。",
         source_documents=[],
@@ -151,6 +158,9 @@ def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):
     assert detail["meta"]["trace_id"] == tid
     assert detail["plan"]["intent"] == "definition"
     assert detail["stages"]["plan"] >= 0
+    assert detail["grounding"]["policy"] == "strict_kb"
+    assert detail["grounding"]["candidate_attempts"] == 2
+    assert detail["grounding"]["final_mode"] == "deterministic_fallback"
     day_file = data_dir / "qa_traces"
     assert any(day_file.glob(f"*/{tid}.json"))
 
@@ -259,6 +269,29 @@ def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
 
     after = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
     assert after == before
+
+
+def test_rag_new_trace_preserves_requested_allow_general_knowledge(isolated_storage, monkeypatch):
+    cfg, _db, _chroma, _data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+
+    from rag_knowledge.services.rag import RagChain
+
+    chain = object.__new__(RagChain)
+    chain._cfg = cfg
+    chain._llm_model = "test-model"
+    builder = chain._new_qa_trace(
+        "question",
+        allow_general_knowledge=True,
+        path="query",
+    )
+    tid = builder.finish(answer="answer")
+
+    detail = QaTraceStore(cfg).get(tid)
+    assert detail["request"]["allow_general_knowledge"] is True
+    assert detail["runtime"]["requested_allow_general_knowledge"] is True
+    assert detail["runtime"]["semantic_verifier_enabled"] is False
+    assert detail["runtime"]["semantic_verifier_model"] == cfg.semantic_verifier_model
 
 
 def test_store_requires_explicit_config():

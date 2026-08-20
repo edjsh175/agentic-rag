@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from rag_knowledge.services.conversation_context import (
@@ -139,6 +139,10 @@ class EvidenceGroup:
     tool: str | None = None
     gap_type: str | None = None
     recovery_strategy: str | None = None
+    target_entity: str | None = None
+    relation_key: str | None = None
+    grant_id: str | None = None
+    provenance: list[dict[str, Any]] = field(default_factory=list)
 
     def to_trace(self) -> dict[str, Any]:
         payload = {
@@ -148,6 +152,10 @@ class EvidenceGroup:
             "chunk_ids": list(self.chunk_ids),
             "status": self.status,
             "head_entity": self.head_entity,
+            "target_entity": self.target_entity,
+            "relation_key": self.relation_key,
+            "grant_id": self.grant_id,
+            "provenance": list(self.provenance),
             "tool": self.tool,
         }
         if self.gap_type:
@@ -200,11 +208,23 @@ class EvidencePool:
         query: str | None = None,
         tool: str = "retrieve_kb",
         head_entity: str | None = None,
+        target_entity: str | None = None,
+        grant: Any = None,
         gap_type: str | None = None,
         recovery_strategy: str | None = None,
     ) -> EvidenceGroup:
         self._retrieve_seq += 1
         cleaned = [d for d in (docs or []) if isinstance(d, dict)]
+        provenance = []
+        grant_id = None
+        if grant is not None:
+            grant_id = str(getattr(grant, "grant_id", "") or "") or None
+            provenance.append({
+                "source_type": str(getattr(grant, "source_type", "") or ""),
+                "source_ref": str(getattr(grant, "source_ref", "") or ""),
+                "target_entities": list(getattr(grant, "target_entities", ()) or ()),
+                "hop_depth": int(getattr(grant, "hop_depth", 0) or 0),
+            })
         group = EvidenceGroup(
             group_id=uuid.uuid4().hex[:12],
             question_id=self.question_id,
@@ -214,6 +234,9 @@ class EvidencePool:
             docs=list(cleaned),
             status="ACTIVE",
             head_entity=head_entity,
+            target_entity=target_entity or getattr(grant, "primary_root", None),
+            grant_id=grant_id,
+            provenance=provenance,
             query=query,
             tool=tool,
             gap_type=gap_type,
@@ -221,6 +244,70 @@ class EvidencePool:
         )
         self.groups.append(group)
         return group
+
+    def add_relation(
+        self,
+        *,
+        relation_key: str,
+        target_entity: str | None = None,
+        grant: Any = None,
+        provenance: list[dict[str, Any]] | None = None,
+    ) -> EvidenceGroup:
+        provenance_items = list(provenance or [])
+        source_ref = ""
+        if provenance_items:
+            source_ref = str(provenance_items[0].get("source_ref") or "").strip()
+        if not source_ref and grant is not None:
+            source_ref = str(getattr(grant, "source_ref", "") or "").strip()
+        relation_id = source_ref.split("relation:", 1)[1] if source_ref.startswith("relation:") else ""
+        relation_type = ""
+        if provenance_items:
+            relation_type = str(provenance_items[0].get("relation_type") or "").strip()
+        synthetic_chunk_id = f"graph-relation:{relation_id or uuid.uuid4().hex[:12]}"
+        identity_scope_id = str(getattr(grant, "identity_scope_id", "") or "")
+        grant_id = str(getattr(grant, "grant_id", "") or "") or None
+        relation_doc = {
+            "content": relation_key,
+            "metadata": {
+                "chunk_id": synthetic_chunk_id,
+                "source_type": "graph_relation",
+                "file_name": "知识图谱（已审核关系）",
+                "document_entity": target_entity or "",
+                "evidence_target_entity": target_entity or "",
+                "relation_key": relation_key,
+                "relation_id": relation_id,
+                "relation_type": relation_type,
+                "grant_id": grant_id or "",
+                "grant_admitted": True,
+                "identity_scope_id": identity_scope_id,
+                "provenance_source_type": "graph_relation",
+                "provenance_path": provenance_items[0] if provenance_items else {},
+            },
+        }
+        group = EvidenceGroup(
+            group_id=uuid.uuid4().hex[:12],
+            question_id=self.question_id,
+            kind="relation",
+            retrieve_index=None,
+            chunk_ids=[synthetic_chunk_id],
+            docs=[relation_doc],
+            status="ACTIVE",
+            target_entity=target_entity,
+            relation_key=relation_key,
+            grant_id=grant_id,
+            provenance=provenance_items,
+            tool="link_entities",
+        )
+        self.groups.append(group)
+        return group
+
+    def has_relation(self, relation_key: str) -> bool:
+        key = str(relation_key or "").strip().casefold()
+        return any(
+            group.kind == "relation"
+            and str(group.relation_key or "").strip().casefold() == key
+            for group in self.groups
+        )
 
     def add_external(
         self,
@@ -325,8 +412,11 @@ class EvidencePool:
             label = group.kind
             if group.retrieve_index is not None:
                 label = f"{group.kind}#{group.retrieve_index}"
+            target = f" target={group.target_entity}" if group.target_entity else ""
+            relation = f" relation={group.relation_key}" if group.relation_key else ""
+            grant = f" grant={group.grant_id}" if group.grant_id else ""
             groups.append(
-                f"- {label} status={group.status} chunks={len(group.chunk_ids)}"
+                f"- {label} status={group.status} chunks={len(group.chunk_ids)}{target}{relation}{grant}"
             )
         header = "当前可引用证据组：\n" + ("\n".join(groups) if groups else "- （空）")
         body = formatted_context.strip() if formatted_context.strip() else "（暂无）"
@@ -346,6 +436,7 @@ class ConversationContext:
     user_question: str
     session: SessionState
     understanding: UnderstandingResult | None = None
+    semantic_task: Any = None
     topic_shift: bool = False
     entity_transition: bool = False
     selected_entity: str | None = None
@@ -358,7 +449,7 @@ class ConversationContext:
     linked_entities: list[dict[str, Any]] = field(default_factory=list)
     domain_context: str = ""
     scope: Any = None
-    version: str = "v2"
+    version: str = "v3"
 
     @classmethod
     def from_request(
@@ -370,21 +461,19 @@ class ConversationContext:
         doc_category: str | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
+        understanding: UnderstandingResult | None = None,
     ) -> "ConversationContext":
-        from rag_knowledge.services.retrieval_scope import RetrievalScope
-
-        scope = RetrievalScope.create(
-            question,
-            entity_name=entity_name,
-            doc_category=doc_category,
-            clarification_selected=clarification_selected,
+        from rag_knowledge.services.dialogue_understanding import (
+            SemanticTaskContext,
+            build_semantic_task_context,
         )
+        from rag_knowledge.services.identity_scope import IdentityScopeResolver
+
         selected = (clarification_selected or "").strip() or None
-        canonical_head = scope.canonical_entity or None
         session = session_from_history(
             history,
-            entity_name=entity_name or canonical_head,
-            doc_category=doc_category or scope.doc_category,
+            entity_name=entity_name,
+            doc_category=doc_category,
         )
         previous = None
         if session.focus and session.focus.confirmed_entity:
@@ -392,49 +481,45 @@ class ConversationContext:
         if not previous:
             previous = (session.resolved_entity or "").strip() or None
 
-        previous_scope_root = ""
+        previous_identity = ""
         for source in session.last_sources or []:
             if not isinstance(source, dict):
                 continue
-            root = str(source.get("scope_root") or "").strip()
+            root = str(
+                source.get("identity_primary_entity")
+                or source.get("scope_root")
+                or ""
+            ).strip()
             strength = str(source.get("scope_binding_strength") or "").strip().lower()
             if root and strength in {"confirmed", "explicit"}:
-                if previous_scope_root and previous_scope_root != root:
-                    previous_scope_root = ""
+                if previous_identity and previous_identity.casefold() != root.casefold():
+                    previous_identity = ""
                     break
-                previous_scope_root = root
-        if not previous and previous_scope_root:
-            previous = previous_scope_root
+                previous_identity = root
+        if not previous and previous_identity:
+            previous = previous_identity
 
-        evidence_scope = scope.evidence_scope
-        if previous_scope_root and evidence_scope is not None:
-            from rag_knowledge.services.evidence_scope import BindingStrength, ScopeResolver
-            from rag_knowledge.services.query_entity_guard import detect_correction_or_negation
+        stage1 = understanding or UnderstandingResult(
+            mode="retrieve",
+            user_utterance=(question or "").strip(),
+            resolved_question=(question or "").strip(),
+            confidence=1.0,
+        )
+        if stage1.semantic_task_context:
+            semantic_task = SemanticTaskContext.from_dict(stage1.semantic_task_context)
+        else:
+            semantic_task = build_semantic_task_context(question, stage1)
+            stage1.semantic_task_context = semantic_task.to_dict()
 
-            correction, negated = detect_correction_or_negation(question or "")
-            negated_cf = {str(item or "").strip().casefold() for item in negated}
-            previous_negated = previous_scope_root.casefold() in negated_cf
-            same_or_missing_root = (
-                not evidence_scope.primary_root
-                or evidence_scope.primary_root.casefold() == previous_scope_root.casefold()
-            )
-            if (
-                evidence_scope.binding_strength in {BindingStrength.UNBOUND, BindingStrength.INFERRED}
-                and same_or_missing_root
-                and not (correction and previous_negated)
-            ):
-                inherited = ScopeResolver.resolve(
-                    question,
-                    clarification_selected=previous_scope_root,
-                    doc_category=doc_category,
-                )
-                evidence_scope = replace(
-                    inherited,
-                    scope_reason="conversation_confirmed_subject",
-                )
-                canonical_head = evidence_scope.primary_root or canonical_head
+        identity_scope = IdentityScopeResolver.resolve(
+            semantic_task,
+            entity_name=entity_name,
+            clarification_selected=selected,
+            previous_confirmed_entity=previous,
+            doc_category=doc_category,
+        )
+        head = identity_scope.primary_entity or previous
 
-        head = canonical_head or previous
         clar_hist: list[dict[str, Any]] = []
         if clarification_question or selected:
             clar_hist.append({
@@ -444,13 +529,15 @@ class ConversationContext:
         return cls(
             user_question=(question or "").strip(),
             session=session,
+            understanding=stage1,
+            semantic_task=semantic_task,
             selected_entity=selected,
             clarification_history=clar_hist,
             clarification_callback=bool(selected),
             head_entity=head,
             previous_head_entity=previous,
-            resolved_question=(question or "").strip(),
-            scope=evidence_scope if evidence_scope is not None else scope,
+            resolved_question=semantic_task.resolved_question or (question or "").strip(),
+            scope=identity_scope,
         )
 
     def to_prompt(self, *, history_summary: str | None = None) -> str:
@@ -463,7 +550,14 @@ class ConversationContext:
         if self.resolved_question and self.resolved_question != self.user_question:
             lines.append(f"- 当前解析问题: {self.resolved_question}")
         if self.head_entity:
-            lines.append(f"- 当前实体: {self.head_entity}")
+            lines.append(f"- 当前主体身份: {self.head_entity}")
+        if self.semantic_task is not None:
+            mentioned = list(getattr(self.semantic_task, "mentioned_entities", ()) or ())
+            if mentioned:
+                lines.append(f"- 本轮显式提及实体: {', '.join(mentioned)}")
+            task_type = str(getattr(self.semantic_task, "task_type", "") or "")
+            if task_type:
+                lines.append(f"- 任务结构: {task_type}")
         if self.selected_entity:
             lines.append(f"- 用户已选实体: {self.selected_entity}")
         if self.linked_entities:
@@ -506,6 +600,16 @@ class ConversationContext:
             "head_entity": self.head_entity,
             "selected_entity": self.selected_entity,
             "resolved_question": self.resolved_question,
+            "semantic_task_context": (
+                self.semantic_task.to_dict()
+                if self.semantic_task is not None and hasattr(self.semantic_task, "to_dict")
+                else {}
+            ),
+            "identity_scope": (
+                self.scope.to_dict()
+                if self.scope is not None and hasattr(self.scope, "to_dict")
+                else {}
+            ),
             "clarification_callback": self.clarification_callback,
             "linked_count": len(self.linked_entities),
             "not_a_fact_source": True,
@@ -533,9 +637,16 @@ class AgentTurnResult:
     retrieval_trace: dict[str, Any] | None = None
 
     def to_trace(self) -> dict[str, Any]:
+        grant_authorizations = []
+        for tool in self.tools:
+            data = tool.get("data") if isinstance(tool, dict) else None
+            auth = data.get("grant_authorization") if isinstance(data, dict) else None
+            if isinstance(auth, dict):
+                grant_authorizations.append(dict(auth))
         return {
             "agent_steps": list(self.agent_steps),
             "tools": list(self.tools),
+            "grant_authorizations": grant_authorizations,
             "route": self.route,
             "conversation_context": self.conversation.to_trace(),
             "evidence_groups": self.evidence.to_trace(),

@@ -33,7 +33,11 @@ from rag_knowledge.services.web_search import WebSearch
 from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
 from rag_knowledge.services.retrieval_diagnostics import record_stage
 from rag_knowledge.services.anchor_chunk_filter import filter_docs_by_backbone_anchor
-from rag_knowledge.services.evidence_pack import build_evidence_pack, govern_answer
+from rag_knowledge.services.answer_finalizer import AnswerFinalizer
+from rag_knowledge.services.evidence_pack import (
+    build_evidence_pack,
+    synthesize_grounded_fallback,
+)
 from rag_knowledge.services.qa_trace import (
     QaTraceBuilder,
     runtime_fingerprint,
@@ -43,6 +47,7 @@ from rag_knowledge.services.qa_trace import (
 )
 
 logger = logging.getLogger(__name__)
+_ANSWER_FINALIZER = AnswerFinalizer()
 
 
 @dataclass(frozen=True)
@@ -358,6 +363,7 @@ class RagChain:
         doc_category: str | None = None,
         llm_model: str | None = None,
         thinking: bool | None = None,
+        allow_general_knowledge: bool | None = None,
         path: str | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
@@ -369,6 +375,7 @@ class RagChain:
             doc_category=doc_category,
             llm_model=llm_model or getattr(self, "_llm_model", None),
             thinking=thinking,
+            allow_general_knowledge=allow_general_knowledge,
             history_rounds=len(history or []) // 2,
             cfg=getattr(self, "_cfg", None),
             clarification_question=clarification_question,
@@ -382,6 +389,17 @@ class RagChain:
         setter = getattr(trace, "set_scope", None)
         if callable(setter):
             setter(scope)
+
+    @staticmethod
+    def _safe_set_grounding(trace: Any, payload: dict[str, Any], *, allow_general: bool) -> None:
+        if trace is None:
+            return
+        grounding_setter = getattr(trace, "set_grounding", None)
+        if callable(grounding_setter):
+            grounding_setter(payload)
+        runtime_setter = getattr(trace, "set_runtime_override", None)
+        if callable(runtime_setter):
+            runtime_setter(effective_allow_general_knowledge=bool(allow_general))
 
     def _safe_set_retrieval(
         self,
@@ -1766,15 +1784,29 @@ class RagChain:
             )
         except Exception as e:
             logger.warning("understand_for_retrieval fallback: %s", e)
-            from rag_knowledge.services.dialogue_understanding import DialogueUnderstandingResult
-            return DialogueUnderstandingResult(
+            from rag_knowledge.services.conversation_context import UnderstandingResult
+            from rag_knowledge.services.dialogue_understanding import build_semantic_task_context
+
+            result = UnderstandingResult(
+                mode="retrieve",
+                user_utterance=question,
                 resolved_question=question,
-                retrieval_queries=[question],
-                intent="general_qa",
+                retrieval_queries=[{"text": question, "kind": "original", "weight": 1.0}],
+                filters={
+                    key: value
+                    for key, value in {
+                        "entity_name": entity_name,
+                        "doc_category": doc_category,
+                        "kb_name": kb_name,
+                    }.items()
+                    if value
+                },
                 focus={},
-                doc_category=doc_category,
-                mode="general",
+                confidence=0.0,
+                rationale="understanding_fallback",
             )
+            result.semantic_task_context = build_semantic_task_context(question, result).to_dict()
+            return result
 
     def _build_retrieval_queries(
         self, question: str, history: list | None = None
@@ -2442,6 +2474,118 @@ class RagChain:
         messages.append({"role": "user", "content": question})
         return messages
 
+    def _retry_grounded_candidate(self, model: str | None, messages: list[dict], verdict: Any) -> str:
+        unsupported = "\n".join(f"- {item}" for item in list(getattr(verdict, "unsupported_segments", []) or [])[:5])
+        retry_messages = list(messages) + [{
+            "role": "user",
+            "content": (
+                "上一版回答未通过知识库证据校验。请重新回答，并严格遵守：\n"
+                "1. 只能陈述当前 context/evidence_pool 明确支持的事实；\n"
+                "2. 每个事实断言必须紧跟对应的 [编号] 引用；\n"
+                "3. 删除任何无法由引用片段直接支持的定义、用途、因果、比较或技术常识；\n"
+                "4. 证据不足时直接说明未查询到，不要补充通用知识。\n"
+                f"未通过校验的片段：\n{unsupported or '- 未提供具体片段，请整体收紧到证据原文。'}"
+            ),
+        }]
+        from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+        lc_msgs = []
+        for message in retry_messages:
+            role = message.get("role")
+            content = message.get("content", "")
+            if role == "system":
+                lc_msgs.append(SystemMessage(content=content))
+            elif role == "assistant":
+                lc_msgs.append(AIMessage(content=content))
+            else:
+                lc_msgs.append(HumanMessage(content=content))
+        response = self._build_llm(model).invoke(lc_msgs)
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _semantic_grounding_verify(self, answer: str, context_docs: list[dict[str, Any]]):
+        cfg = getattr(self, "_cfg", None)
+        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
+            return None
+
+        from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.semantic_entailment import SemanticEntailmentVerifier
+
+        def _caller(prompt: str):
+            return chat_role(
+                cfg,
+                "semantic_verifier",
+                [{"role": "user", "content": prompt}],
+                temperature=0.0,
+                format_json=True,
+                num_predict=1024,
+                timeout=float(getattr(cfg, "semantic_verifier_timeout", 30.0) or 30.0),
+                think=False,
+            )
+
+        verifier = SemanticEntailmentVerifier(
+            _caller,
+            max_claims=int(getattr(cfg, "semantic_verifier_max_claims", 12) or 12),
+            max_evidence_chars=int(
+                getattr(cfg, "semantic_verifier_max_evidence_chars", 1800) or 1800
+            ),
+        )
+        return verifier.verify(answer, context_docs)
+
+    def _semantic_activation_status(self) -> dict[str, Any]:
+        cfg = getattr(self, "_cfg", None)
+        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
+            return {"ready": False, "reasons": ["semantic_verifier_disabled"]}
+
+        from rag_knowledge.services.semantic_entailment import validate_activation_report
+
+        endpoint = cfg.endpoint_for("semantic_verifier")
+        return validate_activation_report(
+            getattr(cfg, "semantic_verifier_activation_report", "./data/semantic_verifier_activation.json"),
+            provider=endpoint.normalized_provider(),
+            model=endpoint.model,
+            min_residual_cases=int(
+                getattr(cfg, "semantic_verifier_activation_min_residual_cases", 20) or 20
+            ),
+            min_accuracy=float(
+                getattr(cfg, "semantic_verifier_activation_min_accuracy", 0.95) or 0.95
+            ),
+            max_false_accept_rate=float(
+                getattr(cfg, "semantic_verifier_activation_max_false_accept_rate", 0.0) or 0.0
+            ),
+            max_invalid_rate=float(
+                getattr(cfg, "semantic_verifier_activation_max_invalid_rate", 0.02) or 0.02
+            ),
+        )
+
+    def _semantic_verify_callback(self):
+        cfg = getattr(self, "_cfg", None)
+        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
+            return None
+
+        activation = self._semantic_activation_status()
+        if activation.get("ready") is True:
+            return self._semantic_grounding_verify
+
+        logger.error(
+            "semantic verifier activation blocked | model=%s | reasons=%s",
+            activation.get("model") or "-",
+            activation.get("reasons") or [],
+        )
+
+        def _blocked(_answer: str, _context_docs: list[dict[str, Any]]):
+            from rag_knowledge.services.evidence_pack import GroundingVerdict
+
+            reasons = ["semantic_verifier_activation_blocked"]
+            reasons.extend(str(reason) for reason in (activation.get("reasons") or []))
+            return GroundingVerdict(
+                ok=False,
+                reasons=list(dict.fromkeys(reasons)),
+                unsupported_segments=["语义验证器尚未通过与当前模型匹配的 residual activation gate"],
+                details={"semantic_verifier": {"activation": activation}},
+            )
+
+        return _blocked
+
     @staticmethod
     def _need_ollama_thinking(model: str) -> bool:
         return "qwen3" in model.lower()
@@ -2528,6 +2672,9 @@ class RagChain:
 
     def _effective_backbone_from_scope(self, scope: Any, plan: Any) -> tuple[str, ...]:
         if scope is not None:
+            grant_targets = tuple(getattr(scope, "target_entities", ()) or ())
+            if grant_targets:
+                return grant_targets
             ev = getattr(scope, "evidence_scope", None) or (scope if hasattr(scope, "admissible_entities") else None)
             if getattr(scope, "explicit_selection", False) and getattr(scope, "canonical_entity", None):
                 return (scope.canonical_entity,)
@@ -2678,8 +2825,20 @@ class RagChain:
             build_agent_registry,
         )
         from rag_knowledge.services.conversation_context import detect_topic_shift
+        from rag_knowledge.services.exploration_grant import ExplorationGrantResolver
 
         orch = getattr(self._cfg, "agent_orchestration", None)
+
+        # PRD V1.6: Stage 1 must complete before identity materialization.
+        initial_understanding = await asyncio.to_thread(
+            lambda: self._understand_for_retrieval(
+                question,
+                history,
+                entity_name=entity_name,
+                doc_category=doc_category,
+                kb_name=kb_name,
+            )
+        )
         conv = ConversationContext.from_request(
             question,
             history,
@@ -2687,8 +2846,27 @@ class RagChain:
             doc_category=doc_category,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            understanding=initial_understanding,
         )
+        conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
         self._safe_set_scope(trace, conv.scope)
+        if trace is not None:
+            setter = getattr(trace, "set_understanding", None)
+            if callable(setter):
+                setter(initial_understanding)
+
+        graph_retriever = getattr(self, "_graph_retriever", None)
+        graph_db = getattr(graph_retriever, "db", None)
+        grant_resolver = ExplorationGrantResolver(
+            identity_scope=conv.scope,
+            semantic_task=conv.semantic_task,
+            clarification_selected=clarification_selected,
+            previous_confirmed_entity=conv.previous_head_entity,
+            graph_db=graph_db,
+            max_hops=2,
+            max_entities=int(getattr(getattr(self, "_graph_cfg", None), "max_entities", 16) or 16),
+        )
+
         evidence = EvidencePool(question_id="current")
         evidence.seed_previous_cited(
             conv.session.last_sources,
@@ -2700,31 +2878,64 @@ class RagChain:
             hard_retrieve_cap=int(raw_cap or 8),
         )
 
-        # 初始化 ConversationContext 中的 understanding 与 resolved_question
-        initial_understanding = await asyncio.to_thread(
-            lambda: self._understand_for_retrieval(
-                conv.user_question,
-                history,
-                entity_name=conv.head_entity or entity_name,
-                doc_category=doc_category,
-                kb_name=kb_name,
-            )
-        )
-        conv.understanding = initial_understanding
-        conv.resolved_question = initial_understanding.resolved_question or conv.user_question
-        focus = initial_understanding.focus if isinstance(initial_understanding.focus, dict) else {}
-        confirmed = str(focus.get("confirmed_entity") or "").strip()
-        if confirmed and not conv.selected_entity:
-            conv.head_entity = confirmed
-        conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
-
         async def emit(event: dict) -> None:
             if on_event is not None:
                 await on_event(event)
 
+        def materialize_grant_relation(grant) -> None:
+            if grant is None or str(getattr(grant, "source_type", "") or "") != "graph_relation":
+                return
+            if graph_db is None:
+                return
+            source_ref = str(getattr(grant, "source_ref", "") or "").strip()
+            relation_id = source_ref.split("relation:", 1)[1] if source_ref.startswith("relation:") else ""
+            if not relation_id:
+                return
+            relation = next(
+                (
+                    item for item in graph_db.list_relations(review_status="approved")
+                    if str(item.get("id") or "") == relation_id
+                ),
+                None,
+            )
+            if relation is None:
+                return
+            source_name = str(relation.get("source_name") or relation.get("source_entity_id") or "").strip()
+            target_name = str(relation.get("target_name") or relation.get("target_entity_id") or "").strip()
+            relation_type = str(relation.get("relation_type") or "").strip()
+            if not source_name or not target_name or not relation_type:
+                return
+            relation_key = f"{source_name} -[{relation_type}]-> {target_name}"
+            if evidence.has_relation(relation_key):
+                return
+            evidence.add_relation(
+                relation_key=relation_key,
+                target_entity=getattr(grant, "primary_root", None),
+                grant=grant,
+                provenance=[{
+                    "source_type": "graph_relation",
+                    "source_ref": f"relation:{relation_id}",
+                    "relation_type": relation_type,
+                    "source_entity": source_name,
+                    "target_entity": target_name,
+                }],
+            )
+
         async def handle_retrieve(args: dict) -> ToolObservation:
             await emit({"type": "status", "data": "正在检索知识库..."})
             query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
+            target = str(args.get("target_entity") or conv.head_entity or "").strip() or None
+            authorization = grant_resolver.authorize(target)
+            if not authorization.authorized or authorization.grant is None:
+                return ToolObservation(
+                    tool="retrieve_kb",
+                    ok=False,
+                    summary="探索目标未获得证据范围授权",
+                    error="exploration_not_authorized",
+                    data={"grant_authorization": authorization.to_dict()},
+                )
+            grant = authorization.grant
+            materialize_grant_relation(grant)
             mode = str(args.get("mode") or "").strip().lower()
             intent = str(args.get("intent") or "").strip().lower()
             cat = str(args.get("doc_category") or doc_category or "").strip() or None
@@ -2740,14 +2951,31 @@ class RagChain:
                 history=history,
                 kb_name=kb_name,
                 doc_category=cat,
-                entity_name=conv.head_entity or entity_name,
+                entity_name=grant.primary_root or conv.head_entity or entity_name,
                 web_search=web_search,
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
                 understanding=conv.understanding,
                 method=effective_mode,
-                retrieval_scope=conv.scope,
+                retrieval_scope=grant,
             )
+            for doc in docs:
+                meta = dict(doc.get("metadata") or {})
+                meta["identity_scope_id"] = getattr(conv.scope, "scope_id", "")
+                meta["identity_primary_entity"] = getattr(conv.scope, "primary_entity", None) or conv.head_entity or ""
+                binding = getattr(conv.scope, "binding_strength", None)
+                meta["scope_binding_strength"] = getattr(binding, "value", binding) or ""
+                meta["scope_root"] = getattr(conv.scope, "primary_entity", None) or conv.head_entity or ""
+                meta["grant_id"] = grant.grant_id
+                meta["grant_admitted"] = True
+                meta["grant_source_type"] = grant.source_type
+                meta["grant_source_ref"] = grant.source_ref
+                meta["evidence_target_entity"] = (
+                    str(meta.get("evidence_target_entity") or "").strip()
+                    or grant.primary_root
+                    or ""
+                )
+                doc["metadata"] = meta
             if conv.understanding is None and getattr(self, "_last_understanding", None) is not None:
                 conv.understanding = self._last_understanding
                 conv.resolved_question = (
@@ -2757,6 +2985,8 @@ class RagChain:
                 docs,
                 query=query,
                 head_entity=conv.head_entity,
+                target_entity=grant.primary_root,
+                grant=grant,
                 gap_type=str(args.get("gap_type") or "").strip() or None,
                 recovery_strategy=str(args.get("recovery_strategy") or "").strip() or None,
             )
@@ -2796,6 +3026,7 @@ class RagChain:
                     "mode": effective_mode or "hybrid",
                     "intent": intent or "general_qa",
                     "retrieval_trace": retrieval_trace_snapshot,
+                    "grant_authorization": authorization.to_dict(),
                 },
             )
 
@@ -2826,18 +3057,27 @@ class RagChain:
             retriever = getattr(self, "_graph_retriever", None)
             linker = getattr(retriever, "linker", None) if graph_on else None
             relation_summaries: list[str] = []
-            scope_obj = getattr(conv, "scope", None)
-            is_locked = bool(scope_obj and getattr(scope_obj, "is_identity_locked", False))
+            q_text = str(_args.get("query") or conv.resolved_question or conv.user_question).strip()
+            target = str(_args.get("target_entity") or conv.head_entity or "").strip() or None
+            authorization = grant_resolver.authorize(target)
+            if not authorization.authorized or authorization.grant is None:
+                return ToolObservation(
+                    tool="link_entities",
+                    ok=False,
+                    summary="图谱探索目标未获得授权",
+                    error="exploration_not_authorized",
+                    data={"grant_authorization": authorization.to_dict()},
+                )
+            grant = authorization.grant
 
             if linker is not None:
                 try:
-                    q_text = str(_args.get("query") or conv.resolved_question or conv.user_question).strip()
-                    if is_locked and getattr(scope_obj, "root_entities", None):
-                        # 已锁定身份：只做 canonical root → graph entity 的精确映射，不再 lexical rebind。
+                    if grant.target_entities:
+                        # Identity remains unchanged; exact-link only the authorized exploration target.
                         link_scope_roots = getattr(retriever, "link_scope_roots", None)
-                        linked = link_scope_roots(scope_obj) if callable(link_scope_roots) else ()
+                        linked = link_scope_roots(grant) if callable(link_scope_roots) else ()
                     else:
-                        # 未锁定身份：执行自由消歧
+                        # Truly unbound Stage-1 tasks may use lexical linking without an entity grant target.
                         linked = linker.link(q_text, "definition")
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("link_entities failed: %s", exc)
@@ -2854,18 +3094,46 @@ class RagChain:
                     try:
                         g_context = retriever.expander.expand(linked, "definition", q_text)
                         if g_context and g_context.relation_ids and getattr(retriever, "db", None) is not None:
+                            relation_by_id: dict[str, dict] = {}
+                            for linked_item in linked:
+                                for relation in retriever.db.list_relations(
+                                    entity_id=str(getattr(linked_item, "entity_id", "") or ""),
+                                    review_status="approved",
+                                ):
+                                    relation_by_id[str(relation.get("id") or "")] = relation
                             for rel_id in g_context.relation_ids[:6]:
-                                rel = retriever.db.get_relation(rel_id)
+                                rel = relation_by_id.get(str(rel_id))
                                 if rel:
                                     s_name = rel.get("source_name") or rel.get("source_canonical_name") or rel.get("source_entity_id")
                                     t_name = rel.get("target_name") or rel.get("target_canonical_name") or rel.get("target_entity_id")
                                     r_type = rel.get("relation_type")
                                     if s_name and t_name and r_type:
-                                        relation_summaries.append(f"{s_name} -[{r_type}]-> {t_name}")
+                                        relation_key = f"{s_name} -[{r_type}]-> {t_name}"
+                                        relation_summaries.append(relation_key)
+                                        if not evidence.has_relation(relation_key):
+                                            evidence.add_relation(
+                                                relation_key=relation_key,
+                                                target_entity=grant.primary_root,
+                                                grant=grant,
+                                                provenance=[{
+                                                    "source_type": "graph_relation",
+                                                    "source_ref": f"relation:{rel_id}",
+                                                    "relation_type": r_type,
+                                                    "source_entity": s_name,
+                                                    "target_entity": t_name,
+                                                }],
+                                            )
                     except Exception as exc:  # noqa: BLE001
                         logger.debug("graph expander in handle_link: %s", exc)
 
-            conv.linked_entities = linked_payload
+            existing_links = {
+                str(item.get("entity_id") or item.get("canonical_name") or ""): item
+                for item in conv.linked_entities
+                if isinstance(item, dict)
+            }
+            for item in linked_payload:
+                existing_links[str(item.get("entity_id") or item.get("canonical_name") or "")] = item
+            conv.linked_entities = [item for key, item in existing_links.items() if key]
             domain_summary = ""
             if linked_payload:
                 cands_str = ", ".join(f"{c['canonical_name']}({c['entity_type']})" for c in linked_payload[:4])
@@ -2878,7 +3146,12 @@ class RagChain:
                 tool="link_entities",
                 ok=True,
                 summary=summary_text[:120],
-                data={"candidates": linked_payload, "relation_summaries": relation_summaries, "domain_context": domain_summary},
+                data={
+                    "candidates": linked_payload,
+                    "relation_summaries": relation_summaries,
+                    "domain_context": domain_summary,
+                    "grant_authorization": authorization.to_dict(),
+                },
             )
 
         async def handle_clarify(_args: dict) -> ToolObservation:
@@ -2988,6 +3261,24 @@ class RagChain:
             return [], retrieved
         return retrieved, retrieved
 
+    @staticmethod
+    def _apply_agent_claim_guard(answer: str, result, source_docs: list[dict], question: str):
+        from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_claim_alignment
+
+        verdict = evaluate_claim_alignment(answer, result.evidence, source_docs)
+        if verdict.get("allow_claims", True):
+            return answer, verdict
+
+        fallback = synthesize_grounded_fallback(source_docs, question)
+        fallback_verdict = evaluate_claim_alignment(fallback, result.evidence, source_docs)
+        payload = dict(verdict)
+        payload["fallback_used"] = True
+        payload["fallback_verdict"] = fallback_verdict
+        if fallback_verdict.get("allow_claims", True):
+            return fallback, payload
+        payload["fail_closed"] = True
+        return NO_KNOWLEDGE_ANSWER, payload
+
     async def _iter_with_heartbeat(
         self,
         agen,
@@ -3054,6 +3345,11 @@ class RagChain:
         trace,
     ):
         q = (question or "").strip()
+        allow_general = (
+            self._allow_general_knowledge if allow_general_knowledge is None
+            else allow_general_knowledge
+        )
+        strict_request = not allow_general
         live_events: asyncio.Queue = asyncio.Queue()
 
         async def on_event(event: dict) -> None:
@@ -3084,6 +3380,8 @@ class RagChain:
             event = await live_events.get()
             if event is None:
                 break
+            if strict_request and event.get("type") == "thinking":
+                continue
             yield event
         result = await turn_task
 
@@ -3145,10 +3443,7 @@ class RagChain:
         )
         trace.mark("retrieve")
 
-        allow_general = (
-            self._allow_general_knowledge if allow_general_knowledge is None
-            else allow_general_knowledge
-        )
+        strict_grounding = not is_direct_chat
         if not is_direct_chat and not source_docs and not allow_general:
             evidence = build_evidence_pack(NO_KNOWLEDGE_ANSWER, retrieved_source_docs, [])
             tid = self._commit_qa_trace(
@@ -3230,34 +3525,42 @@ class RagChain:
                     parts = content.split("<think>")
                     if parts[0]:
                         answer_parts.append(parts[0])
-                        yield {"type": "token", "data": parts[0]}
+                        if not strict_grounding:
+                            yield {"type": "token", "data": parts[0]}
                     in_thinking_tag = True
                     rest = parts[1]
                     if "</think>" in rest:
                         t_parts = rest.split("</think>")
                         thinking_parts.append(t_parts[0])
-                        yield {"type": "thinking", "data": t_parts[0]}
+                        if not strict_grounding:
+                            yield {"type": "thinking", "data": t_parts[0]}
                         in_thinking_tag = False
                         if t_parts[1]:
                             answer_parts.append(t_parts[1])
-                            yield {"type": "token", "data": t_parts[1]}
+                            if not strict_grounding:
+                                yield {"type": "token", "data": t_parts[1]}
                     else:
                         thinking_parts.append(rest)
-                        yield {"type": "thinking", "data": rest}
+                        if not strict_grounding:
+                            yield {"type": "thinking", "data": rest}
                 elif "</think>" in content:
                     parts = content.split("</think>")
                     thinking_parts.append(parts[0])
-                    yield {"type": "thinking", "data": parts[0]}
+                    if not strict_grounding:
+                        yield {"type": "thinking", "data": parts[0]}
                     in_thinking_tag = False
                     if parts[1]:
                         answer_parts.append(parts[1])
-                        yield {"type": "token", "data": parts[1]}
+                        if not strict_grounding:
+                            yield {"type": "token", "data": parts[1]}
                 elif in_thinking_tag:
                     thinking_parts.append(content)
-                    yield {"type": "thinking", "data": content}
+                    if not strict_grounding:
+                        yield {"type": "thinking", "data": content}
                 else:
                     answer_parts.append(content)
-                    yield {"type": "token", "data": content}
+                    if not strict_grounding:
+                        yield {"type": "token", "data": content}
         except Exception as stream_exc:
             logger.error("模型流式调用失败: %s", stream_exc)
             fail_msg = f"模型调用失败：{stream_exc}"
@@ -3280,12 +3583,32 @@ class RagChain:
                 if source_docs else NO_KNOWLEDGE_ANSWER
             )
             answer_text = fallback_answer
-            yield {"type": "token", "data": fallback_answer}
+            if not strict_grounding:
+                yield {"type": "token", "data": fallback_answer}
 
-        governed_answer = govern_answer(answer_text, q, source_docs)
-        if governed_answer != answer_text:
-            yield {"type": "final_answer", "data": governed_answer}
-        answer_text = governed_answer
+        finalized = await asyncio.to_thread(
+            _ANSWER_FINALIZER.finalize,
+            answer_text,
+            q,
+            source_docs,
+            allow_general_knowledge=allow_general,
+            is_direct_chat=is_direct_chat,
+            retry_candidate=lambda verdict: self._retry_grounded_candidate(
+                guarded_model, msgs, verdict,
+            ),
+            semantic_verify=self._semantic_verify_callback(),
+        )
+        guarded_answer, claim_guard = self._apply_agent_claim_guard(
+            finalized.answer, result, source_docs, q,
+        )
+        if strict_grounding:
+            yield {"type": "token", "data": guarded_answer}
+        elif guarded_answer != answer_text:
+            yield {"type": "final_answer", "data": guarded_answer}
+        answer_text = guarded_answer
+        grounding_payload = dict(finalized.grounding or {})
+        grounding_payload["claim_guard"] = claim_guard
+        self._safe_set_grounding(trace, grounding_payload, allow_general=allow_general)
         cited = self._filter_cited_sources(answer_text, source_docs)
         evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
         tid = self._commit_qa_trace(
@@ -3383,7 +3706,8 @@ class RagChain:
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        if not source_docs and not allow_general:
+        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        if not source_docs and not allow_general and not is_direct_chat:
             tid = self._commit_qa_trace(
                 trace, answer=NO_KNOWLEDGE_ANSWER,
                 retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
@@ -3406,7 +3730,6 @@ class RagChain:
         trace.mark("pack")
 
         plan = result.plan
-        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
         has_evidence = bool(source_docs)
         msgs = self._build_messages(
             q, context, history, agent_prompt=agent_prompt,
@@ -3440,9 +3763,24 @@ class RagChain:
         answer = await asyncio.to_thread(llm.invoke, lc_msgs)
         answer_content = answer.content if hasattr(answer, "content") else str(answer)
         trace.mark("generate")
-        if not answer_content.strip():
-            answer_content = NO_KNOWLEDGE_ANSWER
-        answer_content = govern_answer(answer_content, q, source_docs)
+        finalized = await asyncio.to_thread(
+            _ANSWER_FINALIZER.finalize,
+            answer_content,
+            q,
+            source_docs,
+            allow_general_knowledge=allow_general,
+            is_direct_chat=is_direct_chat,
+            retry_candidate=lambda verdict: self._retry_grounded_candidate(
+                guarded_model, msgs, verdict,
+            ),
+            semantic_verify=self._semantic_verify_callback(),
+        )
+        answer_content, claim_guard = self._apply_agent_claim_guard(
+            finalized.answer, result, source_docs, q,
+        )
+        grounding_payload = dict(finalized.grounding or {})
+        grounding_payload["claim_guard"] = claim_guard
+        self._safe_set_grounding(trace, grounding_payload, allow_general=allow_general)
         cited = self._filter_cited_sources(answer_content, source_docs)
         evidence = build_evidence_pack(answer_content, retrieved_source_docs, source_docs)
         tid = self._commit_qa_trace(
@@ -3622,10 +3960,17 @@ class RagChain:
                 pack.decision.compress_fallback, src_info,
             )
 
-            if not answer.strip():
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
-
-            answer = govern_answer(answer, q, source_docs)
+            finalized = _ANSWER_FINALIZER.finalize(
+                answer,
+                q,
+                source_docs,
+                allow_general_knowledge=allow_general,
+                retry_candidate=lambda verdict: self._retry_grounded_candidate(
+                    guarded_model, msgs, verdict,
+                ),
+                semantic_verify=self._semantic_verify_callback(),
+            )
+            answer = finalized.answer
             return {
                 "answer": answer,
                 "source_documents": self._filter_cited_sources(answer, source_docs),
@@ -3735,6 +4080,7 @@ class RagChain:
         trace = self._new_qa_trace(
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking,
+            allow_general_knowledge=allow_general_knowledge,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
         )
@@ -3988,9 +4334,19 @@ class RagChain:
                 pack.decision.compress_fallback, src_info,
             )
 
-            if not answer_content.strip():
-                answer_content = NO_KNOWLEDGE_ANSWER
-            answer_content = govern_answer(answer_content, q, source_docs)
+            finalized = await asyncio.to_thread(
+                _ANSWER_FINALIZER.finalize,
+                answer_content,
+                q,
+                source_docs,
+                allow_general_knowledge=allow_general,
+                retry_candidate=lambda verdict: self._retry_grounded_candidate(
+                    guarded_model, msgs, verdict,
+                ),
+                semantic_verify=self._semantic_verify_callback(),
+            )
+            answer_content = finalized.answer
+            self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
             cited = self._filter_cited_sources(answer_content, source_docs)
             evidence = build_evidence_pack(answer_content, retrieved_source_docs, source_docs)
             tid = self._commit_qa_trace(
@@ -4072,7 +4428,9 @@ class RagChain:
         deep_mode = bool(thinking)
         trace = self._new_qa_trace(
             q, history=history, kb_name=kb_name, doc_category=doc_category,
-            llm_model=llm_model, thinking=thinking, path=path or "query/stream",
+            llm_model=llm_model, thinking=thinking,
+            allow_general_knowledge=allow_general_knowledge,
+            path=path or "query/stream",
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
         )
@@ -4420,6 +4778,7 @@ class RagChain:
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
+            strict_grounding = not is_direct_chat
             if not source_docs and not allow_general and not is_direct_chat:
                 no_know_answer = (
                     f"知识库中暂未找到与 {scope.canonical_entity} 对齐的已审核文档内容，无法可靠回答。"
@@ -4509,34 +4868,42 @@ class RagChain:
                         parts = content.split("<think>")
                         if parts[0]:
                             answer_parts.append(parts[0])
-                            yield {"type": "token", "data": parts[0]}
+                            if not strict_grounding:
+                                yield {"type": "token", "data": parts[0]}
                         in_thinking_tag = True
                         rest = parts[1]
                         if "</think>" in rest:
                             t_parts = rest.split("</think>")
                             thinking_parts.append(t_parts[0])
-                            yield {"type": "thinking", "data": t_parts[0]}
+                            if not strict_grounding:
+                                yield {"type": "thinking", "data": t_parts[0]}
                             in_thinking_tag = False
                             if t_parts[1]:
                                 answer_parts.append(t_parts[1])
-                                yield {"type": "token", "data": t_parts[1]}
+                                if not strict_grounding:
+                                    yield {"type": "token", "data": t_parts[1]}
                         else:
                             thinking_parts.append(rest)
-                            yield {"type": "thinking", "data": rest}
+                            if not strict_grounding:
+                                yield {"type": "thinking", "data": rest}
                     elif "</think>" in content:
                         parts = content.split("</think>")
                         thinking_parts.append(parts[0])
-                        yield {"type": "thinking", "data": parts[0]}
+                        if not strict_grounding:
+                            yield {"type": "thinking", "data": parts[0]}
                         in_thinking_tag = False
                         if parts[1]:
                             answer_parts.append(parts[1])
-                            yield {"type": "token", "data": parts[1]}
+                            if not strict_grounding:
+                                yield {"type": "token", "data": parts[1]}
                     elif in_thinking_tag:
                         thinking_parts.append(content)
-                        yield {"type": "thinking", "data": content}
+                        if not strict_grounding:
+                            yield {"type": "thinking", "data": content}
                     else:
                         answer_parts.append(content)
-                        yield {"type": "token", "data": content}
+                        if not strict_grounding:
+                            yield {"type": "token", "data": content}
             except Exception as stream_exc:
                 logger.error("模型流式调用失败: %s", stream_exc)
                 fail_msg = f"模型调用失败：{stream_exc}"
@@ -4563,17 +4930,32 @@ class RagChain:
                     len(source_docs), q[:80]
                 )
                 answer_text = fallback_answer
-                yield {"type": "token", "data": fallback_answer}
+                if not strict_grounding:
+                    yield {"type": "token", "data": fallback_answer}
 
             logger.info(
                 "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
                 len(source_docs), deep_mode, plan.enable_rerank, thinking
             )
 
-            governed_answer = govern_answer(answer_text, q, source_docs)
-            if governed_answer != answer_text:
-                yield {"type": "final_answer", "data": governed_answer}
-            answer_text = governed_answer
+            finalized = await asyncio.to_thread(
+                _ANSWER_FINALIZER.finalize,
+                answer_text,
+                q,
+                source_docs,
+                allow_general_knowledge=allow_general,
+                is_direct_chat=is_direct_chat,
+                retry_candidate=lambda verdict: self._retry_grounded_candidate(
+                    guarded_model, msgs, verdict,
+                ),
+                semantic_verify=self._semantic_verify_callback(),
+            )
+            if strict_grounding:
+                yield {"type": "token", "data": finalized.answer}
+            elif finalized.answer != answer_text:
+                yield {"type": "final_answer", "data": finalized.answer}
+            answer_text = finalized.answer
+            self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
             cited = self._filter_cited_sources(answer_text, source_docs)
             evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
             tid = self._commit_qa_trace(

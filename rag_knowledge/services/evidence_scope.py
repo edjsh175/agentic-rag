@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -73,22 +72,28 @@ class ProvenancePath:
 
 @dataclass(frozen=True)
 class SubjectResolution:
-    """主体解析结果。"""
+    """Legacy subject-resolution compatibility record.
+
+    Business task semantics no longer live in ScopeResolver. Additional entities
+    are represented only as referenced_entities; Agent V1.6 consumes
+    SemanticTaskContext instead.
+    """
 
     primary_entities: tuple[str, ...] = ()
     referenced_entities: tuple[str, ...] = ()
-    comparison_entities: tuple[str, ...] = ()
     binding_strength: BindingStrength = BindingStrength.UNBOUND
     raw_query: str = ""
 
 
 @dataclass(frozen=True)
 class ScopePolicy:
-    """范围扩展策略与预算。"""
+    """Legacy EvidenceScope graph-expansion budget.
+
+    No comparison/cooperation/dependency task classification is performed here.
+    """
 
     max_hops: int = 1
     max_admissible_entities: int = 15
-    allow_comparison_expansion: bool = True
     allow_legacy_fallback: bool = True
     allowed_relations: frozenset[str] = SCOPE_TRAVERSAL_RELATIONS
 
@@ -180,28 +185,12 @@ class EvidenceScope:
 
 
 class ScopeResolver:
-    """证据范围求解器。负责计算合法证据范围与溯源路径。"""
+    """Legacy compatibility resolver without business-task semantics.
 
-    @classmethod
-    def _extract_comparison_from_query(
-        cls,
-        question: str,
-        primary_entity: str,
-        constraints: dict,
-    ) -> tuple[str, ...]:
-        """提取 query 中的对比目标（如问 'PipelineWebGL 和 PipelineBuilder 的区别'）。"""
-        if not question:
-            return ()
-        is_comparison = bool(re.search(
-            r"区别|对比|不同|差异|相比|比较|哪个好|孰优|versus|\bvs\.?\b",
-            question,
-            re.IGNORECASE,
-        ))
-        if not is_comparison:
-            return ()
-        inferred = soft_match_backbone_entities(question, constraints, max_hits=4)
-        comp = [e for e in inferred if e != primary_entity]
-        return tuple(comp)
+    Agent V1.6 does not use this resolver. It remains temporarily for non-Agent
+    callers and performs only generic entity extraction plus bounded structural
+    traversal.
+    """
 
     @classmethod
     def resolve_subject(
@@ -212,7 +201,7 @@ class ScopeResolver:
         clarification_selected: str | None = None,
         constraints: dict | None = None,
     ) -> SubjectResolution:
-        """解析问题主体、对比目标及绑定强度。"""
+        """Resolve a legacy primary entity and other explicitly referenced entities."""
         constraints = constraints if constraints is not None else load_backbone_constraints()
         raw_entity = (entity_name or "").strip()
         raw_selected = (clarification_selected or "").strip()
@@ -220,10 +209,8 @@ class ScopeResolver:
         # 1. 显式指定 entity_name -> EXPLICIT
         if raw_entity:
             canonical = resolve_canonical(raw_entity, constraints) or raw_entity
-            comp = cls._extract_comparison_from_query(question, canonical, constraints)
             return SubjectResolution(
                 primary_entities=(canonical,),
-                comparison_entities=comp,
                 binding_strength=BindingStrength.EXPLICIT,
                 raw_query=question,
             )
@@ -234,30 +221,26 @@ class ScopeResolver:
             mapped = map_clarification_text(raw_selected)
             if mapped:
                 canonical = resolve_canonical(mapped, constraints) or mapped
-                comp = cls._extract_comparison_from_query(question, canonical, constraints)
                 return SubjectResolution(
                     primary_entities=(canonical,),
-                    comparison_entities=comp,
                     binding_strength=BindingStrength.CONFIRMED,
                     raw_query=question,
                 )
             clean = raw_selected.split("（")[0].split("(")[0].strip()
             canonical = resolve_canonical(clean, constraints) or clean
             if canonical:
-                comp = cls._extract_comparison_from_query(question, canonical, constraints)
                 return SubjectResolution(
                     primary_entities=(canonical,),
-                    comparison_entities=comp,
                     binding_strength=BindingStrength.CONFIRMED,
                     raw_query=question,
                 )
 
-        # 3. 从 query 中识别主体与对比目标
-        is_meta_question = bool(re.search(
-            r"刚才|上一轮|前面|对话|啥时候|什么时候|说过|提过|没问|没说|没有说",
-            question or "",
-        ))
-        if not is_meta_question and question:
+        # 3. Legacy generic query entity extraction. Correction/meta turns are
+        # handled by DialogueUnderstanding and are not reinterpreted here.
+        from rag_knowledge.services.query_entity_guard import detect_correction_or_negation
+
+        is_correction, _ = detect_correction_or_negation(question or "")
+        if not is_correction and question:
             inferred = soft_match_backbone_entities(question, constraints, max_hits=4)
             if inferred:
                 # 按照实体或其 alias 在 question 中首次出现的字符位置排序，保持主次顺序
@@ -277,27 +260,14 @@ class ScopeResolver:
 
                 inferred = sorted(inferred, key=_first_pos)
 
-            # 只有明确比较语义才进入 comparison；单独的“和/与”只是并列或协作关系。
-            is_comparison = bool(re.search(
-                r"区别|对比|不同|差异|相比|比较|哪个好|孰优|versus|\bvs\.?\b",
-                question,
-                re.IGNORECASE,
-            ))
             if len(inferred) == 1:
                 return SubjectResolution(
                     primary_entities=(inferred[0],),
                     binding_strength=BindingStrength.INFERRED,
                     raw_query=question,
                 )
-            elif len(inferred) >= 2 and is_comparison:
-                return SubjectResolution(
-                    primary_entities=(inferred[0],),
-                    comparison_entities=tuple(inferred[1:]),
-                    binding_strength=BindingStrength.INFERRED,
-                    raw_query=question,
-                )
             elif len(inferred) >= 2:
-                # 多个提及实体，默认首个为主实体，其余为引用实体
+                # Scope does not classify the relationship between referenced entities.
                 return SubjectResolution(
                     primary_entities=(inferred[0],),
                     referenced_entities=tuple(inferred[1:]),
@@ -331,7 +301,6 @@ class ScopeResolver:
         )
 
         roots = list(subject.primary_entities)
-        comparison_targets = list(subject.comparison_entities)
         all_roots = tuple(roots)
 
         if not all_roots:
@@ -363,21 +332,7 @@ class ScopeResolver:
                 description=f"Direct entity knowledge for {r}",
             ))
 
-        # 2. 比较目标实体（若是对比问题且 policy 允许）
-        if policy.allow_comparison_expansion and comparison_targets:
-            for comp in comparison_targets:
-                admissible.add(comp)
-                paths.append(ProvenancePath(
-                    source_type=ProvenanceSourceType.GRAPH_RELATION.value,
-                    root_entity=roots[0],
-                    target_entity=comp,
-                    relation_type="comparison_target",
-                    hops=1,
-                    confidence=0.9,
-                    description=f"Comparison target in query: {comp}",
-                ))
-
-        # 3. 图谱有界 BFS。每一跳只从上一跳 frontier 继续扩张，避免 max_hops 成为虚假配置。
+        # 2. 图谱有界 BFS。每一跳只从上一跳 frontier 继续扩张，避免 max_hops 成为虚假配置。
         frontier = set(roots)
         visited = set(roots)
         for hop in range(1, max(0, policy.max_hops) + 1):
@@ -395,7 +350,8 @@ class ScopeResolver:
                 tgt = edge.get("target") or ""
                 if rel not in policy.allowed_relations:
                     continue
-                if rel == "different_from" and not comparison_targets and not (intent and "compare" in intent):
+                # Ambiguity sibling edges never become evidence authorization in Scope.
+                if rel == "different_from":
                     continue
 
                 if src in frontier:
@@ -423,9 +379,8 @@ class ScopeResolver:
                 ))
             frontier = next_frontier
 
-        # 4. 排除歧义重绑定（avoid names）
+        # 3. 排除歧义重绑定（avoid names）
         avoid_entities = avoid_names_for_anchors(roots, constraints)
-        # 如果比较目标显式合法，则不将其移入 excluded_rebindings
         excluded = {e for e in avoid_entities if e not in admissible}
 
         cat = (doc_category or "").strip() or None

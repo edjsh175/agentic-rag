@@ -89,10 +89,10 @@ def test_scope_resolver_subject_resolution():
     assert subj3.binding_strength == BindingStrength.INFERRED
     assert subj3.primary_entities == ("PipelineWebGL",)
 
-    # 4. 对比问题识别 -> comparison_entities
+    # 4. V1.6：Scope 不再识别“比较”业务语义，只记录其它显式引用实体。
     subj4 = ScopeResolver.resolve_subject("PipelineWebGL 和 PipelineBuilder 有什么区别？", constraints=constraints)
     assert subj4.primary_entities == ("PipelineWebGL",)
-    assert "PipelineBuilder" in subj4.comparison_entities
+    assert subj4.referenced_entities == ("PipelineBuilder",)
 
 
 def test_scope_resolver_bounded_expansion():
@@ -313,7 +313,7 @@ def test_bm25_pre_topk_scope_filtering():
     assert all(h.metadata.get("document_entity") == "PipelineWebGL" for h in hits)
 
 
-def test_non_comparison_conjunction_does_not_expand_comparison_target():
+def test_scope_resolver_records_secondary_entity_without_task_semantics():
     constraints = {
         "canonical_by_alias": {
             "pipelinewebgl": "PipelineWebGL",
@@ -330,8 +330,7 @@ def test_non_comparison_conjunction_does_not_expand_comparison_target():
         constraints=constraints,
     )
     assert subject.primary_entities == ("PipelineWebGL",)
-    assert subject.comparison_entities == ()
-    assert "ServiceA" in subject.referenced_entities
+    assert subject.referenced_entities == ("ServiceA",)
 
 
 def test_scope_resolver_real_two_hop_expansion():
@@ -403,8 +402,8 @@ def test_vector_filter_contains_locked_scope_before_topk():
     assert chroma.as_retriever.call_args.kwargs["search_kwargs"]["k"] == 2
 
 
-def test_explicit_selection_with_comparison_target():
-    """测试显式传入 entity_name 时，对比问题中的对比目标能正确被解析并纳入准入集合。"""
+def test_explicit_selection_does_not_expand_legacy_scope_from_task_wording():
+    """V1.6 下旧 Scope 只锁主实体，不再因“区别”等任务措辞扩大全局白名单。"""
     constraints = {
         "canonical_by_alias": {
             "webgl": "PipelineWebGL",
@@ -422,7 +421,6 @@ def test_explicit_selection_with_comparison_target():
         ],
     }
 
-    # 用户显式指定 PipelineWebGL，但提问是与 PipelineBuilder 进行对比
     scope = ScopeResolver.resolve(
         "PipelineWebGL 和 PipelineBuilder 有什么区别？",
         entity_name="PipelineWebGL",
@@ -430,8 +428,8 @@ def test_explicit_selection_with_comparison_target():
     )
     assert scope.is_identity_locked is True
     assert scope.primary_root == "PipelineWebGL"
-    # 对比目标必须合法准入，不得被锁死过滤
-    assert "PipelineBuilder" in scope.admissible_entities
+    # 第二实体由 Agent Step 的 ExplorationGrant 授权，旧全局 Scope 不再自动放行。
+    assert "PipelineBuilder" not in scope.admissible_entities
 
 
 def test_query_cache_scope_fingerprint_isolation():

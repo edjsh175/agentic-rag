@@ -38,7 +38,17 @@ def finish(token: Token | None) -> dict[str, Any]:
 
 def scope_filter_summary(scope: Any) -> dict[str, Any] | None:
     norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
-    if norm_scope is None or not getattr(norm_scope, "is_identity_locked", False):
+    if norm_scope is None:
+        return None
+    if getattr(norm_scope, "grant_id", None):
+        return {
+            "grant_id": getattr(norm_scope, "grant_id", ""),
+            "identity_scope_id": getattr(norm_scope, "identity_scope_id", ""),
+            "target_entities": sorted(getattr(norm_scope, "target_entities", None) or ()),
+            "grant_source_type": getattr(norm_scope, "source_type", ""),
+            "materialized_chunk_count": len(getattr(norm_scope, "materialized_chunk_ids", None) or ()),
+        }
+    if not getattr(norm_scope, "is_identity_locked", False):
         return None
     return {
         "scope_id": getattr(norm_scope, "scope_id", ""),

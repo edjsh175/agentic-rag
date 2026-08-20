@@ -356,6 +356,138 @@ class PromptEngineeringTests(unittest.TestCase):
         self.assertLess(events.index(token_event), events.index(source_event))
         self.assertLess(events.index(source_event), events.index({"type": "done"}))
 
+        from rag_knowledge.services.answer_finalizer import FinalizedAnswer
+
+        async def unsafe_stream(*args, **kwargs):
+            yield "UNSAFE OpenGL ES [1]"
+
+        safe_finalized = FinalizedAnswer(
+            answer="SAFE alpha [1]",
+            grounding={
+                "policy": "strict_kb",
+                "verdict": "fail",
+                "final_mode": "deterministic_fallback",
+                "fallback_used": True,
+            },
+        )
+        with (
+            patch("rag_knowledge.llm_http.achat_stream", unsafe_stream),
+            patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", return_value=safe_finalized),
+        ):
+            async def collect_strict():
+                return [
+                    event
+                    async for event in chain.stream_query(
+                        "question",
+                        allow_general_knowledge=False,
+                    )
+                ]
+
+            strict_events = asyncio.run(collect_strict())
+
+        strict_tokens = [event["data"] for event in strict_events if event["type"] == "token"]
+        self.assertEqual(strict_tokens, ["SAFE alpha [1]"])
+        self.assertNotIn("UNSAFE OpenGL ES [1]", strict_tokens)
+
+        mixed_finalized = FinalizedAnswer(
+            answer=(
+                "SAFE alpha [1]\n\n"
+                "## 通用知识补充\n"
+                "（以下内容来自模型通用知识，不属于知识库检索证据。）\n"
+                "React is general knowledge"
+            ),
+            grounding={
+                "policy": "mixed",
+                "verdict": "partial",
+                "final_mode": "mixed_relabel",
+                "fallback_used": True,
+            },
+        )
+        with (
+            patch("rag_knowledge.llm_http.achat_stream", unsafe_stream),
+            patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", return_value=mixed_finalized),
+        ):
+            async def collect_mixed():
+                return [
+                    event
+                    async for event in chain.stream_query(
+                        "question",
+                        allow_general_knowledge=True,
+                    )
+                ]
+
+            mixed_events = asyncio.run(collect_mixed())
+
+        mixed_tokens = [event["data"] for event in mixed_events if event["type"] == "token"]
+        self.assertEqual(mixed_tokens, [mixed_finalized.answer])
+        self.assertNotIn("UNSAFE OpenGL ES [1]", mixed_tokens)
+
+    def test_agent_stream_strict_mode_suppresses_unverified_thinking(self):
+        chain = object.__new__(RagChain)
+        chain._allow_general_knowledge = False
+        chain._last_understanding = None
+        chain._commit_qa_trace = lambda *a, **k: None
+
+        async def fake_run_agent_turn(*args, **kwargs):
+            on_event = kwargs["on_event"]
+            await on_event({"type": "thinking", "data": "UNSAFE React is commonly used here"})
+            await on_event({"type": "status", "data": "正在检索证据..."})
+            conversation = type("Conversation", (), {"understanding": None})()
+            return type(
+                "Result",
+                (),
+                {
+                    "conversation": conversation,
+                    "plan": None,
+                    "route": "clarify",
+                    "clarify": {
+                        "needs_clarification": True,
+                        "ask_question": "请选择产品",
+                        "options": ["A", "B"],
+                    },
+                    "to_trace": lambda self: {},
+                },
+            )()
+
+        chain._run_agent_turn = fake_run_agent_turn
+        trace = type(
+            "Trace",
+            (),
+            {
+                "set_agent": lambda self, payload: None,
+                "set_clarify": lambda self, payload: None,
+            },
+        )()
+
+        async def collect_agent():
+            return [
+                event
+                async for event in chain._stream_agent_query(
+                    "question",
+                    None,
+                    llm_model=None,
+                    kb_name=None,
+                    doc_category=None,
+                    entity_name=None,
+                    thinking=None,
+                    web_search=None,
+                    allow_general_knowledge=False,
+                    agent_prompt=None,
+                    pipeline_events=False,
+                    pinned_chunk_ids=None,
+                    excluded_chunk_ids=None,
+                    path=None,
+                    clarification_question=None,
+                    clarification_selected=None,
+                    trace=trace,
+                )
+            ]
+
+        events = asyncio.run(collect_agent())
+        self.assertFalse(any(event.get("type") == "thinking" for event in events))
+        self.assertFalse(any("UNSAFE React" in str(event.get("data")) for event in events))
+        self.assertTrue(any(event == {"type": "status", "data": "正在检索证据..."} for event in events))
+
     def test_stream_query_supports_intervention_chunks(self):
         doc1 = {"content": "c1", "metadata": {"chunk_id": "id1", "citation_id": 1}}
         doc2 = {"content": "c2", "metadata": {"chunk_id": "id2", "citation_id": 2}}
