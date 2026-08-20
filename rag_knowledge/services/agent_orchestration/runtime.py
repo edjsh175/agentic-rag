@@ -85,13 +85,13 @@ _DECISION_PROMPT = """你是 RAG 知识库查询助手。你的核心职责是�
 1. 【思维推导（thought）】：在 thought 中深入分析用户意图、消解代词指代并改写查询词。
    - 若用户仅在进行会话反问、流程质询或历史回顾（例如“我们刚刚在讨论什么”、“我上一轮问了什么”），且无需外部知识支持，直接设定 action="finish"，无需调用检索工具，直接基于会话上下文自然解释。
    - 若本轮属于澄清选择回调（用户刚选定歧义分支，例如“StampTools Web 端”），必须结合前文原始问题改写为完整查询词（例如“StampTools Web 端 配置”），调用 retrieve_kb 检索具体文档。
-   - 若用户询问客观技术知识、架构关系/依赖或查证新事实，必须改写出包含实体名称的精准关键词，决定调用 retrieve_kb 或 link_entities。
+   - 若用户询问客观技术知识、架构关系/依赖或查证新事实，必须改写出包含实体名称的精准关键词，由你根据证据缺口决定调用 retrieve_kb 或 link_entities；工具存在不代表必须调用。
 2. 【工具调用（action="tool_call"）】：
    - retrieve_kb: 知识库检索。必须在 arguments.query 中填入精准改写词，可通过 intent 指定检索意图（exact_parameter: 精确参数/配置, conceptual_overview: 架构概念总览, troubleshooting: 故障排查, general_qa: 常规检索）。严禁传递空 query！
-   - link_entities: 知识图谱实体与依赖关系检索。当用户提问核心涉及组件依赖、图谱拓扑或专有名词消歧时调用。
+   - link_entities: 知识图谱实体与依赖关系检索。当用户提问涉及专有名词消歧或组件依赖时调用。若 Observation 返回未命中实体，说明图谱中无该实体，必须立即停止查询图谱，切勿重复调用，转为使用 retrieve_kb 检索文档。
    - reuse_evidence: 连续追问且前序证据仍有效时复用。
    - environment.read_status: 读取系统服务状态。
-3. 【证据评估（Finish）】：观察 EvidencePool 证据池。若证据已充分回答用户问题，直接设定 action="finish"；若缺少关键事实，自主生成针对性 Query 调用 retrieve_kb 补检；若检索无结果且无法进一步深入，设定 action="finish"。
+3. 【证据评估（Finish）】：观察 EvidencePool 证据池。若证据已充分回答用户问题，直接设定 action="finish"；若缺少关键事实，自主生成针对性 Query 调用 retrieve_kb 补检；若检索无结果且无法进一步深入，设定 action="finish"。不要为了“看起来完整”而调用工具，也不要重复相同工具和相同参数。
 
 示例 1（知识库精准检索）：
 用户问题：那它的默认端口是多少？
@@ -145,6 +145,8 @@ _AGENT_SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不�
 6. {general_knowledge_rule}
 7. 外部网页仅在 evidence_pool 中标记为“外部来源”时可用，必须引用，并与知识库来源明确区分。
 8. 保证回答严格基于事实，禁止无中生有的凭空捏造，或将模型通用知识伪装成知识库内容。在不偏离且不违背 EvidencePool 事实范围的前提下，可以进行合理的上下文衔接与步骤梳理，使回答逻辑连贯。
+   - 引用编号只能证明其对应的证据片段；不得把多个片段中分别出现的术语拼接成证据未陈述的因果、依赖、协议细节或实现机制。
+   - 仅当证据片段明确支持某个关系或结论时，才能写出该关系；术语在片段中出现，不等于该片段支持术语之间的关系。
 9. 如果 evidence_pool 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。不得仅因某组是补检结果或排在前面而采信。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
 11. 若存在产品主干锚定或已审核知识图谱关系提示：介绍类问题只围绕锚点实体回答；若 evidence_pool 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用）。产品关系类问题可直接使用提示中的已审核知识图谱关系或主干边作为权威关系依据；不得把 avoid/易混实体当作回答主体。
@@ -585,26 +587,8 @@ class AgentLoop:
         if self._clarify_payload:
             return decision, None
 
-        # 1. 证据约束检查（Finish 路径）
+        # 1. 尊重合法 finish 决策，不替 LLM 自动补检
         if decision.action == "finish":
-            # 元对话/会话回顾，或已有可引用证据时，完全放行
-            if is_meta_or_direct_chat(self.conversation.user_question) or self.evidence.citable_docs():
-                return decision, None
-            # 若提问涉及知识库事实，但证据池完全为空（0 证据）：禁止裸奔 finish，发起基础知识检索以充实证据池
-            if not self.evidence.citable_docs() and self.budget.can_retrieve():
-                q = (self.conversation.resolved_question or self.conversation.user_question).strip()
-                if self.conversation.head_entity and self.conversation.head_entity not in q:
-                    q = f"{self.conversation.head_entity} {q}".strip()
-                return (
-                    AgentDecision(
-                        action="tool_call",
-                        tool="retrieve_kb",
-                        arguments={"query": q, "mode": "hybrid"},
-                        thought=f"当前证据池尚无有效知识依据，发起知识库检索以获取支撑材料：{q}",
-                        source="harness",
-                    ),
-                    "harness_evidence_grounding",
-                )
             return decision, None
 
         # 2. 若 LLM 决策调用 retrieve_kb 工具 (初检或自主补检)
@@ -619,15 +603,6 @@ class AgentLoop:
                     "retrieve_budget_exhausted",
                 )
             raw_q = str((decision.arguments or {}).get("query") or "").strip()
-            if raw_q and self.budget.is_cycle("retrieve_kb", raw_q):
-                return (
-                    AgentDecision(
-                        action="finish",
-                        thought="检测到重复检索循环，停止检索并基于当前证据总结回答。",
-                        source="harness",
-                    ),
-                    "retrieve_cycle_detected",
-                )
             if not raw_q:
                 raw_q = (self.conversation.resolved_question or self.conversation.user_question).strip()
                 if self.conversation.head_entity and self.conversation.head_entity not in raw_q:
@@ -714,6 +689,22 @@ class AgentLoop:
                 self._observations.append({"tool": str(decision.tool), "ok": False, "error": "malformed_tool_call"})
                 continue
 
+            # 统一通用死循环熔断检测（Universal Cycle Detection）
+            if self.budget.is_cycle(decision.tool, decision.arguments):
+                self.fallbacks.append("tool_cycle_detected")
+                from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
+
+                verdict = evaluate_rules(self.conversation, self.evidence)
+                self._llm_gate = self._effective_llm_gate(decision, verdict)
+                self.steps.append({**step, "terminal": "finish", "harness": "tool_cycle_detected"})
+                if on_event is not None:
+                    await on_event({
+                        "type": "notice",
+                        "data": "检测到重复工具调用循环，已自动停止探索并基于当前收集到的证据组织回答...",
+                    })
+                    await on_event({"type": "status", "data": "证据组织完成，正在生成回答..."})
+                break
+
             if on_event is not None:
                 await on_event({
                     "type": "tool_start",
@@ -764,6 +755,9 @@ class AgentLoop:
                             },
                         })
                     continue
+            # Record the accepted call before execution so a failed/empty observation
+            # cannot make the next identical call look like a fresh exploration.
+            self.budget.record_call(decision.tool, decision.arguments)
             observation = await self._execute(decision.tool, decision.arguments or {})
             record = {
                 "name": decision.tool,
@@ -797,8 +791,6 @@ class AgentLoop:
                 self.fallbacks.append(observation.fallback)
             if decision.tool == "retrieve_kb":
                 self.budget.consume_retrieve()
-                q_text = str((decision.arguments or {}).get("query") or "")
-                self.budget.record_call("retrieve_kb", q_text)
                 if observation.data.get("plan") is not None:
                     self.plan = observation.data.get("plan")
             if observation.data.get("plan") is not None:
@@ -841,6 +833,8 @@ class AgentLoop:
             answer_gate = {"allow_knowledge_answer": False, "reason": "clarify_pause"}
         else:
             answer_gate = evaluate_rules(self.conversation, self.evidence)
+        from rag_knowledge.services.retrieval_diagnostics import record_guard
+        record_guard(answer_gate)
         llm_gate = self._llm_gate or (
             "support" if answer_gate.get("allow_knowledge_answer") else "insufficient"
         )
@@ -979,15 +973,6 @@ class AgentLoop:
                         source="heuristic",
                         thought="检测到本轮为针对上文的直接追问，复用已有证据池。",
                     )
-            if not conv.linked_entities and self.registry.get("link_entities") is not None and not any(obs.get("tool") == "link_entities" or obs.get("name") == "link_entities" for obs in self._observations):
-                q = (conv.head_entity or conv.user_question).strip()
-                return AgentDecision(
-                    action="tool_call",
-                    tool="link_entities",
-                    arguments={"query": q},
-                    source="heuristic",
-                    thought=f"识别到问题涉及专用技术模块或产品实体，查询知识图谱进行实体对齐与关系检索：{q}",
-                )
             if self.budget.can_retrieve():
                 q = (conv.resolved_question or conv.user_question).strip()
                 if conv.head_entity and conv.head_entity not in q:
@@ -1078,7 +1063,7 @@ def build_agent_messages(
     evidence_section: str,
     history: list | None = None,
     agent_prompt: str | None = None,
-    allow_general_knowledge: bool = True,
+    allow_general_knowledge: bool = False,
     entity_hint_section: str = "",
     backbone_anchor_section: str = "",
     job_contract_section: str = "",

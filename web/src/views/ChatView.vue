@@ -9,6 +9,7 @@ import {
   saveSessionState,
   saveSessionStateLocalSync,
   loadChatSessions,
+  syncChatSessionsFromTraces,
   loadSessionMessages,
   createChatSession,
   renameChatSession,
@@ -368,6 +369,10 @@ async function handleSwitchSession(sessionId: string) {
   }
   loading.value = false
 
+  if (activeSessionId.value && messages.value.length > 0) {
+    await persist()
+  }
+
   activeSessionId.value = sessionId
   messages.value = await loadSessionMessages(sessionId)
   const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
@@ -426,8 +431,35 @@ async function handleDeleteSession(sessionId: string) {
   showToast('对话已删除')
 }
 
+const syncingTraces = ref(false)
+async function handleSyncTraces() {
+  if (syncingTraces.value) return
+  syncingTraces.value = true
+  try {
+    const meta = await syncChatSessionsFromTraces()
+    sessions.value = meta.sessions
+    if (meta.sessions.length > 0) {
+      if (!activeSessionId.value || !sessions.value.some((s) => s.id === activeSessionId.value)) {
+        activeSessionId.value = meta.activeSessionId || meta.sessions[0].id
+        messages.value = await loadSessionMessages(activeSessionId.value)
+      }
+    }
+    showToast('已从证据调试记录恢复历史对话')
+  } catch (e: any) {
+    showToast('同步失败: ' + (e.message || '网络异常'))
+  } finally {
+    syncingTraces.value = false
+  }
+}
+
 onMounted(async () => {
-  const meta = await loadChatSessions()
+  let meta = await loadChatSessions()
+  // 如果会话列表为空或仅有一个空会话，自动尝试从 qa_traces 调试记录中恢复
+  if (meta.sessions.length === 0 || (meta.sessions.length === 1 && meta.sessions[0].message_count === 0)) {
+    try {
+      meta = await syncChatSessionsFromTraces()
+    } catch {}
+  }
   sessions.value = meta.sessions
   if (meta.sessions.length > 0) {
     activeSessionId.value = meta.activeSessionId || meta.sessions[0].id
@@ -517,10 +549,17 @@ async function persist(titleOverride?: string) {
     const firstUserMsg = messages.value.find((m) => m.role === 'user' && m.content)
     if (firstUserMsg) {
       title = generateSessionTitle(firstUserMsg.content)
-      if (s) s.title = title
     }
   }
-  await saveSessionState(activeSessionId.value, messages.value, title)
+  const effectiveTitle = title || '新建对话'
+  const idx = sessions.value.findIndex((item) => item.id === activeSessionId.value)
+  if (idx >= 0) {
+    sessions.value[idx].title = effectiveTitle
+    sessions.value[idx].message_count = messages.value.filter((m) => !m.loading).length
+    sessions.value[idx].updated_at = new Date().toISOString()
+    sessions.value = [...sessions.value]
+  }
+  await saveSessionState(activeSessionId.value, messages.value, effectiveTitle)
 }
 
 async function handleCitationClick(message: Message, citationId: number) {
@@ -826,7 +865,7 @@ function createStreamHandler(targetMsg: Message) {
     onClarify: (data: ClarifyResult) => {
       applyClarification(targetMsg, data)
     },
-    onDone: () => {
+    onDone: async () => {
       targetMsg.status = undefined
       targetMsg.loading = false
       targetMsg.isThinking = false
@@ -848,7 +887,7 @@ function createStreamHandler(targetMsg: Message) {
       abortController.value = null
       pinnedChunks.value = []
       excludedChunks.value = []
-      persist()
+      await persist()
       scrollDown()
     },
     onError: () => { throw new Error('stream failed') },
@@ -913,6 +952,7 @@ async function handleSend(text: string, image?: File) {
         lastAiMsg().content = `**出错了**\n\n${e.message}`
       }
       lastAiMsg().loading = false
+      await persist()
     } finally {
       loading.value = false
       abortController.value = null
@@ -947,33 +987,41 @@ async function handleSend(text: string, image?: File) {
         undefined,
         workMode.value,
       )
+      streamOk = true
     } catch {
       lastAiMsg().status = undefined
       if (!streamOk && !abortController.value) {
-        const result = await queryKnowledge(
-          text,
-          history,
-          currentModel.value || undefined,
-          currentKb.value,
-          thinkingEnabled.value || undefined,
-          webSearchEnabled.value || undefined,
-          undefined,
-          activeAgent.value?.system_prompt,
-          allowGeneralKnowledge.value,
-          docCategory.value || undefined,
-          entityName.value || undefined,
-          workMode.value,
-        )
-        const msg = lastAiMsg()
-        msg.content = result.answer
-        msg.loading = false
-        currentSources.value = result.source_documents
-        msg.sources = result.source_documents
-        applyClarification(msg, result.clarification)
-        if (result.downshift_notice) showGpuNotice(result.downshift_notice)
-        await persist()
-        loading.value = false
-        scrollDown()
+        try {
+          const result = await queryKnowledge(
+            text,
+            history,
+            currentModel.value || undefined,
+            currentKb.value,
+            thinkingEnabled.value || undefined,
+            webSearchEnabled.value || undefined,
+            undefined,
+            activeAgent.value?.system_prompt,
+            allowGeneralKnowledge.value,
+            docCategory.value || undefined,
+            entityName.value || undefined,
+            workMode.value,
+          )
+          const msg = lastAiMsg()
+          msg.content = result.answer
+          msg.loading = false
+          currentSources.value = result.source_documents
+          msg.sources = result.source_documents
+          applyClarification(msg, result.clarification)
+          if (result.downshift_notice) showGpuNotice(result.downshift_notice)
+        } catch (err: any) {
+          const msg = lastAiMsg()
+          msg.content = `**生成异常**：${err.message || '服务未响应'}`
+          msg.loading = false
+        } finally {
+          await persist()
+          loading.value = false
+          scrollDown()
+        }
       }
     }
   } catch (e: any) {
@@ -984,6 +1032,7 @@ async function handleSend(text: string, image?: File) {
       lastAiMsg().content = `**出错了**\n\n${e.message || '请求失败'}`
       lastAiMsg().loading = false
     }
+    await persist()
     loading.value = false
     abortController.value = null
   }
@@ -1333,6 +1382,11 @@ function scrollDown() {
           </svg>
           <span class="btn-text">新建对话</span>
         </button>
+        <button class="sync-traces-btn" :class="{ spinning: syncingTraces }" @click="handleSyncTraces" title="从证据调试记录同步历史对话">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
         <button class="toggle-sidebar-btn" @click="toggleSidebar" title="收起会话列表">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -1407,7 +1461,8 @@ function scrollDown() {
               <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
           </button>
-          <h1 class="title" :title="currentSessionTitle">{{ currentSessionTitle }}</h1>
+          <h1 class="title">RAG 知识库</h1>
+          <span class="session-badge" :title="currentSessionTitle">{{ currentSessionTitle }}</span>
           <span v-if="stats" class="stat">{{ stats.total_chunks }} chunks</span>
         </div>
         <div class="header-right">
@@ -1862,6 +1917,35 @@ function scrollDown() {
   transform: scale(0.98);
 }
 
+.sync-traces-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sync-traces-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.sync-traces-btn.spinning svg {
+  animation: traceSyncSpin 0.8s linear infinite;
+}
+
+@keyframes traceSyncSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .toggle-sidebar-btn {
   display: flex;
   align-items: center;
@@ -2008,6 +2092,20 @@ function scrollDown() {
 .session-action-btn.delete-btn:hover {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.session-badge {
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
 }
 
 .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.evidence_scope import BindingStrength, EvidenceScope
+from rag_knowledge.services import retrieval_diagnostics
 from rag_knowledge.services.qa_trace import (
     QaTraceBuilder,
     QaTraceStore,
@@ -40,12 +42,78 @@ def test_serialize_plan_and_candidates():
     assert plan["queries"][0]["text"] == "StampGIS"
     docs = [{
         "content": "hello world " * 40,
-        "metadata": {"chunk_id": "c1", "source": "a.md", "section_title": "S1", "score": 0.9},
+        "metadata": {
+            "chunk_id": "c1",
+            "source": "a.md",
+            "section_title": "S1",
+            "score": 0.9,
+            "document_entity": "PipelineWebGL",
+            "scope_id": "scope-1",
+            "scope_admitted": True,
+            "scope_admission_reason": "admissible_entity",
+            "provenance_source_type": "direct_entity_chunk",
+            "provenance_path": {"root_entity": "PipelineWebGL"},
+        },
     }]
     cands = serialize_candidates(docs, max_candidates=5, preview_chars=20)
     assert len(cands) == 1
     assert cands[0]["chunk_id"] == "c1"
+    assert cands[0]["scope_admission_reason"] == "admissible_entity"
+    assert cands[0]["provenance_source_type"] == "direct_entity_chunk"
+    assert cands[0]["provenance_path"]["root_entity"] == "PipelineWebGL"
     assert len(cands[0]["content_preview"]) <= 20
+
+
+def test_trace_persists_retrieval_diagnostics(isolated_storage, monkeypatch):
+    isolated_storage()
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    Config._instance = None
+    cfg = Config()
+
+    scope = EvidenceScope(
+        scope_id="scope-diag",
+        root_entities=("PipelineWebGL",),
+        binding_strength=BindingStrength.EXPLICIT,
+        admissible_entities=frozenset({"PipelineWebGL"}),
+    )
+    builder = QaTraceBuilder(question="PipelineWebGL 怎么配置", cfg=cfg)
+    builder.set_scope(scope)
+    doc = {
+        "content": "配置说明",
+        "metadata": {
+            "chunk_id": "diag-1",
+            "document_entity": "PipelineWebGL",
+            "scope_id": "scope-diag",
+            "scope_admitted": True,
+            "scope_admission_reason": "admissible_entity",
+            "provenance_source_type": "direct_entity_chunk",
+        },
+    }
+    retrieval_diagnostics.record_request(
+        channel="vector",
+        method="similarity",
+        query="PipelineWebGL 怎么配置",
+        requested_k=8,
+        docs=[doc],
+        structural_filter={"document_entity": {"$in": ["PipelineWebGL"]}},
+    )
+    retrieval_diagnostics.record_stage("pre_rerank", [doc])
+    retrieval_diagnostics.record_guard({
+        "allow_knowledge_answer": True,
+        "reason": "ok",
+        "provenance_reason": "scope_provenance_valid",
+    })
+    builder.set_retrieval([doc], retrieval_trace={"intent": "config"})
+    tid = builder.finish(answer="配置说明 [1]", source_documents=[doc])
+
+    detail = QaTraceStore(cfg).get(tid)
+    diagnostics = detail["retrieval"]["retrieval_trace"]["diagnostics"]
+    assert diagnostics["scope_id"] == "scope-diag"
+    assert diagnostics["retriever_requests"][0]["channel"] == "vector"
+    assert diagnostics["stages"]["pre_rerank"]["count"] == 1
+    assert diagnostics["stages"]["pre_rerank"]["scope_admission_reasons"] == {"admissible_entity": 1}
+    assert diagnostics["final_guard"]["allow_knowledge_answer"] is True
+    assert retrieval_diagnostics.snapshot() == {}
 
 
 def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):

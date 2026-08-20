@@ -3,13 +3,15 @@ import sys
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from langchain_core.documents import Document
 import jieba
 from rank_bm25 import BM25Okapi
 
 from rag_knowledge.services.bm25_store import BM25Store
+from rag_knowledge.services.evidence_scope import BindingStrength, EvidenceScope
+from rag_knowledge.services import retrieval_diagnostics
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
 
 
@@ -182,6 +184,75 @@ class RetrievalStrategyTests(unittest.TestCase):
 
         self.assertEqual([doc.metadata["chunk_id"] for doc in result], ["a", "b"])
         self.assertLess(elapsed, 0.095)
+
+    def test_retrieve_records_scope_diagnostics(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_strategy="similarity",
+            retrieval_top_k=4,
+            retrieval_fetch_k=12,
+            retrieval_lambda_mult=0.5,
+        )
+        scope = EvidenceScope(
+            scope_id="diag-scope",
+            root_entities=("PipelineWebGL",),
+            binding_strength=BindingStrength.EXPLICIT,
+            admissible_entities=frozenset({"PipelineWebGL"}),
+        )
+        strategy._retrieve_vector = MagicMock(return_value=[Document(
+            page_content="content",
+            metadata={"chunk_id": "c1", "document_entity": "PipelineWebGL"},
+        )])
+
+        token = retrieval_diagnostics.start(scope)
+        try:
+            docs = strategy.retrieve(
+                "PipelineWebGL 配置",
+                method="similarity",
+                top_k=2,
+                scope=scope,
+            )
+            diagnostics = retrieval_diagnostics.snapshot()
+        finally:
+            retrieval_diagnostics.finish(token)
+
+        self.assertEqual([d.metadata["chunk_id"] for d in docs], ["c1"])
+        self.assertEqual(diagnostics["retriever_requests"][0]["channel"], "vector")
+        self.assertEqual(diagnostics["retriever_requests"][0]["requested_k"], 2)
+        self.assertIn("document_entity", str(diagnostics["retriever_requests"][0]["structural_filter"]))
+        self.assertEqual(diagnostics["stages"]["scoped_recall"]["count"], 1)
+
+    def test_async_sdk_manual_branch_preserves_scope(self):
+        strategy = object.__new__(RetrievalStrategy)
+        strategy._cfg = SimpleNamespace(
+            retrieval_fusion_method="rrf",
+            retrieval_candidate_k=4,
+            retrieval_rrf_k=60,
+            retrieval_top_k=2,
+        )
+        strategy._aretrieve_vector = AsyncMock(return_value=[])
+        strategy._aretrieve_bm25 = AsyncMock(return_value=[])
+        scope = EvidenceScope(
+            scope_id="sdk-scope",
+            root_entities=("PipelineWebGL",),
+            binding_strength=BindingStrength.EXPLICIT,
+            admissible_entities=frozenset({"PipelineWebGL"}),
+        )
+
+        with patch(
+            "rag_knowledge.services.sdk_code_job.build_sdk_manual_bm25_hint",
+            return_value="接口说明书 createElementLineParams",
+        ):
+            asyncio.run(strategy._aretrieve_hybrid(
+                "如何绘制折线",
+                None,
+                None,
+                "approved",
+                scope=scope,
+            ))
+
+        self.assertEqual(strategy._aretrieve_bm25.await_count, 2)
+        self.assertTrue(all(call.kwargs.get("scope") is scope for call in strategy._aretrieve_bm25.await_args_list))
 
     def test_aretrieve_dispatches_hybrid_and_bm25(self):
         strategy = object.__new__(RetrievalStrategy)

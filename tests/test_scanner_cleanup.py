@@ -9,10 +9,12 @@ from unittest.mock import MagicMock
 import pytest
 
 _INJECTED_UNSTRUCTURED_LOADER = False
+_ORIGINAL_VECTOR_STORE_MODULE = None
 
 
 def _load_scanner_module():
-    global _INJECTED_UNSTRUCTURED_LOADER
+    global _INJECTED_UNSTRUCTURED_LOADER, _ORIGINAL_VECTOR_STORE_MODULE
+    _ORIGINAL_VECTOR_STORE_MODULE = sys.modules.get("rag_knowledge.repository.vector_store")
     vector_store_stub = ModuleType("rag_knowledge.repository.vector_store")
     vector_store_stub.VectorStore = MagicMock
     sys.modules["rag_knowledge.repository.vector_store"] = vector_store_stub
@@ -38,8 +40,12 @@ def _isolated_test_storage(isolated_storage):
 
 class ScannerCleanupTests(unittest.TestCase):
     def tearDown(self):
-        global _INJECTED_UNSTRUCTURED_LOADER
-        sys.modules.pop("rag_knowledge.repository.vector_store", None)
+        global _INJECTED_UNSTRUCTURED_LOADER, _ORIGINAL_VECTOR_STORE_MODULE
+        if _ORIGINAL_VECTOR_STORE_MODULE is None:
+            sys.modules.pop("rag_knowledge.repository.vector_store", None)
+        else:
+            sys.modules["rag_knowledge.repository.vector_store"] = _ORIGINAL_VECTOR_STORE_MODULE
+        _ORIGINAL_VECTOR_STORE_MODULE = None
         sys.modules.pop("rag_knowledge.services.scanner", None)
         sys.modules.pop("rag_knowledge.services.query_cache", None)
         if _INJECTED_UNSTRUCTURED_LOADER:

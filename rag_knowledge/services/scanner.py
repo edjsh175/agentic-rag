@@ -389,6 +389,8 @@ class DirectoryScanner:
                 kb_name = "已发布文章" if rel_path.parts[0] == "已发布文章" else "文章附件"
                 kb_path = str(rel_path.parent)
                 doc_category = self._resolve_doc_category(rel_path, rel, fhash)
+                from rag_knowledge.services.backbone_guard import infer_document_entity
+                document_entity = infer_document_entity(fp.name, rel)
                 if doc_category:
                     self._rebuild_dc_map.pop(rel, None)
                     self._rebuild_hash_dc_map.pop(fhash, None)
@@ -397,6 +399,7 @@ class DirectoryScanner:
                     d.metadata["kb_name"] = kb_name
                     d.metadata["kb_path"] = kb_path
                     d.metadata["doc_category"] = doc_category
+                    d.metadata["document_entity"] = document_entity
                     d.metadata["document_profile"] = document_profile
                     d.metadata["document_profile_source"] = document_profile_source
                     d.metadata.setdefault("section_title", "")
@@ -438,6 +441,7 @@ class DirectoryScanner:
                     "file_path": rec.file_path, "file_name": rec.file_name,
                     "file_size": rec.file_size, "category": rec.category,
                     "kb_name": kb_name, "doc_category": doc_category,
+                    "document_entity": document_entity,
                     "document_profile": rec.document_profile,
                     "document_profile_source": rec.document_profile_source,
                     "chunk_policy_id": rec.chunk_policy_id,

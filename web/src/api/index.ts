@@ -576,6 +576,20 @@ export async function fetchServerSessions(
   }
 }
 
+/** 从 qa_traces 调试记录同步恢复会话列表 */
+export async function syncServerSessionsFromTraces(
+  fingerprint: string,
+): Promise<{ active_session_id: string | null; sessions: ChatSessionSummary[] }> {
+  const { data } = await http.post<{ active_session_id: string | null; sessions: ChatSessionSummary[] }>(
+    '/chat/sessions/sync-traces',
+    {},
+    {
+      headers: { 'X-Device-Fingerprint': fingerprint },
+    },
+  )
+  return data || { active_session_id: null, sessions: [] }
+}
+
 /** 创建新会话 */
 export async function createServerSession(
   fingerprint: string,

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from rag_knowledge.services.conversation_context import (
@@ -97,16 +98,22 @@ class AgentBudget:
         self.retrieve_attempts += 1
         return True
 
-    def record_call(self, tool: str, query: str = "") -> None:
-        self.call_history.append((tool, (query or "").strip().lower()))
+    @staticmethod
+    def _call_fingerprint(arguments: dict[str, Any] | str | None) -> str:
+        if isinstance(arguments, str):
+            return arguments.strip().casefold()
+        elif isinstance(arguments, dict):
+            return json.dumps(arguments, sort_keys=True, ensure_ascii=False, separators=(",", ":")).casefold()
+        return "{}"
 
-    def is_cycle(self, tool: str, query: str = "") -> bool:
-        """Detect if the agent is stuck in an identical tool+query loop."""
-        norm_q = (query or "").strip().lower()
-        if not norm_q:
+    def record_call(self, tool: str, arguments: dict[str, Any] | str | None = None) -> None:
+        self.call_history.append((tool, self._call_fingerprint(arguments)))
+
+    def is_cycle(self, tool: str, arguments: dict[str, Any] | str | None = None) -> bool:
+        """Detect only an immediately repeated tool call with identical arguments."""
+        if not self.call_history:
             return False
-        recent = [item for item in self.call_history[-2:] if item[0] == tool and item[1] == norm_q]
-        return len(recent) >= 1
+        return self.call_history[-1] == (tool, self._call_fingerprint(arguments))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -350,7 +357,8 @@ class ConversationContext:
     rewritten: bool = False
     linked_entities: list[dict[str, Any]] = field(default_factory=list)
     domain_context: str = ""
-    version: str = "v1"
+    scope: Any = None
+    version: str = "v2"
 
     @classmethod
     def from_request(
@@ -363,18 +371,70 @@ class ConversationContext:
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
     ) -> "ConversationContext":
-        selected = (clarification_selected or "").strip() or None
-        session = session_from_history(
-            history,
+        from rag_knowledge.services.retrieval_scope import RetrievalScope
+
+        scope = RetrievalScope.create(
+            question,
             entity_name=entity_name,
             doc_category=doc_category,
+            clarification_selected=clarification_selected,
+        )
+        selected = (clarification_selected or "").strip() or None
+        canonical_head = scope.canonical_entity or None
+        session = session_from_history(
+            history,
+            entity_name=entity_name or canonical_head,
+            doc_category=doc_category or scope.doc_category,
         )
         previous = None
         if session.focus and session.focus.confirmed_entity:
             previous = session.focus.confirmed_entity.strip() or None
         if not previous:
             previous = (session.resolved_entity or "").strip() or None
-        head = selected or (entity_name or "").strip() or previous
+
+        previous_scope_root = ""
+        for source in session.last_sources or []:
+            if not isinstance(source, dict):
+                continue
+            root = str(source.get("scope_root") or "").strip()
+            strength = str(source.get("scope_binding_strength") or "").strip().lower()
+            if root and strength in {"confirmed", "explicit"}:
+                if previous_scope_root and previous_scope_root != root:
+                    previous_scope_root = ""
+                    break
+                previous_scope_root = root
+        if not previous and previous_scope_root:
+            previous = previous_scope_root
+
+        evidence_scope = scope.evidence_scope
+        if previous_scope_root and evidence_scope is not None:
+            from rag_knowledge.services.evidence_scope import BindingStrength, ScopeResolver
+            from rag_knowledge.services.query_entity_guard import detect_correction_or_negation
+
+            correction, negated = detect_correction_or_negation(question or "")
+            negated_cf = {str(item or "").strip().casefold() for item in negated}
+            previous_negated = previous_scope_root.casefold() in negated_cf
+            same_or_missing_root = (
+                not evidence_scope.primary_root
+                or evidence_scope.primary_root.casefold() == previous_scope_root.casefold()
+            )
+            if (
+                evidence_scope.binding_strength in {BindingStrength.UNBOUND, BindingStrength.INFERRED}
+                and same_or_missing_root
+                and not (correction and previous_negated)
+            ):
+                inherited = ScopeResolver.resolve(
+                    question,
+                    clarification_selected=previous_scope_root,
+                    doc_category=doc_category,
+                )
+                evidence_scope = replace(
+                    inherited,
+                    scope_reason="conversation_confirmed_subject",
+                )
+                canonical_head = evidence_scope.primary_root or canonical_head
+
+        head = canonical_head or previous
         clar_hist: list[dict[str, Any]] = []
         if clarification_question or selected:
             clar_hist.append({
@@ -390,6 +450,7 @@ class ConversationContext:
             head_entity=head,
             previous_head_entity=previous,
             resolved_question=(question or "").strip(),
+            scope=evidence_scope if evidence_scope is not None else scope,
         )
 
     def to_prompt(self, *, history_summary: str | None = None) -> str:

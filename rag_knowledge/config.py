@@ -322,7 +322,7 @@ class Config:
 
         # ---- 问答策略 ----
         self.allow_general_knowledge = _get(
-            "answer", "allow_general_knowledge", "true"
+            "answer", "allow_general_knowledge", "false"
         ).lower() == "true"
 
         # ---- 向量数据库 ----

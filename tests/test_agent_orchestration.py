@@ -113,6 +113,53 @@ def test_topic_shift_blocks_reuse():
     assert loop.reuse_blocked_reason() == "topic_shift_no_reuse"
 
 
+def test_confirmed_scope_survives_ellipsis_followup_from_history_sources():
+    conv = ConversationContext.from_request(
+        "它怎么配置？",
+        [
+            {"role": "user", "content": "PipelineBuilder 怎么用"},
+            {
+                "role": "assistant",
+                "content": "介绍",
+                "sources": [
+                    {
+                        "chunk_id": "pb",
+                        "scope_root": "PipelineBuilder",
+                        "scope_binding_strength": "explicit",
+                    }
+                ],
+            },
+        ],
+    )
+
+    assert conv.head_entity == "PipelineBuilder"
+    assert conv.scope.primary_root == "PipelineBuilder"
+    assert conv.scope.is_identity_locked is True
+    assert conv.scope.scope_reason == "conversation_confirmed_subject"
+
+
+def test_current_named_entity_overrides_previous_confirmed_scope():
+    conv = ConversationContext.from_request(
+        "StampServer 怎么配置？",
+        [
+            {
+                "role": "assistant",
+                "content": "介绍",
+                "sources": [
+                    {
+                        "chunk_id": "pb",
+                        "scope_root": "PipelineBuilder",
+                        "scope_binding_strength": "explicit",
+                    }
+                ],
+            },
+        ],
+    )
+
+    assert conv.scope.primary_root != "PipelineBuilder"
+    assert conv.head_entity != "PipelineBuilder"
+
+
 def test_entity_change_freezes_without_forcing_topic_shift():
     conv = ConversationContext.from_request("那 WebGL 呢？", [])
     conv.previous_head_entity = "PipelineBuilder"
@@ -1727,7 +1774,7 @@ def test_v15_cycle_detection_prevents_infinite_loop():
 
     result = asyncio.run(loop.run())
     assert retrieved_count == 1
-    assert "retrieve_cycle_detected" in result.fallbacks
+    assert ("tool_cycle_detected" in result.fallbacks or "retrieve_cycle_detected" in result.fallbacks)
 
 
 def test_malformed_tool_call_never_downgraded_to_finish():
@@ -1764,20 +1811,18 @@ def test_malformed_tool_call_never_downgraded_to_finish():
 
 
 def test_evidence_constraint_blocks_premature_finish():
-    """证据约束保证：对于客观技术提问，若 0 证据尝试 finish，Harness 实施证据底线保护。"""
+    """Harness 对齐 PRD V1.5：尊重 LLM 合法 finish 决策，不替 LLM 自动补检。"""
     conv = ConversationContext.from_request("StampServer 核心配置有哪些", [])
     pool = EvidencePool(question_id="q_premature")
     retrieved = []
 
     async def mock_retrieve(args):
         retrieved.append(args.get("query"))
-        pool.add_retrieve([_doc("conf_1", "StampServer 核心配置说明")], query=args.get("query"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
 
-    # 模型在无证据时直接尝试 finish
+    # 模型在无证据时自主决定 finish
     decisions = iter([
         AgentDecision(action="finish", thought="未检索直接尝试结束"),
-        AgentDecision(action="finish", thought="检索后已有证据，正常结束"),
     ])
 
     loop = AgentLoop(
@@ -1790,6 +1835,47 @@ def test_evidence_constraint_blocks_premature_finish():
     )
 
     result = asyncio.run(loop.run())
-    assert "harness_evidence_grounding" in result.fallbacks
-    assert len(retrieved) == 1
-    assert result.route == "retrieve"
+    assert len(retrieved) == 0
+    assert len(result.tools) == 0
+
+
+def test_universal_cycle_detection_on_link_entities():
+    """全工具通用熔断：连续两次调用相同入参的 link_entities 时，在真正执行前立即熔断收敛。"""
+    conv = ConversationContext.from_request("这个技术路线跟stampgis产品有什么关系", [])
+    pool = EvidencePool(question_id="q_cycle_link")
+    link_exec_count = 0
+
+    async def mock_link(args):
+        nonlocal link_exec_count
+        link_exec_count += 1
+        return ToolObservation(tool="link_entities", ok=True, summary="候选实体数: 0")
+
+    # 连续输出相同的 link_entities(query="技术路线")
+    decisions = iter([
+        AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "技术路线"}),
+        AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "技术路线"}),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=8),
+        registry=build_agent_registry(),
+        handlers={"link_entities": mock_link},
+        decide_fn=lambda *_: next(decisions),
+    )
+
+    result = asyncio.run(loop.run())
+    assert link_exec_count == 1
+    assert "tool_cycle_detected" in result.fallbacks
+
+
+def test_cycle_detection_requires_immediate_previous_call():
+    from rag_knowledge.services.agent_orchestration.models import AgentBudget
+
+    budget = AgentBudget()
+    budget.record_call("retrieve_kb", {"query": "A"})
+    budget.record_call("link_entities", {"query": "B"})
+
+    assert budget.is_cycle("retrieve_kb", {"query": "A"}) is False
+    assert budget.is_cycle("link_entities", {"query": "B"}) is True

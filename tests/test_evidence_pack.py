@@ -89,3 +89,76 @@ def test_governance_rejects_hallucinated_body_when_uncited_and_disconnected():
     assert "相关原文要点" in result
     assert "管线点表" in result
     assert "[1]" in result
+
+
+def test_verify_grounding_rejects_external_hallucinations_even_with_fake_citation():
+    from rag_knowledge.services.evidence_pack import verify_grounding
+
+    source = _source(1, "StampGIS 实现了二三维一体化，融合原生 GIS 引擎与游戏引擎。", section_path="产品概述 > 简介")
+    # 模型输出中伪造了 OpenGL ES、STUN/TURN 等未在证据中存在的外部技术
+    hallucinated_answer = (
+        "StampGIS 基于 OpenGL ES 规范使用 WebGL 进行渲染，并通过 STUN/TURN 服务器支持 WebRTC 实时通信 [1]。"
+    )
+    verdict = verify_grounding(hallucinated_answer, [source])
+    assert not verdict.ok
+    assert any("unsupported_latin_term" in r for r in verdict.reasons)
+
+
+def test_verify_grounding_passes_valid_rewriting():
+    from rag_knowledge.services.evidence_pack import verify_grounding
+
+    source = _source(1, "StampServer 默认服务端口为 8080，管理端口为 8081。", section_path="服务部署 > 端口配置")
+    valid_answer = "StampServer 的默认服务端口是 8080，而管理端口配置为 8081 [1]。"
+    verdict = verify_grounding(valid_answer, [source])
+    assert verdict.ok
+    assert len(verdict.unsupported_segments) == 0
+
+
+def test_synthesize_grounded_fallback_produces_deterministic_summary():
+    from rag_knowledge.services.evidence_pack import synthesize_grounded_fallback
+
+    source1 = _source(1, "StampServer 服务端口配置为 8080。", section_path="服务部署 > 端口配置")
+    source2 = _source(2, "StampTools 支持二三维数据转换与优化。", section_path="产品体系 > 数据工具")
+    fallback = synthesize_grounded_fallback([source1, source2], "Stamp 产品配置")
+    assert "8080" in fallback
+    assert "[1]" in fallback
+    assert "二三维数据转换" in fallback
+    assert "[2]" in fallback
+    assert "根据知识库现有相关文档" in fallback
+
+
+def test_verify_grounding_strictly_checks_per_citation_scope():
+    from rag_knowledge.services.evidence_pack import verify_grounding
+
+    doc1 = _source(1, "WebGL 技术用于前端轻量级渲染展示。", section_path="技术架构 > 渲染")
+    doc2 = _source(2, "WebRTC 协议用于音视频实时通信与流媒体传输。", section_path="技术架构 > 通信")
+
+    # 1. 跨文档拼装且伪造 STUN 实体
+    fake_relation_answer = "StampGIS 通过 STUN 服务器建立 WebRTC 连接 [2]。"
+    verdict1 = verify_grounding(fake_relation_answer, [doc1, doc2])
+    assert not verdict1.ok
+    assert any("unsupported_latin_term" in r or "unsupported_semantic_relation" in r for r in verdict1.reasons)
+
+    # 2. 无引用的技术断言
+    uncited_answer = "WebGL 和 WebRTC 属于完全不同的技术路线。"
+    verdict2 = verify_grounding(uncited_answer, [doc1, doc2])
+    assert not verdict2.ok
+    assert any("missing_citation" in r or "missing_all_citations" in r for r in verdict2.reasons)
+
+    # 3. 严格基于具体引用的合法事实陈述
+    valid_answer = "系统前端采用 WebGL 技术进行轻量级渲染展示 [1]，并通过 WebRTC 协议实现音视频实时通信 [2]。"
+    verdict3 = verify_grounding(valid_answer, [doc1, doc2])
+    assert verdict3.ok
+
+
+def test_verify_grounding_rejects_relationship_fabricated_from_separate_chunks():
+    from rag_knowledge.services.evidence_pack import verify_grounding
+
+    doc1 = _source(1, "WebGL 技术用于前端轻量级渲染展示。")
+    doc2 = _source(2, "WebRTC 协议用于音视频实时通信与流媒体传输。")
+
+    fabricated = "WebGL 和 WebRTC 属于不同技术路线，分别用于图形渲染和实时通信。[1][2]"
+    assert not verify_grounding(fabricated, [doc1, doc2]).ok
+
+    separately_cited = "WebGL 用于前端轻量级渲染展示。[1] WebRTC 用于音视频实时通信。[2]"
+    assert verify_grounding(separately_cited, [doc1, doc2]).ok

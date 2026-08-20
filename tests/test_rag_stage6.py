@@ -294,6 +294,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve_multi.call_args:
             chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve_multi, "await_args", None):
             chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)
@@ -310,9 +311,11 @@ class RagStage6Tests(unittest.TestCase):
         if chain._aretrieve_multi_uncached.call_args:
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._aretrieve_multi_uncached, "await_args", None):
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
         chain._aretrieve_multi_uncached.assert_awaited_once_with(
             [], kb_name=None, doc_category=None,
             rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
@@ -349,6 +352,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve_multi.call_args:
             chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve_multi, "await_args", None):
             chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)
@@ -366,6 +370,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve_multi.call_args:
             chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve_multi, "await_args", None):
             chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)
@@ -461,6 +466,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve.call_args:
             chain._retrieve.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve, "await_args", None):
             chain._retrieve.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve.await_args.kwargs.pop("protect_names", None)
@@ -488,16 +494,21 @@ class RagStage6Tests(unittest.TestCase):
                 web_search=True,
                 plan_top_k=8,
                 plan_candidate_k=24,
-                expand_neighbors=True, intent_plan=None,
+                expand_neighbors=True,
+                intent_plan=None,
             )
         )
 
         if chain._aretrieve_with_cache.call_args:
             chain._aretrieve_with_cache.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_with_cache.call_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_with_cache.call_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_with_cache.call_args.kwargs.pop("scope", None)
         if getattr(chain._aretrieve_with_cache, "await_args", None):
             chain._aretrieve_with_cache.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_with_cache.await_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_with_cache.await_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_with_cache.await_args.kwargs.pop("scope", None)
         chain._aretrieve_with_cache.assert_awaited_once_with(
             rewritten_query="question",
             kb_name=None,
@@ -508,7 +519,8 @@ class RagStage6Tests(unittest.TestCase):
             web_search=True,
             top_k_override=8,
             candidate_k_override=24,
-            expand_neighbors=True, intent_plan=None,
+            expand_neighbors=True,
+            intent_plan=None,
         )
 
     def test_stream_route_encodes_named_status_event(self):
@@ -637,9 +649,11 @@ class RagStage6Tests(unittest.TestCase):
         if chain._aretrieve_multi_uncached.call_args:
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._aretrieve_multi_uncached, "await_args", None):
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
         chain._aretrieve_multi_uncached.assert_awaited_once_with(
             ["question"],
             kb_name=None,
@@ -671,9 +685,11 @@ class RagStage6Tests(unittest.TestCase):
                 if chain._aretrieve_multi_uncached.call_args:
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
+                    chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
                 if getattr(chain._aretrieve_multi_uncached, "await_args", None):
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
+                    chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
                 chain._aretrieve_multi_uncached.assert_awaited_once_with(
                     ["question"],
                     kb_name=None,
@@ -705,12 +721,17 @@ class RagStage6Tests(unittest.TestCase):
         events = asyncio.run(collect())
 
         self.assertIn({"type": "sources", "data": []}, events)
+        self.assertIsNotNone(chain._aretrieve_multi_uncached.await_args.kwargs.get("scope"))
         if chain._aretrieve_multi_uncached.call_args:
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("scope", None)
         if getattr(chain._aretrieve_multi_uncached, "await_args", None):
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("scope", None)
         chain._aretrieve_multi_uncached.assert_awaited_once_with(
             ["question"],
             kb_name=None,
@@ -745,12 +766,17 @@ class RagStage6Tests(unittest.TestCase):
 
                 asyncio.run(collect())
 
+                self.assertIsNotNone(chain._aretrieve_multi_uncached.await_args.kwargs.get("scope"))
                 if chain._aretrieve_multi_uncached.call_args:
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
+                    chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
+                    chain._aretrieve_multi_uncached.call_args.kwargs.pop("scope", None)
                 if getattr(chain._aretrieve_multi_uncached, "await_args", None):
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
+                    chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
+                    chain._aretrieve_multi_uncached.await_args.kwargs.pop("scope", None)
                 chain._aretrieve_multi_uncached.assert_awaited_once_with(
                     ["question"],
                     kb_name=None,
@@ -767,7 +793,7 @@ class RagStage6Tests(unittest.TestCase):
         chain._allow_general_knowledge = True
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
         chain._query_planner = _planner_stub(enable_rerank=True)
-        chain._retrieve_multi = MagicMock(return_value=([{"content": "ctx", "metadata": {"source": "doc", "category": "text", "citation_id": 1}}], "ctx"))
+        chain._retrieve_multi = MagicMock(return_value=([{"content": "answer", "metadata": {"source": "doc", "category": "text", "citation_id": 1}}], "answer"))
         chain._history_compressor = type(
             "HistoryCompressorStub",
             (),
@@ -793,6 +819,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve_multi.call_args:
             chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve_multi, "await_args", None):
             chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)
@@ -834,6 +861,7 @@ class RagStage6Tests(unittest.TestCase):
                 if chain._retrieve_multi.call_args:
                     chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
                     chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+                    chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
                 if getattr(chain._retrieve_multi, "await_args", None):
                     chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
                     chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)
@@ -866,6 +894,7 @@ class RagStage6Tests(unittest.TestCase):
         if chain._retrieve_multi.call_args:
             chain._retrieve_multi.call_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.call_args.kwargs.pop("protect_names", None)
+            chain._retrieve_multi.call_args.kwargs.pop("strict_explicit_target", None)
         if getattr(chain._retrieve_multi, "await_args", None):
             chain._retrieve_multi.await_args.kwargs.pop("backbone_canonical", None)
             chain._retrieve_multi.await_args.kwargs.pop("protect_names", None)

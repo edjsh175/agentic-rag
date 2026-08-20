@@ -23,7 +23,7 @@ def parse_status_path(line: str) -> str | None:
 
 def is_forbidden_path(path: str) -> bool:
     name = path.replace("\\", "/").rsplit("/", 1)[-1]
-    if name == "NUL":
+    if name.upper() == "NUL":
         return True
     if name.endswith(".tmp"):
         return True

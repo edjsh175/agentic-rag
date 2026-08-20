@@ -167,6 +167,8 @@ export interface SourceDoc {
     title?: string
     section_title?: string
     section_path?: string
+    scope_root?: string
+    scope_binding_strength?: string
     source_type?: 'knowledge_base' | 'external'
     url?: string
   }

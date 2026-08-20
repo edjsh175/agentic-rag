@@ -3,7 +3,9 @@ from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.relational_db import RelationalDB
-from rag_knowledge.services.graph_retrieval import EntityLinker, GraphExpander, GraphRetriever
+from rag_knowledge.services.evidence_scope import BindingStrength, EvidenceScope
+from rag_knowledge.services.graph_retrieval import EntityLinker, GraphContext, GraphExpander, GraphRetriever
+from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
 
 
 @pytest.fixture
@@ -92,6 +94,71 @@ def test_config_question_links_service_and_expands_its_config(graph_db):
     assert linked[0].canonical_name == "管线发布服务"
     names = {graph_db.get_entity(entity_id)["name"] for entity_id in context.expanded_entity_ids}
     assert "PipelinePublishConfig" in names
+
+
+def test_graph_retriever_locked_scope_bypasses_query_rebinding(graph_db, monkeypatch):
+    retriever = GraphRetriever(graph_db, store=object(), chunk_index_lookup=object())
+    scope = EvidenceScope(
+        scope_id="locked-pipeline",
+        root_entities=("PipelineBuilder",),
+        binding_strength=BindingStrength.EXPLICIT,
+        admissible_entities=frozenset({"PipelineBuilder"}),
+    )
+    captured = {}
+
+    def fail_link_queries(*args, **kwargs):
+        pytest.fail("locked scope must not run lexical link_queries")
+
+    def capture_expand(linked, intent, question=None):
+        captured["linked"] = linked
+        return GraphContext(linked_entities=tuple(linked), fallback_reason="no_evidence")
+
+    monkeypatch.setattr(retriever.linker, "link_queries", fail_link_queries)
+    monkeypatch.setattr(retriever.expander, "expand", capture_expand)
+
+    context, docs = retriever.retrieve(
+        "管线发布服务怎么配置？",
+        "definition",
+        scope=scope,
+    )
+
+    assert docs == []
+    assert context.fallback_reason == "no_evidence"
+    assert [item.canonical_name for item in captured["linked"]] == ["PipelineBuilder"]
+    assert captured["linked"][0].match_method == "scope_root"
+
+
+def test_locked_graph_chunk_uses_entity_chunk_link_as_formal_scope_provenance(graph_db):
+    class Collection:
+        def get(self, ids, include):
+            assert "chunk-pipeline" in ids
+            return {
+                "ids": ["chunk-pipeline"],
+                "documents": ["PipelineBuilder 内容"],
+                "metadatas": [{"review_status": "approved"}],
+            }
+
+    store = type("Store", (), {"get_chroma": lambda self: type("Chroma", (), {"_collection": Collection()})()})()
+    retriever = GraphRetriever(graph_db, store=store)
+    scope = EvidenceScope(
+        scope_id="locked-pipeline",
+        root_entities=("PipelineBuilder",),
+        binding_strength=BindingStrength.EXPLICIT,
+        admissible_entities=frozenset({"PipelineBuilder"}),
+    )
+
+    _context, docs = retriever.retrieve(
+        "管线发布服务怎么配置？",
+        "definition",
+        scope=scope,
+    )
+
+    assert len(docs) == 1
+    assert docs[0].metadata["scope_entity"] == "PipelineBuilder"
+    assert docs[0].metadata["graph_provenance_link_id"]
+    admitted = RetrievalStrategy._filter_by_scope(docs, scope)
+    assert len(admitted) == 1
+    assert admitted[0].metadata["scope_admitted"] is True
 
 
 def test_graph_retriever_fetches_evidence_documents_and_marks_channel(graph_db):

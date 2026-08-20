@@ -1,10 +1,16 @@
-"""EvidencePack construction and lightweight answer-governance helpers."""
-
-from __future__ import annotations
-
+from dataclasses import dataclass, field
 import re
 from collections import defaultdict
 from typing import Any
+
+
+@dataclass
+class GroundingVerdict:
+    ok: bool
+    reasons: list[str] = field(default_factory=list)
+    unsupported_segments: list[str] = field(default_factory=list)
+    valid_citation_ids: set[int] = field(default_factory=set)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 NO_KNOWLEDGE_ANSWER = "当前知识库中未查询到相关内容。"
@@ -396,3 +402,226 @@ def govern_answer(answer: str, question: str, context_docs: list[dict[str, Any]]
     # 2. 关键参数后置校验（Parameter Grounding Check）
     answer = _check_ungrounded_parameters(answer, docs)
     return answer
+
+
+def verify_grounding(
+    answer: str,
+    context_docs: list[dict[str, Any]],
+    *,
+    is_direct_chat: bool = False,
+) -> GroundingVerdict:
+    """严格证据校验：确保答案中的每个事实断言均有真实且对应的证据支撑，杜绝外部幻觉。"""
+    if is_direct_chat:
+        return GroundingVerdict(ok=True)
+
+    text = (answer or "").strip()
+    if not text or text == NO_KNOWLEDGE_ANSWER:
+        return GroundingVerdict(ok=True)
+
+    docs = [d for d in (context_docs or []) if isinstance(d, dict)]
+    if not docs:
+        return GroundingVerdict(
+            ok=False,
+            reasons=["no_context_docs_for_factual_answer"],
+            unsupported_segments=[text[:120]],
+        )
+
+    # 提取合法 citation_id 与对应单个 chunk 内容
+    valid_cids: set[int] = set()
+    doc_blobs: dict[int, str] = {}
+    doc_blobs_lower: dict[int, str] = {}
+    for doc in docs:
+        meta = doc.get("metadata") or {}
+        try:
+            cid = int(meta.get("citation_id"))
+            valid_cids.add(cid)
+            blob = _doc_blob(doc)
+            doc_blobs[cid] = blob
+            doc_blobs_lower[cid] = blob.lower()
+        except (ValueError, TypeError):
+            continue
+
+    cids_in_answer = citation_ids(text)
+    invalid_cids = cids_in_answer - valid_cids
+    if invalid_cids:
+        return GroundingVerdict(
+            ok=False,
+            reasons=[f"invalid_citation_ids:{sorted(invalid_cids)}"],
+            unsupported_segments=[f"引用了不存在的编号: {invalid_cids}"],
+            valid_citation_ids=valid_cids,
+        )
+
+    if not cids_in_answer:
+        return GroundingVerdict(
+            ok=False,
+            reasons=["missing_all_citations"],
+            unsupported_segments=["回答中未标注任何 [编号] 知识库引用"],
+            valid_citation_ids=valid_cids,
+        )
+
+    import jieba
+
+    _COMMON_STOPWORDS = {
+        "的", "了", "和", "是", "就", "都", "而", "及", "与", "在", "这", "有", "我", "你", "他", "它",
+        "采用", "使用", "支持", "进行", "基于", "通过", "包括", "属于", "可以", "主要", "为", "用于",
+        "提供", "实现", "以及", "根据", "按照", "具体", "如下", "相关", "说明", "配置", "并且", "同时",
+        "不同", "技术", "路线", "方式", "方案", "系统", "平台", "服务", "模块", "功能", "建立", "连接",
+        "渲染", "传输", "处理", "管理", "操作", "步骤", "方法", "规范", "设置", "默认", "分别",
+        "the", "and", "for", "with", "from", "this", "that", "uses", "use", "based", "via",
+        "http", "https", "true", "false", "null", "none", "config", "data", "info", "set", "get",
+    }
+
+    # 逐段逐句分析
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    unsupported_segments: list[str] = []
+    reasons: list[str] = []
+
+    for line in lines:
+        # 跳过 Markdown 标题、说明括号句与未命中固定句
+        if line.startswith("#") or line.startswith("（提示：") or line.startswith("(提示：") or line.startswith("（说明：") or line.startswith("(说明：") or line == NO_KNOWLEDGE_ANSWER:
+            continue
+        # 句级切分。随后再按引用边界拆分，避免“一句话末尾的 [1][2]”
+        # 把两个独立断言错误地合并成一个跨文档证据。
+        sub_sentences = [
+            s.strip()
+            for s in re.split(r"[。；\n]+(?!\s*(?:\[\d+\]|\(\d+\)))", line)
+            if len(s.strip()) > 6
+        ]
+        for sent in sub_sentences:
+            claim_matches = list(re.finditer(
+                r"(?P<claim>.*?)(?P<cites>(?:\s*(?:\[\d+\]|\(\d+\)))+)",
+                sent,
+            ))
+            if claim_matches:
+                units = [(m.group("claim"), citation_ids(m.group("cites"))) for m in claim_matches]
+                trailing = sent[claim_matches[-1].end():].strip(" ，,：:")
+                if trailing:
+                    units.append((trailing, set()))
+            else:
+                units = [(sent, set())]
+
+            for raw_claim, sent_cids in units:
+                claim = re.sub(_CITATION_RE, "", raw_claim).strip(" -:：")
+                if len(claim) <= 6:
+                    continue
+                numbers = re.findall(r"\b\d{2,}\b", claim)
+                latin_terms = [
+                    t for t in re.findall(
+                        r"(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9_.-]{2,})(?![A-Za-z0-9])",
+                        claim,
+                    )
+                    if t.casefold() not in _COMMON_STOPWORDS
+                ]
+
+                # 1. 若无引用，检查是否包含事实断言
+                if not sent_cids:
+                    if latin_terms or numbers or len(claim) > 20:
+                        unsupported_segments.append(f"事实断言未标注引用: '{claim[:60]}'")
+                        reasons.append("missing_citation_on_assertion")
+                    continue
+
+                # 2. 严格按该断言所引用的具体 chunk 文本限定检验范围。
+                target_blobs_lower = [doc_blobs_lower.get(c, "") for c in sent_cids if c in doc_blobs_lower]
+                target_blobs_raw = [doc_blobs.get(c, "") for c in sent_cids if c in doc_blobs]
+                combined_target_lower = " ".join(target_blobs_lower)
+                combined_target_raw = " ".join(target_blobs_raw)
+
+                # 2.1 检查数字/端口
+                for num in numbers:
+                    if num not in combined_target_raw:
+                        unsupported_segments.append(
+                            f"数字/端口在所引证据 [{list(sent_cids)}] 中无依据: '{num}' in '{claim[:60]}'"
+                        )
+                        reasons.append("unsupported_number_or_port")
+
+                # 2.2 检查英文专有名词/技术实体（必须存在于该断言的引证文档中）
+                for term in latin_terms:
+                    if term.casefold() not in combined_target_lower:
+                        unsupported_segments.append(
+                            f"技术实体在所引证据 [{list(sent_cids)}] 中无依据: '{term}' in '{claim[:60]}'"
+                        )
+                        reasons.append("unsupported_latin_term")
+
+                # 2.3 两个以上实体的关系不能由多个文档的术语共现伪造。
+                # 若同一断言涉及多个技术实体，至少要有一个被引用 chunk
+                # 同时出现这些实体；否则只证明“各自存在”，不证明它们的关系。
+                if len(latin_terms) >= 2 and not any(
+                    all(term.casefold() in blob for term in latin_terms)
+                    for blob in target_blobs_lower
+                ):
+                    unsupported_segments.append(
+                        f"断言关系未由同一证据片段支持: '{claim[:60]}'"
+                    )
+                    reasons.append("unsupported_semantic_relation")
+
+                # 2.4 语义关系共现检查（Semantic Relation & Concept Overlap）
+                words = [
+                    w.strip() for w in jieba.cut(claim)
+                    if len(w.strip()) >= 2
+                    and w.strip().casefold() not in _COMMON_STOPWORDS
+                    and not re.match(r"^\d+$", w)
+                ]
+                if words:
+                    overlap_count = sum(1 for w in words if w.casefold() in combined_target_lower)
+                    overlap_ratio = overlap_count / len(words)
+                    if len(words) >= 3 and overlap_ratio < 0.45:
+                        unsupported_segments.append(
+                            f"断言关系概念重合度过低 ({overlap_ratio:.0%}): '{claim[:60]}'"
+                        )
+                        reasons.append("unsupported_semantic_relation")
+
+    is_ok = len(unsupported_segments) == 0 and len(cids_in_answer) > 0
+    if not is_ok and not reasons:
+        reasons.append("insufficient_grounding_overlap")
+
+    return GroundingVerdict(
+        ok=is_ok,
+        reasons=list(set(reasons)),
+        unsupported_segments=unsupported_segments[:5],
+        valid_citation_ids=valid_cids,
+        details={"total_cites": len(cids_in_answer), "unsupported_count": len(unsupported_segments)},
+    )
+
+
+def synthesize_grounded_fallback(
+    context_docs: list[dict[str, Any]],
+    question: str,
+    *,
+    max_bullets: int = 4,
+    snippet_chars: int = 200,
+) -> str:
+    """当模型生成多次无法通过证据校验时，直接输出确定性的结构化证据摘要。"""
+    docs = [d for d in (context_docs or []) if isinstance(d, dict)]
+    if not docs:
+        return NO_KNOWLEDGE_ANSWER
+
+    bullets: list[str] = []
+    seen_snippets: set[str] = set()
+
+    for doc in docs[:max_bullets]:
+        meta = doc.get("metadata") or {}
+        try:
+            cid = int(meta.get("citation_id"))
+        except (TypeError, ValueError):
+            continue
+        section = str(meta.get("section_path") or meta.get("section_title") or meta.get("source") or "").strip()
+        raw_content = str(doc.get("content") or "").strip()
+        # 清理多余空行与标记
+        cleaned = " ".join(raw_content.split())
+        if len(cleaned) > snippet_chars:
+            cleaned = cleaned[:snippet_chars] + "…"
+        if cleaned in seen_snippets:
+            continue
+        seen_snippets.add(cleaned)
+        label = f"**{section}**：" if section else ""
+        bullets.append(f"- {label}{cleaned} [{cid}]")
+
+    if not bullets:
+        return NO_KNOWLEDGE_ANSWER
+
+    body = "\n".join(bullets)
+    return (
+        f"根据知识库现有相关文档，检索到以下明确记录的事实：\n\n"
+        f"{body}\n\n"
+        f"（说明：以上为知识库中检索到的全部可验证事实。关于未提及的实现细节，当前知识库未查询到明确说明。）"
+    )

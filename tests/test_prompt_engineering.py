@@ -337,7 +337,7 @@ class PromptEngineeringTests(unittest.TestCase):
         chain._anchor_protect_names = lambda plan: ()
 
         async def fake_stream(*args, **kwargs):
-            yield "trimmed answer [1]"
+            yield "alpha [1]"
 
         with patch("rag_knowledge.llm_http.achat_stream", fake_stream):
             async def collect():
@@ -350,7 +350,7 @@ class PromptEngineeringTests(unittest.TestCase):
             ["正在理解问题...", "正在检索知识库...", "正在整理答案..."],
         )
         source_event = {"type": "sources", "data": trimmed_docs}
-        token_event = {"type": "token", "data": "trimmed answer [1]"}
+        token_event = {"type": "token", "data": "alpha [1]"}
         self.assertIn(source_event, events)
         self.assertIn(token_event, events)
         self.assertLess(events.index(token_event), events.index(source_event))

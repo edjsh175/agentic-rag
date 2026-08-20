@@ -8,12 +8,18 @@ import functools
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.retrieval_intent import RetrievalIntentResolver
+from rag_knowledge.services.retrieval_diagnostics import (
+    record_request,
+    record_stage,
+    scope_filter_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +50,59 @@ class RetrievalStrategy:
     # 公开 API
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_scope(scope: Any) -> Any:
+        if scope is None:
+            return None
+        if hasattr(scope, "to_evidence_scope"):
+            return scope.to_evidence_scope()
+        return scope
+
+    @staticmethod
+    def _filter_by_scope(docs: list[Document], scope: Any) -> list[Document]:
+        """执行最终 Structural Eligibility 校验并写入可审计的 Scope admission 元数据。"""
+        if not docs or scope is None:
+            return docs
+        norm_scope = RetrievalStrategy._normalize_scope(scope)
+        if norm_scope is None or not getattr(norm_scope, "is_identity_locked", False):
+            return docs
+
+        filtered: list[Document] = []
+        for doc in docs:
+            meta = doc.metadata or {}
+            chunk_id = str(meta.get("chunk_id") or "").strip()
+            doc_ent = str(
+                meta.get("scope_entity")
+                or meta.get("document_entity")
+                or meta.get("entity_name")
+                or ""
+            ).strip()
+            if not norm_scope.is_structurally_admissible(doc_ent, chunk_id):
+                logger.debug(
+                    "Scope rejected chunk | entity=%s chunk=%s scope=%s",
+                    doc_ent or "<unscoped>",
+                    chunk_id,
+                    getattr(norm_scope, "scope_id", ""),
+                )
+                continue
+
+            provenance = norm_scope.get_provenance(doc_ent) if doc_ent else None
+            meta["scope_id"] = getattr(norm_scope, "scope_id", "")
+            meta["scope_root"] = getattr(norm_scope, "primary_root", None) or ""
+            binding = getattr(norm_scope, "binding_strength", None)
+            meta["scope_binding_strength"] = getattr(binding, "value", binding) or ""
+            meta["scope_admitted"] = True
+            meta["scope_admission_reason"] = (
+                "materialized_chunk"
+                if chunk_id and getattr(norm_scope, "materialized_chunk_ids", None) and chunk_id in norm_scope.materialized_chunk_ids
+                else "admissible_entity"
+            )
+            if provenance is not None:
+                meta["provenance_source_type"] = provenance.source_type
+                meta["provenance_path"] = provenance.to_dict()
+            filtered.append(doc)
+        return filtered
+
     def retrieve(
         self,
         question: str,
@@ -53,6 +112,7 @@ class RetrievalStrategy:
         method: str | None = None,
         top_k: int | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """
         执行检索，返回 LangChain Document 列表。
@@ -61,11 +121,14 @@ class RetrievalStrategy:
           method: 检索方式，None 则使用配置值（mmr/similarity/bm25/hybrid）
           top_k:  覆盖配置中的 retrieval_top_k（用于重排序等场景获取更多候选文档）
           candidate_k: 覆盖 hybrid 每路候选池大小
+          scope: 检索范围 (EvidenceScope 或 RetrievalScope)
         """
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
         actual_method = method or self._cfg.retrieval_strategy
         retrieval_query = self._augment_structured_query(question)
         effective_top_k = self._intent_candidate_top_k(question, top_k)
-        logger.info("检索策略: %s | kb=%s", actual_method, kb_name or "auto")
+        logger.info("检索策略: %s | kb=%s | scope=%s", actual_method, kb_name or "auto", getattr(norm_scope, "scope_id", "none"))
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
         if actual_method not in supported:
@@ -76,29 +139,59 @@ class RetrievalStrategy:
         if actual_method == "bm25":
             docs = self._retrieve_bm25(
                 retrieval_query, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 top_k=effective_top_k,
+                scope=norm_scope,
+            )
+            record_request(
+                channel="bm25",
+                method="bm25",
+                query=retrieval_query,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=scope_filter_summary(norm_scope),
             )
         elif actual_method == "hybrid":
             docs = self._retrieve_hybrid(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 top_k=effective_top_k,
                 candidate_k=candidate_k,
+                scope=norm_scope,
             )
         elif actual_method == "similarity":
             docs = self._retrieve_vector(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 search_type="similarity", top_k=effective_top_k,
+                scope=norm_scope,
+            )
+            record_request(
+                channel="vector",
+                method="similarity",
+                query=question,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=self._build_filter(kb_name, review_status, cat, scope=norm_scope),
             )
         else:
             # 默认 mmr
             docs = self._retrieve_vector(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 search_type="mmr", top_k=effective_top_k,
+                scope=norm_scope,
             )
+            record_request(
+                channel="vector",
+                method="mmr",
+                query=question,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=self._build_filter(kb_name, review_status, cat, scope=norm_scope),
+            )
+        docs = self._filter_by_scope(docs, norm_scope)
+        record_stage("scoped_recall", docs)
         return docs
 
     async def aretrieve(
@@ -110,11 +203,14 @@ class RetrievalStrategy:
         method: str | None = None,
         top_k: int | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
         actual_method = method or self._cfg.retrieval_strategy
         retrieval_query = self._augment_structured_query(question)
         effective_top_k = self._intent_candidate_top_k(question, top_k)
-        logger.info("async 检索策略: %s | kb=%s", actual_method, kb_name or "auto")
+        logger.info("async 检索策略: %s | kb=%s | scope=%s", actual_method, kb_name or "auto", getattr(norm_scope, "scope_id", "none"))
 
         supported = {"mmr", "similarity", "bm25", "hybrid"}
         if actual_method not in supported:
@@ -125,28 +221,58 @@ class RetrievalStrategy:
         if actual_method == "bm25":
             docs = await self._aretrieve_bm25(
                 retrieval_query, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 top_k=effective_top_k,
+                scope=norm_scope,
+            )
+            record_request(
+                channel="bm25",
+                method="bm25",
+                query=retrieval_query,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=scope_filter_summary(norm_scope),
             )
         elif actual_method == "hybrid":
             docs = await self._aretrieve_hybrid(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 top_k=effective_top_k,
                 candidate_k=candidate_k,
+                scope=norm_scope,
             )
         elif actual_method == "similarity":
             docs = await self._aretrieve_vector(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 search_type="similarity", top_k=effective_top_k,
+                scope=norm_scope,
+            )
+            record_request(
+                channel="vector",
+                method="similarity",
+                query=question,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=self._build_filter(kb_name, review_status, cat, scope=norm_scope),
             )
         else:
             docs = await self._aretrieve_vector(
                 question, kb_name=kb_name,
-                doc_category=doc_category, review_status=review_status,
+                doc_category=cat, review_status=review_status,
                 search_type="mmr", top_k=effective_top_k,
+                scope=norm_scope,
             )
+            record_request(
+                channel="vector",
+                method="mmr",
+                query=question,
+                requested_k=effective_top_k,
+                docs=docs,
+                structural_filter=self._build_filter(kb_name, review_status, cat, scope=norm_scope),
+            )
+        docs = self._filter_by_scope(docs, norm_scope)
+        record_stage("scoped_recall", docs)
         return docs
 
     @staticmethod
@@ -199,6 +325,7 @@ class RetrievalStrategy:
         query_weights: list[float] | None = None,
         query_labels: list[str] | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """对多个查询分别检索，用 RRF 融合所有结果。
 
@@ -212,11 +339,14 @@ class RetrievalStrategy:
         if not queries:
             return []
 
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
+
         if len(queries) == 1:
             return self.retrieve(
-                queries[0], kb_name=kb_name, doc_category=doc_category,
+                queries[0], kb_name=kb_name, doc_category=cat,
                 review_status=review_status, method=method, top_k=top_k,
-                candidate_k=candidate_k,
+                candidate_k=candidate_k, scope=norm_scope,
             )
 
         actual_method = method or self._cfg.retrieval_strategy
@@ -226,8 +356,8 @@ class RetrievalStrategy:
         per_query_k = max(actual_top_k, actual_candidate_k)
 
         logger.info(
-            "多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
-            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k,
+            "多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d | scope=%s",
+            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k, getattr(norm_scope, "scope_id", "none"),
         )
 
         all_ranked: list[list[Document]] = []
@@ -239,10 +369,11 @@ class RetrievalStrategy:
                 continue
             try:
                 docs = self.retrieve(
-                    q, kb_name=kb_name, doc_category=doc_category,
+                    q, kb_name=kb_name, doc_category=cat,
                     review_status=review_status, method=actual_method,
                     top_k=per_query_k,
                     candidate_k=actual_candidate_k,
+                    scope=norm_scope,
                 )
                 all_ranked.append(docs)
                 weight = query_weights[i] if query_weights and i < len(query_weights) else 1.0
@@ -269,7 +400,9 @@ class RetrievalStrategy:
             weights=effective_weights,
             labels=effective_labels,
         )
-        return self._maybe_prefer_sdk_manuals(queries, fused)
+        fused = self._filter_by_scope(self._maybe_prefer_sdk_manuals(queries, fused), norm_scope)
+        record_stage("merged_recall", fused)
+        return fused
 
     async def aretrieve_many(
         self,
@@ -282,16 +415,20 @@ class RetrievalStrategy:
         query_weights: list[float] | None = None,
         query_labels: list[str] | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """异步版多查询检索。各查询并发执行。"""
         if not queries:
             return []
 
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
+
         if len(queries) == 1:
             return await self.aretrieve(
-                queries[0], kb_name=kb_name, doc_category=doc_category,
+                queries[0], kb_name=kb_name, doc_category=cat,
                 review_status=review_status, method=method, top_k=top_k,
-                candidate_k=candidate_k,
+                candidate_k=candidate_k, scope=norm_scope,
             )
 
         actual_method = method or self._cfg.retrieval_strategy
@@ -300,50 +437,52 @@ class RetrievalStrategy:
         per_query_k = max(actual_top_k, actual_candidate_k)
 
         logger.info(
-            "async 多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d",
-            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k,
+            "async 多查询检索: %d queries | method=%s | kb=%s | per_query_k=%d | final_top_k=%d | scope=%s",
+            len(queries), actual_method, kb_name or "auto", per_query_k, actual_top_k, getattr(norm_scope, "scope_id", "none"),
         )
 
-        async def _fetch_one(q: str) -> list[Document]:
-            q = q.strip()
-            if not q:
-                return []
-            try:
-                return await self.aretrieve(
-                    q, kb_name=kb_name, doc_category=doc_category,
-                    review_status=review_status, method=actual_method,
-                    top_k=per_query_k,
-                    candidate_k=actual_candidate_k,
-                )
-            except Exception as e:
-                logger.warning("async 多查询检索 query 失败，跳过: %s", e)
-                return []
-
-        started = time.perf_counter()
-        fetched = await asyncio.gather(*[_fetch_one(q) for q in queries])
-        all_ranked: list[list[Document]] = []
         effective_weights: list[float] = []
         effective_labels: list[str] = []
-        for i, docs in enumerate(fetched):
-            if not docs:
+        valid_queries: list[str] = []
+        for i, q in enumerate(queries):
+            q = q.strip()
+            if not q:
                 continue
+            valid_queries.append(q)
             weight = query_weights[i] if query_weights and i < len(query_weights) else 1.0
             label = query_labels[i] if query_labels and i < len(query_labels) else f"query_{i}"
-            all_ranked.append(docs)
             effective_weights.append(weight)
             effective_labels.append(label)
-            logger.info(
-                "async_multi_query_branch | index=%d label=%s weight=%.2f hits=%d",
-                i, label, weight, len(docs),
-            )
 
-        logger.debug(
-            "async 多查询检索并发完成 | %d/%d 有效 | elapsed=%.3fs",
-            len(all_ranked), len(queries), time.perf_counter() - started,
-        )
+        if not valid_queries:
+            return []
+
+        tasks = [
+            self.aretrieve(
+                q, kb_name=kb_name, doc_category=cat,
+                review_status=review_status, method=actual_method,
+                top_k=per_query_k,
+                candidate_k=actual_candidate_k,
+                scope=norm_scope,
+            )
+            for q in valid_queries
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_ranked: list[list[Document]] = []
+        final_weights: list[float] = []
+        final_labels: list[str] = []
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                logger.warning("async 多查询检索 query[%d] 失败，跳过: %s", i, res)
+                continue
+            all_ranked.append(res)
+            final_weights.append(effective_weights[i])
+            final_labels.append(effective_labels[i])
 
         if not all_ranked:
             return []
+
         if len(all_ranked) == 1 and query_weights is None and query_labels is None:
             return all_ranked[0][:actual_top_k]
 
@@ -351,10 +490,12 @@ class RetrievalStrategy:
             all_ranked,
             rrf_k=self._cfg.retrieval_rrf_k,
             top_k=actual_top_k,
-            weights=effective_weights,
-            labels=effective_labels,
+            weights=final_weights,
+            labels=final_labels,
         )
-        return self._maybe_prefer_sdk_manuals(queries, fused)
+        fused = self._filter_by_scope(self._maybe_prefer_sdk_manuals(valid_queries, fused), norm_scope)
+        record_stage("merged_recall", fused)
+        return fused
 
     def _maybe_prefer_sdk_manuals(self, queries, docs: list) -> list:
         """多查询 RRF 合并后再次优选手册（单路 hybrid 内的 prefer 会被跨查询 RRF 覆盖）。"""
@@ -378,15 +519,32 @@ class RetrievalStrategy:
         kb_name: str | None,
         review_status: str | None,
         doc_category: str | None,
+        scope: Any = None,
     ) -> dict | None:
-        """构建 ChromaDB 过滤条件字典"""
+        """构建 ChromaDB pre-TopK 结构过滤条件。"""
         conditions = []
         if kb_name:
             conditions.append({"kb_name": kb_name})
         if review_status:
             conditions.append({"review_status": review_status})
-        if doc_category:
-            conditions.append({"doc_category": doc_category})
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
+        if cat:
+            conditions.append({"doc_category": cat})
+
+        if norm_scope is not None and getattr(norm_scope, "is_identity_locked", False):
+            scope_branches: list[dict] = []
+            admissible = sorted(getattr(norm_scope, "admissible_entities", None) or ())
+            materialized = sorted(getattr(norm_scope, "materialized_chunk_ids", None) or ())
+            if admissible:
+                scope_branches.append({"document_entity": {"$in": admissible}})
+            if materialized:
+                scope_branches.append({"chunk_id": {"$in": materialized}})
+            if scope_branches:
+                conditions.append(
+                    scope_branches[0] if len(scope_branches) == 1 else {"$or": scope_branches}
+                )
+
         if not conditions:
             return None
         if len(conditions) == 1:
@@ -401,10 +559,11 @@ class RetrievalStrategy:
         review_status: str | None,
         search_type: str,
         top_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """MMR / Similarity 向量检索"""
         chroma = self._store.get_chroma()
-        filt = self._build_filter(kb_name, review_status, doc_category)
+        filt = self._build_filter(kb_name, review_status, doc_category, scope=scope)
 
         search_kwargs: dict = {"k": top_k or self._cfg.retrieval_top_k, "filter": filt}
         if search_type == "mmr":
@@ -421,14 +580,18 @@ class RetrievalStrategy:
         doc_category: str | None,
         review_status: str | None,
         top_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """BM25 关键词检索"""
+        norm_scope = self._normalize_scope(scope)
+        cat = doc_category or (norm_scope.doc_category if norm_scope else None)
         return self._get_bm25().search(
             question,
             kb_name=kb_name,
             review_status=review_status,
-            doc_category=doc_category,
+            doc_category=cat,
             top_k=top_k or self._cfg.retrieval_top_k,
+            scope=norm_scope,
         )
 
     def _finalize_sdk_hybrid(
@@ -472,6 +635,7 @@ class RetrievalStrategy:
         review_status: str | None,
         top_k: int | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         """Similarity + BM25，并使用 RRF 融合两路排名。"""
         if self._cfg.retrieval_fusion_method != "rrf":
@@ -484,15 +648,34 @@ class RetrievalStrategy:
         candidate_k = candidate_k or self._cfg.retrieval_candidate_k
         actual_top_k = top_k or self._cfg.retrieval_top_k
         augmented_query = self._augment_structured_query(question)
+        scope_kw = {"scope": scope} if scope is not None else {}
         vector_docs = self._retrieve_vector(
             question, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
             search_type="similarity", top_k=candidate_k,
+            **scope_kw,
+        )
+        record_request(
+            channel="vector",
+            method="similarity",
+            query=question,
+            requested_k=candidate_k,
+            docs=vector_docs,
+            structural_filter=self._build_filter(kb_name, review_status, doc_category, scope=scope),
         )
         bm25_docs = self._retrieve_bm25(
             augmented_query, kb_name=kb_name,
             doc_category=doc_category, review_status=review_status,
             top_k=candidate_k,
+            **scope_kw,
+        )
+        record_request(
+            channel="bm25",
+            method="bm25",
+            query=augmented_query,
+            requested_k=candidate_k,
+            docs=bm25_docs,
+            structural_filter=scope_filter_summary(scope),
         )
         branches = [vector_docs, bm25_docs]
         labels = ["vector", "bm25"]
@@ -504,16 +687,27 @@ class RetrievalStrategy:
                 doc_category=doc_category,
                 review_status=review_status,
                 top_k=candidate_k,
+                **scope_kw,
+            )
+            record_request(
+                channel="bm25",
+                method="sdk_manual",
+                query=hint,
+                requested_k=candidate_k,
+                docs=sdk_docs,
+                structural_filter=scope_filter_summary(scope),
             )
             branches.append(sdk_docs)
             labels.append("sdk_manual")
-        return self._finalize_sdk_hybrid(
+        merged = self._finalize_sdk_hybrid(
             question,
             branches,
             top_k=actual_top_k,
             candidate_k=candidate_k,
             labels=labels,
         )
+        record_stage("merged_recall", merged)
+        return merged
 
     async def _run_blocking(self, func, *args, **kwargs):
         loop = asyncio.get_running_loop()
@@ -531,6 +725,7 @@ class RetrievalStrategy:
         review_status: str | None,
         search_type: str,
         top_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         return await self._run_blocking(
             self._retrieve_vector,
@@ -540,6 +735,7 @@ class RetrievalStrategy:
             review_status,
             search_type,
             top_k,
+            scope,
         )
 
     async def _aretrieve_bm25(
@@ -549,6 +745,7 @@ class RetrievalStrategy:
         doc_category: str | None,
         review_status: str | None,
         top_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         return await self._run_blocking(
             self._retrieve_bm25,
@@ -557,6 +754,7 @@ class RetrievalStrategy:
             doc_category,
             review_status,
             top_k,
+            scope,
         )
 
     async def _aretrieve_hybrid(
@@ -567,6 +765,7 @@ class RetrievalStrategy:
         review_status: str | None,
         top_k: int | None = None,
         candidate_k: int | None = None,
+        scope: Any = None,
     ) -> list[Document]:
         if self._cfg.retrieval_fusion_method != "rrf":
             raise ValueError(
@@ -580,16 +779,19 @@ class RetrievalStrategy:
         augmented_query = self._augment_structured_query(question)
         hint = build_sdk_manual_bm25_hint(question)
         started = time.perf_counter()
+        scope_kw = {"scope": scope} if scope is not None else {}
         tasks = [
             self._aretrieve_vector(
                 question, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 search_type="similarity", top_k=candidate_k,
+                **scope_kw,
             ),
             self._aretrieve_bm25(
                 augmented_query, kb_name=kb_name,
                 doc_category=doc_category, review_status=review_status,
                 top_k=candidate_k,
+                scope=scope,
             ),
         ]
         labels = ["vector", "bm25"]
@@ -601,23 +803,41 @@ class RetrievalStrategy:
                     doc_category=doc_category,
                     review_status=review_status,
                     top_k=candidate_k,
+                    scope=scope,
                 )
             )
             labels.append("sdk_manual")
         results = await asyncio.gather(*tasks)
+        branch_queries = [question, augmented_query] + ([hint] if hint else [])
+        branch_methods = ["similarity", "bm25"] + (["sdk_manual"] if hint else [])
+        for label, method_name, branch_query, branch_docs in zip(labels, branch_methods, branch_queries, results):
+            record_request(
+                channel="vector" if label == "vector" else "bm25",
+                method=method_name,
+                query=branch_query,
+                requested_k=candidate_k,
+                docs=branch_docs,
+                structural_filter=(
+                    self._build_filter(kb_name, review_status, doc_category, scope=scope)
+                    if label == "vector"
+                    else scope_filter_summary(scope)
+                ),
+            )
         logger.debug(
             "Hybrid async recall finished | kb=%s | branches=%d | elapsed=%.3fs",
             kb_name or "auto",
             len(results),
             time.perf_counter() - started,
         )
-        return self._finalize_sdk_hybrid(
+        merged = self._finalize_sdk_hybrid(
             question,
             list(results),
             top_k=actual_top_k,
             candidate_k=candidate_k,
             labels=labels,
         )
+        record_stage("merged_recall", merged)
+        return merged
 
     @staticmethod
     def _rrf_fuse(

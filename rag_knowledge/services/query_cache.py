@@ -34,6 +34,9 @@ class QueryCache:
         graph_enabled: bool = False,
         graph_entity_ids: tuple[str, ...] = (),
         graph_revision: str = "",
+        backbone_canonical: tuple[str, ...] = (),
+        strict_explicit_target: bool = False,
+        scope_fingerprint: str = "",
     ) -> str:
         payload = {
             "rewritten_query": rewritten_query,
@@ -49,6 +52,9 @@ class QueryCache:
             "graph_enabled": graph_enabled,
             "graph_entity_ids": graph_entity_ids,
             "graph_revision": graph_revision,
+            "backbone_canonical": backbone_canonical,
+            "strict_explicit_target": strict_explicit_target,
+            "scope_fingerprint": scope_fingerprint,
         }
         raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()

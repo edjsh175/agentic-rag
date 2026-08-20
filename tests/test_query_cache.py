@@ -29,6 +29,25 @@ class QueryCacheTests(unittest.TestCase):
 
         self.assertEqual(len({pipeline, service, revised, disabled}), 4)
 
+    def test_explicit_entity_scope_participates_in_cache_key(self):
+        base = dict(
+            rewritten_query="硬件要求",
+            kb_name=None,
+            doc_category="StampTools",
+            review_status="approved",
+            method="hybrid",
+            rerank=True,
+            web_search=False,
+            strict_explicit_target=True,
+        )
+        webgl = QueryCache.make_key(**base, backbone_canonical=("PipelineWebGL",))
+        builder = QueryCache.make_key(**base, backbone_canonical=("PipelineBuilder",))
+        generic = QueryCache.make_key(
+            **{**base, "strict_explicit_target": False}, backbone_canonical=()
+        )
+
+        self.assertEqual(len({webgl, builder, generic}), 3)
+
     def test_disabled_cache_never_returns_entries(self):
         cache = QueryCache(enabled=False, ttl_seconds=60, capacity=10)
         key = QueryCache.make_key(

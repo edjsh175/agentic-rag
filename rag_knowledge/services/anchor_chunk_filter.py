@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -80,13 +81,14 @@ def foreign_product_markers(product_name: str, constraints: dict) -> set[str]:
     return {m for m in foreign if len(m) >= 4}
 
 
-def _meta_blob(doc: Document) -> tuple[str, str, str, str]:
+def _meta_blob(doc: Document) -> tuple[str, str, str, str, str]:
     meta = doc.metadata or {}
     section_path = str(meta.get("section_path") or "")
     section_title = str(meta.get("section_title") or "")
     doc_category = str(meta.get("doc_category") or "")
     source = str(meta.get("source") or meta.get("file_name") or "")
-    return section_path, section_title, doc_category, source
+    document_entity = str(meta.get("document_entity") or "")
+    return section_path, section_title, doc_category, source, document_entity
 
 
 def chunk_matches_anchor(
@@ -96,28 +98,55 @@ def chunk_matches_anchor(
     constraints: dict,
     protect_names: Sequence[str] | None = None,
 ) -> bool:
-    """True when section_path hits a canonical or source/doc_category aligns to product line."""
-    section_path, section_title, doc_category, source = _meta_blob(doc)
+    """True when document_entity matches or section_path hits a canonical or source/doc_category aligns to product line."""
+    section_path, section_title, doc_category, source, document_entity = _meta_blob(doc)
     section_fold = f"{section_path} {section_title}".casefold()
     source_name = Path(source).name.casefold() if source else ""
+    source_stem = Path(source).stem.casefold() if source else ""
     doc_cat_fold = doc_category.casefold()
     content_fold = (doc.page_content or "").casefold()
+    doc_ent_fold = document_entity.casefold()
 
     for raw in (protect_names or ()):
         name = str(raw or "").strip()
         if len(name) < 2:
             continue
         key = name.casefold()
-        if key in section_fold or key in content_fold or key in source_name:
+        if key in section_fold or key in content_fold or key in source_name or key in doc_ent_fold:
             return True
 
     for raw in canonicals:
-        canonical = resolve_canonical(raw, constraints)
+        canonical = resolve_canonical(raw, constraints) or raw
         if not canonical:
             continue
-        for alias in aliases_for_canonical(canonical, constraints):
-            if alias.casefold() in section_fold:
+        canon_fold = canonical.casefold()
+        aliases = [alias.casefold() for alias in aliases_for_canonical(canonical, constraints)]
+
+        # 若切片显式写入了 document_entity，进行严格元数据对齐
+        if doc_ent_fold:
+            if doc_ent_fold == canon_fold or doc_ent_fold in aliases:
                 return True
+            # 如果切片的 document_entity 是另一个明确的不同实体，严格判定不匹配
+            continue
+
+        # A source filename is often the only entity marker retained by older
+        # ingestions. Match its compact stem exactly (or with a non-ASCII
+        # suffix), while avoiding ModelBuilder matching UEModelBuilder.
+        source_key = re.sub(r"[\s_.-]+", "", source_stem)
+        for alias in aliases:
+            alias_key = re.sub(r"[\s_.-]+", "", alias)
+            if source_key.startswith(alias_key):
+                remainder = source_key[len(alias_key):]
+                if not remainder or not remainder[0].isascii() or not remainder[0].isalnum():
+                    return True
+            doc_category_key = re.sub(r"[\s_.-]+", "", doc_category).casefold()
+            if doc_category_key in {alias_key, f"{alias_key}doc"}:
+                return True
+
+        for alias in aliases:
+            if alias in section_fold:
+                return True
+
         product = resolve_product_line(canonical, constraints)
         markers = product_line_markers(product, constraints)
         if doc_cat_fold and doc_cat_fold in markers:
@@ -149,10 +178,11 @@ def chunk_is_foreign_interference(
         protect_names=protect_names,
     ):
         return False
-    section_path, section_title, doc_category, source = _meta_blob(doc)
+    section_path, section_title, doc_category, source, document_entity = _meta_blob(doc)
     section_fold = f"{section_path} {section_title}".casefold()
     source_name = Path(source).name.casefold() if source else ""
     doc_cat_fold = doc_category.casefold()
+    doc_ent_fold = document_entity.casefold()
 
     products = {
         resolve_product_line(c, constraints)
@@ -165,6 +195,8 @@ def chunk_is_foreign_interference(
         foreign |= foreign_product_markers(product, constraints)
     if not foreign:
         return False
+    if doc_ent_fold and any(m in doc_ent_fold for m in foreign):
+        return True
     if doc_cat_fold and doc_cat_fold in foreign:
         return True
     if source_name and any(m in source_name for m in foreign):
@@ -182,9 +214,12 @@ def filter_docs_by_backbone_anchor(
     enabled: bool,
     constraints: dict | None = None,
     protect_names: Iterable[str] | None = None,
+    strict_explicit_target: bool = False,
 ) -> list[Document]:
-    """Keep anchor-aligned chunks; drop clear foreign interference; empty → fallback."""
-    if not enabled or not docs:
+    """Keep anchor-aligned chunks; drop clear foreign interference; empty → fallback or refuse when strict."""
+    if not docs:
+        return docs
+    if not enabled and not strict_explicit_target:
         return docs
     canonicals = [str(c).strip() for c in (backbone_canonical or ()) if str(c).strip()]
     protect = [str(c).strip() for c in (protect_names or ()) if str(c).strip()]
@@ -213,6 +248,16 @@ def filter_docs_by_backbone_anchor(
             )
         return preferred
 
+    # 当显式指定规范目标且配置为 strict_explicit_target 时，禁用全过滤兜底与 cleaned 逻辑，直接返回空列表以触发拒答
+    if strict_explicit_target:
+        logger.warning(
+            "anchor_chunk_filter empty under strict explicit target; refusing fallback | "
+            "canonicals=%s before=%d",
+            canonicals,
+            len(docs),
+        )
+        return []
+
     cleaned = [
         doc
         for doc in docs
@@ -232,6 +277,16 @@ def filter_docs_by_backbone_anchor(
                 canonicals,
             )
         return cleaned
+
+    # 当显式指定规范目标且配置为 strict_explicit_target 时，禁用全过滤兜底，直接返回空列表以触发拒答
+    if strict_explicit_target:
+        logger.warning(
+            "anchor_chunk_filter empty under strict explicit target; refusing fallback | "
+            "canonicals=%s before=%d",
+            canonicals,
+            len(docs),
+        )
+        return []
 
     logger.warning(
         "anchor_chunk_filter empty after filter; fallback to unfiltered | "

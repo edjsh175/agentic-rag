@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from rag_knowledge.config import Config
+from rag_knowledge.services import retrieval_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,21 @@ def serialize_plan(plan: Any) -> dict[str, Any]:
     }
 
 
+def serialize_scope(scope: Any) -> dict[str, Any]:
+    if scope is None:
+        return {}
+    if hasattr(scope, "to_dict"):
+        return scope.to_dict()
+    ev = getattr(scope, "evidence_scope", None)
+    if ev and hasattr(ev, "to_dict"):
+        return ev.to_dict()
+    return {
+        "scope_id": getattr(scope, "scope_id", ""),
+        "canonical_entity": getattr(scope, "canonical_entity", None),
+        "explicit_selection": getattr(scope, "explicit_selection", False),
+    }
+
+
 def serialize_candidates(
     docs: list[dict[str, Any]] | None,
     *,
@@ -120,6 +136,13 @@ def serialize_candidates(
             "citation_id": meta.get("citation_id"),
             "matched_query_kinds": matched_kinds,
             "retrieval_source": source_type,
+            "document_entity": meta.get("document_entity") or meta.get("scope_entity") or "",
+            "scope_id": meta.get("scope_id") or "",
+            "scope_admitted": meta.get("scope_admitted"),
+            "scope_admission_reason": meta.get("scope_admission_reason") or "",
+            "provenance_source_type": meta.get("provenance_source_type") or "",
+            "provenance_path": meta.get("provenance_path"),
+            "scope_rejection_reason": meta.get("scope_rejection_reason") or "",
             "content_preview": content[:preview_chars],
         })
     return out
@@ -176,12 +199,15 @@ class QaTraceBuilder:
         self._t0 = time.perf_counter()
         self._stage_marks: dict[str, float] = {"start": self._t0}
         self._stages_ms: dict[str, float] = {}
+        self._scope: dict[str, Any] = {}
         self._plan: dict[str, Any] = {}
         self._retrieval: dict[str, Any] = {"query_hits": [], "candidates": []}
         self._pack: dict[str, Any] = {}
         self._understanding: dict[str, Any] = {}
         self._clarify: dict[str, Any] = {}
         self._agent: dict[str, Any] = {}
+        self._runtime_overrides: dict[str, Any] = {}
+        self._retrieval_diagnostics_token = None
         self._request = {
             "question": question or "",
             "collection_name": collection_name,
@@ -253,8 +279,12 @@ class QaTraceBuilder:
             ),
             "candidate_count": len(docs or []),
         }
-        if retrieval_trace is not None:
-            ret_dict["retrieval_trace"] = dict(retrieval_trace)
+        trace_payload = dict(retrieval_trace or {})
+        diagnostics = retrieval_diagnostics.snapshot()
+        if diagnostics:
+            trace_payload["diagnostics"] = diagnostics
+        if trace_payload:
+            ret_dict["retrieval_trace"] = trace_payload
         self._retrieval = ret_dict
 
     def set_pack(self, decision: Any) -> None:
@@ -289,10 +319,22 @@ class QaTraceBuilder:
             return
         self._clarify = dict(clarify or {})
 
+    def set_scope(self, scope: Any) -> None:
+        if not self._enabled:
+            return
+        self._scope = serialize_scope(scope)
+        if self._retrieval_diagnostics_token is None:
+            self._retrieval_diagnostics_token = retrieval_diagnostics.start(scope)
+
     def set_agent(self, payload: dict[str, Any] | None) -> None:
         if not self._enabled:
             return
         self._agent = dict(payload or {})
+
+    def set_runtime_override(self, **kwargs) -> None:
+        if not self._enabled:
+            return
+        self._runtime_overrides.update(kwargs)
 
     def finish(
         self,
@@ -305,8 +347,24 @@ class QaTraceBuilder:
     ) -> str | None:
         if not self._enabled:
             return None
+        diagnostics = retrieval_diagnostics.finish(self._retrieval_diagnostics_token)
+        self._retrieval_diagnostics_token = None
+        if diagnostics:
+            trace_payload = dict(self._retrieval.get("retrieval_trace") or {})
+            trace_payload["diagnostics"] = diagnostics
+            self._retrieval["retrieval_trace"] = trace_payload
+
         elapsed_ms = round((time.perf_counter() - self._t0) * 1000, 1)
         now = datetime.now(timezone.utc).astimezone()
+        runtime_data = runtime_fingerprint(self._cfg)
+        has_agent_steps = bool(self._agent and self._agent.get("agent_steps"))
+        runtime_data["effective_agent_orchestration_enabled"] = has_agent_steps or bool(runtime_data.get("agent_orchestration_enabled"))
+        runtime_data["requested_allow_general_knowledge"] = self._request.get("allow_general_knowledge")
+        runtime_data["effective_allow_general_knowledge"] = self._runtime_overrides.get(
+            "effective_allow_general_knowledge",
+            False,
+        )
+        runtime_data.update(self._runtime_overrides)
         payload = {
             "meta": {
                 "trace_id": self.trace_id,
@@ -317,8 +375,9 @@ class QaTraceBuilder:
                 "error": error,
             },
             "request": self._request,
-            "runtime": runtime_fingerprint(self._cfg),
+            "runtime": runtime_data,
             "stages": self._stages_ms,
+            "scope": self._scope,
             "plan": self._plan,
             "understanding": self._understanding,
             "clarify": self._clarify,

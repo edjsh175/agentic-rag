@@ -7,10 +7,12 @@ from unittest.mock import MagicMock
 
 
 _INJECTED_UNSTRUCTURED_LOADER = False
+_ORIGINAL_VECTOR_STORE_MODULE = None
 
 
 def _load_directory_scanner():
-    global _INJECTED_UNSTRUCTURED_LOADER
+    global _INJECTED_UNSTRUCTURED_LOADER, _ORIGINAL_VECTOR_STORE_MODULE
+    _ORIGINAL_VECTOR_STORE_MODULE = sys.modules.get("rag_knowledge.repository.vector_store")
     vector_store_stub = ModuleType("rag_knowledge.repository.vector_store")
     vector_store_stub.VectorStore = MagicMock
     sys.modules["rag_knowledge.repository.vector_store"] = vector_store_stub
@@ -28,8 +30,12 @@ def _load_directory_scanner():
 
 class ScannerDocCategoryTests(unittest.TestCase):
     def tearDown(self):
-        global _INJECTED_UNSTRUCTURED_LOADER
-        sys.modules.pop("rag_knowledge.repository.vector_store", None)
+        global _INJECTED_UNSTRUCTURED_LOADER, _ORIGINAL_VECTOR_STORE_MODULE
+        if _ORIGINAL_VECTOR_STORE_MODULE is None:
+            sys.modules.pop("rag_knowledge.repository.vector_store", None)
+        else:
+            sys.modules["rag_knowledge.repository.vector_store"] = _ORIGINAL_VECTOR_STORE_MODULE
+        _ORIGINAL_VECTOR_STORE_MODULE = None
         sys.modules.pop("rag_knowledge.services.scanner", None)
         if _INJECTED_UNSTRUCTURED_LOADER:
             sys.modules.pop("rag_knowledge.services.unstructured_loader", None)

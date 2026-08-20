@@ -10,6 +10,10 @@ from langchain_core.documents import Document
 
 from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.repository.relational_db import RelationalDB
+from rag_knowledge.services.relation_policy import (
+    GRAPH_RELATIONS_BY_INTENT,
+    graph_relations_for_intent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -597,14 +601,8 @@ class EntityLinker:
 class GraphExpander:
     """Expand approved graph edges and return only evidence-backed chunk IDs."""
 
-    _RELATIONS = {
-        "procedure": {"has_step", "requires", "belongs_to", "defined_in"},
-        "deployment": {"requires", "uses_config", "belongs_to", "defined_in"},
-        "config": {"uses_config", "has_table", "has_field", "defined_in", "belongs_to"},
-        "definition": {"belongs_to", "defined_in", "alias_of", "different_from"},
-        "comparison": {"belongs_to", "different_from", "requires", "defined_in"},
-        "troubleshooting": {"causes", "solved_by", "requires", "uses_config", "defined_in"},
-    }
+    # Compatibility alias for diagnostics/tests; source of truth lives in relation_policy.py.
+    _RELATIONS = GRAPH_RELATIONS_BY_INTENT
 
     def __init__(
         self,
@@ -689,7 +687,7 @@ class GraphExpander:
         visited = set(ordered_entities)
         frontier = list(ordered_entities)
         relation_ids: list[str] = []
-        allowed = self._RELATIONS.get(intent, self._RELATIONS["definition"])
+        allowed = graph_relations_for_intent(intent)
         max_hops = 2 if intent in {"procedure", "deployment"} else 1
         question_tokens = self._question_rank_tokens(question or "")
 
@@ -871,6 +869,46 @@ class GraphRetriever:
         )
         self.guard_builder = GraphEntityGuard(self.db)
 
+    def link_scope_roots(self, scope: Any) -> tuple[LinkedEntity, ...]:
+        """将已锁定的 EvidenceScope root 精确映射到图谱实体，不再做 query lexical resolution。"""
+        norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
+        roots = tuple(getattr(norm_scope, "root_entities", ()) or ())
+        if not norm_scope or not getattr(norm_scope, "is_identity_locked", False) or not roots:
+            return ()
+
+        def _key(value: str) -> str:
+            return normalize_entity_name(value or "").casefold()
+
+        entities = self.db.list_entities(review_status="approved")
+        by_name: dict[str, dict] = {}
+        for entity in entities:
+            for name in (entity.get("name") or "", entity.get("canonical_name") or ""):
+                key = _key(name)
+                if key:
+                    by_name.setdefault(key, entity)
+
+        excluded_ids = tuple(sorted({
+            by_name[_key(name)]["id"]
+            for name in (getattr(norm_scope, "excluded_rebindings", None) or ())
+            if _key(name) in by_name
+        }))
+        linked: list[LinkedEntity] = []
+        seen: set[str] = set()
+        for root in roots:
+            entity = by_name.get(_key(root))
+            if not entity or entity["id"] in seen:
+                continue
+            seen.add(entity["id"])
+            linked.append(LinkedEntity(
+                entity_id=entity["id"],
+                canonical_name=entity.get("canonical_name") or entity.get("name") or root,
+                entity_type=entity.get("entity_type") or "",
+                confidence=1.0,
+                match_method="scope_root",
+                excluded_entity_ids=excluded_ids,
+            ))
+        return tuple(linked)
+
     def retrieve(
         self,
         question: str,
@@ -879,13 +917,18 @@ class GraphRetriever:
         kb_name: str | None = None,
         doc_category: str | None = None,
         review_status: str | None = "approved",
+        scope: Any = None,
     ) -> tuple[GraphContext, list[Document]]:
         try:
             if queries is None:
                 from rag_knowledge.services.query_contextualizer import RetrievalQuery
                 queries = [RetrievalQuery(question, "original", 1.0)]
 
-            linked = self.linker.link_queries(queries, intent, original_question=question)
+            norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
+            if norm_scope is not None and getattr(norm_scope, "is_identity_locked", False):
+                linked = self.link_scope_roots(norm_scope)
+            else:
+                linked = self.linker.link_queries(queries, intent, original_question=question)
             context = self.expander.expand(linked, intent, question=question)
             context = replace(
                 context,
@@ -905,6 +948,8 @@ class GraphRetriever:
                 )
             }
             docs: list[Document] = []
+            expanded_ids = set(context.expanded_entity_ids)
+            admissible_names = set(getattr(norm_scope, "admissible_entities", None) or ())
             for chunk_id in context.chunk_ids:
                 if chunk_id not in loaded:
                     continue
@@ -923,6 +968,27 @@ class GraphRetriever:
                 doc_meta = dict(meta)
                 doc_meta["chunk_id"] = chunk_id
                 doc_meta["retrieval_channel"] = "graph"
+
+                # entity_chunk_links 是图召回该 chunk 的正式 provenance；优先选择当前 Scope 可准入实体。
+                links = [
+                    link for link in self.db.list_links(chunk_id=chunk_id)
+                    if link.get("entity_id") in expanded_ids
+                ]
+                chosen_link = None
+                if admissible_names:
+                    chosen_link = next(
+                        (link for link in links if str(link.get("entity_name") or "") in admissible_names),
+                        None,
+                    )
+                if chosen_link is None and links:
+                    chosen_link = links[0]
+                if chosen_link is not None:
+                    graph_entity = str(chosen_link.get("entity_name") or "").strip()
+                    doc_meta["graph_provenance_link_id"] = str(chosen_link.get("id") or "")
+                    doc_meta["graph_provenance_entity"] = graph_entity
+                    if graph_entity:
+                        doc_meta["scope_entity"] = graph_entity
+
                 docs.append(Document(page_content=content, metadata=doc_meta))
 
             if not docs:

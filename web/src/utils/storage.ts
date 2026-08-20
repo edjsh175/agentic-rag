@@ -8,6 +8,7 @@
 import type { Message as ChatMessage, SourceDoc, MessageClarification, ChatSessionSummary } from '../types'
 import {
   fetchServerSessions,
+  syncServerSessionsFromTraces,
   createServerSession,
   fetchServerSessionDetail,
   saveServerSession,
@@ -277,6 +278,24 @@ export async function loadChatSessions(): Promise<{ activeSessionId: string | nu
   }
 
   return { activeSessionId: null, sessions: [] }
+}
+
+/**
+ * 从服务端 qa_traces 调试记录中同步恢复历史会话
+ */
+export async function syncChatSessionsFromTraces(): Promise<{ activeSessionId: string | null; sessions: ChatSessionSummary[] }> {
+  const fingerprint = getFingerprint()
+  try {
+    const resp = await syncServerSessionsFromTraces(fingerprint)
+    if (resp && resp.sessions && resp.sessions.length > 0) {
+      saveLocalSessionsMeta(resp.sessions, resp.active_session_id)
+      return {
+        activeSessionId: resp.active_session_id || resp.sessions[0].id,
+        sessions: resp.sessions,
+      }
+    }
+  } catch {}
+  return loadChatSessions()
 }
 
 /**

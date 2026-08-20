@@ -8,6 +8,8 @@ export type HistorySourceSummary = {
   page_label?: string
   chunk_id?: string
   citation_id?: string | number
+  scope_root?: string
+  scope_binding_strength?: string
   preview?: string
 }
 
@@ -30,6 +32,8 @@ export function extractHistorySourceSummaries(
     page_label: s.metadata?.page_label || undefined,
     chunk_id: s.metadata?.chunk_id || undefined,
     citation_id: s.metadata?.citation_id,
+    scope_root: s.metadata?.scope_root || undefined,
+    scope_binding_strength: s.metadata?.scope_binding_strength || undefined,
     preview: s.content?.slice(0, 200) || undefined,
   }))
 }

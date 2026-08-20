@@ -31,6 +31,7 @@ from rag_knowledge.services.query_contextualizer import (
 )
 from rag_knowledge.services.web_search import WebSearch
 from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan, RetrievalIntentResolver
+from rag_knowledge.services.retrieval_diagnostics import record_stage
 from rag_knowledge.services.anchor_chunk_filter import filter_docs_by_backbone_anchor
 from rag_knowledge.services.evidence_pack import build_evidence_pack, govern_answer
 from rag_knowledge.services.qa_trace import (
@@ -373,6 +374,14 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
         )
+
+    @staticmethod
+    def _safe_set_scope(trace: Any, scope: Any) -> None:
+        if trace is None:
+            return
+        setter = getattr(trace, "set_scope", None)
+        if callable(setter):
+            setter(scope)
 
     def _safe_set_retrieval(
         self,
@@ -881,6 +890,7 @@ class RagChain:
         doc_category=None,
         review_status="approved",
         entity_name=None,
+        scope=None,
     ):
         plan = self._apply_backbone_anchor_rewrite(question, plan, entity_name=entity_name)
 
@@ -932,6 +942,7 @@ class RagChain:
                 kb_name=kb_name,
                 doc_category=doc_category,
                 review_status=review_status,
+                scope=scope,
             )
             excluded = tuple(sorted({item for linked in context.linked_entities for item in linked.excluded_entity_ids}))
             resolver = getattr(self, "_intent_resolver", None) or RetrievalIntentResolver.default()
@@ -1059,7 +1070,7 @@ class RagChain:
         cfg = getattr(self, "_graph_cfg", None)
         max_slots = int(getattr(cfg, "max_graph_only_slots", 1) or 1)
         protect_top1 = bool(getattr(cfg, "protect_text_top1", True))
-        return GraphRetriever.fuse(
+        fused = GraphRetriever.fuse(
             docs,
             graph_docs,
             top_k=top_k,
@@ -1069,12 +1080,15 @@ class RagChain:
             max_graph_only_slots=max_slots,
             protect_text_top1=protect_top1,
         )
+        record_stage("graph_fused", fused)
+        return fused
 
     def _apply_anchor_chunk_filter(
         self,
         docs: list[Document],
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
         protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
     ) -> list[Document]:
         enabled = bool(
             getattr(getattr(self, "_graph_cfg", None), "anchor_chunk_filter_enabled", False)
@@ -1084,6 +1098,7 @@ class RagChain:
             backbone_canonical,
             enabled=enabled,
             protect_names=protect_names,
+            strict_explicit_target=strict_explicit_target,
         )
 
     # ------------------------------------------------------------------
@@ -1198,9 +1213,15 @@ class RagChain:
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
+        protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
+        scope: Any = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         cache = getattr(self, "_query_cache", None)
+        scope_fp = ""
+        if scope is not None:
+            scope_fp = getattr(scope, "fingerprint", "") or getattr(getattr(scope, "evidence_scope", None), "fingerprint", "")
         cache_key = QueryCache.make_key(
             rewritten_query=rewritten_query,
             kb_name=kb_name,
@@ -1215,6 +1236,9 @@ class RagChain:
             graph_enabled=graph_docs is not None,
             graph_entity_ids=graph_entity_ids,
             graph_revision=graph_revision,
+            backbone_canonical=backbone_canonical,
+            strict_explicit_target=strict_explicit_target,
+            scope_fingerprint=scope_fp,
         )
 
         if cache is not None:
@@ -1242,6 +1266,9 @@ class RagChain:
             expand_neighbors=expand_neighbors,
             intent_plan=intent_plan,
             backbone_canonical=backbone_canonical,
+            protect_names=protect_names,
+            strict_explicit_target=strict_explicit_target,
+            scope=scope,
             **graph_uncached_kwargs,
         )
 
@@ -1266,6 +1293,9 @@ class RagChain:
         graph_guard: Any = None,
         intent_plan: RetrievalIntentPlan | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
+        protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
+        scope: Any = None,
     ) -> tuple[list[dict], str]:
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
         final_top_k = top_k_override or self._retrieval_k
@@ -1273,6 +1303,10 @@ class RagChain:
         strategy_top_k = candidate_top_k if enable_rerank else top_k_override
         if not enable_rerank and self._is_table_oriented_query(question):
             strategy_top_k = max(final_top_k, 12)
+
+        strategy_kwargs = {}
+        if scope is not None:
+            strategy_kwargs["scope"] = scope
 
         if kb_name:
             docs = await self._strategy.aretrieve(
@@ -1282,6 +1316,7 @@ class RagChain:
                 review_status=review_status,
                 method=method,
                 top_k=strategy_top_k,
+                **strategy_kwargs,
             )
         else:
             routed_kb = self._route_query(question)
@@ -1293,6 +1328,7 @@ class RagChain:
                     review_status=review_status,
                     method=method,
                     top_k=strategy_top_k,
+                    **strategy_kwargs,
                 )
             else:
                 target_k = candidate_top_k if enable_rerank else final_top_k
@@ -1306,6 +1342,7 @@ class RagChain:
                         review_status=review_status,
                         method=method,
                         top_k=per_k,
+                        **strategy_kwargs,
                     ),
                     self._strategy.aretrieve(
                         question,
@@ -1314,6 +1351,7 @@ class RagChain:
                         review_status=review_status,
                         method=method,
                         top_k=per_k,
+                        **strategy_kwargs,
                     ),
                 )
                 logger.debug(
@@ -1331,6 +1369,9 @@ class RagChain:
                 excluded_chunk_ids=graph_excluded_chunk_ids,
                 graph_guard=graph_guard,
             )
+        if scope is not None:
+            docs = self._strategy._filter_by_scope(docs, scope)
+            record_stage("scope_validated", docs)
 
         docs = await self._postprocess_docs(
             question,
@@ -1364,9 +1405,11 @@ class RagChain:
         intent_plan: RetrievalIntentPlan | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
         protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
     ) -> list[Document]:
         if expand_neighbors and docs:
             docs = await asyncio.to_thread(self._expand_neighbor_chunks, docs)
+        record_stage("pre_rerank", docs)
 
         rerank_top_k = target_top_k
         if rerank_top_k is None:
@@ -1385,6 +1428,7 @@ class RagChain:
             except Exception as e:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
+        record_stage("post_rerank", docs)
 
         docs = await asyncio.to_thread(
             self._quality.apply,
@@ -1392,15 +1436,19 @@ class RagChain:
             docs,
             intent_plan=intent_plan,
         )
+        record_stage("post_quality", docs)
         docs = await asyncio.to_thread(
             self._apply_anchor_chunk_filter,
             docs,
             backbone_canonical,
-            protect_names,
+            protect_names=protect_names,
+            strict_explicit_target=strict_explicit_target,
         )
+        record_stage("post_anchor_filter", docs)
         docs = await asyncio.to_thread(self._compress_retrieved_docs, question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
+        record_stage("final", docs)
         return docs
 
     @staticmethod
@@ -1447,6 +1495,8 @@ class RagChain:
                   diagnostics: dict[str, list[Document]] | None = None,
                   backbone_canonical: tuple[str, ...] | list[str] | None = None,
                   protect_names: tuple[str, ...] | list[str] | None = None,
+                  strict_explicit_target: bool = False,
+                  scope: Any = None,
                   ) -> tuple[list[dict], str]:
         """Execute retrieval and return (source_docs, formatted context)."""
         enable_rerank = rerank if rerank is not None else (self._reranker is not None)
@@ -1456,11 +1506,16 @@ class RagChain:
         if not enable_rerank and self._is_table_oriented_query(question):
             strategy_top_k = max(final_top_k, 12)
 
+        strategy_kwargs = {}
+        if scope is not None:
+            strategy_kwargs["scope"] = scope
+
         if kb_name:
             docs = self._strategy.retrieve(
                 question, kb_name=kb_name, doc_category=doc_category,
                 review_status=review_status, method=method,
                 top_k=strategy_top_k,
+                **strategy_kwargs,
             )
         else:
             routed_kb = self._route_query(question)
@@ -1469,6 +1524,7 @@ class RagChain:
                     question, kb_name=routed_kb, doc_category=doc_category,
                     review_status=review_status, method=method,
                     top_k=strategy_top_k,
+                    **strategy_kwargs,
                 )
             else:
                 target_k = candidate_top_k if enable_rerank else final_top_k
@@ -1480,6 +1536,7 @@ class RagChain:
                     review_status=review_status,
                     method=method,
                     top_k=per_k,
+                    **strategy_kwargs,
                 )
                 kb2_docs = self._strategy.retrieve(
                     question,
@@ -1488,6 +1545,7 @@ class RagChain:
                     review_status=review_status,
                     method=method,
                     top_k=per_k,
+                    **strategy_kwargs,
                 )
                 docs = self._merge_multi_kb_docs(kb1_docs, kb2_docs, target_k)
 
@@ -1499,6 +1557,7 @@ class RagChain:
             "intent_plan": intent_plan,
             "backbone_canonical": backbone_canonical,
             "protect_names": protect_names,
+            "strict_explicit_target": strict_explicit_target,
         }
         if diagnostics is not None:
             postprocess_kwargs["diagnostics"] = diagnostics
@@ -1675,7 +1734,13 @@ class RagChain:
         if und is not None:
             return und
         from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
-        cfg = getattr(self, "_cfg", None) or Config()
+        cfg = getattr(self, "_cfg", None)
+        if cfg is None:
+            try:
+                from rag_knowledge.config import Config
+                cfg = Config()
+            except Exception:
+                cfg = None
         ctx = getattr(self, "_contextualizer", None)
         self._understanding = DialogueUnderstanding(cfg, contextualizer=ctx)
         return self._understanding
@@ -1690,14 +1755,26 @@ class RagChain:
         kb_name: str | None = None,
     ):
         """统一 Understanding 入口（检索路径不重复跑澄清）。"""
-        return self._get_understanding_service().analyze(
-            question,
-            history=history,
-            entity_name=entity_name,
-            doc_category=doc_category,
-            kb_name=kb_name,
-            run_clarify=False,
-        )
+        try:
+            return self._get_understanding_service().analyze(
+                question,
+                history=history,
+                entity_name=entity_name,
+                doc_category=doc_category,
+                kb_name=kb_name,
+                run_clarify=False,
+            )
+        except Exception as e:
+            logger.warning("understand_for_retrieval fallback: %s", e)
+            from rag_knowledge.services.dialogue_understanding import DialogueUnderstandingResult
+            return DialogueUnderstandingResult(
+                resolved_question=question,
+                retrieval_queries=[question],
+                intent="general_qa",
+                focus={},
+                doc_category=doc_category,
+                mode="general",
+            )
 
     def _build_retrieval_queries(
         self, question: str, history: list | None = None
@@ -1755,13 +1832,14 @@ class RagChain:
         diagnostics: dict[str, list[Document]] | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
         protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
+        scope: Any = None,
     ) -> tuple[list[dict], str]:
         """多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
 
         query_texts, query_weights, query_labels = self._split_query_specs(queries)
         if len(query_texts) <= 1 and graph_docs is None:
-            # ???????
             retrieve_kwargs = {
                 "kb_name": kb_name,
                 "doc_category": doc_category,
@@ -1776,12 +1854,19 @@ class RagChain:
                 "backbone_canonical": backbone_canonical,
                 "protect_names": protect_names,
             }
+            if strict_explicit_target:
+                retrieve_kwargs["strict_explicit_target"] = strict_explicit_target
+            if scope is not None:
+                retrieve_kwargs["scope"] = scope
             if diagnostics is not None:
                 retrieve_kwargs["diagnostics"] = diagnostics
             return self._retrieve(query_texts[0] if query_texts else "", **retrieve_kwargs)
 
-        q = query_texts[0]  # ???????? and web search
+        q = query_texts[0]  # 用于后处理和 web search
         retrieval_top_k = plan_candidate_k if enable_rerank and plan_candidate_k else plan_top_k
+        strategy_kwargs = {}
+        if scope is not None:
+            strategy_kwargs["scope"] = scope
         docs = self._strategy.retrieve_many(
             query_texts,
             kb_name=kb_name,
@@ -1792,6 +1877,7 @@ class RagChain:
             query_labels=query_labels,
             top_k=retrieval_top_k,
             candidate_k=plan_candidate_k,
+            **strategy_kwargs,
         )
         if graph_docs is not None:
             docs = self._fuse_graph_docs(
@@ -1802,6 +1888,9 @@ class RagChain:
                 excluded_chunk_ids=graph_excluded_chunk_ids,
                 graph_guard=graph_guard,
             )
+        if scope is not None:
+            docs = self._strategy._filter_by_scope(docs, scope)
+            record_stage("scope_validated", docs)
         if diagnostics is not None:
             diagnostics["retrieved"] = list(docs)
         postprocess_kwargs = {
@@ -1810,6 +1899,7 @@ class RagChain:
             "intent_plan": intent_plan,
             "backbone_canonical": backbone_canonical,
             "protect_names": protect_names,
+            "strict_explicit_target": strict_explicit_target,
         }
         if diagnostics is not None:
             postprocess_kwargs["diagnostics"] = diagnostics
@@ -1831,15 +1921,29 @@ class RagChain:
         *,
         kb_name: str | None = None,
         doc_category: str | None = None,
+        entity_name: str | None = None,
         review_status: str | None = "approved",
         diagnostics: dict[str, list[Document]] | None = None,
     ) -> tuple[list[dict], str]:
         """Run the production retrieval plan without invoking the answer model."""
+        from rag_knowledge.services.retrieval_scope import RetrievalScope
+
         q = (question or "").strip()
+        scope = RetrievalScope.create(
+            q,
+            entity_name=entity_name,
+            doc_category=doc_category,
+        )
         queries = self._build_retrieval_query_specs(q, None)
         plan = self._plan_retrieval(q, queries, force_rerank=True)
         plan, graph_context, graph_docs = self._prepare_graph_plan(
-            q, plan, kb_name=kb_name, doc_category=doc_category, review_status=review_status
+            q,
+            plan,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            review_status=review_status,
+            entity_name=scope.canonical_entity or entity_name,
+            scope=scope,
         )
         graph_kwargs = self._build_graph_kwargs(
             plan, graph_context, graph_docs, include_cache_fields=False,
@@ -1855,8 +1959,10 @@ class RagChain:
             expand_neighbors=plan.expand_neighbors,
             intent_plan=getattr(plan, "intent_plan", None),
             diagnostics=diagnostics,
-            backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+            backbone_canonical=self._effective_backbone_from_scope(scope, plan),
             protect_names=self._anchor_protect_names(plan),
+            strict_explicit_target=scope.explicit_selection,
+            scope=scope,
             **graph_kwargs,
         )
 
@@ -1881,6 +1987,8 @@ class RagChain:
         intent_plan: RetrievalIntentPlan | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
         protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
+        scope: Any = None,
     ) -> tuple[list[dict], str]:
         """异步多查询检索 + 后处理 + 格式化，返回 (source_docs, context)。"""
         enable_rerank = rerank if rerank is not None else (getattr(self, "_reranker", None) is not None)
@@ -1909,11 +2017,17 @@ class RagChain:
                 expand_neighbors=expand_neighbors,
                 intent_plan=intent_plan,
                 backbone_canonical=backbone_canonical,
+                protect_names=protect_names,
+                strict_explicit_target=strict_explicit_target,
+                scope=scope,
                 **graph_cache_kwargs,
             )
 
         q = query_texts[0]
         retrieval_top_k = plan_candidate_k if enable_rerank and plan_candidate_k else plan_top_k
+        strategy_kwargs = {}
+        if scope is not None:
+            strategy_kwargs["scope"] = scope
         docs = await self._strategy.aretrieve_many(
             query_texts,
             kb_name=kb_name,
@@ -1924,6 +2038,7 @@ class RagChain:
             query_labels=query_labels,
             top_k=retrieval_top_k,
             candidate_k=plan_candidate_k,
+            **strategy_kwargs,
         )
         if graph_docs is not None:
             docs = self._fuse_graph_docs(
@@ -1934,11 +2049,15 @@ class RagChain:
                 excluded_chunk_ids=graph_excluded_chunk_ids,
                 graph_guard=graph_guard,
             )
+        if scope is not None:
+            docs = self._strategy._filter_by_scope(docs, scope)
+            record_stage("scope_validated", docs)
         docs = await self._postprocess_docs(
             q, docs, enable_rerank, target_top_k=plan_top_k, expand_neighbors=expand_neighbors,
             intent_plan=intent_plan,
             backbone_canonical=backbone_canonical,
             protect_names=protect_names,
+            strict_explicit_target=strict_explicit_target,
         )
         source_docs = [
             self._normalize_source(d.page_content, d.metadata, index + 1)
@@ -1975,10 +2094,12 @@ class RagChain:
         diagnostics: dict[str, list[Document]] | None = None,
         backbone_canonical: tuple[str, ...] | list[str] | None = None,
         protect_names: tuple[str, ...] | list[str] | None = None,
+        strict_explicit_target: bool = False,
     ) -> list[Document]:
         """同步版文档后处理（rerank + quality + compression）。"""
         if expand_neighbors and docs:
             docs = self._expand_neighbor_chunks(docs)
+        record_stage("pre_rerank", docs)
 
         rerank_top_k = target_top_k
         if rerank_top_k is None:
@@ -1994,19 +2115,26 @@ class RagChain:
                 logger.warning("reranker failed, fallback to original order: %s", e)
                 docs = docs[:rerank_top_k]
 
+        record_stage("post_rerank", docs)
         if diagnostics is not None:
             diagnostics["post_rerank"] = list(docs)
         docs = self._quality.apply(question, docs, intent_plan=intent_plan)
+        record_stage("post_quality", docs)
         if diagnostics is not None:
             diagnostics["post_quality"] = list(docs)
         docs = self._apply_anchor_chunk_filter(
-            docs, backbone_canonical, protect_names=protect_names
+            docs,
+            backbone_canonical,
+            protect_names=protect_names,
+            strict_explicit_target=strict_explicit_target,
         )
+        record_stage("post_anchor_filter", docs)
         if diagnostics is not None:
             diagnostics["post_anchor_filter"] = list(docs)
         docs = self._compress_retrieved_docs(question, docs)
         if target_top_k is not None and len(docs) > target_top_k:
             docs = docs[:target_top_k]
+        record_stage("final", docs)
         if diagnostics is not None:
             diagnostics["final"] = list(docs)
         return docs
@@ -2353,6 +2481,62 @@ class RagChain:
                     existing_ids.add(pid)
         return docs
 
+    def _admit_source_docs_by_scope(
+        self,
+        source_docs: list[dict],
+        scope: Any = None,
+    ) -> list[dict]:
+        """Revalidate manually injected source docs against formal EvidenceScope admission."""
+        if not source_docs or scope is None:
+            return source_docs
+        norm_scope = getattr(scope, "evidence_scope", scope)
+        if not getattr(norm_scope, "is_identity_locked", False):
+            return source_docs
+
+        kb_docs: list[Document] = []
+        external_items: list[tuple[int, dict]] = []
+        for index, item in enumerate(source_docs):
+            meta = dict(item.get("metadata") or {})
+            if meta.get("source_type") == "external":
+                external_items.append((index, item))
+                continue
+            kb_docs.append(Document(
+                page_content=str(item.get("content") or ""),
+                metadata=meta,
+            ))
+
+        from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
+        admitted_docs = RetrievalStrategy._filter_by_scope(kb_docs, norm_scope)
+        admitted_ids = {id(doc) for doc in admitted_docs}
+        admitted_items: list[tuple[int, dict]] = []
+        kb_pos = 0
+        for index, item in enumerate(source_docs):
+            meta = item.get("metadata") or {}
+            if meta.get("source_type") == "external":
+                continue
+            doc = kb_docs[kb_pos]
+            kb_pos += 1
+            if id(doc) not in admitted_ids:
+                continue
+            cloned = dict(item)
+            cloned["metadata"] = dict(doc.metadata or {})
+            admitted_items.append((index, cloned))
+
+        admitted_items.extend(external_items)
+        admitted_items.sort(key=lambda pair: pair[0])
+        return [item for _, item in admitted_items]
+
+    def _effective_backbone_from_scope(self, scope: Any, plan: Any) -> tuple[str, ...]:
+        if scope is not None:
+            ev = getattr(scope, "evidence_scope", None) or (scope if hasattr(scope, "admissible_entities") else None)
+            if getattr(scope, "explicit_selection", False) and getattr(scope, "canonical_entity", None):
+                return (scope.canonical_entity,)
+            if ev is not None and getattr(ev, "admissible_entities", None):
+                return tuple(sorted(ev.admissible_entities))
+            if getattr(scope, "canonical_entity", None):
+                return (scope.canonical_entity,)
+        return tuple(getattr(plan, "backbone_canonical", ()) or ())
+
     async def _retrieve_kb_for_agent(
         self,
         question: str,
@@ -2366,11 +2550,27 @@ class RagChain:
         excluded_chunk_ids: list[str] | None,
         understanding=None,
         method: str | None = None,
+        retrieval_scope=None,
     ) -> tuple[list[dict], str, Any]:
         from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
         from rag_knowledge.services.query_contextualizer import RetrievalQuery
+        from rag_knowledge.services.retrieval_scope import RetrievalScope
 
         q = (question or "").strip()
+        scope = retrieval_scope or RetrievalScope.create(
+            q,
+            entity_name=entity_name,
+            doc_category=doc_category,
+        )
+        canonical_entity = (
+            getattr(scope, "canonical_entity", "")
+            or getattr(scope, "primary_root", None)
+            or entity_name
+        )
+        explicit_selection = bool(
+            getattr(scope, "explicit_selection", False)
+            or getattr(scope, "is_identity_locked", False)
+        )
         if understanding is not None:
             queries = DialogueUnderstanding.to_retrieval_queries(understanding)
             resolved = (getattr(understanding, "resolved_question", "") or "").strip()
@@ -2392,11 +2592,13 @@ class RagChain:
             kb_name,
             doc_category,
             "approved",
-            entity_name,
+            canonical_entity,
+            scope,
         )
         graph_kwargs = self._build_graph_kwargs(
             plan, graph_context, graph_docs, include_cache_fields=True,
         )
+        effective_backbone = self._effective_backbone_from_scope(scope, plan)
         if hasattr(self, "_aretrieve_multi_uncached"):
             source_docs, context = await self._aretrieve_multi_uncached(
                 plan.queries,
@@ -2409,8 +2611,10 @@ class RagChain:
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
                 intent_plan=getattr(plan, "intent_plan", None),
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                backbone_canonical=effective_backbone,
                 protect_names=self._anchor_protect_names(plan),
+                strict_explicit_target=explicit_selection,
+                scope=scope,
                 **graph_kwargs,
             )
         else:
@@ -2430,8 +2634,10 @@ class RagChain:
                     plan_candidate_k=plan.candidate_k,
                     expand_neighbors=plan.expand_neighbors,
                     intent_plan=getattr(plan, "intent_plan", None),
-                    backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                    backbone_canonical=effective_backbone,
                     protect_names=self._anchor_protect_names(plan),
+                    strict_explicit_target=explicit_selection,
+                    scope=scope,
                     **sync_graph_kwargs,
                 )
 
@@ -2441,6 +2647,7 @@ class RagChain:
             pinned_chunk_ids=pinned_chunk_ids,
             excluded_chunk_ids=excluded_chunk_ids,
         )
+        source_docs = self._admit_source_docs_by_scope(source_docs, scope)
         self._record_chunk_hit_query(source_docs)
         return source_docs, self._format_context(source_docs), plan
 
@@ -2458,6 +2665,7 @@ class RagChain:
         clarification_question: str | None,
         clarification_selected: str | None,
         on_event=None,
+        trace=None,
     ):
         from rag_knowledge.services.agent_orchestration.models import (
             AgentBudget,
@@ -2480,6 +2688,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
         )
+        self._safe_set_scope(trace, conv.scope)
         evidence = EvidencePool(question_id="current")
         evidence.seed_previous_cited(
             conv.session.last_sources,
@@ -2537,6 +2746,7 @@ class RagChain:
                 excluded_chunk_ids=excluded_chunk_ids,
                 understanding=conv.understanding,
                 method=effective_mode,
+                retrieval_scope=conv.scope,
             )
             if conv.understanding is None and getattr(self, "_last_understanding", None) is not None:
                 conv.understanding = self._last_understanding
@@ -2616,10 +2826,19 @@ class RagChain:
             retriever = getattr(self, "_graph_retriever", None)
             linker = getattr(retriever, "linker", None) if graph_on else None
             relation_summaries: list[str] = []
+            scope_obj = getattr(conv, "scope", None)
+            is_locked = bool(scope_obj and getattr(scope_obj, "is_identity_locked", False))
+
             if linker is not None:
                 try:
                     q_text = str(_args.get("query") or conv.resolved_question or conv.user_question).strip()
-                    linked = linker.link(q_text, "definition")
+                    if is_locked and getattr(scope_obj, "root_entities", None):
+                        # 已锁定身份：只做 canonical root → graph entity 的精确映射，不再 lexical rebind。
+                        link_scope_roots = getattr(retriever, "link_scope_roots", None)
+                        linked = link_scope_roots(scope_obj) if callable(link_scope_roots) else ()
+                    else:
+                        # 未锁定身份：执行自由消歧
+                        linked = linker.link(q_text, "definition")
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("link_entities failed: %s", exc)
                     linked = ()
@@ -2854,6 +3073,7 @@ class RagChain:
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
                     on_event=on_event,
+                    trace=trace,
                 )
             finally:
                 await live_events.put(None)
@@ -3122,11 +3342,13 @@ class RagChain:
             excluded_chunk_ids=None,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            trace=trace,
         )
         if getattr(self, "_last_understanding", None) is None and result.conversation.understanding is not None:
             self._last_understanding = result.conversation.understanding
         if result.conversation.understanding is not None:
             trace.set_understanding(result.conversation.understanding)
+        self._safe_set_scope(trace, result.conversation.scope)
         if result.plan is not None:
             trace.set_plan(result.plan)
         trace.set_agent(result.to_trace())
@@ -3249,8 +3471,18 @@ class RagChain:
               web_search: bool | None = None,
               allow_general_knowledge: bool | None = None,
               agent_prompt: str | None = None,
+              clarification_question: str | None = None,
+              clarification_selected: str | None = None,
               agent_orchestration_enabled: bool | None = None) -> dict:
+        from rag_knowledge.services.retrieval_scope import RetrievalScope
+
         q = (question or "").strip()
+        scope = RetrievalScope.create(
+            q,
+            entity_name=entity_name,
+            doc_category=doc_category,
+            clarification_selected=clarification_selected,
+        )
         deep_mode = bool(thinking)
 
         if not q:
@@ -3263,11 +3495,19 @@ class RagChain:
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
-        rejected = self._com_phase0_reject_if_needed(q, entity_name=entity_name)
+        rejected = self._com_phase0_reject_if_needed(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+        )
         if rejected is not None:
             return rejected
         if not self._agent_orchestration_enabled(agent_orchestration_enabled):
-            rejected = self._j3_clarify_reject_if_needed(q, entity_name=entity_name)
+            rejected = self._j3_clarify_reject_if_needed(
+                q,
+                entity_name=entity_name,
+                clarification_selected=clarification_selected,
+            )
             if rejected is not None:
                 return rejected
 
@@ -3283,6 +3523,8 @@ class RagChain:
                     web_search=web_search,
                     allow_general_knowledge=allow_general_knowledge,
                     agent_prompt=agent_prompt,
+                    clarification_question=clarification_question,
+                    clarification_selected=clarification_selected,
                     agent_orchestration_enabled=agent_orchestration_enabled,
                 ))
             raise RuntimeError(
@@ -3297,11 +3539,14 @@ class RagChain:
             plan = self._plan_retrieval(q, queries, force_rerank=True)
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category,
-                review_status="approved", entity_name=entity_name,
+                review_status="approved", entity_name=scope.canonical_entity or entity_name,
+                scope=scope,
             )
             graph_kwargs = self._build_graph_kwargs(
                 plan, graph_context, graph_docs, include_cache_fields=False,
             )
+            effective_backbone = self._effective_backbone_from_scope(scope, plan)
+            scope_kwargs = {"scope": scope} if scope and (scope.explicit_selection or scope.canonical_entity or getattr(getattr(scope, "evidence_scope", None), "is_identity_locked", False)) else {}
             source_docs, context = self._retrieve_multi(
                 plan.queries, kb_name=kb_name, doc_category=doc_category,
                 rerank=plan.enable_rerank,
@@ -3310,8 +3555,10 @@ class RagChain:
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
                 intent_plan=getattr(plan, "intent_plan", None),
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                backbone_canonical=effective_backbone,
                 protect_names=self._anchor_protect_names(plan),
+                strict_explicit_target=scope.explicit_selection,
+                **scope_kwargs,
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -3319,7 +3566,12 @@ class RagChain:
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
-                return {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+                answer = (
+                    f"知识库中暂未找到与 {scope.canonical_entity} 对齐的已审核文档内容，无法可靠回答。"
+                    if scope.explicit_selection and scope.canonical_entity
+                    else NO_KNOWLEDGE_ANSWER
+                )
+                return {"answer": answer, "source_documents": []}
 
             pack = self._pack_for_generation(
                 source_docs, context, history, q, agent_prompt=agent_prompt,
@@ -3578,6 +3830,16 @@ class RagChain:
                     out["trace_id"] = tid
                 return out
 
+        from rag_knowledge.services.retrieval_scope import RetrievalScope
+
+        scope = RetrievalScope.create(
+            q,
+            entity_name=entity_name,
+            doc_category=doc_category,
+            clarification_selected=clarification_selected,
+        )
+        self._safe_set_scope(trace, scope)
+
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
 
         retrieved_source_docs: list[dict] = []
@@ -3591,7 +3853,8 @@ class RagChain:
             trace.mark("plan")
             plan, graph_context, graph_docs = self._prepare_graph_plan(
                 q, plan, kb_name=kb_name, doc_category=doc_category,
-                review_status="approved", entity_name=entity_name,
+                review_status="approved", entity_name=scope.canonical_entity or entity_name,
+                scope=scope,
             )
             trace.set_plan(plan)
             trace.set_clarify(
@@ -3606,6 +3869,8 @@ class RagChain:
             graph_kwargs = self._build_graph_kwargs(
                 plan, graph_context, graph_docs, include_cache_fields=True,
             )
+            effective_backbone = self._effective_backbone_from_scope(scope, plan)
+            scope_kwargs = {"scope": scope} if scope and (scope.explicit_selection or scope.canonical_entity or getattr(getattr(scope, "evidence_scope", None), "is_identity_locked", False)) else {}
             source_docs, context = await self._aretrieve_multi_uncached(
                 plan.queries,
                 kb_name=kb_name,
@@ -3616,8 +3881,10 @@ class RagChain:
                 plan_candidate_k=plan.candidate_k,
                 expand_neighbors=plan.expand_neighbors,
                 intent_plan=getattr(plan, "intent_plan", None),
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                backbone_canonical=effective_backbone,
                 protect_names=self._anchor_protect_names(plan),
+                strict_explicit_target=scope.explicit_selection,
+                **scope_kwargs,
                 **graph_kwargs,
             )
             self._record_chunk_hit_query(source_docs)
@@ -3650,16 +3917,21 @@ class RagChain:
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general:
+                no_know_ans = (
+                    f"知识库中暂未找到与 {scope.canonical_entity} 对齐的已审核文档内容，无法可靠回答。"
+                    if scope.explicit_selection and scope.canonical_entity
+                    else NO_KNOWLEDGE_ANSWER
+                )
                 tid = self._commit_qa_trace(
-                    trace, answer=NO_KNOWLEDGE_ANSWER,
+                    trace, answer=no_know_ans,
                     retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
                 )
-                out = {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+                out = {"answer": no_know_ans, "source_documents": []}
                 if tid:
                     out["trace_id"] = tid
                 if include_evidence:
                     out["evidence_chain"] = build_evidence_pack(
-                        NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                        no_know_ans, retrieved_source_docs, []
                     )
                 return out
 
@@ -3997,6 +4269,15 @@ class RagChain:
             if not is_direct_chat:
                 if pipeline_events:
                     yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
+                from rag_knowledge.services.retrieval_scope import RetrievalScope
+
+                scope = RetrievalScope.create(
+                    q,
+                    entity_name=entity_name,
+                    doc_category=doc_category,
+                    clarification_selected=clarification_selected,
+                )
+                self._safe_set_scope(trace, scope)
                 plan, graph_context, graph_docs = await asyncio.to_thread(
                     self._prepare_graph_plan,
                     q,
@@ -4004,7 +4285,8 @@ class RagChain:
                     kb_name,
                     doc_category,
                     "approved",
-                    entity_name,
+                    scope.canonical_entity or entity_name,
+                    scope,
                 )
                 trace.set_plan(plan)
                 trace.set_clarify(
@@ -4031,6 +4313,7 @@ class RagChain:
                 graph_kwargs = self._build_graph_kwargs(
                     plan, graph_context, graph_docs, include_cache_fields=True,
                 )
+                effective_backbone = self._effective_backbone_from_scope(scope, plan)
                 if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
                     source_docs, context = await self._aretrieve_multi_uncached(
                         plan.queries,
@@ -4042,8 +4325,10 @@ class RagChain:
                         plan_candidate_k=plan.candidate_k,
                         expand_neighbors=plan.expand_neighbors,
                         intent_plan=getattr(plan, "intent_plan", None),
-                        backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                        backbone_canonical=effective_backbone,
                         protect_names=self._anchor_protect_names(plan),
+                        strict_explicit_target=scope.explicit_selection,
+                        scope=scope,
                         **graph_kwargs,
                     )
                 else:
@@ -4062,31 +4347,25 @@ class RagChain:
                             plan_candidate_k=plan.candidate_k,
                             expand_neighbors=plan.expand_neighbors,
                             intent_plan=getattr(plan, "intent_plan", None),
-                            backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
+                            backbone_canonical=effective_backbone,
                             protect_names=self._anchor_protect_names(plan),
+                            strict_explicit_target=scope.explicit_selection,
+                            scope=scope,
                             **sync_graph_kwargs,
                         )
 
                     source_docs, context = await asyncio.to_thread(_sync_retrieve)
+
+                # 检索主链已在 Top-K 前执行 Scope；这里只处理用户显式 pin/exclude 后的正式准入复核。
+                source_docs = self._apply_pinned_excluded(
+                    source_docs,
+                    pinned_chunk_ids=pinned_chunk_ids,
+                    excluded_chunk_ids=excluded_chunk_ids,
+                )
+                source_docs = self._admit_source_docs_by_scope(source_docs, scope)
                 self._record_chunk_hit_query(source_docs)
                 retrieved_source_docs = list(source_docs)
-
-                # 干预 1: 排除显式指定忽略的 chunk
-                if excluded_chunk_ids:
-                    ex_set = set(excluded_chunk_ids)
-                    source_docs = [d for d in source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
-                    retrieved_source_docs = [d for d in retrieved_source_docs if (d.get("metadata") or {}).get("chunk_id") not in ex_set]
-
-                # 干预 2: 补充显式锁定的 chunk
-                if pinned_chunk_ids:
-                    existing_ids = {(d.get("metadata") or {}).get("chunk_id") for d in source_docs if d.get("metadata")}
-                    pinned_docs = self._fetch_pinned_chunks(pinned_chunk_ids)
-                    for pdoc in pinned_docs:
-                        pid = (pdoc.get("metadata") or {}).get("chunk_id")
-                        if pid and pid not in existing_ids:
-                            source_docs.insert(0, pdoc)
-                            retrieved_source_docs.insert(0, pdoc)
-                            existing_ids.add(pid)
+                context = self._format_context(source_docs)
 
                 intent_val = getattr(plan, "intent", None) or "general_qa"
                 if intent_val == "exact_parameter":
@@ -4142,21 +4421,26 @@ class RagChain:
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
             if not source_docs and not allow_general and not is_direct_chat:
+                no_know_answer = (
+                    f"知识库中暂未找到与 {scope.canonical_entity} 对齐的已审核文档内容，无法可靠回答。"
+                    if scope.explicit_selection and scope.canonical_entity
+                    else NO_KNOWLEDGE_ANSWER
+                )
                 evidence = build_evidence_pack(
-                    NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                    no_know_answer, retrieved_source_docs, []
                 )
                 tid = self._commit_qa_trace(
-                    trace, answer=NO_KNOWLEDGE_ANSWER,
+                    trace, answer=no_know_answer,
                     retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
                 )
-                yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
+                yield {"type": "token", "data": no_know_answer}
                 yield {"type": "sources", "data": []}
                 if pipeline_events:
                     yield {
                         "type": "pipeline",
                         "data": {
                             "stage": "done",
-                            "answer": NO_KNOWLEDGE_ANSWER,
+                            "answer": no_know_answer,
                             "evidence": evidence,
                             "stages": trace.stages_ms,
                         },

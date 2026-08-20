@@ -8,6 +8,7 @@ import logging
 import re
 import time
 from threading import Lock
+from typing import Any
 
 import jieba
 from rank_bm25 import BM25Okapi
@@ -50,6 +51,7 @@ class BM25Store:
         review_status: str | None = "approved",
         doc_category: str | None = None,
         top_k: int = 5,
+        scope: Any = None,
     ) -> list[Document]:
         """
         BM25 关键词检索，返回 top-k 个 Document。
@@ -70,7 +72,10 @@ class BM25Store:
         scores = self._bm25.get_scores(tokenized_query)
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
 
-        # 后置过滤元数据，收集 top_k 个
+        norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
+        is_locked = bool(norm_scope and getattr(norm_scope, "is_identity_locked", False))
+
+        # 前置过滤元数据与结构准入条件，收集 top_k 个
         results: list[Document] = []
         for idx, score in ranked:
             if score <= 0:
@@ -88,6 +93,11 @@ class BM25Store:
                 continue
             if doc_category and meta.get("doc_category") != doc_category:
                 continue
+            if is_locked:
+                doc_ent = str(meta.get("document_entity") or meta.get("entity_name") or "").strip()
+                chunk_id = str(meta.get("chunk_id") or "").strip()
+                if not norm_scope.is_structurally_admissible(doc_ent, chunk_id):
+                    continue
             results.append(self._docs[idx])
             if len(results) >= top_k:
                 break
@@ -97,6 +107,13 @@ class BM25Store:
             query, kb_name or "all", len(results),
         )
         return results
+
+    def build_index_from_documents(self, docs: list[Document]):
+        """从指定 Document 列表直接构建 BM25 索引（支持测试及动态注入）。"""
+        self._docs = list(docs)
+        self._metadatas = [d.metadata or {} for d in docs]
+        tokenized_corpus = [self._tokenize(d.page_content) for d in docs]
+        self._bm25 = BM25Okapi(tokenized_corpus) if tokenized_corpus else None
 
     def rebuild(self):
         """重建 BM25 索引（从 ChromaDB 全量拉取文档）"""

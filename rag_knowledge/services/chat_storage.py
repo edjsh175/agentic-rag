@@ -221,6 +221,86 @@ class ChatStorage:
         logger.info("删除会话: %s / %s", fingerprint, session_id)
         return True
 
+    def sync_from_qa_traces(self, fingerprint: str) -> dict:
+        """从 qa_traces 调试记录中扫描有效问答并同步/补齐到当前会话列表"""
+        qa_root = self._root.parent / "qa_traces"
+        if not qa_root.exists():
+            return self.list_sessions(fingerprint)
+
+        traces = []
+        for p in sorted(qa_root.glob("*/*.json")):
+            try:
+                d = json.loads(p.read_text(encoding="utf-8"))
+                meta = d.get("meta", {})
+                req = d.get("request", {})
+                ans = d.get("answer", {})
+                q = req.get("question", "").strip()
+                a = ans.get("text", "").strip()
+                if q and a:
+                    traces.append({
+                        "trace_id": meta.get("trace_id", ""),
+                        "time": meta.get("created_at", ""),
+                        "question": q,
+                        "answer": a,
+                        "thinking": ans.get("thinking", ""),
+                        "sources": ans.get("source_documents", []),
+                    })
+            except Exception:
+                pass
+
+        if not traces:
+            return self.list_sessions(fingerprint)
+
+        raw = self._load_raw(fingerprint)
+        existing_sessions = raw.get("sessions", [])
+        existing_questions = set()
+        for s in existing_sessions:
+            for m in s.get("messages", []):
+                if m.get("role") == "user" and m.get("content"):
+                    existing_questions.add(str(m.get("content")).strip())
+
+        # 过滤尚未存在于会话中的新 trace
+        new_traces = [t for t in traces if t["question"] not in existing_questions]
+        if new_traces:
+            # 按日期分组生成新会话
+            by_date = {}
+            for t in new_traces:
+                d_key = t["time"][:10] if len(t["time"]) >= 10 else "历史问答"
+                by_date.setdefault(d_key, []).append(t)
+
+            for d_key, t_list in by_date.items():
+                first_q = t_list[0]["question"]
+                title = f"{first_q[:20]}" if len(first_q) <= 20 else f"{first_q[:20]}..."
+                sid = _generate_session_id()
+                msgs = []
+                for i, t in enumerate(t_list):
+                    ts = t["time"] or datetime.now().isoformat()
+                    msgs.append({"id": f"u_{sid}_{i}", "role": "user", "content": t["question"], "hasImage": False})
+                    msgs.append({
+                        "id": f"a_{sid}_{i}",
+                        "role": "assistant",
+                        "content": t["answer"],
+                        "hasImage": False,
+                        "sources": t["sources"],
+                        "thinking": t["thinking"],
+                        "trace_id": t["trace_id"],
+                    })
+                new_session_data = {
+                    "id": sid,
+                    "title": title,
+                    "created_at": t_list[0]["time"] or datetime.now().isoformat(timespec="seconds"),
+                    "updated_at": t_list[-1]["time"] or datetime.now().isoformat(timespec="seconds"),
+                    "messages": msgs,
+                }
+                raw.setdefault("sessions", []).insert(0, new_session_data)
+
+            if raw.get("sessions"):
+                raw["active_session_id"] = raw["sessions"][0]["id"]
+            self._save_raw(fingerprint, raw)
+            logger.info("从 qa_traces 补齐了 %d 条问答会话", len(new_traces))
+
+        return self.list_sessions(fingerprint)
+
     # ---------------- 兼容旧单会话接口 ----------------
 
     def load(self, fingerprint: str) -> dict | None:

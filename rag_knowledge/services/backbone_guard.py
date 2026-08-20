@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+from rag_knowledge.services.relation_policy import SCOPE_TRAVERSAL_RELATIONS
+
 CONFLICT_REASON = "conflicts_product_backbone"
 BACKBONE_CONTEXT_MAX_CHARS = 3000
 _REWRITE_TYPE_PRIORITY = ("Product", "Module", "Tool", "Service", "DataTable")
@@ -34,12 +36,29 @@ def soft_match_backbone_entities(
 
     hits: list[str] = []
     seen: set[str] = set()
+    matched_terms: list[str] = []
     terms = sorted(aliases.keys(), key=len, reverse=True)
+
+    def _has_explicit_match(key: str) -> bool:
+        start = haystack.find(key)
+        while start >= 0:
+            left = haystack[start - 1] if start else ""
+            end = start + len(key)
+            right = haystack[end] if end < len(haystack) else ""
+            left_is_ascii_word = left.isascii() and left.isalnum()
+            right_is_ascii_word = right.isascii() and right.isalnum()
+            if not left_is_ascii_word and not right_is_ascii_word:
+                return True
+            start = haystack.find(key, start + 1)
+        return False
+
     for term in terms:
         if len(term) < 2:
             continue
         key = _fold_match_key(term)
-        if len(key) < 2 or key not in haystack:
+        if len(key) < 2 or not _has_explicit_match(key):
+            continue
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", str(term)) and any(key in previous for previous in matched_terms):
             continue
         canonical = str(aliases.get(term) or term)
         if canonical not in types:
@@ -48,6 +67,7 @@ def soft_match_backbone_entities(
             continue
         seen.add(canonical)
         hits.append(canonical)
+        matched_terms.append(key)
         if len(hits) >= max_hits:
             break
     return hits
@@ -72,6 +92,10 @@ def avoid_names_for_anchors(anchors: list[str] | tuple[str, ...], constraints: d
     return avoid
 
 
+# Backward-compatible export; relation semantics are defined in relation_policy.py.
+DEFAULT_ALLOWED_RELATIONS: frozenset[str] = SCOPE_TRAVERSAL_RELATIONS
+
+
 def hop_relations_for_anchors(
     anchors: list[str] | tuple[str, ...],
     constraints: dict,
@@ -79,7 +103,7 @@ def hop_relations_for_anchors(
     max_edges: int = 16,
 ) -> list[dict]:
     """One-hop backbone edges touching any anchor (belongs_to / different_from / requires / depends_on)."""
-    interesting = {"belongs_to", "different_from", "requires", "depends_on"}
+    interesting = DEFAULT_ALLOWED_RELATIONS
     anchor_set = {resolve_canonical(a, constraints) for a in anchors if a}
     if not anchor_set:
         return []
@@ -488,3 +512,29 @@ def chunk_in_backbone_neighborhood(chunk: dict, constraints: dict) -> bool:
         if term in haystack:
             return True
     return False
+
+
+def infer_document_entity(
+    source_name: str,
+    section_path: str = "",
+    constraints: dict | None = None,
+) -> str | None:
+    """Generic inference of canonical document_entity from source file name or section path."""
+    constraints = constraints if constraints is not None else load_backbone_constraints()
+    aliases = constraints.get("canonical_by_alias") or {}
+    types = constraints.get("entity_type_by_name") or {}
+
+    haystack = f"{source_name} {section_path}"
+    terms = sorted(aliases.keys(), key=len, reverse=True)
+    for term in terms:
+        if len(term) < 2:
+            continue
+        key = _fold_match_key(term)
+        target = _fold_match_key(haystack)
+        if key in target:
+            canonical = str(aliases.get(term) or term)
+            canon = resolve_canonical(canonical, constraints) or canonical
+            # 优先返回具体的工具/产品实体
+            if canon and types.get(canon) in {"Product", "Tool", "Module", "Service"}:
+                return canon
+    return None
