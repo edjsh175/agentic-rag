@@ -1,0 +1,37 @@
+[
+  {"id":"res2-responsibility-pos","category":"role_direction","claim":"调度模块负责任务分发","evidence":["调度模块负责任务分发。"],"expected":"entailed"},
+  {"id":"res2-responsibility-reverse","category":"role_direction","claim":"任务分发负责调度模块","evidence":["调度模块负责任务分发。"],"expected":"contradicted"},
+
+  {"id":"res2-generate-pos","category":"production_direction","claim":"模型服务生成结果文件","evidence":["模型服务生成结果文件。"],"expected":"entailed"},
+  {"id":"res2-generate-reverse","category":"production_direction","claim":"结果文件生成模型服务","evidence":["模型服务生成结果文件。"],"expected":"contradicted"},
+
+  {"id":"res2-read-pos","category":"read_direction","claim":"客户端读取配置文件","evidence":["客户端读取配置文件。"],"expected":"entailed"},
+  {"id":"res2-read-reverse","category":"read_direction","claim":"配置文件读取客户端","evidence":["客户端读取配置文件。"],"expected":"contradicted"},
+
+  {"id":"res2-subscribe-pos","category":"subscription_direction","claim":"客户端订阅服务端事件","evidence":["客户端订阅服务端事件。"],"expected":"entailed"},
+  {"id":"res2-subscribe-reverse","category":"subscription_direction","claim":"服务端订阅客户端事件","evidence":["客户端订阅服务端事件。"],"expected":"contradicted"},
+
+  {"id":"res2-send-pos","category":"transfer_direction","claim":"数据源向服务端发送数据","evidence":["数据源向服务端发送数据。"],"expected":"entailed"},
+  {"id":"res2-send-reverse","category":"transfer_direction","claim":"服务端向数据源发送数据","evidence":["数据源向服务端发送数据。"],"expected":"contradicted"},
+
+  {"id":"res2-return-pos","category":"transfer_direction","claim":"服务端向客户端返回结果","evidence":["服务端向客户端返回结果。"],"expected":"entailed"},
+  {"id":"res2-return-reverse","category":"transfer_direction","claim":"客户端向服务端返回结果","evidence":["服务端向客户端返回结果。"],"expected":"contradicted"},
+
+  {"id":"res2-cond-impl-pos","category":"condition_scope","claim":"启用兼容模式时，系统采用旧版协议","evidence":["启用兼容模式时，系统采用旧版协议。"],"expected":"entailed"},
+  {"id":"res2-cond-impl-erased","category":"condition_scope","claim":"系统采用旧版协议","evidence":["启用兼容模式时，系统采用旧版协议。"],"expected":"unsupported"},
+
+  {"id":"res2-cond-port-pos","category":"condition_scope","claim":"在测试环境中，服务端口为 8080","evidence":["在测试环境中，服务端口为 8080。"],"expected":"entailed"},
+  {"id":"res2-cond-port-erased","category":"condition_scope","claim":"服务端口为 8080","evidence":["在测试环境中，服务端口为 8080。"],"expected":"unsupported"},
+
+  {"id":"res2-certainty-pos","category":"certainty_strength","claim":"高负载下可能出现延迟","evidence":["高负载下可能出现延迟。"],"expected":"entailed"},
+  {"id":"res2-certainty-strengthened","category":"certainty_strength","claim":"高负载下一定出现延迟","evidence":["高负载下可能出现延迟。"],"expected":"unsupported"},
+
+  {"id":"res2-partial-pos","category":"quantifier_scope","claim":"部分模块支持热更新","evidence":["部分模块支持热更新。"],"expected":"entailed"},
+  {"id":"res2-partial-generalized","category":"quantifier_scope","claim":"模块支持热更新","evidence":["部分模块支持热更新。"],"expected":"unsupported"},
+
+  {"id":"res2-default-pos","category":"default_scope","claim":"默认配置下，缓存容量为 512","evidence":["默认配置下，缓存容量为 512。"],"expected":"entailed"},
+  {"id":"res2-default-erased","category":"default_scope","claim":"缓存容量为 512","evidence":["默认配置下，缓存容量为 512。"],"expected":"unsupported"},
+
+  {"id":"res2-version-pos","category":"version_scope","claim":"在 V2 模式下，系统采用压缩传输","evidence":["在 V2 模式下，系统采用压缩传输。"],"expected":"entailed"},
+  {"id":"res2-version-erased","category":"version_scope","claim":"系统采用压缩传输","evidence":["在 V2 模式下，系统采用压缩传输。"],"expected":"unsupported"}
+]

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "capability-positive",
+    "category": "polarity",
+    "claim": "StampServer 支持在线发布",
+    "evidence": ["StampServer 支持在线发布，但不支持离线发布。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "capability-contradicted",
+    "category": "polarity",
+    "claim": "StampServer 支持离线发布",
+    "evidence": ["StampServer 支持在线发布，但不支持离线发布。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "capability-negative-entailed",
+    "category": "polarity",
+    "claim": "StampServer 不支持离线发布",
+    "evidence": ["StampServer 支持在线发布，但不支持离线发布。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "different-product-line",
+    "category": "relation",
+    "claim": "StampWebGL 与 StampWebRTC 属于不同产品线",
+    "evidence": ["StampWebGL 二次开发接口与 WebRTC 的 StampUtil.createElementLineParams 不同产品线。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "fabricated-dependency",
+    "category": "relation",
+    "claim": "StampWebGL 基于 StampWebRTC 实现",
+    "evidence": ["StampWebGL 与 StampWebRTC 属于不同产品线，接口规范相互独立。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "external-opengl",
+    "category": "external_knowledge",
+    "claim": "StampWebGL 使用 OpenGL ES API 扩展 JavaScript",
+    "evidence": ["StampWebGL 使用 CreateElementLine 接口创建折线。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "webgl-render-route",
+    "category": "architecture",
+    "claim": "系统支持 WebGL 免插件技术",
+    "evidence": ["同一套三维数据服务支持基于 ActiveX 插件技术和 WebGL 免插件技术的前端双渲染引擎。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "fabricated-react-route",
+    "category": "external_knowledge",
+    "claim": "系统采用 React 作为 B/S 前端技术路线",
+    "evidence": ["同一套三维数据服务支持 ActiveX 插件技术、WebGL 免插件技术以及后台云端渲染。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "five-layer-architecture",
+    "category": "architecture",
+    "claim": "系统技术架构分为五层",
+    "evidence": ["系统在技术架构的设计上分为五层结构：工具集、系统数据、系统服务、业务应用和客户端。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "fabricated-causality",
+    "category": "causality",
+    "claim": "由于采用 WebGL，所以系统性能更高",
+    "evidence": ["系统支持 WebGL 免插件技术。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "exclusive-overclaim",
+    "category": "scope",
+    "claim": "系统只支持 WebGL 这一种渲染方式",
+    "evidence": ["系统同时支持 ActiveX、WebGL 和后台云端渲染。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "identity-unsupported",
+    "category": "identity",
+    "claim": "WebRTC 属于 StampWebGL",
+    "evidence": ["StampWebGL 与 WebRTC 属于不同产品线。"],
+    "expected": "contradicted"
+  }
+]

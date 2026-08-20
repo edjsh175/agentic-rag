@@ -1,0 +1,170 @@
+[
+  {
+    "id": "res-dependency-01-pos",
+    "category": "dependency_direction",
+    "claim": "PipelineBuilder 依赖 StampServer",
+    "evidence": ["PipelineBuilder 依赖 StampServer。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-dependency-01-reverse",
+    "category": "dependency_direction",
+    "claim": "StampServer 依赖 PipelineBuilder",
+    "evidence": ["PipelineBuilder 依赖 StampServer。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-dependency-02-pos",
+    "category": "dependency_direction",
+    "claim": "StampWebRTC 依赖 MediaGateway",
+    "evidence": ["StampWebRTC 依赖 MediaGateway。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-dependency-02-reverse",
+    "category": "dependency_direction",
+    "claim": "MediaGateway 依赖 StampWebRTC",
+    "evidence": ["StampWebRTC 依赖 MediaGateway。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-belong-01-pos",
+    "category": "belonging_direction",
+    "claim": "PipelineBuilder 属于 StampTools",
+    "evidence": ["PipelineBuilder 属于 StampTools。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-belong-01-reverse",
+    "category": "belonging_direction",
+    "claim": "StampTools 属于 PipelineBuilder",
+    "evidence": ["PipelineBuilder 属于 StampTools。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-belong-02-pos",
+    "category": "belonging_direction",
+    "claim": "StampWebGL 归属 WebClient",
+    "evidence": ["StampWebGL 归属 WebClient。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-belong-02-reverse",
+    "category": "belonging_direction",
+    "claim": "WebClient 归属 StampWebGL",
+    "evidence": ["StampWebGL 归属 WebClient。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-compare-01-pos",
+    "category": "ordered_comparison",
+    "claim": "PipelineBuilder 性能高于 PipelineWebGL",
+    "evidence": ["PipelineBuilder 性能高于 PipelineWebGL。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-compare-01-reverse",
+    "category": "ordered_comparison",
+    "claim": "PipelineWebGL 性能高于 PipelineBuilder",
+    "evidence": ["PipelineBuilder 性能高于 PipelineWebGL。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-compare-02-pos",
+    "category": "ordered_comparison",
+    "claim": "StampServer 优先级高于 DataServer",
+    "evidence": ["StampServer 优先级高于 DataServer。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-compare-02-reverse",
+    "category": "ordered_comparison",
+    "claim": "DataServer 优先级高于 StampServer",
+    "evidence": ["StampServer 优先级高于 DataServer。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-cause-01-pos",
+    "category": "causal_direction",
+    "claim": "网络中断会导致 StampServer 进入重连状态",
+    "evidence": ["网络中断会导致 StampServer 进入重连状态。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-cause-01-reverse",
+    "category": "causal_direction",
+    "claim": "StampServer 进入重连状态会导致网络中断",
+    "evidence": ["网络中断会导致 StampServer 进入重连状态。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-cause-02-pos",
+    "category": "causal_direction",
+    "claim": "配置缺失会导致 PipelineBuilder 启动失败",
+    "evidence": ["配置缺失会导致 PipelineBuilder 启动失败。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-cause-02-reverse",
+    "category": "causal_direction",
+    "claim": "PipelineBuilder 启动失败会导致配置缺失",
+    "evidence": ["配置缺失会导致 PipelineBuilder 启动失败。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-order-01-pos",
+    "category": "procedure_order",
+    "claim": "必须先启动 DataServer，再启动 StampServer",
+    "evidence": ["必须先启动 DataServer，再启动 StampServer。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-order-01-reverse",
+    "category": "procedure_order",
+    "claim": "必须先启动 StampServer，再启动 DataServer",
+    "evidence": ["必须先启动 DataServer，再启动 StampServer。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-order-02-pos",
+    "category": "procedure_order",
+    "claim": "需要先创建工程，再发布服务",
+    "evidence": ["需要先创建工程，再发布服务。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-order-02-reverse",
+    "category": "procedure_order",
+    "claim": "需要先发布服务，再创建工程",
+    "evidence": ["需要先创建工程，再发布服务。"],
+    "expected": "contradicted"
+  },
+  {
+    "id": "res-condition-01-pos",
+    "category": "condition_scope",
+    "claim": "启用离线模式时，StampServer 支持本地缓存",
+    "evidence": ["启用离线模式时，StampServer 支持本地缓存。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-condition-01-erased",
+    "category": "condition_scope",
+    "claim": "StampServer 支持本地缓存",
+    "evidence": ["启用离线模式时，StampServer 支持本地缓存。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "res-condition-02-pos",
+    "category": "condition_scope",
+    "claim": "开启兼容模式后，PipelineBuilder 可以导入旧版工程",
+    "evidence": ["开启兼容模式后，PipelineBuilder 可以导入旧版工程。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "res-condition-02-erased",
+    "category": "condition_scope",
+    "claim": "PipelineBuilder 可以导入旧版工程",
+    "evidence": ["开启兼容模式后，PipelineBuilder 可以导入旧版工程。"],
+    "expected": "unsupported"
+  }
+]

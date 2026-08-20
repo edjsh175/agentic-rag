@@ -1,0 +1,90 @@
+[
+  {
+    "id": "trace73-product-line-entailed",
+    "trace_id": "73f6b29736264393b7ffa3415d2079d9",
+    "category": "incident_webgl_webrtc",
+    "claim": "StampWebGL 与 StampWebRTC 属于不同产品线",
+    "evidence": ["StampWebGL 二次开发：创建折线。与 WebRTC 的 StampUtil.createElementLineParams 不同产品线。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "trace73-api-difference-entailed",
+    "trace_id": "73f6b29736264393b7ffa3415d2079d9",
+    "category": "incident_webgl_webrtc",
+    "claim": "StampWebGL 创建折线使用 CreateElementLine，而 StampWebRTC 使用 createElementLineParams",
+    "evidence": ["SDK Cookbook 对照表：StampWebRTC 使用 createElementLineParams；StampWebGL 使用 CreateElementLine。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "trace73-opengles-unsupported",
+    "trace_id": "73f6b29736264393b7ffa3415d2079d9",
+    "category": "incident_external_knowledge",
+    "claim": "WebGL 使用 OpenGL ES API 扩展 JavaScript",
+    "evidence": ["StampWebGL 二次开发接口与 WebRTC 属于不同产品线。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "trace73-game-vr-unsupported",
+    "trace_id": "73f6b29736264393b7ffa3415d2079d9",
+    "category": "incident_external_knowledge",
+    "claim": "WebGL 常用于游戏和虚拟现实",
+    "evidence": ["StampWebGL 使用 CreateElementLine 接口；StampWebRTC 使用 createElementLineParams。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "trace73-webrtc-scenes-unsupported",
+    "trace_id": "73f6b29736264393b7ffa3415d2079d9",
+    "category": "incident_external_knowledge",
+    "claim": "WebRTC 广泛应用于视频会议、在线直播和实时协作",
+    "evidence": ["WebGL 版与 WebRTC 版在系统网络拓扑中使用的端口存在区分。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "tracebb-five-layer-entailed",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_bs_architecture",
+    "claim": "系统技术架构分为工具集、系统数据、系统服务、业务应用和客户端五层",
+    "evidence": ["系统在技术架构的设计上分为五层结构：工具集、系统数据、系统服务、业务应用和客户端。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "tracebb-webgl-activex-cloud-entailed",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_bs_architecture",
+    "claim": "系统支持 ActiveX 插件技术、WebGL 免插件技术以及后台云端渲染",
+    "evidence": ["同一套三维数据服务既支持基于 ActiveX 插件技术和 WebGL 免插件技术的前端双渲染引擎，也支持后台云端渲染。"],
+    "expected": "entailed"
+  },
+  {
+    "id": "tracebb-react-vue-unsupported",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_external_knowledge",
+    "claim": "B/S 架构采用 React 或 Vue 作为前端技术路线",
+    "evidence": ["系统支持 ActiveX 插件技术、WebGL 免插件技术和后台云端渲染。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "tracebb-nodejs-unsupported",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_external_knowledge",
+    "claim": "B/S 架构采用 Node.js 进行前后端一体化开发",
+    "evidence": ["系统技术架构分为工具集、系统数据、系统服务、业务应用和客户端五层。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "tracebb-spring-django-unsupported",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_external_knowledge",
+    "claim": "B/S 架构采用 Django 或 Spring Boot 作为全栈开发框架",
+    "evidence": ["系统支持 WebGL 免插件技术、ActiveX 插件技术以及后台云端渲染。"],
+    "expected": "unsupported"
+  },
+  {
+    "id": "tracebb-microservice-unsupported",
+    "trace_id": "bbcd8571861949819dc472474c7a3bb7",
+    "category": "incident_external_knowledge",
+    "claim": "B/S 架构采用 Docker 和 Kubernetes 管理微服务",
+    "evidence": ["系统采用数据、管理、服务与应用相分离的架构原则，并构建私有云应用架构。"],
+    "expected": "unsupported"
+  }
+]

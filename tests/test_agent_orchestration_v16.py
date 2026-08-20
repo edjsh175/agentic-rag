@@ -1,0 +1,455 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+from langchain_core.documents import Document
+
+from rag_knowledge.services.agent_orchestration.evidence_gate import (
+    evaluate_claim_alignment,
+    evaluate_rules,
+)
+from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
+from rag_knowledge.services.agent_orchestration.runtime import build_agent_registry
+from rag_knowledge.services.bm25_store import BM25Store
+from rag_knowledge.services.conversation_context import UnderstandingResult
+from rag_knowledge.services.dialogue_understanding import (
+    SemanticTaskContext,
+    build_semantic_task_context,
+)
+from rag_knowledge.services.exploration_grant import ExplorationGrant, ExplorationGrantResolver
+from rag_knowledge.services.identity_scope import IdentityScopeResolver
+from rag_knowledge.services.query_cache import QueryCache
+from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
+
+
+class _FakeGraphDB:
+    def __init__(self):
+        self.entities = [
+            {"id": "a", "name": "EntityA", "canonical_name": "EntityA", "entity_type": "Tool", "review_status": "approved"},
+            {"id": "b", "name": "EntityB", "canonical_name": "EntityB", "entity_type": "Tool", "review_status": "approved"},
+            {"id": "svc", "name": "ServiceX", "canonical_name": "ServiceX", "entity_type": "Service", "review_status": "approved"},
+            {"id": "cfg", "name": "ConfigY", "canonical_name": "ConfigY", "entity_type": "ConfigItem", "review_status": "approved"},
+        ]
+        self.relations = [
+            {
+                "id": "different",
+                "source_entity_id": "a",
+                "target_entity_id": "b",
+                "relation_type": "different_from",
+                "source_name": "EntityA",
+                "source_type": "Tool",
+                "target_name": "EntityB",
+                "target_type": "Tool",
+                "review_status": "approved",
+            },
+            {
+                "id": "dep",
+                "source_entity_id": "a",
+                "target_entity_id": "svc",
+                "relation_type": "depends_on",
+                "source_name": "EntityA",
+                "source_type": "Tool",
+                "target_name": "ServiceX",
+                "target_type": "Service",
+                "review_status": "approved",
+            },
+            {
+                "id": "req",
+                "source_entity_id": "svc",
+                "target_entity_id": "cfg",
+                "relation_type": "requires",
+                "source_name": "ServiceX",
+                "source_type": "Service",
+                "target_name": "ConfigY",
+                "target_type": "ConfigItem",
+                "review_status": "approved",
+            },
+        ]
+        self.links = {
+            "a": [{"id": "la", "entity_id": "a", "chunk_id": "chunk-a", "entity_name": "EntityA"}],
+            "b": [{"id": "lb", "entity_id": "b", "chunk_id": "chunk-b", "entity_name": "EntityB"}],
+            "svc": [{"id": "ls", "entity_id": "svc", "chunk_id": "chunk-svc", "entity_name": "ServiceX"}],
+            "cfg": [{"id": "lc", "entity_id": "cfg", "chunk_id": "chunk-cfg", "entity_name": "ConfigY"}],
+        }
+
+    def list_entities(self, review_status: str = ""):
+        if not review_status:
+            return list(self.entities)
+        return [item for item in self.entities if item.get("review_status") == review_status]
+
+    def list_relations(self, entity_id: str = "", relation_type: str = "", review_status: str = ""):
+        rows = list(self.relations)
+        if entity_id:
+            rows = [
+                item for item in rows
+                if item["source_entity_id"] == entity_id or item["target_entity_id"] == entity_id
+            ]
+        if relation_type:
+            rows = [item for item in rows if item["relation_type"] == relation_type]
+        if review_status:
+            rows = [item for item in rows if item.get("review_status") == review_status]
+        return rows
+
+    def list_links(self, entity_id: str = "", chunk_id: str = ""):
+        rows = []
+        if entity_id:
+            rows.extend(self.links.get(entity_id, []))
+        else:
+            for items in self.links.values():
+                rows.extend(items)
+        if chunk_id:
+            rows = [item for item in rows if item["chunk_id"] == chunk_id]
+        return rows
+
+
+def _semantic(*entities: str, primary: str | None = None) -> SemanticTaskContext:
+    values = tuple(entities)
+    return SemanticTaskContext(
+        resolved_question=" ".join(values) or "generic question",
+        primary_entity=primary if primary is not None else (values[0] if values else None),
+        mentioned_entities=values,
+        task_type="multi_entity_relation" if len(values) >= 2 else ("single_entity" if values else "unbound"),
+        confidence=1.0,
+    )
+
+
+def _resolver(semantic: SemanticTaskContext, db=None, *, max_hops: int = 2, max_entities: int = 8):
+    identity = IdentityScopeResolver.resolve(semantic)
+    return identity, ExplorationGrantResolver(
+        identity_scope=identity,
+        semantic_task=semantic,
+        graph_db=db,
+        max_hops=max_hops,
+        max_entities=max_entities,
+    )
+
+
+def _grant_doc(grant: ExplorationGrant, entity: str, chunk_id: str, content: str) -> dict:
+    return {
+        "content": content,
+        "metadata": {
+            "chunk_id": chunk_id,
+            "document_entity": entity,
+            "evidence_target_entity": entity,
+            "grant_id": grant.grant_id,
+            "grant_admitted": True,
+            "identity_scope_id": grant.identity_scope_id,
+            "provenance_source_type": grant.source_type,
+            "provenance_path": {
+                "source_type": grant.source_type,
+                "source_ref": grant.source_ref,
+            },
+        },
+    }
+
+
+def test_v16_stage1_semantic_task_recognizes_multi_entity_without_scope_regex():
+    result = UnderstandingResult(
+        mode="retrieve",
+        user_utterance="PipelineWebGL 和 PipelineBuilder 如何协同部署？",
+        resolved_question="PipelineWebGL 和 PipelineBuilder 如何协同部署？",
+        confidence=0.95,
+    )
+    semantic = build_semantic_task_context(result.user_utterance, result)
+
+    assert semantic.task_type == "multi_entity_relation"
+    assert semantic.primary_entity == "PipelineWebGL"
+    assert semantic.mentioned_entities[:2] == ("PipelineWebGL", "PipelineBuilder")
+
+
+def test_v16_identity_materializes_after_semantic_task_and_stays_primary():
+    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
+    identity = IdentityScopeResolver.resolve(semantic)
+
+    assert identity.primary_entity == "EntityA"
+    assert identity.is_identity_locked is True
+    assert not hasattr(identity, "admissible_entities")
+
+
+def test_v16_explicit_multi_entity_gets_independent_grants_without_rebinding():
+    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
+    identity, resolver = _resolver(semantic, _FakeGraphDB())
+
+    grant_a = resolver.authorize("EntityA")
+    grant_b = resolver.authorize("EntityB")
+
+    assert identity.primary_entity == "EntityA"
+    assert grant_a.authorized is True
+    assert grant_b.authorized is True
+    assert grant_b.grant is not None
+    assert grant_b.grant.target_entities == ("EntityB",)
+    assert grant_b.grant.source_type == "user_explicit_mention"
+    assert identity.primary_entity == "EntityA"
+
+
+def test_v16_sudden_different_from_sibling_is_not_an_exploration_permission():
+    semantic = _semantic("EntityA", primary="EntityA")
+    identity, resolver = _resolver(semantic, _FakeGraphDB())
+
+    result = resolver.authorize("EntityB")
+
+    assert identity.primary_entity == "EntityA"
+    assert result.authorized is False
+    assert result.rejection_reason == "target_not_authorized"
+
+
+def test_v16_approved_graph_relation_can_authorize_new_target_and_two_hops():
+    semantic = _semantic("EntityA", primary="EntityA")
+    identity, resolver = _resolver(semantic, _FakeGraphDB())
+
+    service = resolver.authorize("ServiceX")
+    assert service.authorized is True
+    assert service.grant is not None
+    assert service.grant.source_type == "graph_relation"
+    assert service.grant.source_ref == "relation:dep"
+    assert service.grant.hop_depth == 1
+
+    config = resolver.authorize("ConfigY")
+    assert config.authorized is True
+    assert config.grant is not None
+    assert config.grant.source_type == "graph_relation"
+    assert config.grant.source_ref == "relation:req"
+    assert config.grant.hop_depth == 2
+    assert identity.primary_entity == "EntityA"
+
+
+def test_v16_graph_hop_budget_rejects_third_party_when_path_exceeds_budget():
+    semantic = _semantic("EntityA", primary="EntityA")
+    _, resolver = _resolver(semantic, _FakeGraphDB(), max_hops=1)
+
+    assert resolver.authorize("ServiceX").authorized is True
+    denied = resolver.authorize("ConfigY")
+    assert denied.authorized is False
+    assert denied.rejection_reason == "target_not_authorized"
+
+
+def test_v16_grant_fingerprint_and_cache_key_isolate_targets():
+    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
+    _, resolver = _resolver(semantic, _FakeGraphDB())
+    grant_a = resolver.authorize("EntityA").grant
+    grant_b = resolver.authorize("EntityB").grant
+    assert grant_a is not None and grant_b is not None
+
+    assert grant_a.fingerprint != grant_b.fingerprint
+    common = dict(
+        rewritten_query="same query",
+        kb_name="kb",
+        doc_category=None,
+        review_status="approved",
+        method="hybrid",
+        rerank=True,
+        web_search=False,
+    )
+    key_a = QueryCache.make_key(**common, scope_fingerprint=grant_a.fingerprint)
+    key_b = QueryCache.make_key(**common, scope_fingerprint=grant_b.fingerprint)
+    assert key_a != key_b
+
+
+def test_v16_vector_pre_topk_filter_uses_current_grant_target_only():
+    strategy = object.__new__(RetrievalStrategy)
+    strategy._cfg = SimpleNamespace(
+        retrieval_top_k=4,
+        retrieval_fetch_k=20,
+        retrieval_lambda_mult=0.5,
+    )
+    chroma = MagicMock()
+    chroma.as_retriever.return_value.invoke.return_value = []
+    strategy._store = MagicMock()
+    strategy._store.get_chroma.return_value = chroma
+
+    grant = ExplorationGrant(
+        grant_id="grant-a",
+        identity_scope_id="identity-a",
+        target_entities=("EntityA",),
+        source_type="user_explicit_mention",
+        source_ref="user_query:EntityA",
+    )
+    strategy._retrieve_vector(
+        "same query",
+        kb_name="kb",
+        doc_category=None,
+        review_status="approved",
+        search_type="similarity",
+        top_k=2,
+        scope=grant,
+    )
+
+    filt = chroma.as_retriever.call_args.kwargs["search_kwargs"]["filter"]
+    assert filt == {
+        "$and": [
+            {"kb_name": "kb"},
+            {"review_status": "approved"},
+            {"document_entity": {"$in": ["EntityA"]}},
+        ]
+    }
+
+
+def test_v16_bm25_pre_topk_filter_uses_grant_before_collecting_topk():
+    store = BM25Store()
+    store.build_index_from_documents([
+        Document(page_content="共同关键词 alpha", metadata={"chunk_id": "a1", "document_entity": "EntityA", "review_status": "approved"}),
+        Document(page_content="共同关键词 alpha alpha", metadata={"chunk_id": "b1", "document_entity": "EntityB", "review_status": "approved"}),
+        Document(page_content="共同关键词 alpha beta", metadata={"chunk_id": "a2", "document_entity": "EntityA", "review_status": "approved"}),
+    ])
+    grant = ExplorationGrant(
+        grant_id="grant-a",
+        identity_scope_id="identity-a",
+        target_entities=("EntityA",),
+        source_type="user_explicit_mention",
+        source_ref="user_query:EntityA",
+    )
+
+    hits = store.search("共同关键词", top_k=2, scope=grant)
+
+    assert len(hits) == 2
+    assert all(hit.metadata.get("document_entity") == "EntityA" for hit in hits)
+
+
+def test_v16_structural_admission_marks_grant_provenance_and_rejects_sibling():
+    grant = ExplorationGrant(
+        grant_id="grant-a",
+        identity_scope_id="identity-a",
+        target_entities=("EntityA",),
+        source_type="user_explicit_mention",
+        source_ref="user_query:EntityA",
+    )
+    docs = [
+        Document(page_content="A", metadata={"chunk_id": "a", "document_entity": "EntityA"}),
+        Document(page_content="B", metadata={"chunk_id": "b", "document_entity": "EntityB"}),
+    ]
+
+    filtered = RetrievalStrategy._filter_by_scope(docs, grant)
+
+    assert [doc.metadata["chunk_id"] for doc in filtered] == ["a"]
+    meta = filtered[0].metadata
+    assert meta["grant_id"] == "grant-a"
+    assert meta["identity_scope_id"] == "identity-a"
+    assert meta["grant_admitted"] is True
+    assert meta["evidence_target_entity"] == "EntityA"
+    assert meta["provenance_source_type"] == "user_explicit_mention"
+
+
+def test_v16_evidence_pool_groups_retrieval_by_target_and_grant():
+    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
+    identity, resolver = _resolver(semantic, _FakeGraphDB())
+    grant_a = resolver.authorize("EntityA").grant
+    grant_b = resolver.authorize("EntityB").grant
+    assert grant_a is not None and grant_b is not None
+
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
+    pool.add_retrieve([_grant_doc(grant_b, "EntityB", "b", "B fact")], target_entity="EntityB", grant=grant_b)
+
+    groups = [group for group in pool.groups if group.kind == "retrieve"]
+    assert [(group.target_entity, group.grant_id) for group in groups] == [
+        ("EntityA", grant_a.grant_id),
+        ("EntityB", grant_b.grant_id),
+    ]
+    assert all(group.provenance for group in groups)
+    assert identity.primary_entity == "EntityA"
+
+
+def test_v16_structural_gate_rejects_cross_grant_chunk():
+    semantic = _semantic("EntityA", primary="EntityA")
+    identity, resolver = _resolver(semantic, _FakeGraphDB())
+    grant = resolver.authorize("EntityA").grant
+    assert grant is not None
+    conv = ConversationContext(
+        user_question="EntityA",
+        session=SimpleNamespace(turns=[]),
+        head_entity="EntityA",
+        scope=identity,
+    )
+    pool = EvidencePool(question_id="q")
+    bad_doc = _grant_doc(grant, "EntityA", "a", "A fact")
+    bad_doc["metadata"]["grant_id"] = "wrong-grant"
+    pool.add_retrieve([bad_doc], target_entity="EntityA", grant=grant)
+
+    verdict = evaluate_rules(conv, pool)
+
+    assert verdict["allow_knowledge_answer"] is False
+    assert verdict["reason"] == "grant_id_mismatch"
+
+
+def test_v16_claim_guard_rejects_b_claim_backed_only_by_a_evidence():
+    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
+    _, resolver = _resolver(semantic, _FakeGraphDB())
+    grant_a = resolver.authorize("EntityA").grant
+    grant_b = resolver.authorize("EntityB").grant
+    assert grant_a is not None and grant_b is not None
+
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
+    pool.add_retrieve([_grant_doc(grant_b, "EntityB", "b", "B fact")], target_entity="EntityB", grant=grant_b)
+    docs = pool.citable_docs_renumbered()
+
+    verdict = evaluate_claim_alignment("EntityB 的端口是 8080。[1]", pool, docs)
+
+    assert verdict["allow_claims"] is False
+    assert verdict["reason"] == "entity_claim_misaligned"
+
+
+def test_v16_claim_guard_requires_relation_evidence_for_cross_entity_relation():
+    semantic = _semantic("EntityA", "ServiceX", primary="EntityA")
+    _, resolver = _resolver(semantic, _FakeGraphDB())
+    grant_a = resolver.authorize("EntityA").grant
+    grant_s = resolver.authorize("ServiceX").grant
+    assert grant_a is not None and grant_s is not None
+
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
+    pool.add_retrieve([_grant_doc(grant_s, "ServiceX", "s", "Service fact")], target_entity="ServiceX", grant=grant_s)
+    docs = pool.citable_docs_renumbered()
+
+    verdict = evaluate_claim_alignment("EntityA 依赖 ServiceX。[1][2]", pool, docs)
+
+    assert verdict["allow_claims"] is False
+    assert verdict["reason"] == "relation_claim_without_relation_evidence"
+
+
+def test_v16_claim_guard_accepts_matching_approved_relation_evidence():
+    semantic = _semantic("EntityA", primary="EntityA")
+    _, resolver = _resolver(semantic, _FakeGraphDB())
+    grant_a = resolver.authorize("EntityA").grant
+    grant_s = resolver.authorize("ServiceX").grant
+    assert grant_a is not None and grant_s is not None
+
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
+    pool.add_retrieve([_grant_doc(grant_s, "ServiceX", "s", "Service fact")], target_entity="ServiceX", grant=grant_s)
+    pool.add_relation(
+        relation_key="EntityA -[depends_on]-> ServiceX",
+        target_entity="ServiceX",
+        grant=grant_s,
+        provenance=[{
+            "source_type": "graph_relation",
+            "source_ref": "relation:dep",
+            "relation_type": "depends_on",
+            "source_entity": "EntityA",
+            "target_entity": "ServiceX",
+        }],
+    )
+    docs = pool.citable_docs_renumbered()
+    relation_citation = next(
+        int(doc["metadata"]["citation_id"])
+        for doc in docs
+        if doc["metadata"].get("relation_type") == "depends_on"
+    )
+
+    verdict = evaluate_claim_alignment(
+        f"EntityA 依赖 ServiceX。[{relation_citation}]",
+        pool,
+        docs,
+    )
+
+    assert verdict["allow_claims"] is True
+
+
+def test_v16_tool_schema_exposes_target_entity_for_retrieve_and_link():
+    registry = build_agent_registry()
+    retrieve_props = registry.get("retrieve_kb").input_schema["properties"]
+    link_props = registry.get("link_entities").input_schema["properties"]
+
+    assert "target_entity" in retrieve_props
+    assert "target_entity" in link_props
