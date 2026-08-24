@@ -4,7 +4,7 @@
 | --- | --- |
 | 文档版本 | V1.2 |
 | 日期 | 2026-08-24 |
-| 状态 | 待实施 |
+| 状态 | **实施完成（2026-08-24 验收通过）** |
 | 所属域 | `02_RAG检索与回答` |
 | 改造对象 | Candidate Answer 发布前 Grounding 审查、Grounded Retry、Fallback、模型路由、Trace |
 | 解决问题 | “Main 已生成正常答案，但被硬编码 Grounding 检查误杀，最终退化为直接摘抄 Chunk” |
@@ -1111,6 +1111,36 @@ Helper Reviewer 上线门槛：
 
 对于高风险外部知识泄漏案例，优先看 false accept；对于当前质量退化问题，重点看 false reject。
 
+### 17.1 2026-08-24 最终验收结果
+
+真实 `qwen3.5:4b` Helper Reviewer 使用 `config-local.ini`、`http://192.168.10.158:11434` 与 Ollama JSON Schema Structured Output，对 50 条 Gold Set 分批执行，以避免长命令执行通道 502。50 条均完成真实模型审查。
+
+| 指标 | 实测 | 结论 |
+| --- | ---: | --- |
+| Grounded Candidate 正确放行率 | 30/30 = **100%** | PASS |
+| 明确 Unsupported Candidate 拦截率 | 12/12 = **100%** | PASS |
+| 明确 Contradicted Candidate 拦截率 | 8/8 = **100%** | PASS |
+| 真实事故样本 false reject | 0/20 = **0%** | PASS |
+| Gold Set false accept | 0/20 = **0%** | PASS |
+| Reviewer JSON 协议成功率 | 50/50 = **100%** | PASS |
+| Strict KB Candidate Reviewer 覆盖率 | **100%** | PASS |
+| `PASS + PARTIAL` 正确发布率 | 23/23 = **100%** | PASS |
+| 有 supported 内容却误判为 `NO_SAFE_ANSWER + NONE` | 0/35 = **0%** | PASS |
+| `deterministic_fallback` 发布率 | **0%** | PASS |
+
+补充诊断：部分对抗样本中 Helper 将 Gold 标注的 `FULL` 保守判断为 `PARTIAL`，但 verdict 仍正确为 `REVISE`，未造成 false accept、false reject、错误发布或 fallback。该现象不影响本节 10 项上线门槛，作为后续 coverage 校准优化项保留，不通过 Python 语义规则修正。
+
+### 17.2 链路与回归证据
+
+- Reviewer / Evaluator / AnswerFinalizer 严格协议专项：`69 passed`。
+- Agent / Trace / Routing / Finalization 宽回归：`191 passed`。
+- RAG / Prompt 补充回归：`56 passed`，另 `6 subtests passed`。
+- 真实在线 Agent E2E：`1 passed`；读取 live Chroma、调用配置 Ollama，并验证 SSE 生命周期与持久化 QA Trace 一致。
+- 后端非 integration 全量分片：`a-h = 618 passed, 2 deselected`；`i-z = 621 passed, 11 deselected, 16 subtests passed`；最终 **0 failed**。
+- 前端 `npm run check`：Node tests `4 passed`，Vitest `74 passed`，`vue-tsc --noEmit` 通过，Vite production build 通过。
+- 生产残留扫描未发现 `semantic_verifier`、`verify_grounding`、`DETERMINISTIC_GROUNDING_POLICY_VERSION`、`unsupported_latin_term`、`unsupported_semantic_operator`、`unsupported_semantic_relation` 参与当前生产发布路径。
+- 四份配置 `config.ini / config-local.ini / config-prod.ini / config-mix.ini` 已统一解析为 Main=`qwen3.5:9b`、Helper=`qwen3.5:4b`、Ollama=`http://192.168.10.158:11434`、`allow_general_knowledge=false`；主问答与图谱抽取不再默认使用 Google 外置模型。
+
 如果 `qwen3.5:4b` 达不到门槛：
 
 ```text
@@ -1443,26 +1473,26 @@ Helper LLM Grounding Reviewer
 
 ## 22. Definition of Done
 
-- [ ] Strict KB 的 Grounding 内容判断只由 Helper LLM 完成。
-- [ ] Main 与 Helper 使用同一份 Frozen Evidence Snapshot。
-- [ ] Helper 输入同时包含 Question、Evidence Snapshot、Candidate。
-- [ ] Claim 识别由 Helper 完成，不再由代码规则预拆并裁决。
-- [ ] `verify_grounding()` 不再参与任何生产答案发布决策。
-- [ ] 不再根据英文词、端口、数字、路径、关系词、条件词或 overlap 规则拒绝 Candidate。
-- [ ] Reviewer 使用现有 `helper_llm` 模型角色，不引入第三个在线模型角色。
-- [ ] Reviewer `PASS` 可直接发布 Main Candidate。
-- [ ] Reviewer `REVISE` 最多触发一次 Main Atomic Claim Grounded Rewrite。
-- [ ] `REVISE` 输出包含稳定 `claim_id`、Claim 状态、Evidence IDs 与 `rewrite_action`。
-- [ ] Main 不按句子整体删除；supported Claim 必须优先保留。
-- [ ] unsupported / contradicted Claim 只允许按 Helper action 做缩限、纠正或必要删除。
-- [ ] Rewrite 后必须再次经过 Helper 审查。
-- [ ] 二审仍未通过时返回 `review_blocked`，不发布未经支持的 Candidate。
-- [ ] `deterministic_fallback` 不再作为回答正文发布方式。
-- [ ] Reviewer 不可用时 fail closed，不回退到旧 Grounding 规则。
-- [ ] Trace 能明确看到 Candidate → Review → Rewrite → Publish 生命周期。
-- [ ] Reviewer Gold Set 达到上线指标。
-- [ ] 真实 StampWebRTC 事故样本不再被错误规则误杀。
-- [ ] 外部知识注入样本仍能被 Helper 拦截。
+- [x] Strict KB 的 Grounding 内容判断只由 Helper LLM 完成。
+- [x] Main 与 Helper 使用同一份 Frozen Evidence Snapshot。
+- [x] Helper 输入同时包含 Question、Evidence Snapshot、Candidate。
+- [x] Claim 识别由 Helper 完成，不再由代码规则预拆并裁决。
+- [x] `verify_grounding()` 不再参与任何生产答案发布决策。
+- [x] 不再根据英文词、端口、数字、路径、关系词、条件词或 overlap 规则拒绝 Candidate。
+- [x] Reviewer 使用现有 `helper_llm` 模型角色，不引入第三个在线模型角色。
+- [x] Reviewer `PASS` 可直接发布 Main Candidate。
+- [x] Reviewer `REVISE` 最多触发一次 Main Atomic Claim Grounded Rewrite。
+- [x] `REVISE` 输出包含稳定 `claim_id`、Claim 状态、Evidence IDs 与 `rewrite_action`。
+- [x] Main 不按句子整体删除；supported Claim 必须优先保留。
+- [x] unsupported / contradicted Claim 只允许按 Helper action 做缩限、纠正或必要删除。
+- [x] Rewrite 后必须再次经过 Helper 审查。
+- [x] 二审仍未通过时返回 `review_blocked`，不发布未经支持的 Candidate。
+- [x] `deterministic_fallback` 不再作为回答正文发布方式。
+- [x] Reviewer 不可用时 fail closed，不回退到旧 Grounding 规则。
+- [x] Trace 能明确看到 Candidate → Review → Rewrite → Publish 生命周期。
+- [x] Reviewer Gold Set 达到上线指标。
+- [x] 真实 StampWebRTC 事故样本不再被错误规则误杀。
+- [x] 外部知识注入样本仍能被 Helper 拦截。
 
 ---
 

@@ -193,8 +193,8 @@ def review_response_json_schema() -> dict[str, Any]:
                 "items": {
                     "type": "object",
                     "properties": {
-                        "claim_id": {"type": "string"},
-                        "claim": {"type": "string"},
+                        "claim_id": {"type": "string", "minLength": 1},
+                        "claim": {"type": "string", "minLength": 1},
                         "claim_type": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_TYPES)},
                         "status": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_STATUSES)},
                         "evidence_ids": {"type": "array", "items": {"type": "integer"}},
@@ -209,9 +209,9 @@ def review_response_json_schema() -> dict[str, Any]:
                 "items": {
                     "type": "object",
                     "properties": {
-                        "claim_id": {"type": "string"},
+                        "claim_id": {"type": "string", "minLength": 1},
                         "action": {"type": "string", "enum": sorted(_ALLOWED_REWRITE_ACTIONS)},
-                        "instruction": {"type": "string"},
+                        "instruction": {"type": "string", "minLength": 1},
                     },
                     "required": sorted(_REQUIRED_ACTION_FIELDS),
                     "additionalProperties": False,
