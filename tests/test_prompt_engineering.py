@@ -1,6 +1,7 @@
 import asyncio
 import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
@@ -41,6 +42,9 @@ def _chain_without_sources():
     from rag_knowledge.config import Config
     chain._cfg = Config()
     chain._allow_general_knowledge = True
+    chain._get_understanding_service = lambda: SimpleNamespace(
+        analyze=lambda *args, **kwargs: SimpleNamespace(mode="retrieve", clarify=None),
+    )
     chain._build_retrieval_query_specs = lambda question, history: [question]
     chain._query_planner = type(
         "PlannerStub",
@@ -196,7 +200,9 @@ class PromptEngineeringTests(unittest.TestCase):
             return [
                 event
                 async for event in _chain_without_sources().stream_query(
-                    "项目部署参数是什么？", allow_general_knowledge=False
+                    "项目部署参数是什么？",
+                    allow_general_knowledge=False,
+                    agent_orchestration_enabled=False,
                 )
             ]
 
@@ -206,7 +212,16 @@ class PromptEngineeringTests(unittest.TestCase):
             [
                 {"type": "status", "data": "正在理解问题..."},
                 {"type": "status", "data": "正在检索知识库..."},
-                {"type": "token", "data": NO_KNOWLEDGE_ANSWER},
+                {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "no_knowledge",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "知识库未查询到可发布的相关内容。",
+                    },
+                },
+                {"type": "final_answer", "data": NO_KNOWLEDGE_ANSWER},
                 {"type": "sources", "data": []},
                 {"type": "done"},
             ],
@@ -248,7 +263,16 @@ class PromptEngineeringTests(unittest.TestCase):
             events,
             [
                 {"type": "status", "data": "正在理解问题..."},
-                {"type": "token", "data": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"},
+                {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "direct_chat",
+                        "review_verdict": "PASS",
+                        "coverage": "FULL",
+                        "message": "问候无需知识库审查，正在发布。",
+                    },
+                },
+                {"type": "final_answer", "data": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"},
                 {"type": "sources", "data": []},
                 {"type": "done"},
             ],
@@ -265,6 +289,9 @@ class PromptEngineeringTests(unittest.TestCase):
         from rag_knowledge.config import Config
         chain._cfg = Config()
         chain._allow_general_knowledge = True
+        chain._get_understanding_service = lambda: SimpleNamespace(
+            analyze=lambda *args, **kwargs: SimpleNamespace(mode="retrieve", clarify=None),
+        )
         chain._ollama_base = "http://localhost:11434"
         chain._llm_model = "test-model"
         chain._build_retrieval_query_specs = lambda question, history: [question]
@@ -339,9 +366,29 @@ class PromptEngineeringTests(unittest.TestCase):
         async def fake_stream(*args, **kwargs):
             yield "alpha [1]"
 
-        with patch("rag_knowledge.llm_http.achat_stream", fake_stream):
+        def fake_finalize(candidate, *args, **kwargs):
+            kwargs["on_lifecycle_event"]({
+                "type": "publication",
+                "data": {
+                    "final_mode": "grounded",
+                    "review_verdict": "PASS",
+                    "coverage": "FULL",
+                    "message": "review passed",
+                },
+            })
+            return SimpleNamespace(answer=candidate, grounding={"review_verdict": "PASS"})
+
+        with (
+            patch("rag_knowledge.llm_http.achat_stream", fake_stream),
+            patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", fake_finalize),
+        ):
             async def collect():
-                return [event async for event in chain.stream_query("question")]
+                return [
+                    event
+                    async for event in chain.stream_query(
+                        "question", agent_orchestration_enabled=False,
+                    )
+                ]
 
             events = asyncio.run(collect())
 
@@ -350,10 +397,11 @@ class PromptEngineeringTests(unittest.TestCase):
             ["正在理解问题...", "正在检索知识库...", "正在整理答案..."],
         )
         source_event = {"type": "sources", "data": trimmed_docs}
-        token_event = {"type": "token", "data": "alpha [1]"}
+        final_event = {"type": "final_answer", "data": "alpha [1]"}
         self.assertIn(source_event, events)
-        self.assertIn(token_event, events)
-        self.assertLess(events.index(token_event), events.index(source_event))
+        self.assertIn(final_event, events)
+        self.assertNotIn({"type": "token", "data": "alpha [1]"}, events)
+        self.assertLess(events.index(final_event), events.index(source_event))
         self.assertLess(events.index(source_event), events.index({"type": "done"}))
 
         from rag_knowledge.services.answer_finalizer import FinalizedAnswer
@@ -365,9 +413,9 @@ class PromptEngineeringTests(unittest.TestCase):
             answer="SAFE alpha [1]",
             grounding={
                 "policy": "strict_kb",
-                "verdict": "fail",
-                "final_mode": "deterministic_fallback",
-                "fallback_used": True,
+                "verdict": "pass",
+                "final_mode": "generated",
+                "fallback_used": False,
             },
         )
         with (
@@ -385,9 +433,12 @@ class PromptEngineeringTests(unittest.TestCase):
 
             strict_events = asyncio.run(collect_strict())
 
-        strict_tokens = [event["data"] for event in strict_events if event["type"] == "token"]
-        self.assertEqual(strict_tokens, ["SAFE alpha [1]"])
-        self.assertNotIn("UNSAFE OpenGL ES [1]", strict_tokens)
+        strict_answers = [
+            event["data"] for event in strict_events if event["type"] == "final_answer"
+        ]
+        self.assertEqual(strict_answers, ["SAFE alpha [1]"])
+        self.assertFalse(any(event["type"] == "token" for event in strict_events))
+        self.assertNotIn("UNSAFE OpenGL ES [1]", strict_answers)
 
         mixed_finalized = FinalizedAnswer(
             answer=(
@@ -400,7 +451,7 @@ class PromptEngineeringTests(unittest.TestCase):
                 "policy": "mixed",
                 "verdict": "partial",
                 "final_mode": "mixed_relabel",
-                "fallback_used": True,
+                "fallback_used": False,
             },
         )
         with (
@@ -418,21 +469,34 @@ class PromptEngineeringTests(unittest.TestCase):
 
             mixed_events = asyncio.run(collect_mixed())
 
-        mixed_tokens = [event["data"] for event in mixed_events if event["type"] == "token"]
-        self.assertEqual(mixed_tokens, [mixed_finalized.answer])
-        self.assertNotIn("UNSAFE OpenGL ES [1]", mixed_tokens)
+        mixed_answers = [
+            event["data"] for event in mixed_events if event["type"] == "final_answer"
+        ]
+        self.assertEqual(mixed_answers, [mixed_finalized.answer])
+        self.assertFalse(any(event["type"] == "token" for event in mixed_events))
+        self.assertNotIn("UNSAFE OpenGL ES [1]", mixed_answers)
 
-    def test_agent_stream_strict_mode_suppresses_unverified_thinking(self):
+    def test_agent_stream_forwards_structured_decision_without_thinking(self):
         chain = object.__new__(RagChain)
         chain._allow_general_knowledge = False
-        chain._last_understanding = None
-        chain._commit_qa_trace = lambda *a, **k: None
+        chain._commit_qa_trace = lambda *args, **kwargs: "trace_id"
 
         async def fake_run_agent_turn(*args, **kwargs):
-            on_event = kwargs["on_event"]
-            await on_event({"type": "thinking", "data": "UNSAFE React is commonly used here"})
-            await on_event({"type": "status", "data": "正在检索证据..."})
-            conversation = type("Conversation", (), {"understanding": None})()
+            on_event = kwargs.get("on_event")
+            if on_event:
+                await on_event({
+                    "type": "decision",
+                    "data": {
+                        "step": 1,
+                        "action": "tool_call",
+                        "tool": "clarify",
+                        "reason": "identity_requires_clarification",
+                        "gap": "问题主体不明确",
+                        "expected_gain": "确认用户所指产品",
+                        "source": "llm",
+                    },
+                })
+            conversation = type("Conv", (), {"understanding": None})()
             return type(
                 "Result",
                 (),
@@ -485,8 +549,10 @@ class PromptEngineeringTests(unittest.TestCase):
 
         events = asyncio.run(collect_agent())
         self.assertFalse(any(event.get("type") == "thinking" for event in events))
-        self.assertFalse(any("UNSAFE React" in str(event.get("data")) for event in events))
-        self.assertTrue(any(event == {"type": "status", "data": "正在检索证据..."} for event in events))
+        decision = next(event for event in events if event.get("type") == "decision")
+        self.assertEqual(decision["data"]["reason"], "identity_requires_clarification")
+        self.assertEqual(decision["data"]["gap"], "问题主体不明确")
+        self.assertEqual(decision["data"]["expected_gain"], "确认用户所指产品")
 
     def test_stream_query_supports_intervention_chunks(self):
         doc1 = {"content": "c1", "metadata": {"chunk_id": "id1", "citation_id": 1}}

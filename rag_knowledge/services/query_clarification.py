@@ -1,7 +1,8 @@
-"""Query clarification (反问) before retrieval.
+"""Clarification candidate discovery and legacy linear-mode card support.
 
-Product backbone is the sole fact source for option seeds. Helper LLM only
-decides whether clarification is needed; when true, all seeds are returned.
+The Agent Main Controller decides whether to clarify.  This module discovers
+and merges candidates; ``analyze`` remains only for the explicit legacy linear
+clarification path.
 """
 from __future__ import annotations
 
@@ -64,6 +65,30 @@ def _is_explicit_comparison(question: str, names: list[str]) -> bool:
 
 
 @dataclass(frozen=True)
+class CandidateDTO:
+    candidate_id: str
+    label: str
+    canonical_name: str | None = None
+    entity_type: str | None = None
+    source: str = "backbone"
+    binding_status: str = "canonical"
+    score: float | None = None
+    doc_category: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_id": self.candidate_id,
+            "label": self.label,
+            "canonical_name": self.canonical_name,
+            "entity_type": self.entity_type,
+            "source": self.source,
+            "binding_status": self.binding_status,
+            "score": self.score,
+            "doc_category": self.doc_category,
+        }
+
+
+@dataclass(frozen=True)
 class ClarificationFilter:
     doc_category: str | None = None
     entity_name: str | None = None
@@ -86,16 +111,41 @@ class ClarificationOption:
     label: str
     filter: ClarificationFilter
     source: str | None = None
+    canonical_name: str | None = None
+    entity_type: str | None = None
+    binding_status: str = "canonical"
+    score: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "id": self.id,
+            "candidate_id": self.id,
             "label": self.label,
             "filter": self.filter.to_dict(),
         }
         if self.source:
             out["source"] = self.source
+        if self.canonical_name:
+            out["canonical_name"] = self.canonical_name
+        if self.entity_type:
+            out["entity_type"] = self.entity_type
+        if self.binding_status:
+            out["binding_status"] = self.binding_status
+        if self.score is not None:
+            out["score"] = self.score
         return out
+
+    def to_candidate_dto(self) -> CandidateDTO:
+        return CandidateDTO(
+            candidate_id=self.id,
+            label=self.label,
+            canonical_name=self.canonical_name or self.filter.entity_name,
+            entity_type=self.entity_type,
+            source=self.source or "backbone",
+            binding_status=self.binding_status,
+            score=self.score,
+            doc_category=self.filter.doc_category,
+        )
 
 
 @dataclass
@@ -143,20 +193,110 @@ def _option_id_at(index: int) -> str:
 def _assign_option_ids(options: list[ClarificationOption]) -> list[ClarificationOption]:
     out: list[ClarificationOption] = []
     seen_labels: set[str] = set()
+    idx = 0
     for raw in options:
         key = raw.label.casefold()
         if key in seen_labels:
             continue
         seen_labels.add(key)
+        opt_id = raw.id if raw.id == "other" or raw.source == "fixed_other" else _option_id_at(idx)
+        if opt_id != "other":
+            idx += 1
         out.append(
             ClarificationOption(
-                id=_option_id_at(len(out)),
+                id=opt_id,
                 label=raw.label,
                 filter=raw.filter,
                 source=raw.source,
+                canonical_name=raw.canonical_name,
+                entity_type=raw.entity_type,
+                binding_status=raw.binding_status,
+                score=raw.score,
             )
         )
     return out
+
+
+def merge_clarification_candidates(
+    system_candidates: list[ClarificationOption],
+    model_suggested_options: list[dict[str, Any] | str] | None = None,
+    *,
+    include_other: bool = True,
+    constraints: dict | None = None,
+) -> list[ClarificationOption]:
+    """Merge system candidates with model suggestions and fixed other option.
+
+    Deduplication priority: canonical exact > alias > graph/catalog > fuzzy > model_suggested.
+    Main suggested options cannot overwrite canonical metadata of existing system candidates.
+    """
+    from rag_knowledge.services.backbone_guard import resolve_canonical
+
+    merged: list[ClarificationOption] = []
+    seen_canonical: set[str] = set()
+    seen_labels: set[str] = set()
+
+    for opt in system_candidates:
+        can = (opt.canonical_name or opt.filter.entity_name or "").strip().casefold()
+        lbl = opt.label.strip().casefold()
+        if can:
+            seen_canonical.add(can)
+        if lbl:
+            seen_labels.add(lbl)
+        merged.append(opt)
+
+    if model_suggested_options:
+        c_dict = constraints or {}
+        for item in model_suggested_options:
+            if isinstance(item, str):
+                raw_label = item.strip()
+            elif isinstance(item, dict):
+                raw_label = str(item.get("label") or item.get("entity_name") or "").strip()
+            else:
+                continue
+            if not raw_label:
+                continue
+
+            lbl_folded = raw_label.casefold()
+            can_resolved = resolve_canonical(raw_label, c_dict) if c_dict else raw_label
+            can_folded = (can_resolved or "").casefold()
+
+            if lbl_folded in seen_labels or (can_folded and can_folded in seen_canonical):
+                continue
+
+            seen_labels.add(lbl_folded)
+            if can_folded:
+                seen_canonical.add(can_folded)
+
+            # Model suggested options default to binding_status="unresolved" and empty filter
+            # until user selection + canonical resolver confirms it.
+            merged.append(
+                ClarificationOption(
+                    id="",
+                    label=raw_label,
+                    filter=ClarificationFilter(),
+                    source="model_suggested",
+                    canonical_name=None,
+                    entity_type=None,
+                    binding_status="unresolved",
+                )
+            )
+
+    if include_other:
+        other_key = "以上都不是".casefold()
+        if other_key not in seen_labels:
+            merged.append(
+                ClarificationOption(
+                    id="other",
+                    label="以上都不是",
+                    filter=ClarificationFilter(),
+                    source="fixed_other",
+                    canonical_name=None,
+                    entity_type=None,
+                    binding_status="unresolved",
+                )
+            )
+
+    return _assign_option_ids(merged)
 
 
 def _latin_family_prefix(name: str) -> str | None:
@@ -250,6 +390,10 @@ def _option_for_backbone_entity(canonical: str, constraints: dict) -> Clarificat
         id="",
         label=label,
         filter=ClarificationFilter(doc_category=doc_category, entity_name=canonical),
+        source="backbone",
+        canonical_name=canonical,
+        entity_type=entity_type,
+        binding_status="canonical",
     )
 
 
@@ -417,9 +561,11 @@ class QueryClarificationService:
         kb_name: str | None,
     ) -> ClarificationResult | None:
         options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
-        options = _assign_option_ids(options)
-        if len(options) < self.min_options:
-            return None
+        options = merge_clarification_candidates(
+            options,
+            include_other=True,
+            constraints=self._load_constraints(),
+        )
         return ClarificationResult(
             needs_clarification=True,
             ask_question=ask_question,
@@ -472,8 +618,6 @@ class QueryClarificationService:
         names = [opt.filter.entity_name or opt.label for opt in seeds]
         if _is_explicit_comparison(question, names):
             return None
-        if len(seeds) < self.min_options:
-            return None
 
         trigger = default_trigger or (seeds[0].filter.entity_name if seeds else "backbone")
         if default_trigger and default_trigger in _WIDE_SURFACE_TERMS:
@@ -502,15 +646,17 @@ class QueryClarificationService:
             return payload
 
         from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         raw = chat_role(
             self._cfg,
-            "llm",
+            ModelRoutePolicy(self._cfg).common_stage1_role(),
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=256,
             timeout=float(self.llm_timeout_seconds),
             think=False,
+            stage="common_clarification",
         ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()
@@ -629,8 +775,6 @@ class QueryClarificationService:
         seeds, seed_trigger = self._collect_seed_options(
             q, doc_category=doc_category, kb_name=kb_name,
         )
-        if len(seeds) < self.min_options:
-            return ClarificationResult(needs_clarification=False)
 
         names = [opt.filter.entity_name or opt.label for opt in seeds]
         if _is_explicit_comparison(q, names):
@@ -652,3 +796,19 @@ class QueryClarificationService:
             kb_name=kb_name,
         )
         return fallback or ClarificationResult(needs_clarification=False)
+
+    def discover_candidates(
+        self,
+        question: str,
+        *,
+        doc_category: str | None = None,
+        kb_name: str | None = None,
+    ) -> list[ClarificationOption]:
+        """Discover eligible system seed candidates for a question."""
+        q = (question or "").strip()
+        if not q:
+            return []
+        seeds, _trigger = self._collect_seed_options(
+            q, doc_category=doc_category, kb_name=kb_name,
+        )
+        return seeds

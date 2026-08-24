@@ -472,18 +472,15 @@ def test_prepare_graph_plan_merges_backbone_anchor_when_enabled(rewrite_db):
     assert any("StampManager" in getattr(q, "text", str(q)) for q in passed_queries)
 
 
-def test_build_messages_injects_backbone_relation_summary():
+def test_build_messages_does_not_inject_uncited_backbone_facts():
     msgs = RagChain._build_messages(
         "StampManager 属于谁？",
         "[1] StampManager 是管理端产品。",
-        backbone_canonical=("StampManager",),
-        backbone_avoid=("StampGIS Tools",),
-        backbone_relation_summary="锚点：StampManager\n- StampManager -[belongs_to]-> StampGIS三维产品",
     )
     system = msgs[0]["content"]
-    assert "产品主干锚定" in system
+    assert "产品主干锚定" not in system
     assert "StampManager" in system
-    assert "belongs_to" in system
+    assert "belongs_to" not in system
 
 
 def test_prepare_graph_plan_disabled_without_retriever():

@@ -32,7 +32,10 @@ def finish(token: Token | None) -> dict[str, Any]:
     if token is None:
         return {}
     payload = snapshot()
-    _current.reset(token)
+    try:
+        _current.reset(token)
+    except ValueError:
+        _current.set(None)
     return payload
 
 

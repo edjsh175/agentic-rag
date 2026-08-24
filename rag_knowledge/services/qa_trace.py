@@ -86,6 +86,8 @@ def serialize_plan(plan: Any) -> dict[str, Any]:
         "job": getattr(plan, "job", "") or "",
         "graph_rewrite_policy": getattr(plan, "graph_rewrite_policy", "") or "",
         "rewrite_template": getattr(plan, "rewrite_template", "") or "",
+        "planner_role": getattr(plan, "planner_role", "") or "",
+        "escalation_reason": getattr(plan, "escalation_reason", None),
         "linked_entities": linked_entities,
         "graph_queries": list(getattr(plan, "graph_queries", ()) or ()),
         "graph_chunk_ids": list(getattr(plan, "graph_chunk_ids", ()) or ())[:40],
@@ -166,10 +168,17 @@ def runtime_fingerprint(cfg: Config | None = None) -> dict[str, Any]:
         "retrieval_quality_enabled": bool(cfg.retrieval_quality.enabled),
         "llm_model": cfg.llm_model,
         "helper_llm_model": cfg.helper_llm_model,
-        "semantic_verifier_enabled": bool(
-            getattr(cfg, "semantic_verifier_enabled", False)
+        "model_routing": {
+            "common_stage1_role": getattr(getattr(cfg, "model_routing", None), "common_stage1_role", "helper_llm"),
+            "agent_controller_role": getattr(getattr(cfg, "model_routing", None), "agent_controller_role", "llm"),
+            "agent_answer_role": getattr(getattr(cfg, "model_routing", None), "agent_answer_role", "llm"),
+            "linear_preprocess_role": getattr(getattr(cfg, "model_routing", None), "linear_preprocess_role", "helper_llm"),
+        },
+        "grounding_reviewer_enabled": bool(
+            getattr(cfg, "grounding_reviewer_enabled", True)
         ),
-        "semantic_verifier_model": getattr(cfg, "semantic_verifier_model", None),
+        "grounding_reviewer_model": getattr(cfg, "grounding_reviewer_model", None),
+        "grounding_reviewer_role": "helper_llm",
         "agent_orchestration_enabled": bool(
             getattr(getattr(cfg, "agent_orchestration", None), "enabled", False)
         ),
@@ -201,6 +210,11 @@ class QaTraceBuilder:
         cfg: Config | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
+        clarification_option_id: str | None = None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+        clarification_options: list[dict[str, Any]] | None = None,
+        clarification_selection_kind: str | None = None,
+        clarification_free_text: str | None = None,
     ):
         # cfg=None means "do not fall back to live Config()" — used by RagChain test
         # stubs that never set self._cfg. Production RagChain always passes Config.
@@ -218,6 +232,9 @@ class QaTraceBuilder:
         self._clarify: dict[str, Any] = {}
         self._agent: dict[str, Any] = {}
         self._grounding: dict[str, Any] = {}
+        self._grounding_lifecycle: list[dict[str, Any]] = []
+        self._events: list[dict[str, Any]] = []
+        self._execution_events: list[dict[str, Any]] = []
         self._runtime_overrides: dict[str, Any] = {}
         self._retrieval_diagnostics_token = None
         self._request = {
@@ -237,9 +254,21 @@ class QaTraceBuilder:
             "history_rounds": int(history_rounds or 0),
             "clarification_question": clarification_question,
             "clarification_selected": clarification_selected,
+            "clarification_option_id": clarification_option_id,
+            "clarification_selected_candidate": dict(clarification_selected_candidate or {}),
+            "clarification_options": [dict(option) for option in (clarification_options or [])],
+            "clarification_selection_kind": clarification_selection_kind,
+            "clarification_free_text": clarification_free_text,
         }
         self._meta_path = path or get_trace_path()
         self._request_id = request_id or get_request_id()
+        try:
+            from rag_knowledge.llm_http import clear_model_call_audit
+
+            clear_model_call_audit()
+        except Exception:
+            # Observability must never affect the answer path.
+            pass
 
 
     @property
@@ -331,6 +360,41 @@ class QaTraceBuilder:
             return
         self._clarify = dict(clarify or {})
 
+    def add_event(self, event_type: str, data: dict[str, Any] | None = None) -> None:
+        """Append one replayable decision event without affecting the answer path."""
+        if not self._enabled:
+            return
+        name = str(event_type or "").strip()
+        if not name:
+            return
+        event: dict[str, Any] = {
+            "sequence": len(self._events) + 1,
+            "type": name,
+            "elapsed_ms": round((time.perf_counter() - self._t0) * 1000, 1),
+        }
+        if data:
+            event["data"] = json.loads(json.dumps(data, ensure_ascii=False, default=str))
+        self._events.append(event)
+
+    def record_execution_event(self, event: dict[str, Any]) -> None:
+        """Record one normalized SSE lifecycle event in QA Trace order."""
+        if not self._enabled:
+            return
+        try:
+            from rag_knowledge.services.agent_orchestration.models import (
+                normalize_execution_event,
+            )
+
+            normalized = normalize_execution_event(
+                event,
+                sequence=len(self._execution_events) + 1,
+                elapsed_ms=(time.perf_counter() - self._t0) * 1000,
+            )
+        except (TypeError, ValueError) as exc:
+            logger.warning("qa_trace ignored invalid execution event: %s", exc)
+            return
+        self._execution_events.append(normalized.to_trace())
+
     def set_scope(self, scope: Any) -> None:
         if not self._enabled:
             return
@@ -347,6 +411,42 @@ class QaTraceBuilder:
         if not self._enabled:
             return
         self._grounding = dict(payload or {})
+
+    def append_grounding_lifecycle(self, event: dict[str, Any] | None) -> None:
+        """Record one publication lifecycle event without retaining model-private text."""
+        if not self._enabled or not isinstance(event, dict):
+            return
+        normalized = json.loads(json.dumps(event, ensure_ascii=False, default=str))
+        event_type = str(normalized.get("type") or "")
+        data = normalized.get("data") if isinstance(normalized.get("data"), dict) else {}
+        if event_type == "candidate_status":
+            normalized["event"] = "answer_candidate_generated"
+        elif event_type == "review_status":
+            normalized["event"] = (
+                "helper_grounding_review_completed"
+                if int(data.get("review_count") or 1) == 1
+                else "helper_grounding_rereview_completed"
+            )
+        elif event_type == "rewrite_status":
+            rewrite_events = {
+                "started": "answer_rewrite_requested",
+                "completed": "answer_rewrite_generated",
+                "failed": "answer_rewrite_failed",
+            }
+            normalized["event"] = rewrite_events.get(
+                data.get("status"),
+                "answer_rewrite_failed",
+            )
+        elif event_type == "publication":
+            normalized["event"] = (
+                "answer_publication_blocked"
+                if data.get("final_mode") in {"review_blocked", "reviewer_error"}
+                else "answer_published"
+            )
+        else:
+            normalized["event"] = event_type
+        normalized["sequence"] = len(self._grounding_lifecycle) + 1
+        self._grounding_lifecycle.append(normalized)
 
     def set_runtime_override(self, **kwargs) -> None:
         if not self._enabled:
@@ -382,6 +482,14 @@ class QaTraceBuilder:
             False,
         )
         runtime_data.update(self._runtime_overrides)
+        try:
+            from rag_knowledge.llm_http import get_model_call_audit
+
+            model_calls = get_model_call_audit()
+        except Exception:
+            model_calls = []
+        grounding_payload = dict(self._grounding)
+        grounding_payload["lifecycle_events"] = list(self._grounding_lifecycle)
         payload = {
             "meta": {
                 "trace_id": self.trace_id,
@@ -393,13 +501,16 @@ class QaTraceBuilder:
             },
             "request": self._request,
             "runtime": runtime_data,
+            "model_calls": model_calls,
             "stages": self._stages_ms,
+            "events": list(self._events),
+            "execution_events": list(self._execution_events),
             "scope": self._scope,
             "plan": self._plan,
             "understanding": self._understanding,
             "clarify": self._clarify,
             "agent": self._agent,
-            "grounding": self._grounding,
+            "grounding": grounding_payload,
             "retrieval": self._retrieval,
             "pack": self._pack,
             "evidence": evidence or {},

@@ -51,10 +51,7 @@
     {
       "name": "PipelineBuilder",
       "aliases": [
-        "管线发布工具",
-        "管线工具",
-        "pipeline",
-        "Pipeline"
+        "管线发布工具"
       ],
       "belongs_to": "StampTools",
       "different_from": [

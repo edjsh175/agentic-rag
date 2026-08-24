@@ -3,7 +3,7 @@
 
 对检索返回的文档列表进行后处理：
   1. 分数归一化 → quality_score
-  2. 相似度阈值过滤
+  2. 有效分数阈值准入
   3. Jaccard 相似度去重
   4. 动态 TopK 断崖截断
   5. 可选质量过滤组合
@@ -87,7 +87,7 @@ class RetrievalQualityStrategy:
 
         debug = self._cfg.debug_log_enabled
 
-        # 2. 相似度阈值过滤
+        # 2. 有效分数阈值准入。开启后允许 0 个合法结果。
         if self._cfg.score_threshold_enabled:
             docs = self._filter_by_score(docs)
 
@@ -220,26 +220,31 @@ class RetrievalQualityStrategy:
         )
 
     # ------------------------------------------------------------------
-    # 2. 相似度阈值过滤
+    # 2. 有效分数阈值准入
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _is_score_admissible(doc: Document, threshold: float) -> bool:
+        """判断候选是否达到可作为有效证据的分数阈值。"""
+        score = float((doc.metadata or {}).get("quality_score", 0.0))
+        return score >= threshold
+
     def _filter_by_score(self, docs: list[Document]) -> list[Document]:
-        """丢弃 quality_score 低于阈值的 chunk。"""
+        """只准入达到阈值的 chunk；全部不合格时返回空列表。"""
         threshold = self._cfg.score_threshold
         before = len(docs)
 
         filtered = [
             doc for doc in docs
-            if float(doc.metadata.get("quality_score", 0.0)) >= threshold
+            if self._is_score_admissible(doc, threshold)
         ]
 
-        # 防止全部过滤光：至少保留 min_top_k 个
         if not filtered:
-            logger.warning(
-                "score filter 移除了全部 %d 个 doc (threshold=%s)，回退保留前 %d 个",
-                before, threshold, self._cfg.min_top_k,
+            logger.info(
+                "score admission rejected all candidates | before=%d threshold=%s",
+                before, threshold,
             )
-            return docs[: self._cfg.min_top_k]
+            return []
 
         if self._cfg.debug_log_enabled:
             logger.info(

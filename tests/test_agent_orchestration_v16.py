@@ -23,6 +23,19 @@ from rag_knowledge.services.query_cache import QueryCache
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
 
 
+_TEST_CONSTRAINTS = {
+    "entity_type_by_name": {
+        "EntityA": "Tool",
+        "EntityB": "Tool",
+        "ServiceX": "Service",
+        "ConfigY": "ConfigItem",
+    },
+    "canonical_by_alias": {},
+    "different_from": set(),
+    "relations": [],
+}
+
+
 class _FakeGraphDB:
     def __init__(self):
         self.entities = [
@@ -115,7 +128,7 @@ def _semantic(*entities: str, primary: str | None = None) -> SemanticTaskContext
 
 
 def _resolver(semantic: SemanticTaskContext, db=None, *, max_hops: int = 2, max_entities: int = 8):
-    identity = IdentityScopeResolver.resolve(semantic)
+    identity = IdentityScopeResolver.resolve(semantic, constraints=_TEST_CONSTRAINTS)
     return identity, ExplorationGrantResolver(
         identity_scope=identity,
         semantic_task=semantic,
@@ -158,9 +171,35 @@ def test_v16_stage1_semantic_task_recognizes_multi_entity_without_scope_regex():
     assert semantic.mentioned_entities[:2] == ("PipelineWebGL", "PipelineBuilder")
 
 
+def test_evidence_digest_exposes_facts_and_relations_for_controller_decisions():
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve(
+        [{
+            "content": "PipelineWebGL 支持三维管线查询与场景浏览。",
+            "metadata": {
+                "chunk_id": "pipeline-webgl-overview",
+                "document_entity": "PipelineWebGL",
+                "section_path": "PipelineWebGL > 概览",
+            },
+        }],
+        query="PipelineWebGL 概览",
+    )
+    pool.add_relation(
+        relation_key="PipelineBuilder -[different_from]-> PipelineWebGL",
+        target_entity="PipelineWebGL",
+    )
+
+    digest = pool.decision_digest()
+
+    assert "entity=PipelineWebGL" in digest
+    assert "section=PipelineWebGL > 概览" in digest
+    assert "支持三维管线查询" in digest
+    assert "relation=PipelineBuilder -[different_from]-> PipelineWebGL" in digest
+
+
 def test_v16_identity_materializes_after_semantic_task_and_stays_primary():
     semantic = _semantic("EntityA", "EntityB", primary="EntityA")
-    identity = IdentityScopeResolver.resolve(semantic)
+    identity = IdentityScopeResolver.resolve(semantic, constraints=_TEST_CONSTRAINTS)
 
     assert identity.primary_entity == "EntityA"
     assert identity.is_identity_locked is True

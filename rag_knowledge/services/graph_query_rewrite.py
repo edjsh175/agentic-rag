@@ -350,15 +350,17 @@ class GraphQueryRewriter:
             lexicon_json=json.dumps(lexicon, ensure_ascii=False),
         )
         from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         raw = chat_role(
             self._cfg,
-            "llm",
+            ModelRoutePolicy(self._cfg).linear_preprocess_role(),
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=384,
             timeout=float(self._anchor_timeout),
             think=False,
+            stage="linear_preprocess",
         ).strip()
         payload = self._robust_json_loads(raw)
         if not isinstance(payload, dict):
@@ -527,15 +529,17 @@ class GraphQueryRewriter:
             summary_json=json.dumps(summary.to_dict(), ensure_ascii=False),
         )
         from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         raw = chat_role(
             self._cfg,
-            "llm",
+            ModelRoutePolicy(self._cfg).linear_preprocess_role(),
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=256,
             timeout=float(self._timeout),
             think=False,
+            stage="linear_preprocess",
         ).strip()
         payload = self._robust_json_loads(raw)
         if not isinstance(payload, dict):

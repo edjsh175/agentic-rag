@@ -192,6 +192,8 @@ class RetrievalPlan:
     job: str = ""
     graph_rewrite_policy: str = ""
     rewrite_template: str = ""
+    planner_role: str = "helper_llm"
+    escalation_reason: str | None = None
 
 
 class QueryPlanner:
@@ -202,6 +204,8 @@ class QueryPlanner:
         self._planner_cfg = self._cfg.query_planner
         self._llm_model = self._cfg.helper_llm_model
         self._ollama_base = self._cfg.ollama_base_url
+        self._last_planner_role = "helper_llm"
+        self._last_escalation_reason: str | None = None
 
     def plan(
         self,
@@ -209,15 +213,53 @@ class QueryPlanner:
         base_queries: Iterable[RetrievalQuery | str] | None = None,
         *,
         force_rerank: bool = False,
+        mode: str = "linear",
+        controller_intent: str | None = None,
     ) -> RetrievalPlan:
         """根据问题和上下文化查询生成检索计划。"""
         q = (question or "").strip()
         base = self._normalize_base_queries(base_queries, q)
 
+        if mode == "agent":
+            # Controller arguments are authoritative. Agent mode never runs a
+            # second LLM rewrite/classification pass inside retrieve_kb.
+            intent = str(controller_intent or "general_qa").strip().lower()
+            if intent not in _SUPPORTED_INTENTS and intent not in {
+                "exact_parameter",
+                "conceptual_overview",
+                "general_qa",
+            }:
+                intent = "definition"
+            agent_queries = self._dedupe_queries(base)
+            intent_hint = {
+                "conceptual_overview": "概述 功能 架构",
+                "exact_parameter": "参数 配置 说明",
+                "troubleshooting": "原因 排查 解决",
+                "comparison": "区别 对比 用途",
+            }.get(intent)
+            if q and intent_hint:
+                agent_queries = self._dedupe_queries([
+                    *agent_queries,
+                    RetrievalQuery(f"{q} {intent_hint}", "agent_intent", 0.7),
+                ])
+            top_k, candidate_k, rerank_for_intent = self._params_for_intent(intent)
+            self._last_planner_role = "deterministic"
+            self._last_escalation_reason = None
+            return RetrievalPlan(
+                intent=intent,
+                queries=agent_queries,
+                top_k=top_k,
+                candidate_k=candidate_k,
+                enable_rerank=bool(self._cfg.reranker_enabled and (force_rerank or rerank_for_intent)),
+                expand_neighbors=False,
+                confidence=1.0,
+                planner_role="deterministic",
+            )
+
         if not self._planner_cfg.enabled:
             return self._default_plan(base, force_rerank=force_rerank)
 
-        intent, confidence = self._classify_intent(q)
+        intent, confidence = self._classify_intent(q, mode=mode)
         from rag_knowledge.services.sdk_code_job import resolve_job
 
         job_decision = resolve_job(q)
@@ -264,6 +306,8 @@ class QueryPlanner:
             expand_neighbors=expand_neighbors,
             confidence=confidence,
             job=job,
+            planner_role=self._last_planner_role,
+            escalation_reason=self._last_escalation_reason,
         )
 
     def _default_plan(
@@ -282,9 +326,32 @@ class QueryPlanner:
             confidence=1.0,
         )
 
-    def _classify_intent(self, question: str) -> tuple[str, float]:
+    def _classify_intent(self, question: str, *, mode: str = "linear") -> tuple[str, float]:
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
+
+        routing = ModelRoutePolicy(self._cfg)
+        self._last_planner_role = "helper_llm"
+        self._last_escalation_reason = None
+        if mode == "linear" and self._requires_main_escalation(question):
+            try:
+                intent, confidence = self._classify_via_llm(
+                    question,
+                    role=routing.linear_escalation_role(),
+                    stage="linear_escalation",
+                )
+                self._last_planner_role = "llm"
+                self._last_escalation_reason = "complex_query"
+                if intent in _SUPPORTED_INTENTS and confidence >= 0.55:
+                    return intent, confidence
+            except Exception:
+                self._last_planner_role = "deterministic"
+                self._last_escalation_reason = "complex_query_fallback"
         try:
-            intent, confidence = self._classify_via_llm(question)
+            intent, confidence = self._classify_via_llm(
+                question,
+                role=routing.linear_preprocess_role(),
+                stage="linear_preprocess",
+            )
             if intent in _SUPPORTED_INTENTS and confidence >= 0.55:
                 return intent, confidence
             logger.info(
@@ -294,19 +361,47 @@ class QueryPlanner:
             )
         except Exception as exc:
             logger.warning("query_plan LLM intent failed, fallback heuristic: %s", exc)
+            self._last_escalation_reason = "helper_failure"
+            try:
+                intent, confidence = self._classify_via_llm(
+                    question,
+                    role=routing.linear_escalation_role(),
+                    stage="linear_escalation",
+                )
+                self._last_planner_role = "llm"
+                if intent in _SUPPORTED_INTENTS and confidence >= 0.55:
+                    return intent, confidence
+            except Exception:
+                self._last_planner_role = "deterministic"
         return self._classify_heuristic(question)
 
-    def _classify_via_llm(self, question: str) -> tuple[str, float]:
+    @staticmethod
+    def _requires_main_escalation(question: str) -> bool:
+        q = str(question or "")
+        if not any(word in q for word in ("比较", "对比", "区别", "关系", "依赖", "分别")):
+            return False
+        entities = re.findall(r"[A-Za-z][A-Za-z0-9_.+-]{2,}", q)
+        return len(set(item.casefold() for item in entities)) >= 2
+
+    def _classify_via_llm(
+        self,
+        question: str,
+        *,
+        role: str | None = None,
+        stage: str = "linear_preprocess",
+    ) -> tuple[str, float]:
         from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         raw = chat_role(
             self._cfg,
-            "llm",
+            role or ModelRoutePolicy(self._cfg).linear_preprocess_role(),
             [{"role": "user", "content": _INTENT_PROMPT.format(question=question)}],
             temperature=0.0,
             num_predict=96,
             timeout=float(self._planner_cfg.llm_timeout),
             think=False,
+            stage=stage,
         ).strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)
         cleaned = re.sub(r"\s*```$", "", cleaned).strip()

@@ -1,12 +1,13 @@
 """Unit tests for multi-provider llm_http (ollama / openai / google)."""
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
 
 from rag_knowledge.config import Config
-from rag_knowledge.llm_http import ModelEndpoint, chat
+from rag_knowledge.llm_http import ModelEndpoint, achat_stream, chat
 
 
 class _FakeResp:
@@ -36,6 +37,41 @@ class _FakeClient:
     def post(self, url: str, json=None, headers=None, **kwargs):
         self._capture.append({"url": url, "json": json, "headers": headers or {}})
         return _FakeResp(self._payload)
+
+
+class _FakeAsyncResponse:
+    def __init__(self, lines: list[str], status_code: int = 200):
+        self._lines = lines
+        self.status_code = status_code
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def aread(self):
+        return b""
+
+    async def aiter_lines(self):
+        for line in self._lines:
+            yield line
+
+
+class _FakeAsyncClient:
+    def __init__(self, capture: list, lines: list[str]):
+        self._capture = capture
+        self._lines = lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    def stream(self, method: str, url: str, json=None):
+        self._capture.append({"method": method, "url": url, "json": json})
+        return _FakeAsyncResponse(self._lines)
 
 
 def test_model_endpoint_defaults():
@@ -85,6 +121,31 @@ def test_chat_ollama_passes_num_ctx_and_num_predict(monkeypatch):
     assert options["num_ctx"] == 16384
     assert options["num_predict"] == 2048
     assert capture[0]["json"]["format"] == "json"
+
+
+def test_ollama_stream_explicitly_disables_thinking(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.async_client",
+        lambda **kwargs: _FakeAsyncClient(
+            capture,
+            ['{"message":{"content":"answer"},"done":false}'],
+        ),
+    )
+    ep = ModelEndpoint(role="llm", provider="ollama", model="qwen3.5:9b", base_url="http://x:1")
+
+    async def collect():
+        return [
+            part
+            async for part in achat_stream(
+                ep,
+                [{"role": "user", "content": "hi"}],
+                think=False,
+            )
+        ]
+
+    assert asyncio.run(collect()) == ["answer"]
+    assert capture[0]["json"]["think"] is False
 
 
 def test_chat_openai_payload(monkeypatch):

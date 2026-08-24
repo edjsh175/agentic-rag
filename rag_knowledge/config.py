@@ -46,7 +46,6 @@ class StructuredRetrievalConfig:
 
 @dataclass
 class ContextBudgetConfig:
-
     """Context 自动裁剪配置（Token 预算控制）"""
     enabled: bool = True
     # 模型上下文窗口大小（tokens），切换模型时同步修改
@@ -72,7 +71,6 @@ class HistoryCompressionConfig:
     # 触发压缩的最大原始对话轮数（超过此轮数则对历史进行摘要压缩）
     max_raw_rounds: int = 20
     failure_cooldown_seconds: int = 300
-
 
 
 @dataclass
@@ -205,6 +203,19 @@ class AgentOrchestrationConfig:
     tool_timeout: float = 60.0
     heartbeat_initial_delay: float = 1.5
     heartbeat_interval: float = 5.0
+    # Temporary rollout switch; the v2 finalization path is enabled by default.
+    terminal_finalization_v2: bool = True
+
+
+@dataclass
+class ModelRoutingConfig:
+    """Logical stage routing; endpoint/model names remain in ``[model.*]``."""
+
+    common_stage1_role: str = "helper_llm"
+    agent_controller_role: str = "llm"
+    agent_answer_role: str = "llm"
+    linear_preprocess_role: str = "helper_llm"
+    linear_escalation_role: str = "llm"
 
 
 class Config:
@@ -263,8 +274,6 @@ class Config:
             api_key_env = _get(sec, "api_key_env", "").strip()
             max_retries = int(_get(sec, "max_retries", "3"))
             concurrency_limit = int(_get(sec, "concurrency_limit", "5"))
-            # Flat aliases: model.llm_base_url / LLM_BASE_URL already covered via section keys;
-            # also accept model_<role>_base_url style via env GRAPH etc.
             ep = ModelEndpoint(
                 role=role,
                 provider=provider,
@@ -288,23 +297,6 @@ class Config:
         self.helper_llm_endpoint = _load_endpoint(
             "helper_llm", legacy_model_key="helper_llm", default_model="gemma3:4b"
         )
-        if ini.has_section("model.semantic_verifier"):
-            self.semantic_verifier_endpoint = _load_endpoint(
-                "semantic_verifier",
-                legacy_model_key="helper_llm",
-                default_model=self.helper_llm_endpoint.model,
-            )
-        else:
-            helper_ep = self.helper_llm_endpoint
-            self.semantic_verifier_endpoint = ModelEndpoint(
-                role="semantic_verifier",
-                provider=helper_ep.provider,
-                model=helper_ep.model,
-                base_url=helper_ep.base_url,
-                api_key_env=helper_ep.api_key_env,
-                max_retries=helper_ep.max_retries,
-                concurrency_limit=helper_ep.concurrency_limit,
-            )
         self.vision_endpoint = _load_endpoint(
             "vision", legacy_model_key="vision", default_model="qwen3-vl:8b"
         )
@@ -318,7 +310,7 @@ class Config:
         self.embedding_model = self.embedding_endpoint.model
         self.llm_model = self.llm_endpoint.model
         self.helper_llm_model = self.helper_llm_endpoint.model
-        self.semantic_verifier_model = self.semantic_verifier_endpoint.model
+        self.grounding_reviewer_model = self.helper_llm_endpoint.model
         self.vision_model = self.vision_endpoint.model
 
         # ---- GPU Agent 显存监控（gpu-agent sidecar，默认 11435 端口）----
@@ -329,7 +321,6 @@ class Config:
         self.gpu_agent_poll_ttl = float(_get("gpu_agent", "poll_ttl", "2"))
         self.gpu_agent_fallback_model = _get("gpu_agent", "fallback_model", "").strip()
         self.gpu_agent_safety_margin_gib = float(_get("gpu_agent", "safety_margin_gib", "0.5"))
-        # [gpu_agent.model_vram] 模型→预估显存占用(GiB)，基于评测/实测；外部 provider 模型不在此表（不占本地显存）
         self.gpu_agent_model_vram: dict[str, float] = {}
         if ini.has_section("gpu_agent.model_vram"):
             for key, val in ini.items("gpu_agent.model_vram"):
@@ -342,39 +333,16 @@ class Config:
         self.allow_general_knowledge = _get(
             "answer", "allow_general_knowledge", "false"
         ).lower() == "true"
-        self.semantic_verifier_enabled = _get(
-            "answer", "semantic_verifier_enabled", "false"
+        self.grounding_reviewer_enabled = _get(
+            "answer", "grounding_reviewer_enabled", "true"
         ).strip().lower() in ("1", "true", "yes")
-        self.semantic_verifier_timeout = float(_get(
-            "answer", "semantic_verifier_timeout", "30"
-        ))
-        self.semantic_verifier_max_claims = max(1, int(_get(
-            "answer", "semantic_verifier_max_claims", "12"
-        )))
-        self.semantic_verifier_max_evidence_chars = max(200, int(_get(
-            "answer", "semantic_verifier_max_evidence_chars", "1800"
-        )))
-        self.semantic_verifier_activation_report = _dir(_get(
-            "answer", "semantic_verifier_activation_report", "./data/semantic_verifier_activation.json"
-        ), "./data/semantic_verifier_activation.json")
-        self.semantic_verifier_activation_min_residual_cases = max(1, int(_get(
-            "answer", "semantic_verifier_activation_min_residual_cases", "20"
-        )))
-        self.semantic_verifier_activation_min_accuracy = float(_get(
-            "answer", "semantic_verifier_activation_min_accuracy", "0.95"
-        ))
-        self.semantic_verifier_activation_max_false_accept_rate = float(_get(
-            "answer", "semantic_verifier_activation_max_false_accept_rate", "0"
-        ))
-        self.semantic_verifier_activation_max_invalid_rate = float(_get(
-            "answer", "semantic_verifier_activation_max_invalid_rate", "0.02"
+        self.grounding_reviewer_timeout = float(_get(
+            "answer", "grounding_reviewer_timeout", "30"
         ))
 
         # ---- 向量数据库 ----
         self.chroma_dir = _dir(_get("vector_store", "persist_directory", "./chroma_db"), "./chroma_db")
         self.collection_name = _get("vector_store", "collection_name", "rag_knowledge")
-        # HNSW 仅在创建集合时生效；旧集合改 ini 不热更新，须重建。
-        # 历史硬编码 batch_size=50 曾导致容量卡死（50/N），默认改为 Chroma 量级。
         self.hnsw_batch_size = int(_get("vector_store", "hnsw_batch_size", "1000"))
         self.hnsw_sync_threshold = int(_get("vector_store", "hnsw_sync_threshold", "1000"))
 
@@ -640,7 +608,7 @@ class Config:
         self.agent_orchestration = AgentOrchestrationConfig(
             enabled=_get("agent_orchestration", "enabled", "false").lower() == "true",
             max_steps=int(_get("agent_orchestration", "max_steps", "8")),
-            max_retrieve_attempts=int(_get("agent_orchestration", "max_retrieve_attempts", "8")),
+            max_retrieve_attempts=int(_get("agent_orchestration", "max_retrieve_attempts", "2")),
             tool_timeout=float(_get("agent_orchestration", "tool_timeout", "60")),
             heartbeat_initial_delay=float(
                 _get("agent_orchestration", "heartbeat_initial_delay", "1.5")
@@ -648,6 +616,27 @@ class Config:
             heartbeat_interval=float(
                 _get("agent_orchestration", "heartbeat_interval", "5")
             ),
+            terminal_finalization_v2=_get(
+                "agent_orchestration", "terminal_finalization_v2", "true"
+            ).lower() == "true",
+        )
+
+        self.model_routing = ModelRoutingConfig(
+            common_stage1_role=_get(
+                "model_routing", "common_stage1_role", "helper_llm"
+            ).strip().lower(),
+            agent_controller_role=_get(
+                "model_routing", "agent_controller_role", "llm"
+            ).strip().lower(),
+            agent_answer_role=_get(
+                "model_routing", "agent_answer_role", "llm"
+            ).strip().lower(),
+            linear_preprocess_role=_get(
+                "model_routing", "linear_preprocess_role", "helper_llm"
+            ).strip().lower(),
+            linear_escalation_role=_get(
+                "model_routing", "linear_escalation_role", "llm"
+            ).strip().lower(),
         )
 
         self._assert_test_paths_are_isolated(root)
@@ -667,7 +656,6 @@ class Config:
             "embedding": self.embedding_endpoint,
             "llm": self.llm_endpoint,
             "helper_llm": self.helper_llm_endpoint,
-            "semantic_verifier": self.semantic_verifier_endpoint,
             "vision": self.vision_endpoint,
             "compression": self.compression_endpoint,
             "graph_extraction": self.graph_extraction_endpoint,

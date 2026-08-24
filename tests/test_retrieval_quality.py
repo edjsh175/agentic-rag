@@ -9,6 +9,7 @@ import pytest
 from langchain_core.documents import Document
 
 from rag_knowledge.config import RetrievalQualityConfig
+from rag_knowledge.services.retrieval_intent import RetrievalIntentPlan
 from rag_knowledge.services.retrieval_quality import RetrievalQualityStrategy
 
 
@@ -115,17 +116,22 @@ class ScoreFilterTests(unittest.TestCase):
         self.assertEqual(result[0].metadata["quality_score"], 0.9)
         self.assertEqual(result[1].metadata["quality_score"], 0.5)
 
-    def test_fallback_when_all_filtered(self):
-        """全部低于阈值时，至少保留 min_top_k 个（但不超过总数）。"""
+    def test_returns_empty_when_all_candidates_are_below_threshold(self):
+        """没有候选达到有效阈值时，不用 TopK 低分结果凑数。"""
         docs = [
             _doc("a", score=0.1),
             _doc("b", score=0.2),
         ]
         result = self.strategy._filter_by_score(docs)
-        # 只有 2 个 doc，即使 min_top_k=3 也只能返回 2
-        self.assertEqual(len(result), min(len(docs), self.strategy._cfg.min_top_k))
-        # 保留原顺序的前 min_top_k 个
-        self.assertEqual(result[0].metadata["quality_score"], 0.1)
+        self.assertEqual(result, [])
+
+    def test_threshold_is_inclusive(self):
+        boundary = _doc("boundary", score=0.35)
+        below = _doc("below", score=0.3499)
+
+        self.assertTrue(self.strategy._is_score_admissible(boundary, 0.35))
+        self.assertFalse(self.strategy._is_score_admissible(below, 0.35))
+        self.assertEqual(self.strategy._filter_by_score([below, boundary]), [boundary])
 
 
 # ------------------------------------------------------------------
@@ -304,6 +310,43 @@ class ApplyIntegrationTests(unittest.TestCase):
         strategy = object.__new__(RetrievalQualityStrategy)
         strategy._cfg = cfg
         self.assertEqual(strategy.apply("query", []), [])
+
+    def test_all_low_score_candidates_produce_zero_results(self):
+        cfg = _make_cfg(
+            score_threshold_enabled=True,
+            jaccard_dedup_enabled=False,
+            dynamic_topk_enabled=False,
+            score_threshold=0.35,
+        )
+        strategy = object.__new__(RetrievalQualityStrategy)
+        strategy._cfg = cfg
+        docs = [_doc("low-a", score=0.1), _doc("low-b", score=0.2)]
+
+        result = strategy.apply(
+            "unknown query",
+            docs,
+            intent_plan=RetrievalIntentPlan(),
+        )
+
+        self.assertEqual(result, [])
+
+    def test_disabled_score_threshold_preserves_low_score_candidates(self):
+        cfg = _make_cfg(
+            score_threshold_enabled=False,
+            jaccard_dedup_enabled=False,
+            dynamic_topk_enabled=False,
+        )
+        strategy = object.__new__(RetrievalQualityStrategy)
+        strategy._cfg = cfg
+        docs = [_doc("low-a", score=0.1), _doc("low-b", score=0.2)]
+
+        result = strategy.apply(
+            "unknown query",
+            docs,
+            intent_plan=RetrievalIntentPlan(),
+        )
+
+        self.assertEqual({doc.page_content for doc in result}, {"low-a", "low-b"})
 
     def test_metadata_preserved(self):
         """chunk_id、source、kb_name 等元数据在处理后不丢失。"""

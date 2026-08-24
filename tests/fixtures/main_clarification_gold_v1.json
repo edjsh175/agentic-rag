@@ -1,0 +1,118 @@
+{
+  "version": "v1",
+  "description": "Main Controller clarification first-action gold set. Must be evaluated with the real configured Main LLM.",
+  "cases": [
+    {
+      "id": "ambiguous_typo_pipelien",
+      "question": "pipelien",
+      "expected_clarification": true,
+      "category": "suspected_typo",
+      "rationale": "Unknown product-like token cannot safely determine an entity scope."
+    },
+    {
+      "id": "ambiguous_pipeline_family",
+      "question": "pipeline",
+      "expected_clarification": true,
+      "category": "family_name",
+      "rationale": "Pipeline may refer to several distinct products or modules."
+    },
+    {
+      "id": "ambiguous_pipeline_config",
+      "question": "pipeline 怎么配置？",
+      "expected_clarification": true,
+      "category": "family_name",
+      "rationale": "Configuration requires a concrete Pipeline family member."
+    },
+    {
+      "id": "ambiguous_publish_service",
+      "question": "发布服务怎么部署？",
+      "expected_clarification": true,
+      "category": "vague_module",
+      "rationale": "The product or module behind the generic service name is unclear."
+    },
+    {
+      "id": "ambiguous_that_tool",
+      "question": "那个工具怎么安装？",
+      "expected_clarification": true,
+      "category": "missing_referent",
+      "rationale": "There is no history that resolves the demonstrative reference."
+    },
+    {
+      "id": "ambiguous_stamp_family",
+      "question": "Stamp 产品怎么部署？",
+      "expected_clarification": true,
+      "category": "family_name",
+      "rationale": "The Stamp family contains multiple products with different deployment paths."
+    },
+    {
+      "id": "ambiguous_pipeline_related",
+      "question": "管线相关的呢？",
+      "expected_clarification": true,
+      "category": "vague_followup_without_history",
+      "rationale": "No concrete entity or prior referent is available."
+    },
+    {
+      "id": "ambiguous_web_client",
+      "question": "Web 端的接口怎么用？",
+      "expected_clarification": true,
+      "category": "vague_surface",
+      "rationale": "Several products expose a Web surface."
+    },
+    {
+      "id": "clear_pipeline_webgl",
+      "question": "PipelineWebGL 是什么？",
+      "expected_clarification": false,
+      "category": "explicit_single_entity",
+      "rationale": "A canonical entity is explicit."
+    },
+    {
+      "id": "clear_pipeline_comparison",
+      "question": "PipelineWebGL 和 PipelineBuilder 有什么区别？",
+      "expected_clarification": false,
+      "category": "explicit_multi_entity",
+      "rationale": "Both compared entities are explicit."
+    },
+    {
+      "id": "clear_stampserver_port",
+      "question": "StampServer 的默认端口是多少？",
+      "expected_clarification": false,
+      "category": "explicit_single_entity",
+      "rationale": "The requested product and fact are explicit."
+    },
+    {
+      "id": "clear_webrtc_webgl_comparison",
+      "question": "StampWebRTC 和 StampWebGL 的适用场景有什么区别？",
+      "expected_clarification": false,
+      "category": "explicit_multi_entity",
+      "rationale": "Both products are explicitly named."
+    },
+    {
+      "id": "clear_hybrid_retrieval",
+      "question": "知识库的混合检索如何工作？",
+      "expected_clarification": false,
+      "category": "non_entity_broad_qa",
+      "rationale": "This is a concrete topic question that does not require entity binding."
+    },
+    {
+      "id": "clear_rag_troubleshooting",
+      "question": "RAG 检索没有结果时应如何排查？",
+      "expected_clarification": false,
+      "category": "non_entity_broad_qa",
+      "rationale": "The troubleshooting topic is explicit without a product entity."
+    },
+    {
+      "id": "clear_vector_retrieval",
+      "question": "什么是向量检索？",
+      "expected_clarification": false,
+      "category": "non_entity_broad_qa",
+      "rationale": "This is a well-defined conceptual question."
+    },
+    {
+      "id": "clear_supported_formats",
+      "question": "当前知识库支持哪些文档格式？",
+      "expected_clarification": false,
+      "category": "non_entity_broad_qa",
+      "rationale": "The requested system capability is explicit."
+    }
+  ]
+}

@@ -2,12 +2,42 @@ import asyncio
 import sys
 import types
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from rag_knowledge.services.rag import RagChain
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 from rag_knowledge.models.api import QueryRequest
 from rag_knowledge.services.graph_retrieval import GraphContext, LinkedEntity, GraphGuardContext
+
+
+def test_build_llm_disables_ollama_thinking_for_answer_calls():
+    from rag_knowledge.llm_http import ModelEndpoint
+
+    captured = {}
+
+    class FakeChatOllama:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages, **kwargs):
+            captured.update(kwargs)
+            return type("Response", (), {"content": "answer"})()
+
+    cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(enabled=False),
+        endpoint_for=lambda _role: ModelEndpoint(
+            role="llm", provider="ollama", model="qwen3.5:9b", base_url="http://x:1"
+        ),
+    )
+    chain = object.__new__(RagChain)
+    chain._cfg = cfg
+    chain._ollama_base = "http://127.0.0.1:11434"
+
+    with patch("rag_knowledge.services.rag.ChatOllama", FakeChatOllama):
+        chain._build_llm().invoke([])
+
+    assert captured["think"] is False
 
 try:
     from rag_knowledge.api import routes
@@ -233,7 +263,11 @@ class RagStage6Tests(unittest.TestCase):
         self.assertNotIn("graph_entity_ids", sync_captured)
         self.assertNotIn("graph_revision", sync_captured)
 
-        asyncio.run(chain.aquery("question"))
+        asyncio.run(chain.aquery(
+            "question",
+            entity_name="PipelineBuilder",
+            agent_orchestration_enabled=False,
+        ))
         self._assert_graph_base_kwargs(async_captured, graph_doc, guard)
         self.assertEqual(async_captured["graph_entity_ids"], ("e1",))
         self.assertEqual(async_captured["graph_revision"], "rev:1.25")
@@ -248,7 +282,14 @@ class RagStage6Tests(unittest.TestCase):
         chain._aretrieve_multi_uncached = capture_stream_async
 
         async def collect_stream():
-            return [event async for event in chain.stream_query("question")]
+            return [
+                event
+                async for event in chain.stream_query(
+                    "question",
+                    entity_name="PipelineBuilder",
+                    agent_orchestration_enabled=False,
+                )
+            ]
 
         asyncio.run(collect_stream())
         self._assert_graph_base_kwargs(stream_async_captured, graph_doc, guard)
@@ -262,7 +303,14 @@ class RagStage6Tests(unittest.TestCase):
         )
 
         async def collect_stream_sync_fallback():
-            return [event async for event in chain.stream_query("question")]
+            return [
+                event
+                async for event in chain.stream_query(
+                    "question",
+                    entity_name="PipelineBuilder",
+                    agent_orchestration_enabled=False,
+                )
+            ]
 
         asyncio.run(collect_stream_sync_fallback())
         self._assert_graph_base_kwargs(stream_sync_captured, graph_doc, guard)
@@ -305,26 +353,51 @@ class RagStage6Tests(unittest.TestCase):
 
         chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
         res_async = asyncio.run(
-            chain.aquery("question", allow_general_knowledge=False)
+            chain.aquery(
+                "question",
+                entity_name="StampServer",
+                allow_general_knowledge=False,
+                agent_orchestration_enabled=False,
+            )
         )
         self.assertEqual(res_async["source_documents"], [])
         if chain._aretrieve_multi_uncached.call_args:
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("scope", None)
         if getattr(chain._aretrieve_multi_uncached, "await_args", None):
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
-        chain._aretrieve_multi_uncached.assert_awaited_once_with(
-            [], kb_name=None, doc_category=None,
-            rerank=True, web_search=False, plan_top_k=4, plan_candidate_k=12, expand_neighbors=False, intent_plan=None
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("scope", None)
+        chain._aretrieve_multi_uncached.assert_awaited_once()
+        self.assertEqual(
+            chain._aretrieve_multi_uncached.await_args.kwargs,
+            {
+                "kb_name": None,
+                "doc_category": None,
+                "rerank": True,
+                "web_search": False,
+                "plan_top_k": 4,
+                "plan_candidate_k": 12,
+                "expand_neighbors": False,
+                "intent_plan": None,
+            },
         )
 
         chain._query_cache = object()
         chain._aretrieve_uncached = object()
         async def collect():
-            return [event async for event in chain.stream_query("question", allow_general_knowledge=False)]
+            return [
+                event
+                async for event in chain.stream_query(
+                    "question",
+                    entity_name="StampServer",
+                    allow_general_knowledge=False,
+                    agent_orchestration_enabled=False,
+                )
+            ]
 
         events = asyncio.run(collect())
         self.assertTrue(any(e.get("type") == "sources" and e.get("data") == [] for e in events))
@@ -613,14 +686,22 @@ class RagStage6Tests(unittest.TestCase):
         )()
 
         result = asyncio.run(
-            chain.aquery("question", allow_general_knowledge=False)
+            chain.aquery(
+                "question",
+                entity_name="StampServer",
+                allow_general_knowledge=False,
+                agent_orchestration_enabled=False,
+            )
         )
 
         async def collect():
             return [
                 event
                 async for event in chain.stream_query(
-                    "question", allow_general_knowledge=False
+                    "question",
+                    entity_name="StampServer",
+                    allow_general_knowledge=False,
+                    agent_orchestration_enabled=False,
                 )
             ]
 
@@ -642,7 +723,13 @@ class RagStage6Tests(unittest.TestCase):
         chain._allow_general_knowledge = False
 
         result = asyncio.run(
-            chain.aquery("question", thinking=True, allow_general_knowledge=False)
+            chain.aquery(
+                "question",
+                entity_name="StampServer",
+                thinking=True,
+                allow_general_knowledge=False,
+                agent_orchestration_enabled=False,
+            )
         )
 
         self.assertEqual(result["source_documents"], [])
@@ -650,10 +737,12 @@ class RagStage6Tests(unittest.TestCase):
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
             chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_multi_uncached.call_args.kwargs.pop("scope", None)
         if getattr(chain._aretrieve_multi_uncached, "await_args", None):
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
             chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
+            chain._aretrieve_multi_uncached.await_args.kwargs.pop("scope", None)
         chain._aretrieve_multi_uncached.assert_awaited_once_with(
             ["question"],
             kb_name=None,
@@ -677,8 +766,10 @@ class RagStage6Tests(unittest.TestCase):
                 asyncio.run(
                     chain.aquery(
                         "question",
+                        entity_name="StampServer",
                         thinking=thinking,
                         allow_general_knowledge=False,
+                        agent_orchestration_enabled=False,
                     )
                 )
 
@@ -686,10 +777,12 @@ class RagStage6Tests(unittest.TestCase):
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("protect_names", None)
                     chain._aretrieve_multi_uncached.call_args.kwargs.pop("strict_explicit_target", None)
+                    chain._aretrieve_multi_uncached.call_args.kwargs.pop("scope", None)
                 if getattr(chain._aretrieve_multi_uncached, "await_args", None):
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("backbone_canonical", None)
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("protect_names", None)
                     chain._aretrieve_multi_uncached.await_args.kwargs.pop("strict_explicit_target", None)
+                    chain._aretrieve_multi_uncached.await_args.kwargs.pop("scope", None)
                 chain._aretrieve_multi_uncached.assert_awaited_once_with(
                     ["question"],
                     kb_name=None,
@@ -714,7 +807,11 @@ class RagStage6Tests(unittest.TestCase):
             return [
                 event
                 async for event in chain.stream_query(
-                    "question", thinking=True, allow_general_knowledge=False
+                    "question",
+                    entity_name="StampServer",
+                    thinking=True,
+                    allow_general_knowledge=False,
+                    agent_orchestration_enabled=False,
                 )
             ]
 
@@ -759,8 +856,10 @@ class RagStage6Tests(unittest.TestCase):
                         event
                         async for event in chain.stream_query(
                             "question",
+                            entity_name="StampServer",
                             thinking=thinking,
                             allow_general_knowledge=False,
+                            agent_orchestration_enabled=False,
                         )
                     ]
 

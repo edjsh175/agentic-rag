@@ -71,7 +71,7 @@ function formatJson(val: any): string {
         :class="{
           'is-expanded': expandedIndex === index,
           'is-error': tool.ok === false || tool.status === 'error',
-          'is-recovery': !!tool.gap_type || tool.status === 'recovery'
+          'is-targeted': !!tool.gap
         }"
         @click="toggleExpand(index)"
       >
@@ -133,8 +133,8 @@ function formatJson(val: any): string {
               <span class="tool-label">{{ getToolMeta(tool.name).label }}</span>
               <code class="tool-name">{{ tool.name }}</code>
 
-              <span v-if="tool.gap_type" class="gap-badge" title="识别出证据缺口并自动触发补检">
-                缺口: {{ tool.gap_type }}
+              <span v-if="tool.gap" class="gap-badge" title="Main Controller 基于明确证据缺口发起定向补检">
+                缺口: {{ tool.gap }}
               </span>
 
               <span v-if="tool.elapsed_ms !== undefined && tool.elapsed_ms > 0" class="time-badge">
@@ -176,9 +176,9 @@ function formatJson(val: any): string {
             <pre class="detail-code"><code>{{ formatJson(tool.arguments) }}</code></pre>
           </div>
 
-          <div v-if="tool.recovery_strategy" class="detail-section">
-            <div class="detail-title">恢复策略:</div>
-            <span class="strategy-pill">{{ tool.recovery_strategy }}</span>
+          <div v-if="tool.expected_gain" class="detail-section">
+            <div class="detail-title">预期信息增量:</div>
+            <span class="expected-gain-pill">{{ tool.expected_gain }}</span>
           </div>
 
           <div v-if="tool.error" class="detail-section error-section">
@@ -277,7 +277,7 @@ function formatJson(val: any): string {
   cursor: default;
 }
 
-.step-card.is-recovery {
+.step-card.is-targeted {
   border-left: 3px solid #f59e0b;
 }
 
@@ -463,7 +463,7 @@ function formatJson(val: any): string {
   font-family: 'JetBrains Mono', Consolas, monospace;
 }
 
-.strategy-pill {
+.expected-gain-pill {
   display: inline-block;
   font-size: 11px;
   color: #0369a1;

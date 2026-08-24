@@ -133,12 +133,29 @@ def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):
         "metadata": {"chunk_id": "x", "source": "doc.md"},
     }])
     builder.mark("generate")
+    builder.append_grounding_lifecycle({
+        "type": "candidate_status",
+        "data": {"version": 1, "status": "generated"},
+    })
+    builder.append_grounding_lifecycle({
+        "type": "helper_grounding_review_started",
+        "data": {"review_count": 1, "candidate_version": 1},
+    })
+    builder.append_grounding_lifecycle({
+        "type": "review_status",
+        "data": {"review_count": 1, "verdict": "PASS", "coverage": "PARTIAL"},
+    })
+    builder.append_grounding_lifecycle({
+        "type": "publication",
+        "data": {"final_mode": "grounded_partial", "published_candidate_attempt": 1},
+    })
     builder.set_grounding({
         "policy": "strict_kb",
-        "verdict": "fail",
-        "candidate_attempts": 2,
-        "final_mode": "deterministic_fallback",
-        "fallback_used": True,
+        "verdict": "pass",
+        "candidate_attempts": 1,
+        "review_attempts": 1,
+        "final_mode": "grounded_partial",
+        "fallback_used": False,
     })
     tid = builder.finish(
         answer="当前知识库中未查询到相关内容。",
@@ -159,8 +176,16 @@ def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):
     assert detail["plan"]["intent"] == "definition"
     assert detail["stages"]["plan"] >= 0
     assert detail["grounding"]["policy"] == "strict_kb"
-    assert detail["grounding"]["candidate_attempts"] == 2
-    assert detail["grounding"]["final_mode"] == "deterministic_fallback"
+    assert detail["grounding"]["candidate_attempts"] == 1
+    assert detail["grounding"]["final_mode"] == "grounded_partial"
+    assert [event["sequence"] for event in detail["grounding"]["lifecycle_events"]] == [1, 2, 3, 4]
+    assert detail["grounding"]["lifecycle_events"][-1]["type"] == "publication"
+    assert [event["event"] for event in detail["grounding"]["lifecycle_events"]] == [
+        "answer_candidate_generated",
+        "helper_grounding_review_started",
+        "helper_grounding_review_completed",
+        "answer_published",
+    ]
     day_file = data_dir / "qa_traces"
     assert any(day_file.glob(f"*/{tid}.json"))
 
@@ -168,6 +193,23 @@ def test_trace_store_save_list_get_delete(isolated_storage, monkeypatch):
     assert store.get(tid) is None
     listed2 = store.list(limit=10)
     assert all(i["trace_id"] != tid for i in listed2["items"])
+
+
+def test_rewrite_failure_has_distinct_lifecycle_event(isolated_storage, monkeypatch):
+    isolated_storage()
+    monkeypatch.setenv("QA_TRACE_ENABLED", "true")
+    Config._instance = None
+    cfg = Config()
+    builder = QaTraceBuilder(question="测试重写失败", cfg=cfg)
+    builder.append_grounding_lifecycle({
+        "type": "rewrite_status",
+        "data": {"status": "failed", "error": "rewrite_empty_candidate"},
+    })
+
+    tid = builder.finish(answer="已阻断")
+    detail = QaTraceStore(cfg).get(tid)
+
+    assert detail["grounding"]["lifecycle_events"][0]["event"] == "answer_rewrite_failed"
 
 
 def test_trace_disabled_does_not_write(isolated_storage, monkeypatch):
@@ -265,7 +307,11 @@ def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
         return [e async for e in chain.stream_query("项目部署参数是什么？", allow_general_knowledge=False)]
 
     events = asyncio.run(collect())
-    assert any(e.get("type") == "token" and e.get("data") == NO_KNOWLEDGE_ANSWER for e in events)
+    assert any(
+        e.get("type") == "clarify"
+        or (e.get("type") == "token" and e.get("data") == NO_KNOWLEDGE_ANSWER)
+        for e in events
+    )
 
     after = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
     assert after == before
@@ -290,8 +336,8 @@ def test_rag_new_trace_preserves_requested_allow_general_knowledge(isolated_stor
     detail = QaTraceStore(cfg).get(tid)
     assert detail["request"]["allow_general_knowledge"] is True
     assert detail["runtime"]["requested_allow_general_knowledge"] is True
-    assert detail["runtime"]["semantic_verifier_enabled"] is False
-    assert detail["runtime"]["semantic_verifier_model"] == cfg.semantic_verifier_model
+    assert detail["runtime"]["grounding_reviewer_enabled"] is True
+    assert detail["runtime"]["grounding_reviewer_model"] == cfg.grounding_reviewer_model
 
 
 def test_store_requires_explicit_config():
@@ -456,6 +502,73 @@ def test_qa_trace_records_clarify_block(isolated_storage, monkeypatch):
     entities = {o.get("entity_name") for o in clarify.get("options", [])}
     assert {"StampWebRTC", "StampWebGL"} <= entities
     assert not any(str(e or "").startswith("Pipeline") for e in entities)
+
+
+def test_qa_trace_records_ordered_decision_events(isolated_storage, monkeypatch):
+    cfg, _db, _chroma, _data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+    builder = QaTraceBuilder(question="pipelien", cfg=cfg)
+    builder.add_event(
+        "controller_clarification_decided",
+        {"decision_source": "main_controller", "needed": True},
+    )
+    builder.add_event(
+        "clarification_candidates_merged",
+        {"system": 2, "model_suggested": 1, "final": 4},
+    )
+    tid = builder.finish(answer="")
+
+    detail = QaTraceStore(cfg).get(tid)
+    assert [event["type"] for event in detail["events"]] == [
+        "controller_clarification_decided",
+        "clarification_candidates_merged",
+    ]
+    assert [event["sequence"] for event in detail["events"]] == [1, 2]
+    assert detail["events"][1]["data"]["final"] == 4
+
+
+def test_qa_trace_callback_keeps_option_id_and_candidate_metadata(isolated_storage, monkeypatch):
+    cfg, _db, _chroma, _data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+    options = [
+        {
+            "id": "model_01",
+            "label": "Pipeline 发布服务",
+            "source": "model_suggested",
+            "binding_status": "unresolved",
+        },
+        {
+            "id": "other",
+            "label": "以上都不是",
+            "source": "fixed_other",
+            "binding_status": "other",
+        },
+    ]
+    builder = QaTraceBuilder(
+        question="pipelien",
+        cfg=cfg,
+        clarification_option_id="model_01",
+        clarification_selected_candidate=options[0],
+        clarification_options=options,
+        clarification_selection_kind="option",
+    )
+    builder.add_event(
+        "clarification_selection_received",
+        {"option_id": "model_01", "selected_candidate": options[0]},
+    )
+    builder.add_event(
+        "identity_binding_updated",
+        {"status": "confirmed_topic", "confirmed_topic": "Pipeline 发布服务"},
+    )
+    detail = QaTraceStore(cfg).get(builder.finish(answer=""))
+
+    assert detail["request"]["clarification_option_id"] == "model_01"
+    assert detail["request"]["clarification_options"] == options
+    assert detail["request"]["clarification_selected_candidate"]["source"] == "model_suggested"
+    assert [event["type"] for event in detail["events"]] == [
+        "clarification_selection_received",
+        "identity_binding_updated",
+    ]
 
 
 def test_qa_trace_heal_timezone_and_empty_dirs(isolated_storage, monkeypatch):

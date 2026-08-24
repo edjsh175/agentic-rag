@@ -21,6 +21,23 @@ class HistoryItem(BaseModel):
     sources: Optional[list[SourceSummary]] = None  # assistant 消息可携带上一轮来源摘要
 
 
+class ClarificationOptionFilter(BaseModel):
+    doc_category: Optional[str] = None
+    entity_name: Optional[str] = None
+    kb_name: Optional[str] = None
+
+
+class ClarificationOption(BaseModel):
+    id: str
+    label: str
+    filter: ClarificationOptionFilter = Field(default_factory=ClarificationOptionFilter)
+    source: Optional[str] = None
+    canonical_name: Optional[str] = None
+    entity_type: Optional[str] = None
+    binding_status: Optional[str] = None
+    score: Optional[float] = None
+
+
 class QueryRequest(BaseModel):
     question: str
     collection_name: Optional[str] = "rag_knowledge"
@@ -39,21 +56,12 @@ class QueryRequest(BaseModel):
     excluded_chunk_ids: Optional[list[str]] = None
     clarification_question: Optional[str] = None
     clarification_selected: Optional[str] = None
+    clarification_option_id: Optional[str] = None
+    clarification_options: Optional[list[ClarificationOption]] = None
+    clarification_selection_kind: Optional[Literal["option", "other", "free_text"]] = None
+    clarification_free_text: Optional[str] = None
     mode: Optional[Literal["agent", "linear"]] = None
     agent_orchestration_enabled: Optional[bool] = None
-
-
-
-class ClarificationOptionFilter(BaseModel):
-    doc_category: Optional[str] = None
-    entity_name: Optional[str] = None
-    kb_name: Optional[str] = None
-
-
-class ClarificationOption(BaseModel):
-    id: str
-    label: str
-    filter: ClarificationOptionFilter
 
 
 class ClarifyRequest(BaseModel):

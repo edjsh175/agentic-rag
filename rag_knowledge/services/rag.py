@@ -7,6 +7,7 @@ RAG 问答链 —— 检索增强生成
   - 闲聊/知识问答自动分流
 """
 import asyncio
+import copy
 import re
 import json
 import time
@@ -36,7 +37,6 @@ from rag_knowledge.services.anchor_chunk_filter import filter_docs_by_backbone_a
 from rag_knowledge.services.answer_finalizer import AnswerFinalizer
 from rag_knowledge.services.evidence_pack import (
     build_evidence_pack,
-    synthesize_grounded_fallback,
 )
 from rag_knowledge.services.qa_trace import (
     QaTraceBuilder,
@@ -367,6 +367,11 @@ class RagChain:
         path: str | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
+        clarification_option_id: str | None = None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+        clarification_options: list[dict[str, Any]] | None = None,
+        clarification_selection_kind: str | None = None,
+        clarification_free_text: str | None = None,
     ) -> QaTraceBuilder:
         return QaTraceBuilder(
             question=question,
@@ -380,6 +385,11 @@ class RagChain:
             cfg=getattr(self, "_cfg", None),
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_options=clarification_options,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
         )
 
     @staticmethod
@@ -414,6 +424,102 @@ class RagChain:
             trace.set_retrieval(docs, retrieval_trace=retrieval_trace)
         except TypeError:
             trace.set_retrieval(docs)
+
+    @staticmethod
+    def _safe_add_trace_event(
+        trace: Any,
+        event_type: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        if trace is None:
+            return
+        adder = getattr(trace, "add_event", None)
+        if callable(adder):
+            adder(event_type, data)
+
+    @staticmethod
+    def _record_execution_event(trace: Any, event: dict[str, Any]) -> None:
+        if trace is None:
+            return
+        recorder = getattr(trace, "record_execution_event", None)
+        if callable(recorder):
+            recorder(event)
+        event_type = event.get("type")
+        event_data = event.get("data") if isinstance(event.get("data"), dict) else {}
+        is_grounding_error = (
+            event_type == "error"
+            and event_data.get("stage") in {"answer_generation", "review", "rewrite", "publication"}
+        )
+        if event_type in {
+            "candidate_status",
+            "helper_grounding_review_started",
+            "review_status",
+            "rewrite_status",
+            "publication",
+        } or is_grounding_error:
+            lifecycle_recorder = getattr(trace, "append_grounding_lifecycle", None)
+            if callable(lifecycle_recorder):
+                lifecycle_recorder(event)
+
+    @classmethod
+    def _safe_record_agent_rejections(cls, trace: Any, result: Any) -> None:
+        """Expose Runtime/Harness identity denials that never reached a tool handler."""
+        rejection_errors = {
+            "broadening_after_target_rejection",
+            "confirmed_topic_cannot_grant_entity",
+            "identity_not_confirmed",
+            "target_already_rejected",
+            "target_entity_required",
+            "target_not_authorized",
+        }
+        for step in list(getattr(result, "agent_steps", ()) or ()):
+            if not isinstance(step, dict):
+                continue
+            observation = step.get("observation") or {}
+            error = str(observation.get("error") or "").strip()
+            if error not in rejection_errors:
+                continue
+            decision = step.get("decision") or {}
+            arguments = decision.get("arguments") if isinstance(decision, dict) else {}
+            arguments = arguments if isinstance(arguments, dict) else {}
+            controller = step.get("controller") or {}
+            cls._safe_add_trace_event(
+                trace,
+                "tool_target_rejected",
+                {
+                    "tool": decision.get("tool") or controller.get("tool"),
+                    "target_entity": arguments.get("target_entity"),
+                    "reason": error,
+                    "step": step.get("step"),
+                },
+            )
+
+    @staticmethod
+    def _safe_linear_identity_binding(
+        question: str,
+        *,
+        entity_name: str | None,
+        clarification_selected: str | None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+    ) -> tuple[str, str | None, str | None]:
+        """Keep legacy linear retrieval from treating callback text as an entity."""
+        if not (entity_name or clarification_selected or clarification_selected_candidate):
+            return question, entity_name, clarification_selected
+        from rag_knowledge.services.identity_scope import IdentityScopeResolver
+
+        binding = IdentityScopeResolver.resolve(
+            None,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+            selected_candidate=clarification_selected_candidate,
+        )
+        if binding.identity_status == "confirmed_entity" and binding.confirmed_entity:
+            return question, binding.confirmed_entity, binding.confirmed_entity
+        if binding.identity_status == "confirmed_topic" and binding.confirmed_topic:
+            topic = binding.confirmed_topic
+            resolved_question = question if topic in question else f"{topic} {question}".strip()
+            return resolved_question, None, None
+        return question, None, None
 
 
     def _commit_qa_trace(
@@ -1125,8 +1231,10 @@ class RagChain:
 
     def _resolve_llm_endpoint(self, model: str | None = None):
         from rag_knowledge.llm_http import ModelEndpoint
-        ep = self._cfg.llm_endpoint
-        if not model or model == ep.model:
+        ep = getattr(self._cfg, "llm_endpoint", None)
+        if ep is None and hasattr(self._cfg, "endpoint_for"):
+            ep = self._cfg.endpoint_for("llm")
+        if not model or model == getattr(ep, "model", None):
             return ep
         for other_role in ["llm", "helper_llm", "embedding", "vision", "compression", "graph_extraction"]:
             try:
@@ -1177,7 +1285,7 @@ class RagChain:
 
         ep = self._resolve_llm_endpoint(model)
         if ep.normalized_provider() == "ollama":
-            return ChatOllama(
+            base = ChatOllama(
                 model=ep.model,
                 base_url=ep.resolved_base_url(self._ollama_base),
                 temperature=0.1,
@@ -1186,6 +1294,17 @@ class RagChain:
                 num_predict=2048,
                 client_kwargs=OLLAMA_CLIENT_KWARGS,
             )
+
+            class _NoThinkingOllamaAdapter:
+                def __init__(self, inner):
+                    self._inner = inner
+
+                def invoke(self, messages, **kwargs):
+                    kwargs_with_no_think = dict(kwargs)
+                    kwargs_with_no_think.setdefault("think", False)
+                    return self._inner.invoke(messages, **kwargs_with_no_think)
+
+            return _NoThinkingOllamaAdapter(base)
 
         class _HttpChatAdapter:
             def invoke(self_inner, lc_msgs):
@@ -1666,6 +1785,11 @@ class RagChain:
             )
         return "\n\n---\n\n".join(parts)
 
+    @staticmethod
+    def _freeze_generation_source_docs(source_docs: list[dict] | None) -> list[dict]:
+        """Take the one document snapshot shared by Main, Reviewer and citations."""
+        return copy.deepcopy(list(source_docs or []))
+
     def _compress_retrieved_docs(self, query: str, docs: list[Document]) -> list[Document]:
         cfg = getattr(self, "_retrieval_quality_cfg", None)
         if cfg is None and getattr(self, "_quality", None) is not None:
@@ -1717,6 +1841,36 @@ class RagChain:
         except Exception as e:
             logger.warning("contextual compression failed, fallback to raw chunk: %s", e)
             return ""
+
+    def _pack_agent_answer_context(
+        self,
+        agent_result: Any,
+        source_docs: list,
+        context: str,
+        history: list | None,
+        question: str,
+        agent_prompt: str | None = None,
+    ):
+        from rag_knowledge.services.conversation_context import PackDecision, PackResult
+
+        answer_context = getattr(agent_result, "answer_context", None)
+        evidence_snapshot = getattr(agent_result, "evidence_snapshot", None)
+        frozen_context = answer_context or evidence_snapshot
+        if frozen_context is not None:
+            frozen_docs = self._freeze_generation_source_docs(frozen_context.documents())
+            return PackResult(
+                source_docs=frozen_docs,
+                context=self._format_context(frozen_docs),
+                history=None,
+                history_summary="",
+                decision=PackDecision(
+                    reason="frozen_evidence_snapshot",
+                    removed_chunks=0,
+                ),
+            )
+        return self._pack_for_generation(
+            source_docs, context, history, question, agent_prompt=agent_prompt,
+        )
 
     def _pack_for_generation(
         self,
@@ -2324,9 +2478,6 @@ class RagChain:
                         history_summary: str | None = None,
                         dialogue_focus: str | None = None,
                         linked_entities: tuple[any, ...] = (),
-                        backbone_relation_summary: str = "",
-                        backbone_canonical: tuple[str, ...] = (),
-                        backbone_avoid: tuple[str, ...] = (),
                         job: str = "",
                         prompt_layout: str = "dag",
                         conversation_context_section: str | None = None,
@@ -2358,13 +2509,11 @@ class RagChain:
             history_summary_section += f"## 历史对话摘要（非事实来源）\n{history_summary}\n"
 
         entity_hint_section = ""
-        approved_graph_relations = []
         if linked_entities:
             from rag_knowledge.repository.relational_db import RelationalDB
             try:
                 db = RelationalDB()
                 entity_hints = []
-                seen_rel_ids = set()
                 for linked in linked_entities:
                     entity = db.get_entity(linked.entity_id)
                     if not entity:
@@ -2378,7 +2527,6 @@ class RagChain:
 
                     different_from_names = []
                     for rel in db.list_relations(entity_id=linked.entity_id, review_status="approved"):
-                        rel_id = rel.get("id")
                         if rel.get("relation_type") == "different_from":
                             other_id = rel["target_entity_id"] if rel["source_entity_id"] == linked.entity_id else rel["source_entity_id"]
                             other_node = db.get_entity(other_id)
@@ -2387,13 +2535,6 @@ class RagChain:
                                 other_cat = other_node.get("doc_category")
                                 other_type = other_node.get("entity_type")
                                 different_from_names.append(f"{other_name}，类型 {other_type}，分类 {other_cat}" if (other_cat or other_type) else f"{other_name}")
-                        else:
-                            if rel_id and rel_id not in seen_rel_ids:
-                                seen_rel_ids.add(rel_id)
-                                src_name = rel.get("source_name") or "未知"
-                                tgt_name = rel.get("target_name") or "未知"
-                                rtype = rel.get("relation_type") or "related_to"
-                                approved_graph_relations.append(f"  - {src_name} -[{rtype}]-> {tgt_name}")
 
                     hint = f"- {name}{alias_str}\n  - 类型：{etype}"
                     if category:
@@ -2410,23 +2551,6 @@ class RagChain:
                 logger.warning("Failed to construct entity hint section: %s", e)
 
         backbone_anchor_section = ""
-        if backbone_relation_summary or backbone_canonical or approved_graph_relations:
-            parts = []
-            if backbone_relation_summary:
-                parts.append(backbone_relation_summary)
-            elif backbone_canonical:
-                parts.append("产品主干锚定实体：" + "、".join(backbone_canonical))
-                if backbone_avoid:
-                    parts.append("勿与以下易混实体混同：" + "、".join(backbone_avoid))
-            if approved_graph_relations:
-                parts.append("- 已审核知识图谱结构关系：\n" + "\n".join(approved_graph_relations))
-
-            backbone_anchor_section = (
-                "## 知识图谱锚定与已审核关系（权威结构事实；若 context 无原文可据此直接作答并标注）\n"
-                + "\n".join(parts)
-                + "\n\n"
-            )
-
         job_contract_section = _J3_CONTRACT_SECTION if job == "j3" else ""
         if prompt_layout == "agent":
             from rag_knowledge.services.agent_orchestration.runtime import build_agent_messages
@@ -2474,19 +2598,44 @@ class RagChain:
         messages.append({"role": "user", "content": question})
         return messages
 
-    def _retry_grounded_candidate(self, model: str | None, messages: list[dict], verdict: Any) -> str:
-        unsupported = "\n".join(f"- {item}" for item in list(getattr(verdict, "unsupported_segments", []) or [])[:5])
-        retry_messages = list(messages) + [{
-            "role": "user",
-            "content": (
-                "上一版回答未通过知识库证据校验。请重新回答，并严格遵守：\n"
-                "1. 只能陈述当前 context/evidence_pool 明确支持的事实；\n"
-                "2. 每个事实断言必须紧跟对应的 [编号] 引用；\n"
-                "3. 删除任何无法由引用片段直接支持的定义、用途、因果、比较或技术常识；\n"
-                "4. 证据不足时直接说明未查询到，不要补充通用知识。\n"
-                f"未通过校验的片段：\n{unsupported or '- 未提供具体片段，请整体收紧到证据原文。'}"
-            ),
-        }]
+    def _retry_grounded_candidate(
+        self,
+        model: str | None,
+        messages: list[dict],
+        candidate_v1: str,
+        frozen_context_docs: list[dict],
+        review_result: Any,
+    ) -> str:
+        candidate_text = (candidate_v1 or "").strip()
+        rewrite_actions = getattr(review_result, "rewrite_actions", []) or []
+        if not candidate_text:
+            raise ValueError("grounded_rewrite_missing_candidate_v1")
+        if not rewrite_actions:
+            raise ValueError("grounded_rewrite_missing_rewrite_actions")
+        if not hasattr(review_result, "to_dict"):
+            raise ValueError("grounded_rewrite_invalid_review_result")
+
+        evidence_ids = []
+        for index, doc in enumerate(frozen_context_docs or [], start=1):
+            metadata = doc.get("metadata") or {}
+            evidence_ids.append(metadata.get("citation_id", index))
+        review_payload = review_result.to_dict()
+        review_json = json.dumps(review_payload, ensure_ascii=False, indent=2)
+
+        retry_messages = list(messages) + [
+            {"role": "assistant", "content": candidate_text},
+            {
+                "role": "user",
+                "content": (
+                    "上一版 Candidate V1 未完全通过知识库证据审查。"
+                    "继续使用原消息中的同一份 Frozen Evidence Snapshot，且只执行 Helper 返回的 rewrite_actions。\n"
+                    f"冻结证据文档数：{len(frozen_context_docs or [])}；合法 Evidence IDs：{evidence_ids}\n"
+                    "不得自行生成 rewrite_action，不得修改没有对应 action 的 Claim，不得引入新事实分支。\n"
+                    "所有保留或修正后的知识事实必须继续使用该快照中的合法引用。\n\n"
+                    f"【完整 Helper Review Result】\n{review_json}"
+                ),
+            },
+        ]
         from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
         lc_msgs = []
@@ -2502,89 +2651,32 @@ class RagChain:
         response = self._build_llm(model).invoke(lc_msgs)
         return response.content if hasattr(response, "content") else str(response)
 
-    def _semantic_grounding_verify(self, answer: str, context_docs: list[dict[str, Any]]):
+    def _helper_grounding_reviewer(self):
         cfg = getattr(self, "_cfg", None)
-        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
+        if cfg is None or not bool(getattr(cfg, "grounding_reviewer_enabled", True)):
             return None
 
         from rag_knowledge.llm_http import chat_role
-        from rag_knowledge.services.semantic_entailment import SemanticEntailmentVerifier
+        from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
-        def _caller(prompt: str):
+        role = ModelRoutePolicy(cfg).grounding_reviewer_role()
+        timeout = float(getattr(cfg, "grounding_reviewer_timeout", 30.0) or 30.0)
+
+        def _caller(messages: list[dict[str, str]]):
             return chat_role(
                 cfg,
-                "semantic_verifier",
-                [{"role": "user", "content": prompt}],
+                role,
+                messages,
                 temperature=0.0,
                 format_json=True,
-                num_predict=1024,
-                timeout=float(getattr(cfg, "semantic_verifier_timeout", 30.0) or 30.0),
+                num_predict=2048,
+                timeout=timeout,
                 think=False,
+                stage="grounding_reviewer",
             )
 
-        verifier = SemanticEntailmentVerifier(
-            _caller,
-            max_claims=int(getattr(cfg, "semantic_verifier_max_claims", 12) or 12),
-            max_evidence_chars=int(
-                getattr(cfg, "semantic_verifier_max_evidence_chars", 1800) or 1800
-            ),
-        )
-        return verifier.verify(answer, context_docs)
-
-    def _semantic_activation_status(self) -> dict[str, Any]:
-        cfg = getattr(self, "_cfg", None)
-        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
-            return {"ready": False, "reasons": ["semantic_verifier_disabled"]}
-
-        from rag_knowledge.services.semantic_entailment import validate_activation_report
-
-        endpoint = cfg.endpoint_for("semantic_verifier")
-        return validate_activation_report(
-            getattr(cfg, "semantic_verifier_activation_report", "./data/semantic_verifier_activation.json"),
-            provider=endpoint.normalized_provider(),
-            model=endpoint.model,
-            min_residual_cases=int(
-                getattr(cfg, "semantic_verifier_activation_min_residual_cases", 20) or 20
-            ),
-            min_accuracy=float(
-                getattr(cfg, "semantic_verifier_activation_min_accuracy", 0.95) or 0.95
-            ),
-            max_false_accept_rate=float(
-                getattr(cfg, "semantic_verifier_activation_max_false_accept_rate", 0.0) or 0.0
-            ),
-            max_invalid_rate=float(
-                getattr(cfg, "semantic_verifier_activation_max_invalid_rate", 0.02) or 0.02
-            ),
-        )
-
-    def _semantic_verify_callback(self):
-        cfg = getattr(self, "_cfg", None)
-        if cfg is None or not bool(getattr(cfg, "semantic_verifier_enabled", False)):
-            return None
-
-        activation = self._semantic_activation_status()
-        if activation.get("ready") is True:
-            return self._semantic_grounding_verify
-
-        logger.error(
-            "semantic verifier activation blocked | model=%s | reasons=%s",
-            activation.get("model") or "-",
-            activation.get("reasons") or [],
-        )
-
-        def _blocked(_answer: str, _context_docs: list[dict[str, Any]]):
-            from rag_knowledge.services.evidence_pack import GroundingVerdict
-
-            reasons = ["semantic_verifier_activation_blocked"]
-            reasons.extend(str(reason) for reason in (activation.get("reasons") or []))
-            return GroundingVerdict(
-                ok=False,
-                reasons=list(dict.fromkeys(reasons)),
-                unsupported_segments=["语义验证器尚未通过与当前模型匹配的 residual activation gate"],
-                details={"semantic_verifier": {"activation": activation}},
-            )
-
-        return _blocked
+        return HelperGroundingReviewer(_caller)
 
     @staticmethod
     def _need_ollama_thinking(model: str) -> bool:
@@ -2811,6 +2903,11 @@ class RagChain:
         excluded_chunk_ids: list[str] | None,
         clarification_question: str | None,
         clarification_selected: str | None,
+        clarification_option_id: str | None = None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+        clarification_options: list[dict[str, Any]] | None = None,
+        clarification_selection_kind: str | None = None,
+        clarification_free_text: str | None = None,
         on_event=None,
         trace=None,
     ):
@@ -2819,6 +2916,7 @@ class RagChain:
             ConversationContext,
             EvidencePool,
             ToolObservation,
+            ToolProgressStatus,
         )
         from rag_knowledge.services.agent_orchestration.runtime import (
             AgentLoop,
@@ -2829,10 +2927,17 @@ class RagChain:
 
         orch = getattr(self._cfg, "agent_orchestration", None)
 
+        controller_question = (question or "").strip()
+        free_text = (clarification_free_text or "").strip()
+        if free_text and free_text not in controller_question:
+            controller_question = (
+                f"{controller_question}\n用户在澄清卡片中补充：{free_text}"
+            ).strip()
+
         # PRD V1.6: Stage 1 must complete before identity materialization.
         initial_understanding = await asyncio.to_thread(
             lambda: self._understand_for_retrieval(
-                question,
+                controller_question,
                 history,
                 entity_name=entity_name,
                 doc_category=doc_category,
@@ -2840,12 +2945,16 @@ class RagChain:
             )
         )
         conv = ConversationContext.from_request(
-            question,
+            controller_question,
             history,
             entity_name=entity_name,
             doc_category=doc_category,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
             understanding=initial_understanding,
         )
         conv.topic_shift = detect_topic_shift(conv.user_question, conv.session)
@@ -2854,6 +2963,39 @@ class RagChain:
             setter = getattr(trace, "set_understanding", None)
             if callable(setter):
                 setter(initial_understanding)
+        if conv.clarification_callback:
+            self._safe_add_trace_event(
+                trace,
+                "clarification_selection_received",
+                {
+                    "option_id": clarification_option_id,
+                    "selected": (clarification_selected or "").strip() or None,
+                    "selection_kind": clarification_selection_kind,
+                    "free_text": free_text or None,
+                    "selected_candidate": dict(clarification_selected_candidate or {}),
+                    "candidate_count": len(clarification_options or []),
+                },
+            )
+            self._safe_add_trace_event(
+                trace,
+                "clarification_selection_resolved",
+                {
+                    "status": conv.identity_status,
+                    "confirmed_entity": conv.confirmed_entity,
+                    "confirmed_topic": conv.confirmed_topic,
+                },
+            )
+            self._safe_add_trace_event(
+                trace,
+                "identity_binding_updated",
+                {
+                    "raw_mention": conv.raw_entity_mention,
+                    "status": conv.identity_status,
+                    "confirmed_entity": conv.confirmed_entity,
+                    "confirmed_topic": conv.confirmed_topic,
+                    "binding_source": "user_clarification_selection",
+                },
+            )
 
         graph_retriever = getattr(self, "_graph_retriever", None)
         graph_db = getattr(graph_retriever, "db", None)
@@ -2872,10 +3014,12 @@ class RagChain:
             conv.session.last_sources,
             head_entity=conv.previous_head_entity,
         )
-        raw_cap = getattr(orch, "hard_retrieve_cap", None) or getattr(orch, "max_retrieve_attempts", None)
+        max_retries = int(getattr(orch, "max_retrieve_attempts", 2) or 2)
+        hard_cap = int(getattr(orch, "hard_retrieve_cap", 8) or 8)
         budget = AgentBudget(
             max_steps=int(getattr(orch, "max_steps", 8) or 8),
-            hard_retrieve_cap=int(raw_cap or 8),
+            max_retrieve_attempts=max_retries,
+            hard_retrieve_cap=hard_cap,
         )
 
         async def emit(event: dict) -> None:
@@ -2922,17 +3066,34 @@ class RagChain:
             )
 
         async def handle_retrieve(args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在检索知识库..."})
-            query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
-            target = str(args.get("target_entity") or conv.head_entity or "").strip() or None
+            query = str(args.get("query") or "").strip()
+            if not query:
+                return ToolObservation(
+                    tool="retrieve_kb",
+                    ok=False,
+                    summary="缺少必填检索参数 query",
+                    error="tool_missing_arg:query",
+                    status=ToolProgressStatus.DENIED,
+                )
+            target = args.get("target_entity") if args.get("target_entity") is not None else conv.head_entity
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
+                self._safe_add_trace_event(
+                    trace,
+                    "tool_target_rejected",
+                    {
+                        "tool": "retrieve_kb",
+                        "target_entity": target,
+                        "reason": authorization.reason,
+                    },
+                )
                 return ToolObservation(
                     tool="retrieve_kb",
                     ok=False,
                     summary="探索目标未获得证据范围授权",
                     error="exploration_not_authorized",
                     data={"grant_authorization": authorization.to_dict()},
+                    status=ToolProgressStatus.DENIED,
                 )
             grant = authorization.grant
             materialize_grant_relation(grant)
@@ -2951,7 +3112,11 @@ class RagChain:
                 history=history,
                 kb_name=kb_name,
                 doc_category=cat,
-                entity_name=grant.primary_root or conv.head_entity or entity_name,
+                entity_name=(
+                    grant.primary_root
+                    if conv.identity_status == "confirmed_entity"
+                    else None
+                ),
                 web_search=web_search,
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
@@ -2987,11 +3152,23 @@ class RagChain:
                 head_entity=conv.head_entity,
                 target_entity=grant.primary_root,
                 grant=grant,
-                gap_type=str(args.get("gap_type") or "").strip() or None,
-                recovery_strategy=str(args.get("recovery_strategy") or "").strip() or None,
             )
             mode_label = f"（模式: {effective_mode or 'hybrid'}）" if (effective_mode or intent) else ""
-            summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
+            if len(docs) == 0:
+                summary_label = f"未召回有效文档片段{mode_label}"
+                retrieval_status = "NO_VALID_EVIDENCE"
+                self._safe_add_trace_event(
+                    trace,
+                    "retrieval_no_valid_evidence",
+                    {
+                        "query": query,
+                        "target_entity": grant.primary_root,
+                        "scope_id": getattr(conv.scope, "scope_id", ""),
+                    },
+                )
+            else:
+                summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
+                retrieval_status = "MATCHED"
 
             if intent == "exact_parameter":
                 applied_weights = {"bm25": 0.85, "vector": 0.15}
@@ -3013,6 +3190,7 @@ class RagChain:
                 "top_k": int(getattr(plan, "top_k", 0) or len(docs)),
                 "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
                 "effective_mode": effective_mode or "hybrid",
+                "retrieval_status": retrieval_status,
             }
 
             return ToolObservation(
@@ -3031,7 +3209,6 @@ class RagChain:
             )
 
         async def handle_reuse(args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在复用已有证据..."})
             raw_ids = args.get("chunk_ids")
             chunk_ids = [str(x) for x in raw_ids] if isinstance(raw_ids, list) else None
             group = evidence.reuse(chunk_ids, head_entity=conv.head_entity)
@@ -3051,22 +3228,39 @@ class RagChain:
             )
 
         async def handle_link(_args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在检索图谱与链接实体..."})
             linked_payload: list[dict] = []
             graph_on = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
             retriever = getattr(self, "_graph_retriever", None)
             linker = getattr(retriever, "linker", None) if graph_on else None
             relation_summaries: list[str] = []
-            q_text = str(_args.get("query") or conv.resolved_question or conv.user_question).strip()
-            target = str(_args.get("target_entity") or conv.head_entity or "").strip() or None
+            q_text = str(_args.get("query") or "").strip()
+            if not q_text:
+                return ToolObservation(
+                    tool="link_entities",
+                    ok=False,
+                    summary="缺少必填实体检索参数 query",
+                    error="tool_missing_arg:query",
+                    status=ToolProgressStatus.DENIED,
+                )
+            target = _args.get("target_entity") if _args.get("target_entity") is not None else conv.head_entity
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
+                self._safe_add_trace_event(
+                    trace,
+                    "tool_target_rejected",
+                    {
+                        "tool": "link_entities",
+                        "target_entity": target,
+                        "reason": authorization.reason,
+                    },
+                )
                 return ToolObservation(
                     tool="link_entities",
                     ok=False,
                     summary="图谱探索目标未获得授权",
                     error="exploration_not_authorized",
                     data={"grant_authorization": authorization.to_dict()},
+                    status=ToolProgressStatus.DENIED,
                 )
             grant = authorization.grant
 
@@ -3155,54 +3349,102 @@ class RagChain:
             )
 
         async def handle_clarify(_args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在确认问题主体..."})
-            from rag_knowledge.services.query_clarification import QueryClarificationService
+            from rag_knowledge.services.query_clarification import (
+                QueryClarificationService,
+                merge_clarification_candidates,
+            )
 
             svc = QueryClarificationService()
-            analyzed = await asyncio.to_thread(
-                lambda: svc.analyze(
+            self._safe_add_trace_event(
+                trace,
+                "controller_clarification_decided",
+                {
+                    "decision_source": "main_controller",
+                    "needed": True,
+                    "reason": str(_args.get("reason") or "subject_not_clear"),
+                },
+            )
+            self._safe_add_trace_event(
+                trace,
+                "clarification_candidate_discovery_started",
+                {"query": conv.user_question},
+            )
+            system_seeds = await asyncio.to_thread(
+                lambda: svc.discover_candidates(
                     conv.user_question,
                     doc_category=doc_category,
                     kb_name=kb_name,
-                    entity_name=conv.head_entity or entity_name,
                 )
             )
-            payload = analyzed.to_dict() if analyzed is not None else {"needs_clarification": False}
-            custom_opts = _args.get("options")
-            if isinstance(custom_opts, str):
-                custom_opts = [s.strip() for s in re.split(r"[,，;；\n]+", custom_opts) if s.strip()]
-            if not payload.get("needs_clarification") and isinstance(custom_opts, list) and len(custom_opts) >= 2:
-                opts = []
-                for i, opt in enumerate(custom_opts):
-                    lbl = str(opt if isinstance(opt, str) else opt.get("label") or opt.get("entity_name") or f"选项 {i+1}").strip()
-                    opts.append({
-                        "id": f"opt_{i+1}",
-                        "label": lbl,
-                        "filter": {"entity_name": lbl},
-                        "source": "llm_agent",
-                    })
-                payload = {
-                    "needs_clarification": True,
-                    "ask_question": str(_args.get("question") or "请选择您具体关注的模块或方向：").strip(),
-                    "options": opts,
-                }
-            if payload.get("needs_clarification") and len(payload.get("options") or []) >= 2:
-                return ToolObservation(
-                    tool="clarify",
-                    ok=True,
-                    summary=f"出示反问澄清卡片（{len(payload.get('options') or [])} 个选项）",
-                    data={"pause": True, "clarify": payload},
-                )
+            self._safe_add_trace_event(
+                trace,
+                "clarification_candidates_discovered",
+                {
+                    "count": len(system_seeds),
+                    "candidates": [seed.to_dict() for seed in system_seeds],
+                },
+            )
+            model_opts = _args.get("model_suggested_options") or _args.get("options")
+            if isinstance(model_opts, str):
+                model_opts = [s.strip() for s in re.split(r"[,，;；\n]+", model_opts) if s.strip()]
+
+            merged = merge_clarification_candidates(
+                system_candidates=system_seeds,
+                model_suggested_options=model_opts if isinstance(model_opts, list) else None,
+                include_other=True,
+                constraints=svc._load_constraints(),
+            )
+            model_count = len(model_opts) if isinstance(model_opts, list) else 0
+            self._safe_add_trace_event(
+                trace,
+                "clarification_candidates_merged",
+                {
+                    "system": len(system_seeds),
+                    "model_suggested": model_count,
+                    "final": len(merged),
+                    "candidates": [option.to_dict() for option in merged],
+                },
+            )
+
+            ask_q = str(_args.get("question") or "").strip()
+            if not ask_q:
+                ask_q = "您指的是以下哪一个产品或模块？" if merged else "请选择您具体关注的模块或方向："
+
+            payload = {
+                # Main has already selected the clarify action.  Candidate
+                # count controls card richness, never whether the action is
+                # honored.  With no discovered/suggested candidate the fixed
+                # Other option still lets the user provide more context.
+                "needs_clarification": True,
+                "ask_question": ask_q,
+                "options": [opt.to_dict() for opt in merged],
+            }
+            self._safe_add_trace_event(
+                trace,
+                "clarification_card_published",
+                {
+                    "ask_question": ask_q,
+                    "option_ids": [opt.id for opt in merged],
+                    "option_count": len(merged),
+                },
+            )
             return ToolObservation(
                 tool="clarify",
                 ok=True,
-                summary="无需反问，主体明确",
-                data={"pause": False, "clarify": payload},
+                summary=f"出示反问澄清卡片（{len(merged)} 个选项）",
+                data={"pause": True, "clarify": payload},
             )
 
         async def handle_web_search(args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在检索外部网页..."})
-            query = str(args.get("query") or conv.resolved_question or conv.user_question).strip()
+            query = str(args.get("query") or "").strip()
+            if not query:
+                return ToolObservation(
+                    tool="web_search",
+                    ok=False,
+                    summary="缺少必填网页检索参数 query",
+                    error="tool_missing_arg:query",
+                    status=ToolProgressStatus.DENIED,
+                )
             web_docs, _ = await asyncio.to_thread(self._search_web, query, [], "")
             group = evidence.add_external(
                 web_docs,
@@ -3219,7 +3461,6 @@ class RagChain:
             )
 
         async def handle_env_status(_args: dict) -> ToolObservation:
-            await emit({"type": "status", "data": "正在读取系统状态..."})
             status_data = {
                 "server": "running",
                 "kb_name": kb_name or "default",
@@ -3252,32 +3493,31 @@ class RagChain:
             decide_fn=getattr(self, "_agent_decide_fn", None),
             tool_timeout=float(getattr(orch, "tool_timeout", 60.0) or 0.0),
         )
-        return await loop.run(on_event=emit)
+        result = await loop.run(on_event=emit)
+        self._safe_record_agent_rejections(trace, result)
+        return result
 
     def _agent_answer_docs(self, result):
-        retrieved = result.evidence.citable_docs_renumbered()
+        answer_context = getattr(result, "answer_context", None)
+        snapshot = getattr(result, "evidence_snapshot", None)
+        if answer_context is not None:
+            if snapshot is not None and answer_context.evidence_snapshot_id != snapshot.snapshot_id:
+                logger.error(
+                    "Agent answer context snapshot mismatch | context=%s snapshot=%s",
+                    answer_context.evidence_snapshot_id,
+                    snapshot.snapshot_id,
+                )
+                return [], []
+            frozen_docs = self._freeze_generation_source_docs(answer_context.documents())
+        elif snapshot is not None:
+            frozen_docs = self._freeze_generation_source_docs(snapshot.documents())
+        else:
+            logger.error("Agent knowledge answer missing frozen evidence snapshot")
+            frozen_docs = []
         gate = getattr(result, "answer_gate", None) or {}
         if gate and not gate.get("allow_knowledge_answer", True):
-            return [], retrieved
-        return retrieved, retrieved
-
-    @staticmethod
-    def _apply_agent_claim_guard(answer: str, result, source_docs: list[dict], question: str):
-        from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_claim_alignment
-
-        verdict = evaluate_claim_alignment(answer, result.evidence, source_docs)
-        if verdict.get("allow_claims", True):
-            return answer, verdict
-
-        fallback = synthesize_grounded_fallback(source_docs, question)
-        fallback_verdict = evaluate_claim_alignment(fallback, result.evidence, source_docs)
-        payload = dict(verdict)
-        payload["fallback_used"] = True
-        payload["fallback_verdict"] = fallback_verdict
-        if fallback_verdict.get("allow_claims", True):
-            return fallback, payload
-        payload["fail_closed"] = True
-        return NO_KNOWLEDGE_ANSWER, payload
+            return [], frozen_docs
+        return frozen_docs, frozen_docs
 
     async def _iter_with_heartbeat(
         self,
@@ -3287,11 +3527,14 @@ class RagChain:
         interval: float,
     ):
         queue: asyncio.Queue = asyncio.Queue()
+        producer_error: list[Exception] = []
 
         async def produce():
             try:
                 async for item in agen:
                     await queue.put(item)
+            except Exception as exc:  # noqa: BLE001
+                producer_error.append(exc)
             finally:
                 await queue.put(None)
 
@@ -3310,6 +3553,8 @@ class RagChain:
                         next_beat = time.monotonic() + beat_interval
                     continue
                 if item is None:
+                    if producer_error:
+                        raise producer_error[0]
                     break
                 et = item.get("type")
                 if et in {"token", "final_answer", "done", "clarify"}:
@@ -3342,14 +3587,19 @@ class RagChain:
         path: str | None,
         clarification_question: str | None,
         clarification_selected: str | None,
+        clarification_option_id: str | None = None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+        clarification_options: list[dict[str, Any]] | None = None,
+        clarification_selection_kind: str | None = None,
+        clarification_free_text: str | None = None,
         trace,
     ):
         q = (question or "").strip()
+        pipeline_events = False
         allow_general = (
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        strict_request = not allow_general
         live_events: asyncio.Queue = asyncio.Queue()
 
         async def on_event(event: dict) -> None:
@@ -3368,20 +3618,23 @@ class RagChain:
                     excluded_chunk_ids=excluded_chunk_ids,
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
+                    clarification_option_id=clarification_option_id,
+                    clarification_selected_candidate=clarification_selected_candidate,
+                    clarification_options=clarification_options,
+                    clarification_selection_kind=clarification_selection_kind,
+                    clarification_free_text=clarification_free_text,
                     on_event=on_event,
                     trace=trace,
                 )
             finally:
                 await live_events.put(None)
 
-        yield {"type": "status", "data": "正在理解问题..."}
         turn_task = asyncio.create_task(run_turn())
         while True:
             event = await live_events.get()
             if event is None:
                 break
-            if strict_request and event.get("type") == "thinking":
-                continue
+            self._record_execution_event(trace, event)
             yield event
         result = await turn_task
 
@@ -3419,17 +3672,16 @@ class RagChain:
             return
         from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
 
-        # 第一性原则：以 Agent 实际执行产物为准。若已有可引用证据，绝不能因静态正则而抹杀
-        has_citable_evidence = bool(result.evidence.citable_docs())
+        # Answer/Reviewer/citations all consume the immutable finalization snapshot.
+        source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+        has_citable_evidence = bool(retrieved_source_docs)
         if has_citable_evidence:
             is_direct_chat = False
-            source_docs, retrieved_source_docs = self._agent_answer_docs(result)
             context = self._format_context(source_docs)
             has_evidence = bool(source_docs)
         else:
             is_direct_chat = (
-                result.route == "direct"
-                or is_meta_or_direct_chat(q)
+                is_meta_or_direct_chat(q)
                 or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
             )
             source_docs = []
@@ -3443,14 +3695,18 @@ class RagChain:
         )
         trace.mark("retrieve")
 
-        strict_grounding = not is_direct_chat
         if not is_direct_chat and not source_docs and not allow_general:
             evidence = build_evidence_pack(NO_KNOWLEDGE_ANSWER, retrieved_source_docs, [])
+            publication_event = {"type": "publication", "data": {"final_mode": "no_knowledge", "review_verdict": "NONE", "coverage": "NONE", "message": "知识库未查询到相关内容。"}}
+            final_answer_event = {"type": "final_answer", "data": NO_KNOWLEDGE_ANSWER}
+            self._record_execution_event(trace, publication_event)
+            self._record_execution_event(trace, final_answer_event)
             tid = self._commit_qa_trace(
                 trace, answer=NO_KNOWLEDGE_ANSWER,
                 retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
             )
-            yield {"type": "token", "data": NO_KNOWLEDGE_ANSWER}
+            yield publication_event
+            yield final_answer_event
             yield {"type": "sources", "data": []}
             if pipeline_events:
                 yield {
@@ -3467,34 +3723,33 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        pack = self._pack_for_generation(
+        pack = self._pack_agent_answer_context(
+            result,
             source_docs, context, history, q, agent_prompt=agent_prompt,
         )
-        source_docs, context, history = pack.source_docs, pack.context, pack.history
+        source_docs = self._freeze_generation_source_docs(pack.source_docs)
+        context = self._format_context(source_docs)
+        history = pack.history
         history_summary = pack.history_summary
         trace.set_pack(pack.decision)
         trace.mark("pack")
-        yield {"type": "status", "data": "正在整理答案..."}
 
-        plan = result.plan
-        msgs = self._build_messages(
-            q, context, history, agent_prompt=agent_prompt,
-            allow_general_knowledge=allow_general,
-            history_summary=history_summary,
-            dialogue_focus=getattr(result.conversation.understanding, "dialogue_focus", "") or "",
-            linked_entities=getattr(plan, "linked_entities", ()) if plan is not None else (),
-            backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "" if plan is not None else "",
-            backbone_canonical=getattr(plan, "backbone_canonical", ()) or () if plan is not None else (),
-            backbone_avoid=getattr(plan, "backbone_avoid", ()) or () if plan is not None else (),
-            job=getattr(plan, "job", "") or "" if plan is not None else "",
-            prompt_layout="agent",
-            conversation_context_section=result.conversation.to_prompt(
+        answer_context = getattr(result, "answer_context", None)
+        if answer_context is not None:
+            from rag_knowledge.services.agent_orchestration.runtime import (
+                build_answer_generation_messages,
+            )
+
+            msgs = build_answer_generation_messages(answer_context, agent_prompt=agent_prompt)
+        else:
+            msgs = self._build_messages(
+                q, context, history, agent_prompt=agent_prompt,
+                allow_general_knowledge=allow_general,
                 history_summary=history_summary,
-            ),
-            evidence_pool_section=result.evidence.to_prompt(context),
-            is_direct_chat=is_direct_chat,
-            has_evidence=has_evidence,
-        )
+                prompt_layout="agent",
+                is_direct_chat=is_direct_chat,
+                has_evidence=has_evidence,
+            )
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
         model = guarded_model
@@ -3525,51 +3780,57 @@ class RagChain:
                     parts = content.split("<think>")
                     if parts[0]:
                         answer_parts.append(parts[0])
-                        if not strict_grounding:
-                            yield {"type": "token", "data": parts[0]}
                     in_thinking_tag = True
                     rest = parts[1]
                     if "</think>" in rest:
                         t_parts = rest.split("</think>")
                         thinking_parts.append(t_parts[0])
-                        if not strict_grounding:
-                            yield {"type": "thinking", "data": t_parts[0]}
                         in_thinking_tag = False
                         if t_parts[1]:
                             answer_parts.append(t_parts[1])
-                            if not strict_grounding:
-                                yield {"type": "token", "data": t_parts[1]}
                     else:
                         thinking_parts.append(rest)
-                        if not strict_grounding:
-                            yield {"type": "thinking", "data": rest}
                 elif "</think>" in content:
                     parts = content.split("</think>")
                     thinking_parts.append(parts[0])
-                    if not strict_grounding:
-                        yield {"type": "thinking", "data": parts[0]}
                     in_thinking_tag = False
                     if parts[1]:
                         answer_parts.append(parts[1])
-                        if not strict_grounding:
-                            yield {"type": "token", "data": parts[1]}
                 elif in_thinking_tag:
                     thinking_parts.append(content)
-                    if not strict_grounding:
-                        yield {"type": "thinking", "data": content}
                 else:
                     answer_parts.append(content)
-                    if not strict_grounding:
-                        yield {"type": "token", "data": content}
         except Exception as stream_exc:
             logger.error("模型流式调用失败: %s", stream_exc)
-            fail_msg = f"模型调用失败：{stream_exc}"
+            fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
+            error_event = {
+                "type": "error",
+                "data": {
+                    "code": f"answer_generation_error:{type(stream_exc).__name__}",
+                    "stage": "answer_generation",
+                    "message": fail_msg,
+                    "recoverable": True,
+                },
+            }
+            self._record_execution_event(trace, error_event)
+            publication_event = {"type": "publication", "data": {
+                "final_mode": "generation_error",
+                "review_verdict": "NONE",
+                "coverage": "NONE",
+                "message": "回答生成失败，已阻断候选答案发布。",
+            }}
+            final_answer_event = {"type": "final_answer", "data": fail_msg}
+            self._record_execution_event(trace, publication_event)
+            self._record_execution_event(trace, final_answer_event)
             tid = self._commit_qa_trace(
                 trace, answer=fail_msg,
                 retrieved_docs=retrieved_source_docs, context_docs=source_docs,
-                cited_docs=[], error=fail_msg,
+                cited_docs=[], error=str(stream_exc),
             )
-            yield {"type": "token", "data": fail_msg}
+            yield error_event
+            yield publication_event
+            yield final_answer_event
+            yield {"type": "sources", "data": []}
             if tid:
                 yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
@@ -3582,33 +3843,82 @@ class RagChain:
                 "知识库已完成检索，但模型没有返回有效答案，请重试一次。"
                 if source_docs else NO_KNOWLEDGE_ANSWER
             )
-            answer_text = fallback_answer
-            if not strict_grounding:
-                yield {"type": "token", "data": fallback_answer}
+            error_event = {
+                "type": "error",
+                "data": {
+                    "code": "empty_answer_candidate",
+                    "stage": "answer_generation",
+                    "message": fallback_answer,
+                    "recoverable": True,
+                },
+            }
+            self._record_execution_event(trace, error_event)
+            publication_event = {"type": "publication", "data": {
+                "final_mode": "generation_error",
+                "review_verdict": "NONE",
+                "coverage": "NONE",
+                "message": "回答模型未生成有效 Candidate，已阻断发布。",
+            }}
+            final_answer_event = {"type": "final_answer", "data": fallback_answer}
+            self._record_execution_event(trace, publication_event)
+            self._record_execution_event(trace, final_answer_event)
+            yield error_event
+            yield publication_event
+            yield final_answer_event
+            yield {"type": "sources", "data": []}
+            tid = self._commit_qa_trace(
+                trace,
+                answer=fallback_answer,
+                thinking="".join(thinking_parts) if thinking_parts else None,
+                retrieved_docs=retrieved_source_docs,
+                context_docs=source_docs,
+                cited_docs=[],
+                error="empty_answer_candidate",
+            )
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
+            yield {"type": "done"}
+            return
 
-        finalized = await asyncio.to_thread(
-            _ANSWER_FINALIZER.finalize,
-            answer_text,
-            q,
-            source_docs,
-            allow_general_knowledge=allow_general,
-            is_direct_chat=is_direct_chat,
-            retry_candidate=lambda verdict: self._retry_grounded_candidate(
-                guarded_model, msgs, verdict,
-            ),
-            semantic_verify=self._semantic_verify_callback(),
-        )
-        guarded_answer, claim_guard = self._apply_agent_claim_guard(
-            finalized.answer, result, source_docs, q,
-        )
-        if strict_grounding:
-            yield {"type": "token", "data": guarded_answer}
-        elif guarded_answer != answer_text:
-            yield {"type": "final_answer", "data": guarded_answer}
-        answer_text = guarded_answer
-        grounding_payload = dict(finalized.grounding or {})
-        grounding_payload["claim_guard"] = claim_guard
-        self._safe_set_grounding(trace, grounding_payload, allow_general=allow_general)
+        # 实时转发 Finalizer 生命周期事件
+        lifecycle_queue: asyncio.Queue = asyncio.Queue()
+        curr_loop = asyncio.get_running_loop()
+
+        def _on_lifecycle_sync(evt: dict[str, Any]) -> None:
+            curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, evt)
+
+        async def _run_finalize_task():
+            try:
+                return await asyncio.to_thread(
+                    _ANSWER_FINALIZER.finalize,
+                    answer_text,
+                    q,
+                    source_docs,
+                    allow_general_knowledge=allow_general,
+                    is_direct_chat=is_direct_chat,
+                    retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                        guarded_model, msgs, answer_text, source_docs, review_result,
+                    ),
+                    helper_reviewer=self._helper_grounding_reviewer(),
+                    on_lifecycle_event=_on_lifecycle_sync,
+                )
+            finally:
+                curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
+
+        fin_task = asyncio.create_task(_run_finalize_task())
+        while True:
+            evt = await lifecycle_queue.get()
+            if evt is None:
+                break
+            self._record_execution_event(trace, evt)
+            yield evt
+        finalized = await fin_task
+
+        answer_text = finalized.answer
+        final_answer_event = {"type": "final_answer", "data": answer_text}
+        self._record_execution_event(trace, final_answer_event)
+        yield final_answer_event
+        self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
         cited = self._filter_cited_sources(answer_text, source_docs)
         evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
         tid = self._commit_qa_trace(
@@ -3635,6 +3945,7 @@ class RagChain:
             yield {"type": "trace", "data": {"trace_id": tid}}
         yield {"type": "done"}
 
+
     async def _aquery_agent(
         self,
         question: str,
@@ -3651,6 +3962,11 @@ class RagChain:
         include_evidence: bool,
         clarification_question: str | None,
         clarification_selected: str | None,
+        clarification_option_id: str | None = None,
+        clarification_selected_candidate: dict[str, Any] | None = None,
+        clarification_options: list[dict[str, Any]] | None = None,
+        clarification_selection_kind: str | None = None,
+        clarification_free_text: str | None = None,
         trace,
     ) -> dict:
         q = (question or "").strip()
@@ -3665,6 +3981,11 @@ class RagChain:
             excluded_chunk_ids=None,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_options=clarification_options,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
             trace=trace,
         )
         if getattr(self, "_last_understanding", None) is None and result.conversation.understanding is not None:
@@ -3706,7 +4027,12 @@ class RagChain:
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        is_direct_chat = result.route == "direct" or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
+
+        is_direct_chat = (
+            is_meta_or_direct_chat(q)
+            or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
+        )
         if not source_docs and not allow_general and not is_direct_chat:
             tid = self._commit_qa_trace(
                 trace, answer=NO_KNOWLEDGE_ANSWER,
@@ -3721,34 +4047,34 @@ class RagChain:
                 )
             return out
 
-        pack = self._pack_for_generation(
+        pack = self._pack_agent_answer_context(
+            result,
             source_docs, context, history, q, agent_prompt=agent_prompt,
         )
-        source_docs, context, history = pack.source_docs, pack.context, pack.history
+        source_docs = self._freeze_generation_source_docs(pack.source_docs)
+        context = self._format_context(source_docs)
+        history = pack.history
         history_summary = pack.history_summary
         trace.set_pack(pack.decision)
         trace.mark("pack")
 
-        plan = result.plan
         has_evidence = bool(source_docs)
-        msgs = self._build_messages(
-            q, context, history, agent_prompt=agent_prompt,
-            allow_general_knowledge=allow_general,
-            history_summary=history_summary,
-            dialogue_focus=getattr(result.conversation.understanding, "dialogue_focus", "") or "",
-            linked_entities=getattr(plan, "linked_entities", ()) if plan is not None else (),
-            backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "" if plan is not None else "",
-            backbone_canonical=getattr(plan, "backbone_canonical", ()) or () if plan is not None else (),
-            backbone_avoid=getattr(plan, "backbone_avoid", ()) or () if plan is not None else (),
-            job=getattr(plan, "job", "") or "" if plan is not None else "",
-            prompt_layout="agent",
-            conversation_context_section=result.conversation.to_prompt(
+        answer_context = getattr(result, "answer_context", None)
+        if answer_context is not None:
+            from rag_knowledge.services.agent_orchestration.runtime import (
+                build_answer_generation_messages,
+            )
+
+            msgs = build_answer_generation_messages(answer_context, agent_prompt=agent_prompt)
+        else:
+            msgs = self._build_messages(
+                q, context, history, agent_prompt=agent_prompt,
+                allow_general_knowledge=allow_general,
                 history_summary=history_summary,
-            ),
-            evidence_pool_section=result.evidence.to_prompt(context),
-            is_direct_chat=is_direct_chat,
-            has_evidence=has_evidence,
-        )
+                prompt_layout="agent",
+                is_direct_chat=is_direct_chat,
+                has_evidence=has_evidence,
+            )
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
         llm = self._build_llm(guarded_model)
         from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -3770,17 +4096,14 @@ class RagChain:
             source_docs,
             allow_general_knowledge=allow_general,
             is_direct_chat=is_direct_chat,
-            retry_candidate=lambda verdict: self._retry_grounded_candidate(
-                guarded_model, msgs, verdict,
+            retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                guarded_model, msgs, answer_content, source_docs, review_result,
             ),
-            semantic_verify=self._semantic_verify_callback(),
+            helper_reviewer=self._helper_grounding_reviewer(),
+            on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
         )
-        answer_content, claim_guard = self._apply_agent_claim_guard(
-            finalized.answer, result, source_docs, q,
-        )
-        grounding_payload = dict(finalized.grounding or {})
-        grounding_payload["claim_guard"] = claim_guard
-        self._safe_set_grounding(trace, grounding_payload, allow_general=allow_general)
+        answer_content = finalized.answer
+        self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
         cited = self._filter_cited_sources(answer_content, source_docs)
         evidence = build_evidence_pack(answer_content, retrieved_source_docs, source_docs)
         tid = self._commit_qa_trace(
@@ -3914,9 +4237,9 @@ class RagChain:
             pack = self._pack_for_generation(
                 source_docs, context, history, q, agent_prompt=agent_prompt,
             )
-            source_docs, context, history = (
-                pack.source_docs, pack.context, pack.history,
-            )
+            source_docs = self._freeze_generation_source_docs(pack.source_docs)
+            context = self._format_context(source_docs)
+            history = pack.history
             history_summary = pack.history_summary
 
             llm = self._build_llm(guarded_model)
@@ -3931,9 +4254,6 @@ class RagChain:
                 history_summary=history_summary,
                 dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
-                backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
-                backbone_avoid=getattr(plan, "backbone_avoid", ()) or (),
                 job=getattr(plan, "job", "") or "",
             )
 
@@ -3965,10 +4285,10 @@ class RagChain:
                 q,
                 source_docs,
                 allow_general_knowledge=allow_general,
-                retry_candidate=lambda verdict: self._retry_grounded_candidate(
-                    guarded_model, msgs, verdict,
+                retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                    guarded_model, msgs, answer, source_docs, review_result,
                 ),
-                semantic_verify=self._semantic_verify_callback(),
+                helper_reviewer=self._helper_grounding_reviewer(),
             )
             answer = finalized.answer
             return {
@@ -4074,6 +4394,11 @@ class RagChain:
                      include_evidence: bool = False,
                      clarification_question: str | None = None,
                      clarification_selected: str | None = None,
+                     clarification_option_id: str | None = None,
+                     clarification_selected_candidate: dict[str, Any] | None = None,
+                     clarification_options: list[dict[str, Any]] | None = None,
+                     clarification_selection_kind: str | None = None,
+                     clarification_free_text: str | None = None,
                      agent_orchestration_enabled: bool | None = None) -> dict:
         q = (question or "").strip()
         deep_mode = bool(thinking)
@@ -4083,7 +4408,16 @@ class RagChain:
             allow_general_knowledge=allow_general_knowledge,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_options=clarification_options,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
         )
+
+        free_text = (clarification_free_text or "").strip()
+        if free_text and free_text not in q:
+            q = f"{q}\n用户在澄清卡片中补充：{free_text}".strip()
 
 
         if not q:
@@ -4106,7 +4440,17 @@ class RagChain:
                 rejected = {**rejected, "trace_id": tid}
             return rejected
 
-        if not (clarification_selected and str(clarification_selected).strip()):
+        agent_enabled = self._agent_orchestration_enabled(agent_orchestration_enabled)
+
+        # In Agent mode the Main Controller is the sole clarification decision
+        # maker.  The legacy Stage-1 clarify gate remains available only for the
+        # linear path and the explicit /query/clarify endpoint.
+        has_bound_selection = bool(
+            clarification_selected
+            and str(clarification_selected).strip()
+            and str(clarification_selection_kind or "option").casefold() == "option"
+        )
+        if not agent_enabled and not has_bound_selection:
             understood = await asyncio.to_thread(
                 lambda: self._get_understanding_service().analyze(
                     q,
@@ -4138,7 +4482,7 @@ class RagChain:
                     res["trace_id"] = tid
                 return res
 
-        if not self._agent_orchestration_enabled(agent_orchestration_enabled):
+        if not agent_enabled:
             rejected = self._j3_clarify_reject_if_needed(
                 q,
                 entity_name=entity_name,
@@ -4150,7 +4494,7 @@ class RagChain:
                     rejected = {**rejected, "trace_id": tid}
                 return rejected
 
-        if self._agent_orchestration_enabled(agent_orchestration_enabled):
+        if agent_enabled:
             try:
                 return await self._aquery_agent(
                     q, history,
@@ -4165,6 +4509,11 @@ class RagChain:
                     include_evidence=include_evidence,
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
+                    clarification_option_id=clarification_option_id,
+                    clarification_selected_candidate=clarification_selected_candidate,
+                    clarification_options=clarification_options,
+                    clarification_selection_kind=clarification_selection_kind,
+                    clarification_free_text=clarification_free_text,
                     trace=trace,
                 )
             except Exception as e:
@@ -4176,6 +4525,12 @@ class RagChain:
                     out["trace_id"] = tid
                 return out
 
+        q, entity_name, clarification_selected = self._safe_linear_identity_binding(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+            clarification_selected_candidate=clarification_selected_candidate,
+        )
         from rag_knowledge.services.retrieval_scope import RetrievalScope
 
         scope = RetrievalScope.create(
@@ -4256,8 +4611,15 @@ class RagChain:
                 "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
                 "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
                 "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
+                "retrieval_status": "MATCHED" if retrieved_source_docs else "NO_VALID_EVIDENCE",
             }
             self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
+            if not retrieved_source_docs:
+                self._safe_add_trace_event(
+                    trace,
+                    "retrieval_no_valid_evidence",
+                    {"query": q, "scope_id": getattr(scope, "scope_id", "")},
+                )
             trace.mark("retrieve")
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
@@ -4284,9 +4646,9 @@ class RagChain:
             pack = self._pack_for_generation(
                 source_docs, context, history, q, agent_prompt=agent_prompt,
             )
-            source_docs, context, history = (
-                pack.source_docs, pack.context, pack.history,
-            )
+            source_docs = self._freeze_generation_source_docs(pack.source_docs)
+            context = self._format_context(source_docs)
+            history = pack.history
             history_summary = pack.history_summary
             trace.set_pack(pack.decision)
             trace.mark("pack")
@@ -4303,9 +4665,6 @@ class RagChain:
                 history_summary=history_summary,
                 dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
-                backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
-                backbone_avoid=getattr(plan, "backbone_avoid", ()) or (),
                 job=getattr(plan, "job", "") or "",
             )
 
@@ -4340,10 +4699,11 @@ class RagChain:
                 q,
                 source_docs,
                 allow_general_knowledge=allow_general,
-                retry_candidate=lambda verdict: self._retry_grounded_candidate(
-                    guarded_model, msgs, verdict,
+                retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                    guarded_model, msgs, answer_content, source_docs, review_result,
                 ),
-                semantic_verify=self._semantic_verify_callback(),
+                helper_reviewer=self._helper_grounding_reviewer(),
+                on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
             )
             answer_content = finalized.answer
             self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
@@ -4409,23 +4769,110 @@ class RagChain:
             return []
 
     async def stream_query(self, question: str, history: list | None = None,
-                            llm_model: str | None = None, vision_model: str | None = None,
-                            kb_name: str | None = None, doc_category: str | None = None,
-                            entity_name: str | None = None,
-                            thinking: bool | None = None,
-                            web_search: bool | None = None,
-                            allow_general_knowledge: bool | None = None,
-                            agent_prompt: str | None = None,
-                            *,
-                            pipeline_events: bool = False,
-                            pinned_chunk_ids: list[str] | None = None,
-                            excluded_chunk_ids: list[str] | None = None,
-                            path: str | None = None,
-                            clarification_question: str | None = None,
-                            clarification_selected: str | None = None,
-                            agent_orchestration_enabled: bool | None = None):
+                           llm_model: str | None = None, vision_model: str | None = None,
+                           kb_name: str | None = None, doc_category: str | None = None,
+                           entity_name: str | None = None,
+                           thinking: bool | None = None,
+                           web_search: bool | None = None,
+                           allow_general_knowledge: bool | None = None,
+                           agent_prompt: str | None = None,
+                           *,
+                           pipeline_events: bool = False,
+                           pinned_chunk_ids: list[str] | None = None,
+                           excluded_chunk_ids: list[str] | None = None,
+                           path: str | None = None,
+                           clarification_question: str | None = None,
+                           clarification_selected: str | None = None,
+                           clarification_option_id: str | None = None,
+                           clarification_selected_candidate: dict[str, Any] | None = None,
+                           clarification_options: list[dict[str, Any]] | None = None,
+                           clarification_selection_kind: str | None = None,
+                           clarification_free_text: str | None = None,
+                           agent_orchestration_enabled: bool | None = None):
+        """Stream one query and keep the SSE connection alive in either run mode."""
+        orch = getattr(getattr(self, "_cfg", None), "agent_orchestration", None)
+        events = self._stream_query_events(
+            question,
+            history,
+            llm_model=llm_model,
+            vision_model=vision_model,
+            kb_name=kb_name,
+            doc_category=doc_category,
+            entity_name=entity_name,
+            thinking=thinking,
+            web_search=web_search,
+            allow_general_knowledge=allow_general_knowledge,
+            agent_prompt=agent_prompt,
+            pipeline_events=pipeline_events,
+            pinned_chunk_ids=pinned_chunk_ids,
+            excluded_chunk_ids=excluded_chunk_ids,
+            path=path,
+            clarification_question=clarification_question,
+            clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_options=clarification_options,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
+            agent_orchestration_enabled=agent_orchestration_enabled,
+        )
+        try:
+            async for event in self._iter_with_heartbeat(
+                events,
+                initial_delay=float(getattr(orch, "heartbeat_initial_delay", 1.5) or 1.5),
+                interval=float(getattr(orch, "heartbeat_interval", 5.0) or 5.0),
+            ):
+                yield event
+        except Exception as exc:  # noqa: BLE001
+            logger.error("SSE 流执行失败: %s", exc)
+            answer = "查询执行异常，当前候选答案不会发布，请稍后重试。"
+            yield {
+                "type": "error",
+                "data": {
+                    "code": f"stream_runtime_error:{type(exc).__name__}",
+                    "stage": "stream",
+                    "message": answer,
+                    "recoverable": True,
+                },
+            }
+            yield {
+                "type": "publication",
+                "data": {
+                    "final_mode": "runtime_error",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "执行流异常，已阻断候选答案发布。",
+                },
+            }
+            yield {"type": "final_answer", "data": answer}
+            yield {"type": "sources", "data": []}
+            yield {"type": "done"}
+
+    async def _stream_query_events(self, question: str, history: list | None = None,
+                                   llm_model: str | None = None, vision_model: str | None = None,
+                                   kb_name: str | None = None, doc_category: str | None = None,
+                                   entity_name: str | None = None,
+                                   thinking: bool | None = None,
+                                   web_search: bool | None = None,
+                                   allow_general_knowledge: bool | None = None,
+                                   agent_prompt: str | None = None,
+                                   *,
+                                   pipeline_events: bool = False,
+                                   pinned_chunk_ids: list[str] | None = None,
+                                   excluded_chunk_ids: list[str] | None = None,
+                                   path: str | None = None,
+                                   clarification_question: str | None = None,
+                                   clarification_selected: str | None = None,
+                                   clarification_option_id: str | None = None,
+                                   clarification_selected_candidate: dict[str, Any] | None = None,
+                                   clarification_options: list[dict[str, Any]] | None = None,
+                                   clarification_selection_kind: str | None = None,
+                                   clarification_free_text: str | None = None,
+                                   agent_orchestration_enabled: bool | None = None):
         q = (question or "").strip()
         deep_mode = bool(thinking)
+        agent_enabled = self._agent_orchestration_enabled(agent_orchestration_enabled)
+        pipeline_events = bool(pipeline_events and not agent_enabled)
         trace = self._new_qa_trace(
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking,
@@ -4433,19 +4880,77 @@ class RagChain:
             path=path or "query/stream",
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+            clarification_options=clarification_options,
+            clarification_selection_kind=clarification_selection_kind,
+            clarification_free_text=clarification_free_text,
         )
+
+        free_text = (clarification_free_text or "").strip()
+        if free_text and free_text not in q:
+            q = f"{q}\n用户在澄清卡片中补充：{free_text}".strip()
 
 
         if not q:
-            yield {"type": "token", "data": "请输入有效的问题"}
+            answer = "请输入有效的问题"
+            error_event = {
+                "type": "error",
+                "data": {
+                    "code": "invalid_question",
+                    "stage": "request",
+                    "message": answer,
+                    "recoverable": True,
+                },
+            }
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "invalid_request",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "请求内容为空，未进入回答生成。",
+                },
+            }
+            final_event = {"type": "final_answer", "data": answer}
+            for event in (error_event, publication_event, final_event):
+                self._record_execution_event(trace, event)
+                yield event
+            yield {"type": "sources", "data": []}
             yield {"type": "done"}
             return
         if _is_sensitive(q):
-            yield {"type": "token", "data": "抱歉，我无法回答这个问题。"}
+            answer = "抱歉，我无法回答这个问题。"
+            if agent_enabled:
+                guard_event = {
+                    "type": "guard",
+                    "data": {
+                        "allowed": False,
+                        "reason": "sensitive_request",
+                        "message": "请求触发安全限制，回答已拒绝。",
+                    },
+                }
+                self._record_execution_event(trace, guard_event)
+                yield guard_event
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "safety_blocked",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "请求触发安全限制，未发布模型候选答案。",
+                },
+            }
+            final_event = {"type": "final_answer", "data": answer}
+            for event in (publication_event, final_event):
+                self._record_execution_event(trace, event)
+                yield event
+            yield {"type": "sources", "data": []}
             yield {"type": "done"}
             return
 
-        yield {"type": "status", "data": "正在理解问题..."}
+        if not agent_enabled:
+            yield {"type": "status", "data": "正在理解问题..."}
         if pipeline_events:
             yield {
                 "type": "pipeline",
@@ -4463,8 +4968,23 @@ class RagChain:
             }
 
         if _is_greeting(q):
-            yield {"type": "token", "data": _GREETING_FIXED_REPLY}
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "direct_chat",
+                    "review_verdict": "PASS",
+                    "coverage": "FULL",
+                    "message": "问候无需知识库审查，正在发布。",
+                },
+            }
+            final_event = {"type": "final_answer", "data": _GREETING_FIXED_REPLY}
+            for event in (publication_event, final_event):
+                self._record_execution_event(trace, event)
+                yield event
             yield {"type": "sources", "data": []}
+            tid = self._commit_qa_trace(trace, answer=_GREETING_FIXED_REPLY, retrieved_docs=[])
+            if tid:
+                yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
             return
 
@@ -4474,15 +4994,46 @@ class RagChain:
             clarification_selected=clarification_selected,
         )
         if rejected is not None:
-            yield {"type": "token", "data": rejected["answer"]}
+            if agent_enabled:
+                guard_event = {
+                    "type": "guard",
+                    "data": {
+                        "allowed": False,
+                        "reason": rejected.get("reason") or "identity_scope_rejected",
+                        "message": rejected["answer"],
+                    },
+                }
+                self._record_execution_event(trace, guard_event)
+                yield guard_event
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "scope_rejected",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "实体范围校验未通过，未进入回答生成。",
+                },
+            }
+            final_event = {"type": "final_answer", "data": rejected["answer"]}
+            for event in (publication_event, final_event):
+                self._record_execution_event(trace, event)
+                yield event
             yield {"type": "sources", "data": []}
             tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
             if tid:
-                yield {"type": "trace", "data": tid}
+                yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
             return
 
-        if not (clarification_selected and str(clarification_selected).strip()):
+        # Agent mode delegates the first action to Main.  Running the Helper
+        # clarification gate here would short-circuit Main before it can choose
+        # clarify/retrieve/finalize itself.
+        has_bound_selection = bool(
+            clarification_selected
+            and str(clarification_selected).strip()
+            and str(clarification_selection_kind or "option").casefold() == "option"
+        )
+        if not agent_enabled and not has_bound_selection:
             understood = await asyncio.to_thread(
                 lambda: self._get_understanding_service().analyze(
                     q,
@@ -4520,23 +5071,34 @@ class RagChain:
                 yield {"type": "done"}
                 return
 
-        if not self._agent_orchestration_enabled(agent_orchestration_enabled):
+        if not agent_enabled:
             rejected = self._j3_clarify_reject_if_needed(
                 q,
                 entity_name=entity_name,
                 clarification_selected=clarification_selected,
             )
             if rejected is not None:
-                yield {"type": "token", "data": rejected["answer"]}
+                publication_event = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "scope_rejected",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "实体范围校验未通过，未进入回答生成。",
+                    },
+                }
+                final_event = {"type": "final_answer", "data": rejected["answer"]}
+                for event in (publication_event, final_event):
+                    self._record_execution_event(trace, event)
+                    yield event
                 yield {"type": "sources", "data": []}
                 tid = self._commit_qa_trace(trace, answer=rejected["answer"], retrieved_docs=[])
                 if tid:
-                    yield {"type": "trace", "data": tid}
+                    yield {"type": "trace", "data": {"trace_id": tid}}
                 yield {"type": "done"}
                 return
 
-        if self._agent_orchestration_enabled(agent_orchestration_enabled):
-            orch = getattr(self._cfg, "agent_orchestration", None)
+        if agent_enabled:
             try:
                 agen = self._stream_agent_query(
                     q, history,
@@ -4548,31 +5110,61 @@ class RagChain:
                     web_search=web_search,
                     allow_general_knowledge=allow_general_knowledge,
                     agent_prompt=agent_prompt,
-                    pipeline_events=pipeline_events,
+                    pipeline_events=False,
                     pinned_chunk_ids=pinned_chunk_ids,
                     excluded_chunk_ids=excluded_chunk_ids,
                     path=path,
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
+                    clarification_option_id=clarification_option_id,
+                    clarification_selected_candidate=clarification_selected_candidate,
+                    clarification_options=clarification_options,
+                    clarification_selection_kind=clarification_selection_kind,
+                    clarification_free_text=clarification_free_text,
                     trace=trace,
                 )
-                async for event in self._iter_with_heartbeat(
-                    agen,
-                    initial_delay=float(getattr(orch, "heartbeat_initial_delay", 1.5) or 1.5),
-                    interval=float(getattr(orch, "heartbeat_interval", 5.0) or 5.0),
-                ):
+                async for event in agen:
                     yield event
             except Exception as e:
                 logger.error("流式查询失败: %s", e)
-                err_answer = f"查询出错: {str(e)}"
+                err_answer = "Agent 执行异常，当前候选答案不会发布，请稍后重试。"
+                error_event = {
+                    "type": "error",
+                    "data": {
+                        "code": f"agent_runtime_error:{type(e).__name__}",
+                        "stage": "agent_runtime",
+                        "message": err_answer,
+                        "recoverable": True,
+                    },
+                }
+                publication_event = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "runtime_error",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "Agent 执行异常，已阻断候选答案发布。",
+                    },
+                }
+                final_event = {"type": "final_answer", "data": err_answer}
+                for event in (error_event, publication_event, final_event):
+                    self._record_execution_event(trace, event)
                 tid = self._commit_qa_trace(trace, answer=err_answer, retrieved_docs=[], error=str(e))
-                yield {"type": "token", "data": err_answer}
+                yield error_event
+                yield publication_event
+                yield final_event
                 yield {"type": "sources", "data": []}
                 if tid:
                     yield {"type": "trace", "data": {"trace_id": tid}}
                 yield {"type": "done"}
             return
 
+        q, entity_name, clarification_selected = self._safe_linear_identity_binding(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+            clarification_selected_candidate=clarification_selected_candidate,
+        )
         retrieved_source_docs: list[dict] = []
         source_docs: list[dict] = []
         try:
@@ -4746,8 +5338,15 @@ class RagChain:
                     "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
                     "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
                     "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
+                    "retrieval_status": "MATCHED" if retrieved_source_docs else "NO_VALID_EVIDENCE",
                 }
                 self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
+                if not retrieved_source_docs:
+                    self._safe_add_trace_event(
+                        trace,
+                        "retrieval_no_valid_evidence",
+                        {"query": q, "scope_id": getattr(scope, "scope_id", "")},
+                    )
                 trace.mark("retrieve")
                 if pipeline_events:
                     qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
@@ -4788,11 +5387,24 @@ class RagChain:
                 evidence = build_evidence_pack(
                     no_know_answer, retrieved_source_docs, []
                 )
+                publication_event = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "no_knowledge",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "知识库未查询到可发布的相关内容。",
+                    },
+                }
+                final_event = {"type": "final_answer", "data": no_know_answer}
+                for event in (publication_event, final_event):
+                    self._record_execution_event(trace, event)
                 tid = self._commit_qa_trace(
                     trace, answer=no_know_answer,
                     retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
                 )
-                yield {"type": "token", "data": no_know_answer}
+                for event in (publication_event, final_event):
+                    yield event
                 yield {"type": "sources", "data": []}
                 if pipeline_events:
                     yield {
@@ -4812,9 +5424,9 @@ class RagChain:
             pack = self._pack_for_generation(
                 source_docs, context, history, q, agent_prompt=agent_prompt,
             )
-            source_docs, context, history = (
-                pack.source_docs, pack.context, pack.history,
-            )
+            source_docs = self._freeze_generation_source_docs(pack.source_docs)
+            context = self._format_context(source_docs)
+            history = pack.history
             history_summary = pack.history_summary
             trace.set_pack(pack.decision)
             trace.mark("pack")
@@ -4832,9 +5444,6 @@ class RagChain:
                 history_summary=history_summary,
                 dialogue_focus=focus_text,
                 linked_entities=getattr(plan, "linked_entities", ()),
-                backbone_relation_summary=getattr(plan, "backbone_relation_summary", "") or "",
-                backbone_canonical=getattr(plan, "backbone_canonical", ()) or (),
-                backbone_avoid=getattr(plan, "backbone_avoid", ()) or (),
                 job=getattr(plan, "job", "") or "",
             )
 
@@ -4875,8 +5484,6 @@ class RagChain:
                         if "</think>" in rest:
                             t_parts = rest.split("</think>")
                             thinking_parts.append(t_parts[0])
-                            if not strict_grounding:
-                                yield {"type": "thinking", "data": t_parts[0]}
                             in_thinking_tag = False
                             if t_parts[1]:
                                 answer_parts.append(t_parts[1])
@@ -4884,13 +5491,9 @@ class RagChain:
                                     yield {"type": "token", "data": t_parts[1]}
                         else:
                             thinking_parts.append(rest)
-                            if not strict_grounding:
-                                yield {"type": "thinking", "data": rest}
                     elif "</think>" in content:
                         parts = content.split("</think>")
                         thinking_parts.append(parts[0])
-                        if not strict_grounding:
-                            yield {"type": "thinking", "data": parts[0]}
                         in_thinking_tag = False
                         if parts[1]:
                             answer_parts.append(parts[1])
@@ -4898,21 +5501,43 @@ class RagChain:
                                 yield {"type": "token", "data": parts[1]}
                     elif in_thinking_tag:
                         thinking_parts.append(content)
-                        if not strict_grounding:
-                            yield {"type": "thinking", "data": content}
                     else:
                         answer_parts.append(content)
                         if not strict_grounding:
                             yield {"type": "token", "data": content}
             except Exception as stream_exc:
                 logger.error("模型流式调用失败: %s", stream_exc)
-                fail_msg = f"模型调用失败：{stream_exc}"
+                fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
+                error_event = {
+                    "type": "error",
+                    "data": {
+                        "code": f"answer_generation_error:{type(stream_exc).__name__}",
+                        "stage": "answer_generation",
+                        "message": fail_msg,
+                        "recoverable": True,
+                    },
+                }
+                publication_event = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "generation_error",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "回答生成失败，已阻断候选答案发布。",
+                    },
+                }
+                final_event = {"type": "final_answer", "data": fail_msg}
+                for event in (error_event, publication_event, final_event):
+                    self._record_execution_event(trace, event)
                 tid = self._commit_qa_trace(
                     trace, answer=fail_msg,
                     retrieved_docs=retrieved_source_docs, context_docs=source_docs,
-                    cited_docs=[], error=fail_msg,
+                    cited_docs=[], error=str(stream_exc),
                 )
-                yield {"type": "token", "data": fail_msg}
+                yield error_event
+                yield publication_event
+                yield final_event
+                yield {"type": "sources", "data": []}
                 if tid:
                     yield {"type": "trace", "data": {"trace_id": tid}}
                 yield {"type": "done"}
@@ -4929,31 +5554,86 @@ class RagChain:
                     "流式查询模型输出为空 | %d 个来源 | question=%s",
                     len(source_docs), q[:80]
                 )
-                answer_text = fallback_answer
-                if not strict_grounding:
-                    yield {"type": "token", "data": fallback_answer}
+                error_event = {
+                    "type": "error",
+                    "data": {
+                        "code": "empty_answer_candidate",
+                        "stage": "answer_generation",
+                        "message": fallback_answer,
+                        "recoverable": True,
+                    },
+                }
+                publication_event = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "generation_error",
+                        "review_verdict": "NONE",
+                        "coverage": "NONE",
+                        "message": "回答模型未生成有效 Candidate，已阻断发布。",
+                    },
+                }
+                final_event = {"type": "final_answer", "data": fallback_answer}
+                for event in (error_event, publication_event, final_event):
+                    self._record_execution_event(trace, event)
+                    yield event
+                yield {"type": "sources", "data": []}
+                tid = self._commit_qa_trace(
+                    trace,
+                    answer=fallback_answer,
+                    thinking="".join(thinking_parts) if thinking_parts else None,
+                    retrieved_docs=retrieved_source_docs,
+                    context_docs=source_docs,
+                    cited_docs=[],
+                    error="empty_answer_candidate",
+                )
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
+                yield {"type": "done"}
+                return
 
             logger.info(
                 "流式查询完成 | %d 个来源 | deep_mode=%s | rerank=%s | thinking=%s",
                 len(source_docs), deep_mode, plan.enable_rerank, thinking
             )
 
-            finalized = await asyncio.to_thread(
-                _ANSWER_FINALIZER.finalize,
-                answer_text,
-                q,
-                source_docs,
-                allow_general_knowledge=allow_general,
-                is_direct_chat=is_direct_chat,
-                retry_candidate=lambda verdict: self._retry_grounded_candidate(
-                    guarded_model, msgs, verdict,
-                ),
-                semantic_verify=self._semantic_verify_callback(),
-            )
-            if strict_grounding:
-                yield {"type": "token", "data": finalized.answer}
-            elif finalized.answer != answer_text:
-                yield {"type": "final_answer", "data": finalized.answer}
+            # 实时转发 Finalizer 生命周期事件
+            std_lifecycle_queue: asyncio.Queue = asyncio.Queue()
+            std_loop = asyncio.get_running_loop()
+
+            def _on_std_lifecycle_sync(evt: dict[str, Any]) -> None:
+                std_loop.call_soon_threadsafe(std_lifecycle_queue.put_nowait, evt)
+
+            async def _run_std_finalize_task():
+                try:
+                    return await asyncio.to_thread(
+                        _ANSWER_FINALIZER.finalize,
+                        answer_text,
+                        q,
+                        source_docs,
+                        allow_general_knowledge=allow_general,
+                        is_direct_chat=is_direct_chat,
+                        retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                            guarded_model, msgs, answer_text, source_docs, review_result,
+                        ),
+                        helper_reviewer=self._helper_grounding_reviewer(),
+                        on_lifecycle_event=_on_std_lifecycle_sync,
+                    )
+                finally:
+                    std_loop.call_soon_threadsafe(std_lifecycle_queue.put_nowait, None)
+
+            std_fin_task = asyncio.create_task(_run_std_finalize_task())
+            while True:
+                std_evt = await std_lifecycle_queue.get()
+                if std_evt is None:
+                    break
+                self._record_execution_event(trace, std_evt)
+                yield std_evt
+            finalized = await std_fin_task
+
+            final_event = {"type": "final_answer", "data": finalized.answer}
+            self._record_execution_event(trace, final_event)
+            yield final_event
+
             answer_text = finalized.answer
             self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
             cited = self._filter_cited_sources(answer_text, source_docs)
@@ -4985,7 +5665,28 @@ class RagChain:
 
         except Exception as e:
             logger.error("流式查询失败: %s", e)
-            err_answer = f"查询出错: {str(e)}"
+            err_answer = "查询执行异常，当前候选答案不会发布，请稍后重试。"
+            error_event = {
+                "type": "error",
+                "data": {
+                    "code": f"pipeline_runtime_error:{type(e).__name__}",
+                    "stage": "pipeline",
+                    "message": err_answer,
+                    "recoverable": True,
+                },
+            }
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "runtime_error",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "固定管线执行异常，已阻断候选答案发布。",
+                },
+            }
+            final_event = {"type": "final_answer", "data": err_answer}
+            for event in (error_event, publication_event, final_event):
+                self._record_execution_event(trace, event)
             tid = self._commit_qa_trace(
                 trace,
                 answer=err_answer,
@@ -4994,7 +5695,9 @@ class RagChain:
                 cited_docs=[],
                 error=str(e),
             )
-            yield {"type": "token", "data": err_answer}
+            yield error_event
+            yield publication_event
+            yield final_event
             yield {"type": "sources", "data": []}
             if tid:
                 yield {"type": "trace", "data": {"trace_id": tid}}

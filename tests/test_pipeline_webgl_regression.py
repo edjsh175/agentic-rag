@@ -32,6 +32,21 @@ def test_retrieval_scope_creation():
     assert scope2.allowed_document_entity == "PipelineWebGL"
 
 
+def test_clarification_selection_collapses_semantic_task_to_chosen_entity():
+    conv = ConversationContext.from_request(
+        "pipeline",
+        [],
+        entity_name="PipelineWebGL",
+        clarification_selected="PipelineWebGL（StampTools）",
+    )
+
+    assert conv.head_entity == "PipelineWebGL"
+    assert conv.resolved_question == "PipelineWebGL 的相关信息"
+    assert conv.semantic_task.primary_entity == "PipelineWebGL"
+    assert conv.semantic_task.mentioned_entities == ("PipelineWebGL",)
+    assert conv.semantic_task.task_type == "single_entity"
+
+
 def test_anchor_filter_exclusive_selection():
     """Verify PipelineBuilder chunk is demoted/filtered out when PipelineWebGL is targeted."""
     pw_doc = Document(

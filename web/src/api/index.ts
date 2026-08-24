@@ -41,9 +41,30 @@ import type {
   QaTraceDetail,
   QaTraceListResult,
   ClarifyResult,
+  ClarificationCallbackRequest,
+  ClarificationOption,
+  ClarificationSelectionKind,
   MessageClarification,
   GpuStatus,
   ChatSessionSummary,
+  SourceDoc,
+  PipelineStep,
+  WorkMode,
+  KnowledgeStreamEvent,
+  UnderstandingEventData,
+  DecisionEventData,
+  GuardEventData,
+  ToolStartEventData,
+  ToolResultEventData,
+  EvidenceUpdateEventData,
+  EvidenceGapEventData,
+  FinalizationCheckEventData,
+  CandidateStatusEventData,
+  GroundingReviewStartedEventData,
+  ReviewStatusEventData,
+  RewriteStatusEventData,
+  PublicationEventData,
+  ExecutionErrorEventData,
 } from '../types'
 
 // ---- axios 实例 ----
@@ -162,6 +183,7 @@ export async function healthCheck(signal?: AbortSignal) {
 }
 
 /** 问题歧义预检（反问卡片） */
+
 export async function queryClarify(
   question: string,
   docCategory?: string,
@@ -196,6 +218,9 @@ export async function queryKnowledge(
   docCategory?: string,
   entityName?: string,
   mode?: 'agent' | 'linear',
+  clarificationQuestion?: string,
+  clarificationSelected?: string,
+  clarificationCallback?: ClarificationCallbackRequest,
 ) {
   const { data } = await http.post<QueryResult>(
     '/query',
@@ -210,11 +235,48 @@ export async function queryKnowledge(
       web_search: webSearch,
       agent_prompt: agentPrompt,
       allow_general_knowledge: allowGeneralKnowledge,
+      clarification_question: clarificationQuestion,
+      clarification_selected: clarificationSelected,
+      clarification_option_id: clarificationCallback?.optionId,
+      clarification_options: clarificationCallback?.options,
+      clarification_selection_kind: clarificationCallback?.selectionKind,
+      clarification_free_text: clarificationCallback?.freeText,
       mode,
     },
     { signal, timeout: 600_000 },
   )
   return data
+}
+
+export interface KnowledgeStreamCallbacks {
+  onToken: (token: string) => void
+  onStatus?: (status: string) => void
+  onThinking?: (thought: string) => void
+  onUnderstanding?: (data: UnderstandingEventData) => void
+  onDecision?: (data: DecisionEventData) => void
+  onGuard?: (data: GuardEventData) => void
+  onToolStart?: (data: ToolStartEventData) => void
+  onToolResult?: (data: ToolResultEventData) => void
+  /** 迁移期兼容旧 tool_end 事件。 */
+  onToolEnd?: (data: ToolResultEventData) => void
+  onEvidenceUpdate?: (data: EvidenceUpdateEventData) => void
+  onEvidenceGap?: (data: EvidenceGapEventData) => void
+  onFinalizationCheck?: (data: FinalizationCheckEventData) => void
+  onCandidateStatus?: (data: CandidateStatusEventData) => void
+  onGroundingReviewStarted?: (data: GroundingReviewStartedEventData) => void
+  onReviewStatus?: (data: ReviewStatusEventData) => void
+  onRewriteStatus?: (data: RewriteStatusEventData) => void
+  onPublication?: (data: PublicationEventData) => void
+  onExecutionError?: (data: ExecutionErrorEventData) => void
+  onFinalAnswer?: (answer: string) => void
+  onSources: (sources: SourceDoc[]) => void
+  onTrace?: (traceId: string) => void
+  onPipeline?: (pipelineData: PipelineStep) => void
+  onNotice?: (notice: string) => void
+  onClarify?: (data: ClarifyResult) => void
+  onAgentEvent?: (event: KnowledgeStreamEvent) => void
+  onDone: () => void
+  onError: (err: Error) => void
 }
 
 /**
@@ -224,21 +286,7 @@ export async function queryKnowledge(
 export async function queryKnowledgeStream(
   question: string,
   history: { role: string; content: string }[],
-  callbacks: {
-    onToken: (token: string) => void
-    onStatus?: (status: string) => void
-    onThinking?: (thought: string) => void
-    onToolStart?: (data: any) => void
-    onToolEnd?: (data: any) => void
-    onFinalAnswer?: (answer: string) => void
-    onSources: (sources: any[]) => void
-    onTrace?: (traceId: string) => void
-    onPipeline?: (pipelineData: any) => void
-    onNotice?: (notice: string) => void
-    onClarify?: (data: ClarifyResult) => void
-    onDone: () => void
-    onError: (err: Error) => void
-  },
+  callbacks: KnowledgeStreamCallbacks,
   llmModel?: string,
   kbName?: string,
   thinking?: boolean,
@@ -252,7 +300,8 @@ export async function queryKnowledgeStream(
   excludedChunkIds?: string[],
   clarificationQuestion?: string,
   clarificationSelected?: string,
-  mode?: 'agent' | 'linear',
+  mode?: WorkMode,
+  clarificationCallback?: ClarificationCallbackRequest,
 ) {
   const res = await fetch('/api/query/stream', {
     method: 'POST',
@@ -268,11 +317,15 @@ export async function queryKnowledgeStream(
       web_search: webSearch,
       agent_prompt: agentPrompt,
       allow_general_knowledge: allowGeneralKnowledge,
-      pipeline_events: true,
+      pipeline_events: mode !== 'agent',
       pinned_chunk_ids: pinnedChunkIds,
       excluded_chunk_ids: excludedChunkIds,
       clarification_question: clarificationQuestion,
       clarification_selected: clarificationSelected,
+      clarification_option_id: clarificationCallback?.optionId,
+      clarification_options: clarificationCallback?.options,
+      clarification_selection_kind: clarificationCallback?.selectionKind,
+      clarification_free_text: clarificationCallback?.freeText,
       mode,
     }),
     signal,
@@ -287,6 +340,82 @@ export async function queryKnowledgeStream(
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let doneNotified = false
+  let answerGenerationStarted = false
+  const notifyDone = () => {
+    if (doneNotified) return
+    doneNotified = true
+    callbacks.onDone()
+  }
+  const processLine = (line: string) => {
+    if (!line.startsWith('data: ')) return
+    const raw = line.slice(6).trim()
+    if (!raw) return
+    if (raw === '[DONE]') { notifyDone(); return }
+
+    try {
+      const event = JSON.parse(raw) as KnowledgeStreamEvent
+      callbacks.onAgentEvent?.(event)
+      if (event.type === 'answer_generation_started') {
+        answerGenerationStarted = true
+      }
+      if (event.type === 'token') {
+        callbacks.onToken(event.data)
+      } else if (event.type === 'status') {
+        callbacks.onStatus?.(event.data)
+      } else if (event.type === 'thinking') {
+        callbacks.onThinking?.(event.data)
+      } else if (event.type === 'understanding') {
+        callbacks.onUnderstanding?.(event.data)
+      } else if (event.type === 'decision') {
+        callbacks.onDecision?.(event.data)
+      } else if (event.type === 'guard') {
+        callbacks.onGuard?.(event.data)
+      } else if (event.type === 'tool_start') {
+        callbacks.onToolStart?.(event.data)
+      } else if (event.type === 'tool_result') {
+        callbacks.onToolResult?.(event.data)
+      } else if (event.type === 'tool_end') {
+        callbacks.onToolEnd?.(event.data)
+      } else if (event.type === 'evidence_update') {
+        callbacks.onEvidenceUpdate?.(event.data)
+      } else if (event.type === 'evidence_gap') {
+        callbacks.onEvidenceGap?.(event.data)
+      } else if (event.type === 'finalization_check') {
+        callbacks.onFinalizationCheck?.(event.data)
+      } else if (event.type === 'candidate_status') {
+        callbacks.onCandidateStatus?.(event.data)
+      } else if (event.type === 'helper_grounding_review_started') {
+        callbacks.onGroundingReviewStarted?.(event.data)
+      } else if (event.type === 'review_status') {
+        callbacks.onReviewStatus?.(event.data)
+      } else if (event.type === 'rewrite_status') {
+        callbacks.onRewriteStatus?.(event.data)
+      } else if (event.type === 'publication') {
+        callbacks.onPublication?.(event.data)
+      } else if (event.type === 'error') {
+        callbacks.onExecutionError?.(
+          typeof event.data === 'string' ? { message: event.data } : event.data,
+        )
+      } else if (event.type === 'final_answer') {
+        callbacks.onFinalAnswer?.(event.data)
+      } else if (event.type === 'sources') {
+        callbacks.onSources(event.data)
+      } else if (event.type === 'trace') {
+        callbacks.onTrace?.(
+          typeof event.data === 'string' ? event.data : event.data.trace_id,
+        )
+      } else if (event.type === 'pipeline') {
+        callbacks.onPipeline?.(event.data)
+      } else if (event.type === 'notice') {
+        callbacks.onNotice?.(event.data)
+      } else if (event.type === 'clarify') {
+        callbacks.onClarify?.(event.data)
+      } else if (event.type === 'done') {
+        notifyDone()
+      }
+    } catch { /* skip malformed lines */ }
+  }
 
   try {
     while (true) {
@@ -298,43 +427,27 @@ export async function queryKnowledgeStream(
       buffer = lines.pop() || ''
 
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const raw = line.slice(6).trim()
-        if (!raw) continue
-        if (raw === '[DONE]') { callbacks.onDone(); continue }
-
-        try {
-          const event = JSON.parse(raw)
-          if (event.type === 'token') {
-            callbacks.onToken(event.data)
-          } else if (event.type === 'status') {
-            callbacks.onStatus?.(event.data)
-          } else if (event.type === 'thinking') {
-            callbacks.onThinking?.(event.data)
-          } else if (event.type === 'tool_start') {
-            callbacks.onToolStart?.(event.data)
-          } else if (event.type === 'tool_end') {
-            callbacks.onToolEnd?.(event.data)
-          } else if (event.type === 'final_answer') {
-            callbacks.onFinalAnswer?.(event.data)
-          } else if (event.type === 'sources') {
-            callbacks.onSources(event.data)
-          } else if (event.type === 'trace') {
-            callbacks.onTrace?.(event.data)
-          } else if (event.type === 'pipeline') {
-            callbacks.onPipeline?.(event.data)
-          } else if (event.type === 'notice') {
-            callbacks.onNotice?.(event.data)
-          } else if (event.type === 'clarify') {
-            callbacks.onClarify?.(event.data)
-          } else if (event.type === 'done') {
-            callbacks.onDone()
-          }
-        } catch { /* skip malformed lines */ }
+        processLine(line)
       }
     }
+
+    // A compliant SSE response normally ends each event with a newline, but
+    // process a final unterminated data line so a terminal event is not lost.
+    buffer += decoder.decode()
+    if (buffer) processLine(buffer)
   } finally {
     reader.releaseLock()
+    if (!doneNotified && !signal?.aborted) {
+      const message = answerGenerationStarted
+        ? '流式响应在最终答案完成前中断，请重试。'
+        : '流式响应提前中断，请重试。'
+      const streamError = new Error(message)
+      try {
+        callbacks.onError(streamError)
+      } finally {
+        throw streamError
+      }
+    }
   }
 }
 
@@ -765,6 +878,10 @@ export interface DebugStreamOptions {
   excludedChunkIds?: string[]
   clarificationQuestion?: string
   clarificationSelected?: string
+  clarificationOptionId?: string
+  clarificationOptions?: ClarificationOption[]
+  clarificationSelectionKind?: ClarificationSelectionKind
+  clarificationFreeText?: string
 }
 
 export async function queryAdminDebugStream(
@@ -815,6 +932,10 @@ export async function queryAdminDebugStream(
       excluded_chunk_ids: opts.excludedChunkIds,
       clarification_question: opts.clarificationQuestion,
       clarification_selected: opts.clarificationSelected,
+      clarification_option_id: opts.clarificationOptionId,
+      clarification_options: opts.clarificationOptions,
+      clarification_selection_kind: opts.clarificationSelectionKind,
+      clarification_free_text: opts.clarificationFreeText,
     }),
     signal,
   })
@@ -827,6 +948,40 @@ export async function queryAdminDebugStream(
   if (!reader) throw new Error('浏览器不支持 ReadableStream')
   const decoder = new TextDecoder()
   let buffer = ''
+  let doneNotified = false
+  let answerGenerationStarted = false
+  const notifyDone = () => {
+    if (doneNotified) return
+    doneNotified = true
+    callbacks.onDone?.()
+  }
+  const processLine = (line: string) => {
+    if (!line.startsWith('data: ')) return
+    const raw = line.slice(6).trim()
+    if (!raw) return
+    if (raw === '[DONE]') { notifyDone(); return }
+
+    try {
+      const event = JSON.parse(raw)
+      if (event.type === 'status') callbacks.onStatus?.(event.data)
+      else if (event.type === 'pipeline') callbacks.onPipeline?.(event.data)
+      else if (event.type === 'token') callbacks.onToken?.(event.data)
+      else if (event.type === 'thinking') callbacks.onThinking?.(event.data)
+      else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
+      else if (event.type === 'sources') callbacks.onSources?.(event.data)
+      else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)
+      else if (event.type === 'clarify') callbacks.onClarify?.(event.data)
+      else if (event.type === 'evidence_snapshot_created') callbacks.onStatus?.('证据已冻结，开始生成答案。')
+      else if (event.type === 'answer_generation_started') {
+        answerGenerationStarted = true
+        callbacks.onStatus?.('正在生成最终答案…')
+      } else if (event.type === 'done') {
+        notifyDone()
+      }
+    } catch {
+      /* skip */
+    }
+  }
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -835,27 +990,21 @@ export async function queryAdminDebugStream(
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const raw = line.slice(6).trim()
-        if (!raw || raw === '[DONE]') continue
-        try {
-          const event = JSON.parse(raw)
-          if (event.type === 'status') callbacks.onStatus?.(event.data)
-          else if (event.type === 'pipeline') callbacks.onPipeline?.(event.data)
-          else if (event.type === 'token') callbacks.onToken?.(event.data)
-          else if (event.type === 'thinking') callbacks.onThinking?.(event.data)
-          else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
-          else if (event.type === 'sources') callbacks.onSources?.(event.data)
-          else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)
-          else if (event.type === 'clarify') callbacks.onClarify?.(event.data)
-          else if (event.type === 'done') callbacks.onDone?.()
-        } catch {
-          /* skip */
-        }
+        processLine(line)
       }
     }
+    buffer += decoder.decode()
+    if (buffer) processLine(buffer)
   } finally {
     reader.releaseLock()
+    if (!doneNotified && !signal?.aborted) {
+      const message = answerGenerationStarted
+        ? '调试流在最终答案完成前中断。'
+        : '调试流提前中断。'
+      const streamError = new Error(message)
+      callbacks.onError?.(streamError)
+      throw streamError
+    }
   }
 }
 

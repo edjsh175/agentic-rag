@@ -1,184 +1,159 @@
-import json
-from pathlib import Path
+from scripts.eval_grounding_reviewer import (
+    build_report,
+    evaluate_items,
+    evaluate_publication_contract,
+)
+from rag_knowledge.services.helper_grounding_reviewer import (
+    ClaimReview,
+    HelperGroundingReviewResult,
+)
 
-from scripts.eval_semantic_verifier import build_report, evaluate_items
-from rag_knowledge.services.evidence_pack import GroundingVerdict
+
+class _MockReviewer:
+    def __init__(self, results):
+        self._results = iter(results)
+
+    def review(self, _question, _docs, _candidate):
+        return next(self._results)
 
 
-class _SequenceVerifier:
-    def __init__(self, labels):
-        self._labels = iter(labels)
-
-    def verify(self, _answer, _docs):
-        label = next(self._labels)
-        if label == "invalid":
-            raise ValueError("bad protocol")
-        return GroundingVerdict(
-            ok=label == "entailed",
-            details={
-                "semantic_verifier": {
-                    "results": [{"id": 1, "label": label}],
-                }
-            },
-        )
+def _result(verdict, coverage="FULL", status="supported", error=None):
+    evidence_ids = (1,) if status == "supported" else ()
+    claim = ClaimReview(
+        claim_id="c1",
+        claim="mock claim",
+        claim_type="knowledge_claim",
+        status=status,
+        evidence_ids=evidence_ids,
+        reason="mock",
+    )
+    return HelperGroundingReviewResult(
+        verdict=verdict,
+        coverage=coverage,
+        summary="mock",
+        claim_reviews=[claim],
+        error=error,
+    )
 
 
 def _items():
-    # These all deliberately pass deterministic grounding after Phase 10B.
-    # They exercise long-tail semantic roles/scope rather than mechanical operators.
     return [
         {
-            "id": "e",
-            "claim": "调度模块负责任务分发",
-            "evidence": ["调度模块负责任务分发。"],
-            "expected": "entailed",
+            "id": "grounded",
+            "question": "端口是多少？",
+            "candidate": "端口是 8080 [1]。",
+            "evidence": ["端口为 8080。"],
+            "expected_verdict": "PASS",
+            "expected_coverage": "FULL",
+            "historical_false_reject": True,
         },
         {
-            "id": "c",
-            "claim": "任务分发负责调度模块",
-            "evidence": ["调度模块负责任务分发。"],
-            "expected": "contradicted",
+            "id": "partial",
+            "question": "有哪些端口？",
+            "candidate": "当前资料只确认 8080 [1]，未说明其他端口。",
+            "evidence": ["端口为 8080。"],
+            "expected_verdict": "PASS",
+            "expected_coverage": "PARTIAL",
+            "historical_false_reject": True,
+            "has_supported_candidate_content": True,
         },
         {
-            "id": "u",
-            "claim": "系统采用旧版协议",
-            "evidence": ["启用兼容模式时，系统采用旧版协议。"],
-            "expected": "unsupported",
+            "id": "unsupported",
+            "question": "端口是多少？",
+            "candidate": "端口是 9999 [1]。",
+            "evidence": ["端口为 8080。"],
+            "expected_verdict": "REVISE",
+            "expected_coverage": "PARTIAL",
+            "expected_claim_status": "unsupported",
+            "adversarial": True,
+        },
+        {
+            "id": "contradicted",
+            "question": "A 和 B 谁依赖谁？",
+            "candidate": "B 依赖 A [1]。",
+            "evidence": ["A 依赖 B。"],
+            "expected_verdict": "REVISE",
+            "expected_coverage": "PARTIAL",
+            "expected_claim_status": "contradicted",
+            "adversarial": True,
         },
     ]
 
 
-def _report(items, results, *, min_residual_cases=1):
-    return build_report(
+def test_eval_grounding_reviewer_builds_all_prd_metrics():
+    items = _items()
+    results = evaluate_items(
         items,
-        results,
-        model_role="semantic_verifier",
-        model="test",
-        min_accuracy=0.95,
-        max_false_accept_rate=0.0,
-        max_invalid_rate=0.02,
-        min_residual_cases=min_residual_cases,
+        _MockReviewer([
+            _result("PASS", "FULL"),
+            _result("PASS", "PARTIAL"),
+            _result("REVISE", "PARTIAL", "unsupported"),
+            _result("REVISE", "PARTIAL", "contradicted"),
+        ]),
     )
+    report = build_report(items, results, model_role="helper_llm", model="test")
 
-
-def test_eval_semantic_verifier_metrics_make_residual_false_accept_critical():
-    items = _items()
-    results = evaluate_items(items, _SequenceVerifier(["entailed", "entailed", "unsupported"]))
-    report = _report(items, results)
-
-    assert report["residual_metrics"]["case_count"] == 3
-    assert report["residual_metrics"]["false_accept_count"] == 1
-    assert report["residual_metrics"]["false_accept_rate"] == 0.5
-    assert report["activation_gate"]["ready"] is False
-
-
-def test_eval_semantic_verifier_activation_gate_rejects_tiny_perfect_residual_set():
-    items = _items()
-    results = evaluate_items(items, _SequenceVerifier(["entailed", "contradicted", "unsupported"]))
-    report = _report(items, results, min_residual_cases=20)
-
-    assert report["residual_metrics"]["accuracy"] == 1.0
-    assert report["activation_gate"]["ready"] is False
-    assert report["activation_gate"]["min_residual_cases"] == 20
-
-
-def test_eval_semantic_verifier_activation_gate_passes_clean_residual_predictions():
-    items = _items()
-    results = evaluate_items(items, _SequenceVerifier(["entailed", "contradicted", "unsupported"]))
-    report = _report(items, results)
-
-    assert report["residual_metrics"]["accuracy"] == 1.0
-    assert report["residual_metrics"]["false_accept_rate"] == 0.0
-    assert report["residual_metrics"]["invalid_rate"] == 0.0
-    assert report["activation_gate"]["ready"] is True
-
-
-def test_eval_semantic_verifier_counts_protocol_failure_as_residual_invalid_and_false_reject():
-    items = _items()
-    results = evaluate_items(items, _SequenceVerifier(["invalid", "contradicted", "unsupported"]))
-    report = _report(items, results)
-
-    assert report["residual_metrics"]["invalid_count"] == 1
-    assert report["residual_metrics"]["false_reject_count"] == 1
-    assert report["activation_gate"]["ready"] is False
-
-
-def test_eval_semantic_verifier_skips_cases_already_rejected_deterministically():
-    item = {
-        "id": "deterministic-block",
-        "claim": "StampServer 使用 React",
-        "evidence": ["StampServer 默认服务端口为 8080。"],
-        "expected": "unsupported",
+    assert report["total"] == 4
+    assert report["contract_match_rate"] == 1.0
+    assert report["false_accept_count"] == 0
+    assert report["false_reject_count"] == 0
+    assert set(report["metrics"]) == {
+        "grounded_candidate_correct_release_rate",
+        "unsupported_candidate_block_rate",
+        "contradicted_candidate_block_rate",
+        "incident_false_reject_rate",
+        "gold_false_accept_rate",
+        "reviewer_json_protocol_success_rate",
+        "strict_kb_candidate_reviewer_coverage_rate",
+        "pass_partial_correct_publish_rate",
+        "supported_content_no_safe_answer_rate",
+        "deterministic_fallback_publication_rate",
     }
-
-    class _MustNotRun:
-        def verify(self, _answer, _docs):
-            raise AssertionError("semantic verifier must not run after deterministic reject")
-
-    result = evaluate_items([item], _MustNotRun())[0]
-    assert result["deterministic_pass"] is False
-    assert result["semantic_evaluated"] is False
-    assert result["predicted"] == "deterministic_reject"
-    assert result["end_to_end_correct"] is True
+    assert report["all_thresholds_passed"] is True
 
 
-def test_incident_gold_covers_both_real_leak_traces_and_positive_controls():
-    path = Path("tests/fixtures/semantic_verifier_incident_gold_v1.json")
-    items = json.loads(path.read_text(encoding="utf-8"))
-    trace_ids = {item["trace_id"] for item in items}
-    labels = {item["expected"] for item in items}
+def test_eval_grounding_reviewer_counts_false_accept_and_false_reject():
+    items = _items()
+    results = evaluate_items(
+        items,
+        _MockReviewer([
+            _result("REVISE", "PARTIAL", "unsupported"),
+            _result("PASS", "PARTIAL"),
+            _result("PASS", "FULL"),
+            _result("REVISE", "PARTIAL", "contradicted"),
+        ]),
+    )
+    report = build_report(items, results, model_role="helper_llm", model="test")
 
-    assert "73f6b29736264393b7ffa3415d2079d9" in trace_ids
-    assert "bbcd8571861949819dc472474c7a3bb7" in trace_ids
-    assert "entailed" in labels
-    assert "unsupported" in labels
-    assert len(items) >= 10
-
-
-def test_phase10_hardening_moves_v1_negative_cases_out_of_semantic_residual():
-    path = Path("tests/fixtures/semantic_verifier_residual_hard_v1.json")
-    items = json.loads(path.read_text(encoding="utf-8"))
-
-    class _AlwaysEntailed:
-        def verify(self, _answer, _docs):
-            return GroundingVerdict(
-                ok=True,
-                details={
-                    "semantic_verifier": {
-                        "results": [{"id": 1, "label": "entailed"}],
-                    }
-                },
-            )
-
-    results = evaluate_items(items, _AlwaysEntailed())
-    for item, result in zip(items, results):
-        if item["expected"] == "entailed":
-            assert result["deterministic_pass"] is True
-        else:
-            assert result["deterministic_pass"] is False
-            assert result["semantic_evaluated"] is False
+    assert report["false_accept_count"] == 1
+    assert report["false_reject_count"] == 1
+    assert report["metrics"]["gold_false_accept_rate"]["passed"] is False
+    assert report["metrics"]["incident_false_reject_rate"]["passed"] is False
+    assert report["all_thresholds_passed"] is False
 
 
-def test_residual_hard_v2_is_large_balanced_and_reaches_semantic_layer():
-    path = Path("tests/fixtures/semantic_verifier_residual_hard_v2.json")
-    items = json.loads(path.read_text(encoding="utf-8"))
-    labels = [item["expected"] for item in items]
+def test_eval_grounding_reviewer_protocol_error_does_not_count_as_semantic_block():
+    items = [_items()[2]]
+    results = evaluate_items(
+        items,
+        _MockReviewer([HelperGroundingReviewResult(
+            verdict="ERROR",
+            coverage="NONE",
+            error="invalid_review_protocol",
+        )]),
+    )
+    report = build_report(items, results, model_role="helper_llm", model="test")
 
-    assert len(items) >= 20
-    assert labels.count("entailed") >= 8
-    assert sum(label != "entailed" for label in labels) >= 8
+    assert report["metrics"]["reviewer_json_protocol_success_rate"]["value"] == 0.0
+    assert report["metrics"]["unsupported_candidate_block_rate"]["value"] == 0.0
 
-    class _AlwaysUnsupported:
-        def verify(self, _answer, _docs):
-            return GroundingVerdict(
-                ok=False,
-                details={
-                    "semantic_verifier": {
-                        "results": [{"id": 1, "label": "unsupported"}],
-                    }
-                },
-            )
 
-    results = evaluate_items(items, _AlwaysUnsupported())
-    assert all(result["deterministic_pass"] for result in results)
-    assert all(result["semantic_evaluated"] for result in results)
+def test_publication_contract_has_full_reviewer_coverage_and_no_deterministic_fallback():
+    contract = evaluate_publication_contract()
+
+    assert contract["strict_kb_candidate_reviewer_coverage_rate"] == 1.0
+    assert contract["deterministic_fallback_publication_rate"] == 0.0
+    assert "generated" in contract["final_modes"]
+    assert "grounded_partial" in contract["final_modes"]
+    assert "grounded_rewrite" in contract["final_modes"]
+    assert "review_blocked" in contract["final_modes"]

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role, SourceDoc, MessageClarification, ClarificationOption, PipelineStep, EvidencePack, EvidenceItem, AgentToolCall, AgentTimelineItem } from '../types'
+import type { Role, SourceDoc, MessageClarification, ClarificationOption, ClarificationSelection, PipelineStep, EvidencePack, EvidenceItem, AgentToolCall, AgentTimelineItem, WorkMode } from '../types'
 import { decorateCitations } from '../utils/citations'
 import EvidencePanel from './EvidencePanel.vue'
 import AgentThinkingBlock from './AgentThinkingBlock.vue'
@@ -12,6 +12,7 @@ import AgentStepStream from './AgentStepStream.vue'
 const props = defineProps<{
   role: Role
   content: string
+  mode?: WorkMode
   imageUrl?: string
   loading?: boolean
   status?: string
@@ -30,47 +31,64 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   citationClick: [citationId: number]
-  selectClarificationOption: [option: ClarificationOption]
+  selectClarificationOption: [selection: ClarificationSelection]
   feedbackChange: [feedback: 'useful' | 'unuseful']
   pinChunk: [chunkId: string, item: EvidenceItem]
   excludeChunk: [chunkId: string, item: EvidenceItem]
   cancelClarification: []
+  sourcesClick: []
 }>()
 
 const otherInputVal = ref('')
 const showOtherInput = ref(false)
-const otherError = ref('')
 
-function foldKey(text: string) {
-  return text.replace(/[\s_\-]+/g, '').toLowerCase()
+function isOtherOption(option: ClarificationOption) {
+  return option.id === 'other' || option.source === 'fixed_other'
 }
 
-function matchOtherToOption(text: string): ClarificationOption | null {
-  const needle = foldKey(text)
-  if (needle.length < 3) return null
-  const options = props.clarification?.options || []
-  for (const opt of options) {
-    const ent = foldKey(opt.filter?.entity_name || '')
-    const lab = foldKey(opt.label)
-    if (ent && (needle.includes(ent) || ent.includes(needle))) return opt
-    if (lab && (needle.includes(lab) || lab.includes(needle))) return opt
+const otherOption = computed<ClarificationOption>(() => (
+  props.clarification?.options.find(isOtherOption) || {
+    id: 'other',
+    label: '以上都不是',
+    filter: {},
+    source: 'fixed_other',
+    binding_status: 'unresolved',
   }
-  return null
+))
+const visibleOptions = computed(() => (
+  (props.clarification?.options || []).filter(option => !isOtherOption(option))
+))
+
+function selectOption(option: ClarificationOption) {
+  emit('selectClarificationOption', { option, kind: 'option' })
 }
 
 function submitOther() {
   const text = otherInputVal.value.trim()
   if (!text) return
-  const matched = matchOtherToOption(text)
-  if (!matched) {
-    otherError.value = '无法匹配到上方选项。请直接点选，或输入 StampWebRTC / StampWebGL / COM / Explorer。'
-  } else {
-    otherError.value = ''
-    emit('selectClarificationOption', { ...matched })
-  }
+  emit('selectClarificationOption', {
+    option: otherOption.value,
+    kind: 'free_text',
+    freeText: text,
+  })
 }
 
 const isUser = computed(() => props.role === 'user')
+const displayMode = computed<WorkMode>(() => {
+  if (props.mode) return props.mode
+  return props.timelineItems?.length || props.agentTools?.length || props.thinking
+    ? 'agent'
+    : 'linear'
+})
+const isAgentMode = computed(() => displayMode.value === 'agent')
+
+function sourceLabel(source: SourceDoc): string {
+  return source.metadata?.title || source.metadata?.file_name || source.metadata?.source || '未知来源'
+}
+
+function sourceCitationId(source: SourceDoc, index: number): number {
+  return source.metadata?.citation_id ?? index + 1
+}
 
 const renderer = new marked.Renderer()
 renderer.image = ({ href, title, text }) => {
@@ -106,17 +124,39 @@ function handleContentClick(event: MouseEvent) {
       <div class="bubble" :class="{ 'bubble--user': isUser, 'bubble--loading': loading && !content && !clarification }">
         <img v-if="imageUrl" :src="imageUrl" class="msg-image" />
 
-        <!-- Coding Agent 完整时序流（Think 与 Tool IN/OUT） -->
-        <AgentStepStream
-          v-if="!isUser && ((timelineItems && timelineItems.length > 0) || (loading && status))"
-          :items="timelineItems || []"
-          :loading="loading"
-          :active-status="status"
-        />
+        <section
+          v-if="!isUser && isAgentMode && timelineItems && timelineItems.length > 0"
+          class="answer-segment execution-segment"
+          data-testid="execution-timeline"
+        >
+          <div class="segment-heading">
+            <span class="segment-index">01</span>
+            <span>Execution Timeline</span>
+          </div>
+          <AgentStepStream
+            :items="timelineItems"
+            :loading="loading"
+          />
+        </section>
+
+        <section
+          v-if="!isUser && !isAgentMode && loading && status"
+          class="answer-segment pipeline-stage-segment"
+          data-testid="pipeline-status"
+        >
+          <div class="segment-heading">
+            <span class="segment-index">01</span>
+            <span>Pipeline Status</span>
+          </div>
+          <div class="stream-status">
+            <span class="status-dot"></span>
+            <span>{{ status }}</span>
+          </div>
+        </section>
 
         <!-- 降级兼容：若只有旧版 thinking 且无 timelineItems -->
         <AgentThinkingBlock
-          v-else-if="thinking && !isUser && (!timelineItems || timelineItems.length === 0)"
+          v-else-if="thinking && !isUser && isAgentMode && (!timelineItems || timelineItems.length === 0)"
           :thinking="thinking"
           :is-thinking="isThinking"
           :duration="thinkingDuration"
@@ -124,7 +164,7 @@ function handleContentClick(event: MouseEvent) {
 
         <!-- 降级兼容：若只有旧版 agentTools 且无 timelineItems -->
         <AgentToolTimeline
-          v-if="!isUser && (!timelineItems || timelineItems.length === 0) && (agentTools && agentTools.length > 0)"
+          v-if="!isUser && isAgentMode && (!timelineItems || timelineItems.length === 0) && (agentTools && agentTools.length > 0)"
           :tools="agentTools || []"
           :loading="loading"
           :active-status="status"
@@ -159,7 +199,7 @@ function handleContentClick(event: MouseEvent) {
           </div>
           <div class="clarification-options">
             <button
-              v-for="opt in clarification.options"
+              v-for="opt in visibleOptions"
               :key="opt.id"
               class="clarification-option-btn"
               :class="{
@@ -167,7 +207,7 @@ function handleContentClick(event: MouseEvent) {
                 'is-disabled': clarification.selectedId && clarification.selectedId !== opt.id
               }"
               :disabled="!!clarification.selectedId"
-              @click="emit('selectClarificationOption', opt)"
+              @click="selectOption(opt)"
             >
               <span class="option-badge">{{ opt.id.toUpperCase() }}</span>
               <span class="option-label">{{ opt.label }}</span>
@@ -180,16 +220,16 @@ function handleContentClick(event: MouseEvent) {
             <button
               class="clarification-option-btn is-other-option"
               :class="{
-                'is-selected': clarification.selectedId === 'other',
-                'is-disabled': clarification.selectedId && clarification.selectedId !== 'other',
+                'is-selected': clarification.selectedId === otherOption.id,
+                'is-disabled': clarification.selectedId && clarification.selectedId !== otherOption.id,
                 'is-active': showOtherInput && !clarification.selectedId
               }"
               :disabled="!!clarification.selectedId"
               @click="showOtherInput = !showOtherInput"
             >
               <span class="option-badge">+</span>
-              <span class="option-label">{{ clarification.selectedId === 'other' ? (clarification.otherText || '自定义输入') : '其他（自定义输入）' }}</span>
-              <svg v-if="clarification.selectedId === 'other'" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <span class="option-label">{{ clarification.selectedId === otherOption.id ? (clarification.otherText || '自定义输入') : '其他（自定义输入）' }}</span>
+              <svg v-if="clarification.selectedId === otherOption.id" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </button>
@@ -210,9 +250,6 @@ function handleContentClick(event: MouseEvent) {
                 确定
               </button>
             </div>
-            <p v-if="otherError && showOtherInput && !clarification.selectedId" class="clarification-other-error">
-              {{ otherError }}
-            </p>
           </div>
         </div>
 
@@ -222,7 +259,52 @@ function handleContentClick(event: MouseEvent) {
           <span class="dot"></span>
         </div>
 
-        <div v-if="content" class="md" v-html="rendered" @click="handleContentClick"></div>
+        <section
+          v-if="content"
+          class="answer-segment final-answer-segment"
+          :data-testid="isUser ? undefined : 'final-answer'"
+        >
+          <div v-if="!isUser" class="segment-heading">
+            <span class="segment-index">02</span>
+            <span>Final Answer</span>
+          </div>
+          <div class="md" v-html="rendered" @click="handleContentClick"></div>
+        </section>
+
+        <section
+          v-if="!isUser && sources && sources.length > 0"
+          class="answer-segment sources-segment"
+          data-testid="answer-sources"
+        >
+          <div class="segment-heading sources-heading">
+            <span class="segment-index">03</span>
+            <span>Sources</span>
+            <button type="button" class="sources-open" @click="emit('sourcesClick')">
+              {{ sources.length }} 条
+            </button>
+          </div>
+          <div class="source-chips">
+            <button
+              v-for="(source, index) in sources.slice(0, 3)"
+              :key="source.metadata?.chunk_id || `${sourceLabel(source)}-${index}`"
+              type="button"
+              class="source-chip"
+              :title="sourceLabel(source)"
+              @click="emit('citationClick', sourceCitationId(source, index))"
+            >
+              <span class="source-number">{{ sourceCitationId(source, index) }}</span>
+              <span class="source-name">{{ sourceLabel(source) }}</span>
+            </button>
+            <button
+              v-if="sources.length > 3"
+              type="button"
+              class="source-chip source-chip--more"
+              @click="emit('sourcesClick')"
+            >
+              +{{ sources.length - 3 }}
+            </button>
+          </div>
+        </section>
 
         <!-- 反馈按钮组 -->
         <div v-if="!isUser && !loading && content" class="feedback-toolbar">
@@ -257,7 +339,7 @@ function handleContentClick(event: MouseEvent) {
 
         <!-- 问答过程与证据调试面板 -->
         <EvidencePanel
-          v-if="!isUser && !loading && (pipelineSteps?.length || evidencePack)"
+          v-if="!isUser && !isAgentMode && !loading && (pipelineSteps?.length || evidencePack)"
           :pipeline-steps="pipelineSteps"
           :evidence-pack="evidencePack"
           @pin-chunk="(id, item) => emit('pinChunk', id, item)"
@@ -694,12 +776,6 @@ function handleContentClick(event: MouseEvent) {
   background: #cbd5e1;
   color: #94a3b8;
   cursor: not-allowed;
-}
-
-.clarification-other-error {
-  margin: 6px 4px 0;
-  font-size: 12px;
-  color: #b42318;
 }
 
 /* ===== 移动端响应式 ===== */

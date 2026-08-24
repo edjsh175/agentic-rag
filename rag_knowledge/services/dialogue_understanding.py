@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from rag_knowledge.config import Config
@@ -161,6 +161,30 @@ def build_semantic_task_context(
     )
 
 
+def collapse_clarification_selection(
+    question: str,
+    semantic_task: SemanticTaskContext,
+    selected_entity: str,
+) -> SemanticTaskContext:
+    """Replace an ambiguous Stage-1 state with the user's confirmed entity."""
+    selected = (selected_entity or "").strip()
+    if not selected:
+        return semantic_task
+
+    from rag_knowledge.services.query_surface import question_is_underspecified
+
+    resolved_question = semantic_task.resolved_question
+    if question_is_underspecified(question):
+        resolved_question = f"{selected} 的相关信息"
+    return replace(
+        semantic_task,
+        resolved_question=resolved_question,
+        primary_entity=selected,
+        mentioned_entities=(selected,),
+        task_type="single_entity",
+    )
+
+
 class DialogueUnderstanding:
     """统一对话理解入口：澄清与检索上下文化共享同一出口契约。"""
 
@@ -258,8 +282,10 @@ class DialogueUnderstanding:
 
     @staticmethod
     def _finalize_semantic_task(question: str, result: UnderstandingResult) -> UnderstandingResult:
-        result.semantic_task_context = build_semantic_task_context(question, result).to_dict()
-        return result
+        return replace(
+            result,
+            semantic_task_context=build_semantic_task_context(question, result).to_dict(),
+        )
 
     def _analyze_retrieve(
         self,

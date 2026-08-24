@@ -10,12 +10,12 @@ const props = defineProps<{
   activeStatus?: string
 }>()
 
-// 跟踪每个卡片的展开状态（默认展开正在运行或最新的项，或者默认展开）
+// 最新执行项默认展开；历史项默认折叠，用户操作会覆盖默认值。
 const expandedMap = ref<Record<number, boolean>>({})
 
 function isExpanded(index: number): boolean {
-  // 默认展开所有项，用户点击可折叠
-  return expandedMap.value[index] !== false
+  const override = expandedMap.value[index]
+  return override === undefined ? index === props.items.length - 1 : override
 }
 
 function toggleExpand(index: number) {
@@ -81,20 +81,7 @@ function getToolSummary(item: Extract<AgentTimelineItem, { type: 'tool_call' }>)
 }
 
 function formatNoticeContent(raw: string): string {
-  if (!raw) return ''
-  if (raw.includes('strip_modifiers') || raw.includes('low_relevance')) {
-    return '当前检索相关度较低，已自动精简关键词并发起二次深入检索。'
-  }
-  if (raw.includes('broaden_semantics')) {
-    return '当前匹配范围较窄，已自动扩展概念语义重新检索。'
-  }
-  if (raw.includes('add_missing_attribute')) {
-    return '正在补充关键属性信息并发起定向检索。'
-  }
-  if (raw.includes('increase_entity_constraint')) {
-    return '正在锁定核心实体约束并发起精准检索。'
-  }
-  return raw
+  return raw || ''
 }
 
 const showInspectModal = ref(false)
@@ -113,7 +100,7 @@ function closeInspect() {
 
 <template>
   <div v-if="(items && items.length > 0) || (loading && activeStatus)" class="step-stream-container">
-    <template v-for="(item, index) in items" :key="index">
+    <template v-for="(item, index) in items" :key="item.eventKey || index">
       <!-- 0. 状态/回退通知节点 (Notice / Fallback Row) -->
       <div
         v-if="item.type === 'notice'"
@@ -143,7 +130,6 @@ function closeInspect() {
           :aria-expanded="isExpanded(index)"
           @click="toggleExpand(index)"
         >
-          <!-- 16px Leading Slot -->
           <div class="leading-slot">
             <svg class="icon-idle" width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M14.5 13.5H1.5V2.5H14.5V13.5ZM1.5 1.5C0.947715 1.5 0.5 1.94772 0.5 2.5V13.5C0.5 14.0523 0.947715 14.5 1.5 14.5H14.5C15.0523 14.5 15.5 14.0523 15.5 13.5V2.5C15.5 1.94772 15.0523 1.5 14.5 1.5H1.5Z" fill="currentColor"/>
@@ -171,7 +157,263 @@ function closeInspect() {
         </div>
       </div>
 
-      <!-- 2. Think 思考节点 (Reasoning Row) -->
+      <!-- 2. 意图理解节点 (Understanding Row) -->
+      <div
+        v-else-if="item.type === 'understanding'"
+        class="disclosure-root"
+        data-variant="understanding"
+      >
+        <div
+          class="disclosure-row"
+          role="button"
+          tabindex="0"
+          :aria-expanded="isExpanded(index)"
+          @click="toggleExpand(index)"
+        >
+          <div class="leading-slot">
+            <span class="state-dot" style="background-color: #06b6d4;"></span>
+          </div>
+          <span class="row-title">意图理解</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.summary }}</span>
+          <span v-if="item.entity" class="row-badge">{{ item.entity }}</span>
+        </div>
+        <div v-show="isExpanded(index)" class="context-body">
+          <div class="context-code">主体状态: {{ item.identity_status || '已确认' }} | 任务类型: {{ item.task_type || '知识问答' }}</div>
+        </div>
+      </div>
+
+      <!-- 3. 控制器决策节点 (Decision Row) -->
+      <div
+        v-else-if="item.type === 'decision'"
+        class="disclosure-root"
+        data-variant="decision"
+      >
+        <div
+          class="disclosure-row"
+          role="button"
+          tabindex="0"
+          :aria-expanded="isExpanded(index)"
+          @click="toggleExpand(index)"
+        >
+          <div class="leading-slot">
+            <span class="state-dot" style="background-color: #8b5cf6;"></span>
+          </div>
+          <span class="row-title">控制器决策</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.reason }}</span>
+          <span v-if="item.tool" class="row-badge">{{ item.tool }}</span>
+        </div>
+        <div v-show="isExpanded(index)" class="context-body">
+          <div class="context-code">
+            动作: {{ item.action }} {{ item.tool ? `(${item.tool})` : '' }}
+            <template v-if="item.gap"><br />缺失事实 (Gap): {{ item.gap }}</template>
+            <template v-if="item.expected_gain"><br />预期增量: {{ item.expected_gain }}</template>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 守卫检查节点 (Guard Row) -->
+      <div
+        v-else-if="item.type === 'guard'"
+        class="disclosure-root"
+        :data-state="item.allowed ? 'ok' : 'error'"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot" :class="item.allowed ? 'ok' : 'error'"></span>
+          </div>
+          <span class="row-title">执行守卫</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary" :class="{ 'error-text': !item.allowed }">{{ item.message }}</span>
+        </div>
+      </div>
+
+      <!-- 5. 证据增量节点 (Evidence Update Row) -->
+      <div
+        v-else-if="item.type === 'evidence_update'"
+        class="disclosure-root"
+        data-variant="evidence"
+        :data-state="item.status === 'NO_PROGRESS' ? 'error' : 'ok'"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot" :class="item.status === 'NO_PROGRESS' ? 'error' : 'ok'"></span>
+          </div>
+          <span class="row-title">证据增量</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary" :class="{ 'error-text': item.status === 'NO_PROGRESS' }">
+            <template v-if="item.status === 'NO_PROGRESS'">NO_PROGRESS：没有发现新增证据。</template>
+            <template v-else>新增 {{ item.new_chunks }} 个文档片段，{{ item.new_entities }} 个实体。</template>
+            当前覆盖：{{ item.coverage || 'PARTIAL' }}
+          </span>
+          <span v-if="item.status" class="row-badge">{{ item.status }}</span>
+        </div>
+      </div>
+
+      <!-- 6. 证据缺口 (Evidence Gap Row) -->
+      <div
+        v-else-if="item.type === 'evidence_gap'"
+        class="disclosure-root"
+        data-variant="evidence-gap"
+        data-state="error"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot error"></span>
+          </div>
+          <span class="row-title">证据缺口</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary error-text">
+            {{ [...(item.missing_facts || []), ...(item.missing_relations || [])].join('；') || item.reason || '仍缺少回答所需的关键证据。' }}
+          </span>
+          <span class="row-badge heuristic">{{ item.coverage }}</span>
+        </div>
+      </div>
+
+      <!-- 7. 证据门禁评估 (Finalization Check Row) -->
+      <div
+        v-else-if="item.type === 'finalization_check'"
+        class="disclosure-root"
+        data-variant="finalization"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot" style="background-color: #f59e0b;"></span>
+          </div>
+          <span class="row-title">证据门禁</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.message }}</span>
+          <span v-if="item.forced" class="row-badge heuristic">预算终态</span>
+        </div>
+      </div>
+
+      <!-- 8. 候选生成状态 (Candidate Status Row) -->
+      <div
+        v-else-if="item.type === 'candidate_status'"
+        class="disclosure-root"
+        data-variant="candidate"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot running"></span>
+          </div>
+          <span class="row-title">回答组织</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.message }}</span>
+        </div>
+      </div>
+
+      <div
+        v-else-if="item.type === 'helper_grounding_review_started'"
+        class="disclosure-root"
+        data-variant="review"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot running"></span>
+          </div>
+          <span class="row-title">证据审查 ({{ item.review_count === 1 ? '初审' : '二审' }})</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.message }}</span>
+        </div>
+      </div>
+
+      <!-- 9. 证据审查节点 (Review Status Row) -->
+      <div
+        v-else-if="item.type === 'review_status'"
+        class="disclosure-root"
+        :data-state="item.verdict === 'PASS' ? 'ok' : 'error'"
+      >
+        <div
+          class="disclosure-row"
+          role="button"
+          tabindex="0"
+          :aria-expanded="isExpanded(index)"
+          @click="toggleExpand(index)"
+        >
+          <div class="leading-slot">
+            <span class="state-dot" :class="item.verdict === 'PASS' ? 'ok' : 'error'"></span>
+          </div>
+          <span class="row-title">证据审查 ({{ item.review_count === 1 ? '初审' : '二审' }})</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary" :class="{ 'error-text': item.verdict !== 'PASS' }">{{ item.message }}</span>
+          <span class="row-badge" :class="item.verdict === 'PASS' ? 'recovery' : 'heuristic'">{{ item.verdict }}</span>
+        </div>
+        <div
+          v-if="(item.claim_reviews && item.claim_reviews.length > 0) || (item.rewrite_actions && item.rewrite_actions.length > 0) || item.error"
+          v-show="isExpanded(index)"
+          class="context-body"
+        >
+          <div class="context-code">
+            <div v-for="(c, cIdx) in (item.claim_reviews || [])" :key="cIdx" style="margin-bottom: 4px;">
+              • {{ c.claim_id ? `${c.claim_id} · ` : '' }}[{{ c.status === 'supported' ? '已验证' : '未支持' }}] {{ c.claim || c.statement }}
+              <template v-if="c.evidence_ids?.length">（证据 {{ c.evidence_ids.join(', ') }}）</template>
+            </div>
+            <div v-for="(action, actionIdx) in (item.rewrite_actions || [])" :key="`action-${actionIdx}`" style="margin-bottom: 4px;">
+              ↳ {{ action.claim_id }}：{{ action.action }}<template v-if="action.instruction"> — {{ action.instruction }}</template>
+            </div>
+            <div v-if="item.error" class="error-text">审核错误：{{ item.error }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 10. 定向重写节点 (Rewrite Status Row) -->
+      <div
+        v-else-if="item.type === 'rewrite_status'"
+        class="disclosure-root"
+        data-variant="rewrite"
+        :data-state="item.status === 'failed' ? 'error' : (item.status === 'started' ? 'running' : 'ok')"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot" :class="item.status === 'failed' ? 'error' : (item.status === 'started' ? 'running' : 'ok')"></span>
+          </div>
+          <span class="row-title">定向修正</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary" :class="{ 'error-text': item.status === 'failed' }">
+            {{ item.message || (item.status === 'started' ? '正在修正未受支持内容...' : (item.status === 'failed' ? '修正失败' : '修正完成')) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 11. 发布节点 (Publication Row) -->
+      <div
+        v-else-if="item.type === 'publication'"
+        class="disclosure-root"
+        data-variant="publication"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot" style="background-color: #3b82f6;"></span>
+          </div>
+          <span class="row-title">答案发布</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary">{{ item.message }} [模式: {{ item.final_mode }}]</span>
+        </div>
+      </div>
+
+      <!-- 12. 错误节点 (Error Row) -->
+      <div
+        v-else-if="item.type === 'error'"
+        class="disclosure-root"
+        data-variant="error"
+        data-state="error"
+      >
+        <div class="disclosure-row">
+          <div class="leading-slot">
+            <span class="state-dot error"></span>
+          </div>
+          <span class="row-title">执行错误</span>
+          <span class="dot-sep" aria-hidden="true"></span>
+          <span class="row-summary error-text">{{ item.message }}</span>
+          <span v-if="item.stage || item.phase || item.code" class="row-badge heuristic">
+            {{ item.stage || item.phase || item.code }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 13. Think 思考节点 (Reasoning Row) -->
       <div
         v-else-if="item.type === 'think'"
         class="disclosure-root"
@@ -217,7 +459,7 @@ function closeInspect() {
         </div>
       </div>
 
-      <!-- 3. Tool Call 节点 (Tool Row with IN/OUT Gutter Card) -->
+      <!-- 14. Tool Call 节点 (Tool Row with IN/OUT Gutter Card) -->
       <div
         v-else-if="item.type === 'tool_call'"
         class="disclosure-root"
@@ -258,8 +500,7 @@ function closeInspect() {
           >
             {{ getToolSummary(item) }}
           </span>
-          <span v-if="item.source === 'heuristic'" class="row-badge heuristic">启发式降级</span>
-          <span v-else-if="item.gap_type" class="row-badge recovery">策略重试</span>
+          <span v-if="item.gap" class="row-badge recovery">定向补检</span>
         </div>
 
         <!-- Expanded Body: Gutter-Labeled IN/OUT Card from DeepSeek-Harness -->
@@ -296,6 +537,7 @@ function closeInspect() {
         </div>
       </div>
     </template>
+
 
     <!-- 正在运行的实时状态 -->
     <div v-if="loading && activeStatus" class="disclosure-root" data-state="running">

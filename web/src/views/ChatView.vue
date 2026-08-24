@@ -1,9 +1,9 @@
 <script setup lang="ts">
 defineOptions({ name: 'ChatView' })
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import type { Message, SourceDoc, Stats, ClarificationOption, ClarifyResult, EvidenceItem, GpuStatus, AgentToolCall, AgentTimelineItem, ChatSessionSummary } from '../types'
+import type { Message, SourceDoc, Stats, ClarificationCallbackRequest, ClarificationSelection, ClarifyResult, EvidenceItem, GpuStatus, AgentToolCall, AgentTimelineItem, ChatSessionSummary, WorkMode } from '../types'
 import { queryKnowledgeStream, queryKnowledge, queryImageStream, queryClarify, getStats, triggerScan, uploadDocument, getModels, getGpuStatus, getKnowledgeBases, getAgents, updateQaTraceFeedback, submitUserFeedback, DOCUMENT_PROFILE_OPTIONS } from '../api'
-import type { DocumentProfile } from '../api'
+import type { DocumentProfile, KnowledgeStreamCallbacks } from '../api'
 import type { ModelsResponse, AgentInfo } from '../api'
 import {
   saveSessionState,
@@ -207,11 +207,11 @@ function showToast(msg: string) {
 
 const availableModels = ref<{ name: string; type?: string }[]>([])
 const agentOrchestrationEnabled = ref(false)
-const workMode = ref<'agent' | 'linear'>(
-  (localStorage.getItem('rag-work-mode') as 'agent' | 'linear') || 'agent'
+const workMode = ref<WorkMode>(
+  (localStorage.getItem('rag-work-mode') as WorkMode) || 'agent'
 )
 
-function setWorkMode(mode: 'agent' | 'linear') {
+function setWorkMode(mode: WorkMode) {
   workMode.value = mode
   localStorage.setItem('rag-work-mode', mode)
 }
@@ -280,7 +280,7 @@ const kbList = ref<string[]>([])
 const currentKb = ref(localStorage.getItem('rag-kb-name') || '全部知识库')
 const docCategory = ref(localStorage.getItem('rag-doc-category') || '')
 const entityName = ref(localStorage.getItem('rag-entity-name') || '')
-const allowGeneralKnowledge = ref(localStorage.getItem('rag-allow-general') !== 'false')
+const allowGeneralKnowledge = ref(localStorage.getItem('rag-allow-general') === 'true')
 const showParamsPopover = ref(false)
 
 function setDocCategory(val: string) {
@@ -599,12 +599,58 @@ function applyClarification(msg: Message, data: ClarifyResult | undefined) {
   return true
 }
 
-function createStreamHandler(targetMsg: Message) {
+function createStreamHandler(
+  targetMsg: Message,
+  requestedMode: WorkMode = targetMsg.mode || workMode.value,
+): KnowledgeStreamCallbacks {
+  const streamMode = requestedMode
+  targetMsg.mode = streamMode
   let inThinkTag = false
   let thinkStartTime = Date.now()
+  let finalAnswerReceived = false
+  let anonymousToolSequence = 0
+  const latestToolKey = new Map<string, string>()
 
-  if (!targetMsg.timelineItems) {
+  if (streamMode === 'agent' && !targetMsg.timelineItems) {
     targetMsg.timelineItems = []
+  }
+
+  function upsertTimeline(eventKey: string, item: AgentTimelineItem) {
+    if (streamMode !== 'agent') return
+    if (!targetMsg.timelineItems) targetMsg.timelineItems = []
+    const nextItem = { ...item, eventKey } as AgentTimelineItem
+    const existingIndex = targetMsg.timelineItems.findIndex(existing => existing.eventKey === eventKey)
+    if (existingIndex >= 0) {
+      targetMsg.timelineItems[existingIndex] = {
+        ...targetMsg.timelineItems[existingIndex],
+        ...nextItem,
+      } as AgentTimelineItem
+    } else {
+      targetMsg.timelineItems.push(nextItem)
+    }
+  }
+
+  function toolEventKey(data: { name?: string; step?: number }, startsNew = false) {
+    const name = data.name || 'retrieve_kb'
+    if (data.step !== undefined) {
+      const key = `tool:${data.step}:${name}`
+      latestToolKey.set(name, key)
+      return key
+    }
+    if (!startsNew && latestToolKey.has(name)) return latestToolKey.get(name)!
+    const key = `tool:legacy:${++anonymousToolSequence}:${name}`
+    latestToolKey.set(name, key)
+    return key
+  }
+
+  function closeActiveThink() {
+    const last = targetMsg.timelineItems?.[targetMsg.timelineItems.length - 1]
+    if (!last || last.type !== 'think') return
+    last.isThinking = false
+    if (last._startTime && !last.duration) {
+      const duration = Math.max(0.1, (Date.now() - last._startTime) / 1000).toFixed(1)
+      last.duration = `${duration}s`
+    }
   }
 
   function getActiveThinkItem(): Extract<AgentTimelineItem, { type: 'think' }> {
@@ -615,6 +661,7 @@ function createStreamHandler(targetMsg: Message) {
     }
     const newItem: Extract<AgentTimelineItem, { type: 'think' }> = {
       type: 'think',
+      eventKey: `think:${targetMsg.timelineItems.length}`,
       content: '',
       isThinking: true,
       _startTime: Date.now(),
@@ -623,15 +670,236 @@ function createStreamHandler(targetMsg: Message) {
     return newItem
   }
 
+  function completeTool(data: Parameters<NonNullable<KnowledgeStreamCallbacks['onToolResult']>>[0]) {
+    if (streamMode !== 'agent') return
+    const name = data.name || 'retrieve_kb'
+    const key = toolEventKey(data)
+    const progress = data.progress || data.status
+
+    if (!targetMsg.agentTools) targetMsg.agentTools = []
+    const toolRecord: AgentToolCall = {
+      name,
+      step: data.step,
+      ok: data.ok,
+      elapsed_ms: data.elapsed_ms,
+      summary: data.summary,
+      error: data.error,
+      fallback: data.fallback,
+      arguments: data.arguments || {},
+      gap: data.gap,
+      expected_gain: data.expected_gain,
+      progress,
+      status: progress === 'DENIED'
+        ? 'denied'
+        : data.ok === false
+          ? 'error'
+          : 'success',
+    }
+    const recordIndex = targetMsg.agentTools.findIndex(
+      item => item.name === name && item.step === data.step,
+    )
+    if (recordIndex >= 0) targetMsg.agentTools[recordIndex] = toolRecord
+    else targetMsg.agentTools.push(toolRecord)
+
+    const existing = targetMsg.timelineItems?.find(item => item.eventKey === key)
+    const existingTool = existing?.type === 'tool_call' ? existing : undefined
+    const out = data.summary
+      ? { summary: data.summary, ok: data.ok, progress, evidence_delta: data.evidence_delta }
+      : data.error
+        ? { error: data.error, progress }
+        : data.data
+    upsertTimeline(key, {
+      type: 'tool_call',
+      tool: name,
+      label: existingTool?.label || (name === 'retrieve_kb' ? '知识库检索' : name),
+      description: existingTool?.description || data.arguments?.query as string || name,
+      in: Object.keys(data.arguments || {}).length > 0 ? data.arguments : existingTool?.in,
+      out,
+      status: progress === 'DENIED' ? 'denied' : (data.ok === false ? 'failed' : 'completed'),
+      progress,
+      elapsed_ms: data.elapsed_ms,
+      exitCode: data.ok === false ? 1 : 0,
+      source: data.source || existingTool?.source,
+      error: data.error,
+      step: data.step,
+      gap: data.gap ?? existingTool?.gap,
+      expected_gain: data.expected_gain ?? existingTool?.expected_gain,
+      evidence_delta: data.evidence_delta,
+    })
+    scrollDown()
+  }
+
   return {
     onStatus: (status: string) => {
+      if (streamMode !== 'linear') return
       targetMsg.status = status
       scrollDown()
     },
+    onUnderstanding: (data) => {
+      if (streamMode !== 'agent') return
+      targetMsg.status = undefined
+      upsertTimeline(`understanding:${data.identity_status || ''}:${data.entity || ''}`, {
+        type: 'understanding',
+        task_type: data.task_type,
+        identity_status: data.identity_status,
+        entity: data.entity,
+        summary: data.summary || `已识别问题主体：${data.entity || '通用'}`,
+      })
+      scrollDown()
+    },
+    onDecision: (data) => {
+      if (streamMode !== 'agent') return
+      targetMsg.status = undefined
+      const key = data.step !== undefined
+        ? `decision:${data.step}`
+        : `decision:${data.action}:${data.tool || ''}:${data.reason}`
+      upsertTimeline(key, {
+        type: 'decision',
+        step: data.step,
+        action: data.action,
+        tool: data.tool,
+        reason: data.reason,
+        gap: data.gap,
+        expected_gain: data.expected_gain,
+        source: data.source,
+      })
+      scrollDown()
+    },
+    onGuard: (data) => {
+      if (streamMode !== 'agent') return
+      const key = data.step !== undefined
+        ? `guard:${data.step}:${data.tool || ''}`
+        : `guard:${data.tool || ''}:${data.reason || data.message}`
+      upsertTimeline(key, {
+        type: 'guard',
+        allowed: data.allowed,
+        reason: data.reason,
+        message: data.message,
+        tool: data.tool,
+        step: data.step,
+      })
+      scrollDown()
+    },
+    onToolResult: completeTool,
+    onEvidenceUpdate: (data) => {
+      if (streamMode !== 'agent') return
+      const versionKey = data.evidence_version_after !== undefined
+        ? `${data.evidence_version_before ?? ''}:${data.evidence_version_after}`
+        : `${data.step ?? ''}:${data.status ?? ''}:${data.new_chunks}:${data.new_entities}:${data.new_relations}`
+      upsertTimeline(`evidence:${versionKey}`, {
+        type: 'evidence_update',
+        new_chunks: data.new_chunks ?? 0,
+        new_entities: data.new_entities ?? 0,
+        new_relations: data.new_relations ?? 0,
+        evidence_version_before: data.evidence_version_before,
+        evidence_version_after: data.evidence_version_after,
+        coverage: data.coverage,
+        status: data.status,
+      })
+      scrollDown()
+    },
+    onEvidenceGap: (data) => {
+      if (streamMode !== 'agent') return
+      const gapKey = `${data.step ?? ''}:${data.coverage}:${(data.missing_facts || []).join('|')}:${(data.missing_relations || []).join('|')}`
+      upsertTimeline(`evidence-gap:${gapKey}`, {
+        type: 'evidence_gap',
+        coverage: data.coverage,
+        missing_facts: data.missing_facts,
+        missing_relations: data.missing_relations,
+        reason: data.reason,
+      })
+      scrollDown()
+    },
+    onFinalizationCheck: (data) => {
+      if (streamMode !== 'agent') return
+      const key = data.step !== undefined
+        ? `finalization:${data.step}`
+        : `finalization:${data.coverage}:${data.admissibility}:${data.reason || data.message}`
+      upsertTimeline(key, {
+        type: 'finalization_check',
+        coverage: data.coverage,
+        admissibility: data.admissibility,
+        message: data.message,
+        reason: data.reason,
+        gaps: data.gaps,
+        forced: data.forced,
+      })
+      scrollDown()
+    },
+    onCandidateStatus: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`candidate:${data.version}`, {
+        type: 'candidate_status',
+        version: data.version,
+        status: data.status,
+        message: data.message,
+      })
+      scrollDown()
+    },
+    onGroundingReviewStarted: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`review-start:${data.review_count}`, {
+        type: 'helper_grounding_review_started',
+        review_count: data.review_count,
+        candidate_version: data.candidate_version,
+        message: data.message,
+      })
+      scrollDown()
+    },
+    onReviewStatus: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`review:${data.review_count}`, {
+        type: 'review_status',
+        review_count: data.review_count,
+        verdict: data.verdict,
+        coverage: data.coverage,
+        message: data.message,
+        summary: data.summary,
+        claim_reviews: data.claim_reviews,
+        rewrite_actions: data.rewrite_actions,
+        error: data.error,
+      })
+      scrollDown()
+    },
+    onRewriteStatus: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`rewrite:${data.status}:${data.candidate_version ?? data.mode ?? ''}`, {
+        type: 'rewrite_status',
+        status: data.status,
+        mode: data.mode,
+        message: data.message,
+        candidate_version: data.candidate_version,
+        error: data.error,
+      })
+      scrollDown()
+    },
+    onPublication: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`publication:${data.final_mode}`, {
+        type: 'publication',
+        final_mode: data.final_mode,
+        review_verdict: data.review_verdict,
+        coverage: data.coverage,
+        message: data.message,
+      })
+      scrollDown()
+    },
+    onExecutionError: (data) => {
+      if (streamMode !== 'agent') return
+      upsertTimeline(`error:${data.stage || data.phase || ''}:${data.code || ''}:${data.message}`, {
+        type: 'error',
+        message: data.message,
+        code: data.code,
+        stage: data.stage,
+        phase: data.phase,
+        recoverable: data.recoverable,
+      })
+      scrollDown()
+    },
     onToken: (token: string) => {
+      if (finalAnswerReceived) return
       targetMsg.status = undefined
       targetMsg.loading = false
-
       let text = token
       // 检查 <think> 标签流
       if (!inThinkTag && text.includes('<think>')) {
@@ -670,21 +938,13 @@ function createStreamHandler(targetMsg: Message) {
           activeThink.isThinking = true
         }
       } else {
-        if (targetMsg.timelineItems) {
-          const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
-          if (last && last.type === 'think' && last.isThinking) {
-            last.isThinking = false
-            if ((last as any)._startTime && !last.duration) {
-              const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
-              last.duration = `${dur}s`
-            }
-          }
-        }
+        closeActiveThink()
         targetMsg.content += text
       }
       scrollDown()
     },
     onThinking: (thought: string) => {
+      if (streamMode !== 'agent') return
       targetMsg.isThinking = true
       targetMsg.thinking = (targetMsg.thinking || '') + thought
       const activeThink = getActiveThinkItem()
@@ -692,105 +952,45 @@ function createStreamHandler(targetMsg: Message) {
       activeThink.isThinking = true
       scrollDown()
     },
-    onToolStart: (data: any) => {
-      if (targetMsg.timelineItems) {
-        const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
-        if (last && last.type === 'think') {
-          last.isThinking = false
-          if ((last as any)._startTime && !last.duration) {
-            const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
-            last.duration = `${dur}s`
-          }
-        }
-      }
+    onToolStart: (data) => {
+      if (streamMode !== 'agent') return
+      closeActiveThink()
+      const name = data.name || 'retrieve_kb'
+      const key = toolEventKey(data, true)
       if (!targetMsg.agentTools) targetMsg.agentTools = []
-      targetMsg.agentTools.push({
-        name: data.name || 'retrieve_kb',
+      const record: AgentToolCall = {
+        name,
+        step: data.step,
         status: 'running',
         arguments: data.arguments || {},
-        gap_type: data.gap_type,
-        recovery_strategy: data.recovery_strategy,
-      })
+        gap: data.gap,
+        expected_gain: data.expected_gain,
+      }
+      const recordIndex = targetMsg.agentTools.findIndex(
+        item => item.name === name && item.step === data.step,
+      )
+      if (recordIndex >= 0) targetMsg.agentTools[recordIndex] = record
+      else targetMsg.agentTools.push(record)
 
-      const toolLabel = data.name === 'retrieve_kb' ? '知识库检索' : (data.name === 'web_search' ? '外部网页检索' : data.name)
-      const desc = data.arguments?.query ? String(data.arguments.query) : data.name
-      if (!targetMsg.timelineItems) targetMsg.timelineItems = []
-      targetMsg.timelineItems.push({
+      const toolLabel = name === 'retrieve_kb' ? '知识库检索' : (name === 'web_search' ? '外部网页检索' : name)
+      const desc = data.arguments?.query ? String(data.arguments.query) : name
+      upsertTimeline(key, {
         type: 'tool_call',
-        tool: data.name || 'retrieve_kb',
+        tool: name,
         label: toolLabel,
         description: desc,
         in: data.arguments || {},
         status: 'running',
         source: data.source,
-        gap_type: data.gap_type,
-        recovery_strategy: data.recovery_strategy,
+        step: data.step,
+        gap: data.gap,
+        expected_gain: data.expected_gain,
       })
       scrollDown()
     },
-    onToolEnd: (data: any) => {
-      if (!targetMsg.agentTools) targetMsg.agentTools = []
-      let runningIdx = -1
-      for (let i = targetMsg.agentTools.length - 1; i >= 0; i--) {
-        const item = targetMsg.agentTools[i]
-        if (item.name === data.name && item.status === 'running') {
-          runningIdx = i
-          break
-        }
-      }
-      const record: AgentToolCall = {
-        name: data.name || 'retrieve_kb',
-        ok: data.ok,
-        elapsed_ms: data.elapsed_ms,
-        summary: data.summary,
-        error: data.error,
-        fallback: data.fallback,
-        arguments: data.arguments || {},
-        gap_type: data.gap_type,
-        recovery_strategy: data.recovery_strategy,
-        status: data.ok === false ? 'error' : (data.gap_type ? 'recovery' : 'success'),
-      }
-      if (runningIdx >= 0) {
-        targetMsg.agentTools[runningIdx] = record
-      } else {
-        targetMsg.agentTools.push(record)
-      }
-
-      if (targetMsg.timelineItems) {
-        let toolTimelineIdx = -1
-        for (let i = targetMsg.timelineItems.length - 1; i >= 0; i--) {
-          const it = targetMsg.timelineItems[i]
-          if (it.type === 'tool_call' && it.tool === data.name && it.status === 'running') {
-            toolTimelineIdx = i
-            break
-          }
-        }
-        const outData = data.summary ? { summary: data.summary, ok: data.ok } : (data.error ? { error: data.error } : data.data)
-        const toolItem: AgentTimelineItem = {
-          type: 'tool_call',
-          tool: data.name || 'retrieve_kb',
-          label: data.name === 'retrieve_kb' ? '知识库检索' : data.name,
-          description: data.arguments?.query || data.name,
-          in: data.arguments || {},
-          out: outData,
-          status: data.ok === false ? 'failed' : 'completed',
-          elapsed_ms: data.elapsed_ms,
-          exitCode: data.ok === false ? 1 : 0,
-          source: data.source,
-          gap_type: data.gap_type,
-          recovery_strategy: data.recovery_strategy,
-          error: data.error,
-        }
-        if (toolTimelineIdx >= 0) {
-          targetMsg.timelineItems[toolTimelineIdx] = toolItem
-        } else {
-          targetMsg.timelineItems.push(toolItem)
-        }
-      }
-
-      scrollDown()
-    },
+    onToolEnd: completeTool,
     onFinalAnswer: (answer: string) => {
+      finalAnswerReceived = true
       targetMsg.status = undefined
       let cleanAnswer = answer || ''
       if (cleanAnswer.includes('<think>')) {
@@ -800,28 +1000,22 @@ function createStreamHandler(targetMsg: Message) {
       targetMsg.content = cleanAnswer
       targetMsg.loading = false
       targetMsg.isThinking = false
-      if (targetMsg.timelineItems) {
-        const last = targetMsg.timelineItems[targetMsg.timelineItems.length - 1]
-        if (last && last.type === 'think') {
-          last.isThinking = false
-          if ((last as any)._startTime && !last.duration) {
-            const dur = Math.max(0.1, (Date.now() - (last as any)._startTime) / 1000).toFixed(1)
-            last.duration = `${dur}s`
-          }
-        }
-      }
+      closeActiveThink()
       scrollDown()
     },
-    onSources: (sources: any[]) => {
+    onSources: (sources) => {
       currentSources.value = sources
       targetMsg.sources = sources
     },
     onTrace: (traceId: string) => {
       targetMsg.trace_id = traceId
     },
-    onPipeline: (pipelineData: any) => {
+    onPipeline: (pipelineData) => {
+      if (streamMode !== 'linear') return
       if (!targetMsg.pipelineSteps) targetMsg.pipelineSteps = []
-      targetMsg.pipelineSteps.push(pipelineData)
+      const stageIndex = targetMsg.pipelineSteps.findIndex(step => step.stage === pipelineData.stage)
+      if (stageIndex >= 0) targetMsg.pipelineSteps[stageIndex] = pipelineData
+      else targetMsg.pipelineSteps.push(pipelineData)
       if (pipelineData.evidence) {
         targetMsg.evidencePack = pipelineData.evidence
       }
@@ -841,9 +1035,9 @@ function createStreamHandler(targetMsg: Message) {
             error: t.error,
             fallback: t.fallback,
             arguments: stepMatch?.decision?.arguments || {},
-            gap_type: stepMatch?.decision?.gap_type || t.gap_type,
-            recovery_strategy: stepMatch?.decision?.recovery_strategy || t.recovery_strategy,
-            status: t.ok === false ? 'error' : (stepMatch?.decision?.gap_type ? 'recovery' : 'success')
+            gap: stepMatch?.decision?.gap || null,
+            expected_gain: stepMatch?.decision?.expected_gain || null,
+            status: t.ok === false ? 'error' : 'success'
           })
         })
 
@@ -854,12 +1048,13 @@ function createStreamHandler(targetMsg: Message) {
     },
     onNotice: (notice: string) => {
       showGpuNotice(notice)
-      if (!targetMsg.timelineItems) targetMsg.timelineItems = []
-      targetMsg.timelineItems.push({
-        type: 'notice',
-        content: notice,
-        level: 'warning',
-      })
+      if (streamMode === 'agent') {
+        upsertTimeline(`notice:${notice}`, {
+          type: 'notice',
+          content: notice,
+          level: 'warning',
+        })
+      }
       scrollDown()
     },
     onClarify: (data: ClarifyResult) => {
@@ -890,11 +1085,12 @@ function createStreamHandler(targetMsg: Message) {
       await persist()
       scrollDown()
     },
-    onError: () => { throw new Error('stream failed') },
+    onError: (error) => { throw error },
   }
 }
 
 async function handleSend(text: string, image?: File) {
+  const requestMode: WorkMode = image ? 'linear' : workMode.value
   let imageUrl: string | undefined
   if (image) {
     imageUrl = await fileToDataUrl(image)
@@ -914,8 +1110,13 @@ async function handleSend(text: string, image?: File) {
     id: aiId,
     role: 'assistant',
     content: '',
+    mode: requestMode,
     loading: true,
-    status: image ? '正在分析图片...' : '正在理解问题...',
+    status: image
+      ? '正在分析图片...'
+      : requestMode === 'linear'
+        ? '正在理解问题...'
+        : undefined,
   })
   loading.value = true
   scrollDown()
@@ -971,7 +1172,7 @@ async function handleSend(text: string, image?: File) {
       await queryKnowledgeStream(
         text,
         history,
-        createStreamHandler(lastAiMsg()),
+        createStreamHandler(lastAiMsg(), requestMode),
         llmModel,
         currentKb.value,
         thinkingEnabled.value || undefined,
@@ -985,7 +1186,7 @@ async function handleSend(text: string, image?: File) {
         excludedChunks.value.map(c => c.id),
         undefined,
         undefined,
-        workMode.value,
+        requestMode,
       )
       streamOk = true
     } catch {
@@ -1004,7 +1205,7 @@ async function handleSend(text: string, image?: File) {
             allowGeneralKnowledge.value,
             docCategory.value || undefined,
             entityName.value || undefined,
-            workMode.value,
+            requestMode,
           )
           const msg = lastAiMsg()
           msg.content = result.answer
@@ -1096,17 +1297,19 @@ async function handleCurrentChunkFeedback(chunkId: string, rating: 'down', reaso
 }
 
 /** 用户点击反问卡片的选项后触发 */
-async function handleSelectClarificationOption(aiMsg: Message, option: ClarificationOption) {
+async function handleSelectClarificationOption(aiMsg: Message, selection: ClarificationSelection) {
   if (!aiMsg.clarification || aiMsg.clarification.selectedId || loading.value) return
 
-  if (option.id === 'other' && !option.filter?.entity_name) {
-    aiMsg.status = '无法匹配自定义输入，请选择卡片上的选项。'
-    return
-  }
+  const { option, kind, freeText } = selection
+  const requestMode = aiMsg.mode || workMode.value
+  aiMsg.mode = requestMode
 
   aiMsg.clarification.selectedId = option.id
   aiMsg.loading = true
-  aiMsg.status = `已选择「${option.label}」，正在检索回答...`
+  const selectedText = kind === 'free_text' ? (freeText || '').trim() : option.label
+  aiMsg.status = requestMode === 'linear'
+    ? `已选择「${selectedText}」，正在检索回答...`
+    : undefined
   loading.value = true
   scrollDown()
 
@@ -1125,15 +1328,22 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
   }
 
   const clarificationQuestion = aiMsg.clarification.ask_question
-  const clarificationSelected = option.label
-
-  if (option.id === 'other') {
-    aiMsg.clarification.otherText = option.label
-    userText = `${userText} (${option.label})`
+  const clarificationSelected = selectedText
+  const clarificationCallback: ClarificationCallbackRequest = {
+    optionId: option.id,
+    options: aiMsg.clarification.options,
+    selectionKind: kind,
+    freeText: kind === 'free_text' ? selectedText : undefined,
   }
 
-  const docCategoryVal = option.filter.doc_category || docCategory.value || undefined
-  const entityNameVal = option.filter.entity_name || entityName.value || undefined
+  if (kind === 'other' || kind === 'free_text') {
+    aiMsg.clarification.otherText = selectedText
+  }
+
+  // Candidate metadata is returned for callback resolution and traceability, not
+  // trusted as a direct entity filter. The backend resolves the selected option id.
+  const docCategoryVal = docCategory.value || undefined
+  const entityNameVal = entityName.value || undefined
 
   try {
     abortController.value = new AbortController()
@@ -1143,7 +1353,7 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
       await queryKnowledgeStream(
         userText,
         history,
-        createStreamHandler(aiMsg),
+        createStreamHandler(aiMsg, requestMode),
         llmModel,
         currentKb.value,
         thinkingEnabled.value || undefined,
@@ -1157,7 +1367,8 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
         undefined,
         clarificationQuestion,
         clarificationSelected,
-        workMode.value,
+        requestMode,
+        clarificationCallback,
       )
     } catch {
       aiMsg.status = undefined
@@ -1174,7 +1385,10 @@ async function handleSelectClarificationOption(aiMsg: Message, option: Clarifica
           allowGeneralKnowledge.value,
           docCategoryVal,
           entityNameVal,
-          workMode.value,
+          requestMode,
+          clarificationQuestion,
+          clarificationSelected,
+          clarificationCallback,
         )
         aiMsg.content = result.answer
         aiMsg.loading = false
@@ -1777,6 +1991,7 @@ function scrollDown() {
           <ChatMessage
             v-for="msg in messages" :key="msg.id"
             :role="msg.role" :content="msg.content"
+            :mode="msg.mode"
             :image-url="msg.imageUrl" :loading="msg.loading"
             :status="msg.status"
             :thinking="msg.thinking"

@@ -35,6 +35,14 @@ def test_catalog_resolves_alias_and_section_extractor_uses_external_catalog(tmp_
     assert result.entity("演示工具") is None
 
 
+def test_live_catalog_does_not_canonicalize_pipeline_family_surface_terms():
+    catalog = DomainCatalogLoader()
+
+    assert catalog.resolve("pipeline") is None
+    assert catalog.resolve("Pipeline") is None
+    assert catalog.resolve("管线工具") is None
+
+
 def test_catalog_missing_file_fails_fast(tmp_path):
     with pytest.raises(FileNotFoundError, match="domain_catalog.json"):
         DomainCatalogLoader(tmp_path / "domain_catalog.json")

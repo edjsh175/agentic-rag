@@ -18,6 +18,7 @@ import hashlib
 import shutil
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -32,7 +33,7 @@ from rag_knowledge.ollama_http import client as ollama_client
 from rag_knowledge.services.agent_service import load_agents
 from rag_knowledge.services.qa_trace import QaTraceStore, set_request_context
 from rag_knowledge.models.api import AdminQaDebugResponse, QueryRequest, QueryResponse, UploadResponse
-from rag_knowledge.models.api import ClarifyRequest, ClarifyResponse, ClarificationOption, ClarificationOptionFilter
+from rag_knowledge.models.api import ClarifyRequest, ClarifyResponse, ClarificationOption
 from rag_knowledge.models.api import (
     AdminChunkListResponse,
     AdminChunkUpdateRequest,
@@ -288,12 +289,92 @@ def gpu_status():
     }
 
 
+@dataclass(frozen=True)
+class _ResolvedClarificationCallback:
+    question: str
+    selected_label: str | None
+    option_id: str | None = None
+    selected_candidate: dict | None = None
+    options: list[dict] | None = None
+    selection_kind: str | None = None
+    free_text: str | None = None
+
+    def to_rag_kwargs(self) -> dict:
+        return {
+            "clarification_selected": self.selected_label,
+            "clarification_option_id": self.option_id,
+            "clarification_selected_candidate": self.selected_candidate,
+            "clarification_options": self.options,
+            "clarification_selection_kind": self.selection_kind,
+            "clarification_free_text": self.free_text,
+        }
+
+
+def _resolve_clarification_callback(req: QueryRequest) -> _ResolvedClarificationCallback:
+    """Resolve an option-id callback without trusting candidate metadata as entity scope."""
+    question = req.question
+    legacy_selected = (req.clarification_selected or "").strip() or None
+    option_id = (req.clarification_option_id or "").strip()
+    if not option_id:
+        return _ResolvedClarificationCallback(question=question, selected_label=legacy_selected)
+
+    options = list(req.clarification_options or [])
+    if not options:
+        raise HTTPException(400, detail="clarification_option_id requires clarification_options")
+    if len(options) > 100:
+        raise HTTPException(400, detail="too many clarification_options")
+
+    option_ids = [str(option.id or "").strip() for option in options]
+    if len(option_ids) != len(set(option_ids)):
+        raise HTTPException(400, detail="clarification_options contains duplicate ids")
+    selected_option = next((option for option in options if option.id == option_id), None)
+    if selected_option is None:
+        raise HTTPException(400, detail="clarification_option_id is not present in clarification_options")
+
+    free_text = (req.clarification_free_text or "").strip()
+    is_other = (
+        option_id.casefold() == "other"
+        or str(selected_option.source or "").casefold() == "fixed_other"
+    )
+    selection_kind = req.clarification_selection_kind
+    if selection_kind is None:
+        selection_kind = "free_text" if free_text else "other" if is_other else "option"
+
+    if selection_kind in {"other", "free_text"} and not is_other:
+        raise HTTPException(400, detail="other/free_text selection requires the Other option")
+    if selection_kind == "option" and is_other:
+        selection_kind = "free_text" if free_text else "other"
+
+    if selection_kind == "free_text":
+        if not free_text:
+            raise HTTPException(400, detail="clarification_free_text is required")
+    if free_text:
+        if selection_kind != "free_text":
+            raise HTTPException(400, detail="clarification_free_text requires free_text selection")
+
+    serialized_options = [option.model_dump(exclude_none=True) for option in options]
+    selected_candidate = selected_option.model_dump(exclude_none=True)
+    selected_label = None if selection_kind == "free_text" else (
+        str(selected_option.label or "").strip() or legacy_selected
+    )
+    return _ResolvedClarificationCallback(
+        question=question,
+        selected_label=selected_label,
+        option_id=option_id,
+        selected_candidate=selected_candidate,
+        options=serialized_options,
+        selection_kind=selection_kind,
+        free_text=free_text or None,
+    )
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest):
     """知识库问答"""
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
 
+    callback = _resolve_clarification_callback(req)
     try:
         set_request_context(path="query")
         history = [h.dict() for h in req.history] if req.history else None
@@ -303,7 +384,7 @@ async def query(req: QueryRequest):
         agent_orchestration_enabled = (
             True if req.mode == "agent" else False if req.mode == "linear" else req.agent_orchestration_enabled
         )
-        result = await _rag.aquery(req.question, history,
+        result = await _rag.aquery(callback.question, history,
                                    llm_model=req.llm_model, vision_model=req.vision_model,
                                    kb_name=kb_name, doc_category=doc_category,
                                    entity_name=entity_name,
@@ -311,7 +392,7 @@ async def query(req: QueryRequest):
                                    allow_general_knowledge=req.allow_general_knowledge,
                                    agent_prompt=req.agent_prompt,
                                    clarification_question=req.clarification_question,
-                                   clarification_selected=req.clarification_selected,
+                                   **callback.to_rag_kwargs(),
                                    agent_orchestration_enabled=agent_orchestration_enabled)
 
         return QueryResponse(
@@ -328,10 +409,7 @@ async def query(req: QueryRequest):
 
 @router.post("/query/clarify", response_model=ClarifyResponse)
 async def query_clarify(req: ClarifyRequest):
-    """检测问题歧义，返回结构化反问选项（供前端渲染卡片）。
-
-    用户选择后，将 option.filter 中的 doc_category / entity_name 带入后续 POST /query。
-    """
+    """检测问题歧义，返回带绑定 metadata 的结构化反问选项。"""
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
 
@@ -355,11 +433,7 @@ async def query_clarify(req: ClarifyRequest):
         trigger=clarify.get("trigger"),
         reason=clarify.get("reason") or understood.rationale,
         options=[
-            ClarificationOption(
-                id=opt["id"],
-                label=opt["label"],
-                filter=ClarificationOptionFilter(**(opt.get("filter") or {})),
-            )
+            ClarificationOption(**opt)
             for opt in (clarify.get("options") or [])
             if isinstance(opt, dict) and opt.get("id") and opt.get("label")
         ],
@@ -387,12 +461,13 @@ async def query_stream(req: QueryRequest):
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     entity_name = (req.entity_name or "").strip() or None
+    callback = _resolve_clarification_callback(req)
     agent_orchestration_enabled = (
         True if req.mode == "agent" else False if req.mode == "linear" else req.agent_orchestration_enabled
     )
 
     async def event_stream():
-        async for event in _rag.stream_query(req.question, history,
+        async for event in _rag.stream_query(callback.question, history,
                                               llm_model=req.llm_model, vision_model=req.vision_model,
                                               kb_name=kb_name, doc_category=doc_category,
                                               entity_name=entity_name,
@@ -403,7 +478,7 @@ async def query_stream(req: QueryRequest):
                                               pinned_chunk_ids=req.pinned_chunk_ids,
                                               excluded_chunk_ids=req.excluded_chunk_ids,
                                               clarification_question=req.clarification_question,
-                                              clarification_selected=req.clarification_selected,
+                                              **callback.to_rag_kwargs(),
                                               agent_orchestration_enabled=agent_orchestration_enabled):
 
             if event.get("type") == "status":
@@ -418,9 +493,24 @@ async def query_stream(req: QueryRequest):
                 yield "event: tool_start\n"
             elif event.get("type") == "tool_end":
                 yield "event: tool_end\n"
+            elif event.get("type") in {
+                "finalization_requested",
+                "finalization_rejected",
+                "evidence_snapshot_created",
+                "answer_generation_started",
+            }:
+                yield f"event: {event['type']}\n"
             yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/query/image")
@@ -1245,6 +1335,7 @@ async def admin_qa_debug(req: QueryRequest):
     """Run one request with its transient EvidencePack for administration/debugging."""
     if not req.question.strip():
         raise HTTPException(400, detail="问题不能为空")
+    callback = _resolve_clarification_callback(req)
     try:
         set_request_context(path="qa-debug")
         # 调试接口隔离对话历史上下文，强制进行单轮独立调试
@@ -1253,13 +1344,13 @@ async def admin_qa_debug(req: QueryRequest):
         doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
         entity_name = (req.entity_name or "").strip() or None
         result = await _rag.aquery(
-            req.question, history, llm_model=req.llm_model, vision_model=req.vision_model,
+            callback.question, history, llm_model=req.llm_model, vision_model=req.vision_model,
             kb_name=kb_name, doc_category=doc_category, entity_name=entity_name,
             thinking=req.thinking,
             web_search=req.web_search, allow_general_knowledge=req.allow_general_knowledge,
             agent_prompt=req.agent_prompt, include_evidence=True,
             clarification_question=req.clarification_question,
-            clarification_selected=req.clarification_selected,
+            **callback.to_rag_kwargs(),
         )
 
         return AdminQaDebugResponse(
@@ -1284,10 +1375,11 @@ async def admin_qa_debug_stream(req: QueryRequest):
     kb_name = req.kb_name if req.kb_name and req.kb_name != "全部知识库" else None
     doc_category = req.doc_category if req.doc_category and req.doc_category != "全部" else None
     entity_name = (req.entity_name or "").strip() or None
+    callback = _resolve_clarification_callback(req)
 
     async def event_stream():
         async for event in _rag.stream_query(
-            req.question,
+            callback.question,
             history,
             llm_model=req.llm_model,
             vision_model=req.vision_model,
@@ -1303,7 +1395,7 @@ async def admin_qa_debug_stream(req: QueryRequest):
             excluded_chunk_ids=req.excluded_chunk_ids,
             path="qa-debug",
             clarification_question=req.clarification_question,
-            clarification_selected=req.clarification_selected,
+            **callback.to_rag_kwargs(),
         ):
 
             if event.get("type") == "status":
@@ -1312,6 +1404,13 @@ async def admin_qa_debug_stream(req: QueryRequest):
                 yield "event: heartbeat\n"
             elif event.get("type") == "clarify":
                 yield "event: clarify\n"
+            elif event.get("type") in {
+                "finalization_requested",
+                "finalization_rejected",
+                "evidence_snapshot_created",
+                "answer_generation_started",
+            }:
+                yield f"event: {event['type']}\n"
             yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(

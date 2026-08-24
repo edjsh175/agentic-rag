@@ -1,0 +1,383 @@
+import pytest
+
+from rag_knowledge.services.answer_finalizer import (
+    AnswerFinalizer,
+    NO_KNOWLEDGE_ANSWER,
+    REVIEW_BLOCKED_ANSWER,
+    REVIEWER_ERROR_ANSWER,
+)
+from rag_knowledge.services.helper_grounding_reviewer import (
+    HelperGroundingReviewer,
+    HelperGroundingReviewResult,
+    ClaimReview,
+    RewriteAction,
+)
+
+
+def _source(index: int, content: str):
+    return {
+        "content": content,
+        "metadata": {"citation_id": index, "source": f"doc-{index}.md"},
+    }
+
+
+def _pass_reviewer(coverage: str = "FULL"):
+    return HelperGroundingReviewer(lambda _msgs: f"""{{
+        "verdict": "PASS",
+        "coverage": "{coverage}",
+        "summary": "通过",
+        "claim_reviews": [{{"claim_id": "c1", "claim": "测试", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"}}],
+        "rewrite_actions": []
+    }}""")
+
+
+def _revise_reviewer():
+    return HelperGroundingReviewer(lambda _msgs: """{
+        "verdict": "REVISE",
+        "coverage": "PARTIAL",
+        "summary": "需要修改",
+        "claim_reviews": [
+            {"claim_id": "c1", "claim": "受支持断言", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "依据充分"},
+            {"claim_id": "c2", "claim": "未支持断言", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+        ],
+        "rewrite_actions": [
+            {"claim_id": "c1", "action": "preserve", "instruction": "保留有效断言"},
+            {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除未支持断言"}
+        ]
+    }""")
+
+
+def _no_safe_answer_reviewer():
+    return HelperGroundingReviewer(lambda _msgs: """{
+        "verdict": "NO_SAFE_ANSWER",
+        "coverage": "NONE",
+        "summary": "无法安全回答",
+        "claim_reviews": [],
+        "rewrite_actions": []
+    }""")
+
+
+def _error_reviewer():
+    def _raise(_msgs):
+        raise TimeoutError("timeout")
+    return HelperGroundingReviewer(_raise)
+
+
+def test_direct_chat_passes_through():
+    finalizer = AnswerFinalizer()
+    res = finalizer.finalize(
+        "你好！我是智能助手。",
+        "你好",
+        [],
+        is_direct_chat=True,
+    )
+    assert res.answer == "你好！我是智能助手。"
+    assert res.final_mode == "direct_chat"
+
+
+def test_no_knowledge_candidate():
+    finalizer = AnswerFinalizer()
+    res = finalizer.finalize(
+        NO_KNOWLEDGE_ANSWER,
+        "测试问题",
+        [_source(1, "文档内容")],
+    )
+    assert res.answer == NO_KNOWLEDGE_ANSWER
+    assert res.final_mode == "no_knowledge"
+
+
+def test_candidate_v1_pass_full():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 支持发布服务。")]
+    res = finalizer.finalize(
+        "StampServer 支持发布服务。[1]",
+        "StampServer 支持发布吗？",
+        docs,
+        helper_reviewer=_pass_reviewer("FULL"),
+    )
+    assert "StampServer 支持发布服务" in res.answer
+    assert res.final_mode == "generated"
+    assert res.grounding["review_verdict"] == "PASS"
+    assert res.grounding["coverage"] == "FULL"
+
+
+def test_candidate_v1_pass_partial_publishes_grounded_partial():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampWebRTC 示例使用 31443 端口。")]
+    res = finalizer.finalize(
+        "StampWebRTC 示例使用 31443 端口 [1]。当前资料未说明其他 UDP 端口。",
+        "StampWebRTC UDP 端口有哪些？",
+        docs,
+        helper_reviewer=_pass_reviewer("PARTIAL"),
+    )
+    assert "31443" in res.answer
+    assert res.final_mode == "grounded_partial"
+    assert res.grounding["review_verdict"] == "PASS"
+    assert res.grounding["coverage"] == "PARTIAL"
+
+
+def test_candidate_v1_revise_and_v2_pass_full():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 支持在线发布。")]
+
+    review_count = 0
+
+    def _caller(_msgs):
+        nonlocal review_count
+        review_count += 1
+        if review_count == 1:
+            return """{
+                "verdict": "REVISE",
+                "coverage": "PARTIAL",
+                "summary": "请删除离线发布",
+                "claim_reviews": [
+                    {"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "支持离线发布", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                ],
+                "rewrite_actions": [
+                    {"claim_id": "c1", "action": "preserve", "instruction": "保留在线发布"},
+                    {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除离线发布"}
+                ]
+            }"""
+        else:
+            return """{
+                "verdict": "PASS",
+                "coverage": "FULL",
+                "summary": "修改后通过",
+                "claim_reviews": [{"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
+                "rewrite_actions": []
+            }"""
+
+    reviewer = HelperGroundingReviewer(_caller)
+
+    retry_called = []
+
+    def _retry(review_result):
+        retry_called.append(review_result)
+        assert len(review_result.rewrite_actions) == 2
+        return "StampServer 支持在线发布。[1]"
+
+    res = finalizer.finalize(
+        "StampServer 支持在线发布 [1]，也支持离线发布。",
+        "StampServer 发布能力？",
+        docs,
+        retry_candidate=_retry,
+        helper_reviewer=reviewer,
+    )
+
+    assert len(retry_called) == 1
+    assert res.answer == "StampServer 支持在线发布。[1]"
+    assert res.final_mode == "grounded_rewrite"
+    assert res.grounding["review_verdict"] == "PASS"
+    assert res.grounding["review_attempts"] == 2
+    assert res.grounding["coverage"] == "FULL"
+
+
+def test_candidate_v1_revise_and_v2_pass_partial():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampWebRTC 示例使用 31443 端口。")]
+
+    review_count = 0
+
+    def _caller(_msgs):
+        nonlocal review_count
+        review_count += 1
+        if review_count == 1:
+            return """{
+                "verdict": "REVISE",
+                "coverage": "PARTIAL",
+                "summary": "请删除 3478 端口",
+                "claim_reviews": [
+                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "必须开放 3478", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                ],
+                "rewrite_actions": [
+                    {"claim_id": "c1", "action": "preserve", "instruction": "保留 31443"},
+                    {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除 3478，若无其他端口说明资料未确认"}
+                ]
+            }"""
+        else:
+            return """{
+                "verdict": "PASS",
+                "coverage": "PARTIAL",
+                "summary": "部分通过",
+                "claim_reviews": [
+                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c3", "claim": "当前资料未说明其他 UDP 端口", "evidence_ids": [], "status": "supported", "claim_type": "limitation_statement", "reason": "合理边界"}
+                ],
+                "rewrite_actions": []
+            }"""
+
+    reviewer = HelperGroundingReviewer(_caller)
+
+    def _retry(review_result):
+        return "StampWebRTC 访问示例使用 31443 端口 [1]。当前资料未确认其他 UDP 端口。"
+
+    res = finalizer.finalize(
+        "StampWebRTC 访问使用 31443 端口 [1]，必须开放 3478 端口。",
+        "StampWebRTC UDP 部署需要配置哪些端口？",
+        docs,
+        retry_candidate=_retry,
+        helper_reviewer=reviewer,
+    )
+
+    assert res.answer == "StampWebRTC 访问示例使用 31443 端口 [1]。当前资料未确认其他 UDP 端口。"
+    assert res.final_mode == "grounded_partial"
+    assert res.grounding["review_verdict"] == "PASS"
+    assert res.grounding["coverage"] == "PARTIAL"
+
+
+def test_candidate_v1_revise_and_v2_fail_blocks():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 资料。")]
+
+    reviewer = _revise_reviewer()
+
+    def _retry(review_result):
+        return "依然未受支持的回答。"
+
+    res = finalizer.finalize(
+        "第一版回答。",
+        "测试问题",
+        docs,
+        retry_candidate=_retry,
+        helper_reviewer=reviewer,
+    )
+
+    assert res.answer == REVIEW_BLOCKED_ANSWER
+    assert res.final_mode == "review_blocked"
+    assert res.grounding["review_verdict"] == "REVISE"
+    assert res.grounding["review_attempts"] == 2
+
+
+def test_candidate_no_safe_answer_blocks_immediately():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 资料。")]
+
+    res = finalizer.finalize(
+        "第一版回答。",
+        "测试问题",
+        docs,
+        helper_reviewer=_no_safe_answer_reviewer(),
+    )
+
+    assert res.answer == REVIEW_BLOCKED_ANSWER
+    assert res.final_mode == "review_blocked"
+    assert res.grounding["review_verdict"] == "NO_SAFE_ANSWER"
+    assert res.grounding["review_attempts"] == 1
+
+
+def test_reviewer_error_fails_closed():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 资料。")]
+
+    res = finalizer.finalize(
+        "候选答案。[1]",
+        "测试问题",
+        docs,
+        helper_reviewer=_error_reviewer(),
+    )
+
+    assert res.answer == REVIEWER_ERROR_ANSWER
+    assert res.final_mode == "reviewer_error"
+    assert res.grounding["review_verdict"] == "ERROR"
+
+
+def test_protocol_error_cannot_publish_candidate():
+    reviewer = HelperGroundingReviewer(lambda _msgs: '"verdict": "PASS"')
+    res = AnswerFinalizer().finalize(
+        "UNSUPPORTED CANDIDATE",
+        "测试问题",
+        [_source(1, "无关证据")],
+        helper_reviewer=reviewer,
+    )
+
+    assert res.answer == REVIEWER_ERROR_ANSWER
+    assert res.final_mode == "reviewer_error"
+
+
+def test_reviewer_not_configured_records_generated_candidate_before_blocking():
+    events = []
+    res = AnswerFinalizer().finalize(
+        "候选答案。[1]",
+        "测试问题",
+        [_source(1, "文档内容")],
+        on_lifecycle_event=events.append,
+    )
+
+    assert [event["type"] for event in events] == ["candidate_status", "error", "publication"]
+    assert res.grounding["candidate_attempts"] == 1
+    assert res.final_mode == "reviewer_error"
+
+
+def test_rewrite_error_reports_one_completed_review_and_two_candidate_attempts():
+    def _raise(_review_result):
+        raise RuntimeError("rewrite failed")
+
+    res = AnswerFinalizer().finalize(
+        "第一版回答。",
+        "测试问题",
+        [_source(1, "受支持断言")],
+        retry_candidate=_raise,
+        helper_reviewer=_revise_reviewer(),
+    )
+
+    assert res.final_mode == "review_blocked"
+    assert res.grounding["review_attempts"] == 1
+    assert res.grounding["candidate_attempts"] == 2
+
+
+def test_pass_lifecycle_includes_review_start_and_publication():
+    events = []
+    res = AnswerFinalizer().finalize(
+        "候选答案。[1]",
+        "测试问题",
+        [_source(1, "候选答案")],
+        helper_reviewer=_pass_reviewer(),
+        on_lifecycle_event=events.append,
+    )
+
+    assert res.final_mode == "generated"
+    assert [event["type"] for event in events] == [
+        "candidate_status",
+        "helper_grounding_review_started",
+        "review_status",
+        "publication",
+    ]
+
+
+def test_review_status_exposes_counts_without_private_reviewer_reasoning():
+    events = []
+
+    AnswerFinalizer().finalize(
+        "受支持断言与未支持断言。[1]",
+        "测试问题",
+        [_source(1, "受支持断言")],
+        helper_reviewer=_revise_reviewer(),
+        on_lifecycle_event=events.append,
+    )
+
+    data = next(event["data"] for event in events if event["type"] == "review_status")
+    assert data["reviewer_role"] == "helper_llm"
+    assert data["claim_count"] == 2
+    assert data["unsupported_count"] == 1
+    assert data["contradicted_count"] == 0
+    assert "summary" not in data
+    assert all("reason" not in claim for claim in data["claim_reviews"])
+    assert all("instruction" not in action for action in data["rewrite_actions"])
+
+
+def test_callable_reviewer_exception_is_reported_as_error_verdict():
+    def _raise(*_args):
+        raise RuntimeError("boom")
+
+    res = AnswerFinalizer().finalize(
+        "候选答案。[1]",
+        "测试问题",
+        [_source(1, "候选答案")],
+        helper_reviewer=_raise,
+    )
+
+    assert res.final_mode == "reviewer_error"
+    assert res.grounding["review_verdict"] == "ERROR"
+    assert res.grounding["review_count"] == 1

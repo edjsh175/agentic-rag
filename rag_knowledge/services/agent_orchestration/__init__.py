@@ -13,7 +13,6 @@ from rag_knowledge.services.agent_orchestration.models import (
 from rag_knowledge.services.agent_orchestration.evidence_gate import (
     EvidenceGap,
     evaluate_rules,
-    rewrite_query,
 )
 from rag_knowledge.services.agent_orchestration.runtime import (
     AGENT_TOOL_NAMES,
@@ -38,7 +37,6 @@ __all__ = [
     "EvidenceGroup",
     "EvidencePool",
     "evaluate_rules",
-    "rewrite_query",
     "PHASE1_TOOL_NAMES",
     "PHASE2_TOOL_NAMES",
     "ToolObservation",

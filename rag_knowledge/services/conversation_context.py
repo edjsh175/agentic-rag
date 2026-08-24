@@ -15,6 +15,46 @@ from typing import Any, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
+
+class _FrozenDict(dict):
+    """Dict-compatible immutable container for UnderstandingResult payloads."""
+
+    def _blocked(self, *_args, **_kwargs):
+        raise TypeError("UnderstandingResult payload is immutable")
+
+    __setitem__ = __delitem__ = clear = pop = popitem = setdefault = update = _blocked
+    __ior__ = _blocked
+
+
+class _FrozenList(list):
+    """List-compatible immutable container for UnderstandingResult payloads."""
+
+    def _blocked(self, *_args, **_kwargs):
+        raise TypeError("UnderstandingResult payload is immutable")
+
+    __setitem__ = __delitem__ = __iadd__ = __imul__ = _blocked
+    append = clear = extend = insert = pop = remove = reverse = sort = _blocked
+
+
+def _freeze_understanding(value: Any) -> Any:
+    if isinstance(value, _FrozenDict) or isinstance(value, _FrozenList):
+        return value
+    if isinstance(value, dict):
+        return _FrozenDict({key: _freeze_understanding(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return _FrozenList(_freeze_understanding(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_freeze_understanding(item) for item in value)
+    return value
+
+
+def _thaw_understanding(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _thaw_understanding(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_thaw_understanding(item) for item in value]
+    return value
+
 CompressFallback = Literal[
     "none",
     "summary_cache",
@@ -102,7 +142,7 @@ class SessionState:
         return out
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnderstandingResult:
     """对话理解出口。"""
 
@@ -119,8 +159,33 @@ class UnderstandingResult:
     clarify: dict[str, Any] | None = None
     rationale: str = ""
 
+    def __post_init__(self) -> None:
+        for name in (
+            "retrieval_queries",
+            "filters",
+            "focus",
+            "semantic_task_context",
+            "clarify",
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, _freeze_understanding(value))
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {
+            "mode": self.mode,
+            "user_utterance": self.user_utterance,
+            "resolved_question": self.resolved_question,
+            "retrieval_queries": _thaw_understanding(self.retrieval_queries),
+            "filters": _thaw_understanding(self.filters),
+            "dialogue_focus": self.dialogue_focus,
+            "focus": _thaw_understanding(self.focus),
+            "semantic_task_context": _thaw_understanding(self.semantic_task_context),
+            "is_context_dependent": self.is_context_dependent,
+            "confidence": self.confidence,
+            "clarify": _thaw_understanding(self.clarify),
+            "rationale": self.rationale,
+        }
 
 
 @dataclass

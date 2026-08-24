@@ -284,8 +284,24 @@ class QueryContextualizer:
                 q, history_text, sources_text, last_user
             )
         except Exception as e:
-            logger.warning("LLM 上下文化失败，回退到启发式: %s", e)
-            res = self._contextualize_heuristic(q, history_text, last_user)
+            logger.warning("Helper 上下文化失败，升级 Main: %s", e)
+            try:
+                from rag_knowledge.services.model_routing import ModelRoutePolicy
+
+                res = self._contextualize_via_llm(
+                    q,
+                    history_text,
+                    sources_text,
+                    last_user,
+                    role=ModelRoutePolicy(self._cfg).linear_escalation_role(),
+                    stage="linear_escalation",
+                )
+            except Exception as escalation_error:
+                logger.warning(
+                    "Main 上下文化升级失败，回退到启发式: %s",
+                    escalation_error,
+                )
+                res = self._contextualize_heuristic(q, history_text, last_user)
 
         if protect_entities:
             from rag_knowledge.services.query_entity_guard import (
@@ -519,6 +535,9 @@ class QueryContextualizer:
         history_text: str,
         sources_text: str,
         last_user: str = "",
+        *,
+        role: str | None = None,
+        stage: str = "common_stage1",
     ) -> dict[str, Any]:
         """通过 LLM 调用完成上下文化。"""
         prompt = _CONTEXTUALIZE_PROMPT.format(
@@ -528,15 +547,17 @@ class QueryContextualizer:
         )
 
         from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         raw = chat_role(
             self._cfg,
-            "llm",
+            role or ModelRoutePolicy(self._cfg).common_stage1_role(),
             [{"role": "user", "content": prompt}],
             temperature=0.0,
             num_predict=512,
             timeout=float(self._timeout),
             think=False,
+            stage=stage,
         ).strip()
 
         # 清洗可能的 markdown 代码块包装

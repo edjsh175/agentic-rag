@@ -11,6 +11,7 @@ import logging
 import os
 import threading
 import time
+from contextvars import ContextVar
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -32,6 +33,45 @@ _sync_sem_lock = threading.Lock()
 
 _async_semaphores: dict[str, asyncio.Semaphore] = {}
 _async_sem_lock = threading.Lock()
+
+_model_call_audit: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "model_call_audit", default=None
+)
+
+
+def clear_model_call_audit() -> None:
+    """Start a request-local model call audit."""
+    _model_call_audit.set([])
+
+
+def get_model_call_audit() -> list[dict[str, Any]]:
+    """Return a copy of the current request-local model call audit."""
+    return [dict(item) for item in (_model_call_audit.get() or [])]
+
+
+def record_model_call(
+    *,
+    role: str,
+    stage: str,
+    provider: str,
+    model: str,
+    elapsed_ms: float | None = None,
+    fallback: str | None = None,
+    prompt_version: str = "v1",
+) -> None:
+    records = _model_call_audit.get()
+    if records is None:
+        return
+    records.append({
+        "call_id": f"llmcall_{len(records) + 1:04d}",
+        "stage": stage,
+        "role": role,
+        "provider": provider,
+        "model": model,
+        "prompt_version": prompt_version,
+        "elapsed_ms": round(float(elapsed_ms or 0.0), 1),
+        "fallback": fallback,
+    })
 
 
 def _get_sync_semaphore(role: str, limit: int) -> threading.Semaphore:
@@ -465,6 +505,9 @@ async def _astream_ollama(
         "model": endpoint.model,
         "messages": messages,
         "stream": True,
+        # Ollama's reasoning-capable models may enable thinking by default.
+        # Send the flag explicitly so ``think=False`` cannot be ignored.
+        "think": bool(think),
         "options": options,
     }
     async with async_client(base_url=base, timeout=timeout) as client:
@@ -617,6 +660,8 @@ async def _astream_google(
 
 def chat_role(cfg: Any, role: str, messages: list[dict[str, Any]], **kwargs: Any) -> str:
     """Resolve Config.endpoint_for(role) then chat()."""
+    stage = str(kwargs.pop("stage", "") or "").strip()
+    prompt_version = str(kwargs.pop("prompt_version", "v1") or "v1")
     endpoint = cfg.endpoint_for(role)
     if "num_ctx" not in kwargs or kwargs["num_ctx"] is None:
         budget_win = getattr(getattr(cfg, "context_budget", None), "context_window", None)
@@ -624,12 +669,31 @@ def chat_role(cfg: Any, role: str, messages: list[dict[str, Any]], **kwargs: Any
             kwargs["num_ctx"] = int(budget_win)
         elif getattr(cfg, "context_window", None) is not None:
             kwargs["num_ctx"] = int(cfg.context_window)
-    return chat(
-        endpoint,
-        messages,
-        default_ollama=getattr(cfg, "ollama_base_url", ""),
-        **kwargs,
-    )
+    started = time.perf_counter()
+    fallback = None
+    try:
+        return chat(
+            endpoint,
+            messages,
+            default_ollama=getattr(cfg, "ollama_base_url", ""),
+            **kwargs,
+        )
+    except Exception as exc:
+        fallback = type(exc).__name__
+        raise
+    finally:
+        record_model_call(
+            role=role,
+            stage=stage or {
+                "helper_llm": "helper_call",
+                "llm": "main_call",
+            }.get(role, "model_call"),
+            provider=endpoint.normalized_provider(),
+            model=endpoint.model,
+            elapsed_ms=(time.perf_counter() - started) * 1000,
+            fallback=fallback,
+            prompt_version=prompt_version,
+        )
 
 
 def _guess_mime(image_b64: str, mime_type: str | None) -> str:

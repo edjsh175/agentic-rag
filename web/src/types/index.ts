@@ -1,9 +1,181 @@
 /** 消息角色 */
 export type Role = 'user' | 'assistant'
 
+export type WorkMode = 'agent' | 'linear'
+export type ToolProgress = 'PROGRESS' | 'NO_PROGRESS' | 'DENIED' | 'ERROR'
+
+export interface UnderstandingEventData {
+  task_type?: string
+  identity_status?: string
+  entity?: string
+  summary: string
+}
+
+export interface DecisionEventData {
+  step?: number
+  action: string
+  tool?: string | null
+  reason: string
+  gap?: string | null
+  expected_gain?: string | null
+  source?: string
+}
+
+export interface GuardEventData {
+  allowed: boolean
+  reason?: string | null
+  message: string
+  tool?: string | null
+  step?: number
+}
+
+export interface ToolStartEventData {
+  name: string
+  arguments?: Record<string, unknown>
+  step?: number
+  source?: string
+  target?: string | null
+  gap?: string | null
+  expected_gain?: string | null
+}
+
+export interface ToolResultEventData extends ToolStartEventData {
+  ok?: boolean
+  elapsed_ms?: number
+  summary?: string
+  error?: string | null
+  fallback?: string | null
+  status?: ToolProgress
+  progress?: ToolProgress
+  data?: unknown
+  evidence_delta?: EvidenceUpdateEventData
+}
+
+export interface EvidenceUpdateEventData {
+  new_chunks: number
+  new_entities: number
+  new_relations: number
+  evidence_version_before?: number
+  evidence_version_after?: number
+  coverage?: string
+  status?: ToolProgress
+  step?: number
+}
+
+export interface EvidenceGapEventData {
+  coverage: string
+  missing_facts?: string[]
+  missing_relations?: string[]
+  reason?: string
+  step?: number
+}
+
+export interface FinalizationCheckEventData {
+  coverage: string
+  admissibility: string
+  message: string
+  reason?: string
+  gaps?: unknown[]
+  step?: number
+  forced?: boolean
+}
+
+export interface CandidateStatusEventData {
+  version: number
+  status: string
+  message: string
+}
+
+export interface GroundingReviewStartedEventData {
+  review_count: number
+  candidate_version: number
+  message: string
+}
+
+export interface ClaimReviewEventData {
+  claim_id?: string
+  claim?: string
+  statement?: string
+  claim_type?: string
+  status: string
+  evidence_ids?: number[]
+  reason?: string
+}
+
+export interface ReviewStatusEventData {
+  reviewer_role?: 'helper_llm'
+  review_count: number
+  verdict: string
+  coverage: string
+  message: string
+  summary?: string
+  claim_reviews?: ClaimReviewEventData[]
+  rewrite_actions?: RewriteActionEventData[]
+  claim_count?: number
+  unsupported_count?: number
+  contradicted_count?: number
+  error?: string | null
+}
+
+export interface RewriteActionEventData {
+  claim_id: string
+  action: string
+  instruction?: string
+}
+
+export interface RewriteStatusEventData {
+  status: 'started' | 'completed' | 'failed'
+  mode?: string
+  message?: string
+  candidate_version?: number
+  error?: string
+}
+
+export interface PublicationEventData {
+  final_mode: string
+  review_verdict: string
+  coverage: string
+  message: string
+  published_candidate_attempt?: number | null
+}
+
+export interface ExecutionErrorEventData {
+  message: string
+  code?: string
+  stage?: string
+  /** 迁移期兼容旧字段。 */
+  phase?: string
+  recoverable?: boolean
+}
+
+export type KnowledgeStreamEvent =
+  | { type: 'understanding'; data: UnderstandingEventData }
+  | { type: 'decision'; data: DecisionEventData }
+  | { type: 'guard'; data: GuardEventData }
+  | { type: 'tool_start'; data: ToolStartEventData }
+  | { type: 'tool_result' | 'tool_end'; data: ToolResultEventData }
+  | { type: 'evidence_update'; data: EvidenceUpdateEventData }
+  | { type: 'evidence_gap'; data: EvidenceGapEventData }
+  | { type: 'finalization_check'; data: FinalizationCheckEventData }
+  | { type: 'candidate_status'; data: CandidateStatusEventData }
+  | { type: 'helper_grounding_review_started'; data: GroundingReviewStartedEventData }
+  | { type: 'review_status'; data: ReviewStatusEventData }
+  | { type: 'rewrite_status'; data: RewriteStatusEventData }
+  | { type: 'publication'; data: PublicationEventData }
+  | { type: 'error'; data: ExecutionErrorEventData | string }
+  | { type: 'token' | 'status' | 'thinking' | 'final_answer' | 'notice'; data: string }
+  | { type: 'sources'; data: SourceDoc[] }
+  | { type: 'trace'; data: string | { trace_id: string } }
+  | { type: 'pipeline'; data: PipelineStep }
+  | { type: 'clarify'; data: ClarifyResult }
+  | { type: 'heartbeat'; phase?: string }
+  | { type: 'answer_generation_started'; data?: unknown }
+  | { type: 'done'; data?: unknown }
+
 /** Agent 工具调用记录 */
 export interface AgentToolCall {
   name: string
+  step?: number
   ok?: boolean
   elapsed_ms?: number
   summary?: string
@@ -11,51 +183,171 @@ export interface AgentToolCall {
   fallback?: string | null
   arguments?: Record<string, any>
   observation?: any
-  status?: 'running' | 'success' | 'error' | 'recovery' | 'denied'
-  gap_type?: string
-  recovery_strategy?: string
+  status?: 'running' | 'success' | 'error' | 'denied'
+  gap?: string | null
+  expected_gain?: string | null
+  progress?: ToolProgress
 }
 
-/** 时序流单个节点（支持 Think 思考块与 Tool Call IN/OUT 卡片） */
+/** 时序流单个节点（支持理解、决策、守卫、工具、证据、审核、重写、发布与思考块） */
 export type AgentTimelineItem =
   | {
       type: 'think'
+      eventKey?: string
       content: string
       duration?: string
       isThinking?: boolean
       _startTime?: number
     }
   | {
+      type: 'understanding'
+      eventKey?: string
+      task_type?: string
+      identity_status?: string
+      entity?: string
+      summary: string
+    }
+  | {
+      type: 'decision'
+      eventKey?: string
+      step?: number
+      action: string
+      tool?: string | null
+      reason: string
+      gap?: string | null
+      expected_gain?: string | null
+      source?: string
+    }
+  | {
+      type: 'guard'
+      eventKey?: string
+      allowed: boolean
+      reason?: string | null
+      message: string
+      tool?: string | null
+      step?: number
+    }
+  | {
       type: 'tool_call'
+      eventKey?: string
       tool: string
       label?: string
       description?: string
       in?: any
       out?: any
       status?: 'running' | 'completed' | 'failed' | 'denied'
+      progress?: ToolProgress
       elapsed_ms?: number
       exitCode?: number
       source?: string
-      gap_type?: string
-      recovery_strategy?: string
+      error?: string | null
+      step?: number
+      gap?: string | null
+      expected_gain?: string | null
+      evidence_delta?: any
+    }
+  | {
+      type: 'evidence_update'
+      eventKey?: string
+      new_chunks: number
+      new_entities: number
+      new_relations: number
+      evidence_version_before?: number
+      evidence_version_after?: number
+      coverage?: string
+      status?: string
+    }
+  | {
+      type: 'evidence_gap'
+      eventKey?: string
+      coverage: string
+      missing_facts?: string[]
+      missing_relations?: string[]
+      reason?: string
+    }
+  | {
+      type: 'finalization_check'
+      eventKey?: string
+      coverage: string
+      admissibility: string
+      message: string
+      reason?: string
+      gaps?: any[]
+      forced?: boolean
+    }
+  | {
+      type: 'candidate_status'
+      eventKey?: string
+      version: number
+      status: string
+      message: string
+    }
+  | {
+      type: 'review_status'
+      eventKey?: string
+      review_count: number
+      verdict: string
+      coverage: string
+      message: string
+      summary?: string
+      claim_reviews?: ClaimReviewEventData[]
+      rewrite_actions?: RewriteActionEventData[]
       error?: string | null
     }
   | {
+      type: 'rewrite_status'
+      eventKey?: string
+      status: 'started' | 'completed' | 'failed'
+      mode?: string
+      message?: string
+      candidate_version?: number
+      error?: string
+    }
+  | {
+      type: 'publication'
+      eventKey?: string
+      final_mode: string
+      review_verdict: string
+      coverage: string
+      message: string
+    }
+  | {
+      type: 'helper_grounding_review_started'
+      eventKey?: string
+      review_count: number
+      candidate_version: number
+      message: string
+    }
+  | {
+      type: 'error'
+      eventKey?: string
+      message: string
+      code?: string
+      stage?: string
+      phase?: string
+      recoverable?: boolean
+    }
+  | {
       type: 'context_inject'
+      eventKey?: string
       label: string
       details: string
     }
   | {
       type: 'notice'
+      eventKey?: string
       content: string
       level?: 'info' | 'warning' | 'error'
     }
+
 
 /** 单条聊天消息 */
 export interface Message {
   id: string
   role: Role
   content: string
+  /** 生成该消息时使用的运行模式；用于历史消息保持原展示语义 */
+  mode?: WorkMode
   /** 用户消息携带的图片（data URL） */
   imageUrl?: string
   /** assistant 消息携带的来源文档 */
@@ -97,6 +389,7 @@ export interface PipelineStep {
   plan?: any
   retrieval?: any
   evidence?: EvidencePack
+  agent?: any
   stages_ms?: Record<string, number>
 }
 
@@ -130,8 +423,27 @@ export interface ClarificationOption {
   id: string
   label: string
   filter: ClarifyOptionFilter
-  /** backbone_seed | task_exit | rollback_static */
+  /** backbone | model_suggested | fixed_other | task_exit | rollback_static */
   source?: string
+  canonical_name?: string
+  entity_type?: string
+  binding_status?: string
+  score?: number
+}
+
+export type ClarificationSelectionKind = 'option' | 'other' | 'free_text'
+
+export interface ClarificationSelection {
+  option: ClarificationOption
+  kind: ClarificationSelectionKind
+  freeText?: string
+}
+
+export interface ClarificationCallbackRequest {
+  optionId: string
+  options: ClarificationOption[]
+  selectionKind: ClarificationSelectionKind
+  freeText?: string
 }
 
 /** 反问预检响应结构 */
@@ -497,6 +809,10 @@ export interface QaTraceRequest {
   history_rounds?: number
   clarification_question?: string | null
   clarification_selected?: string | null
+  clarification_option_id?: string | null
+  clarification_options?: ClarificationOption[] | null
+  clarification_selection_kind?: ClarificationSelectionKind | null
+  clarification_free_text?: string | null
   [key: string]: unknown
 }
 

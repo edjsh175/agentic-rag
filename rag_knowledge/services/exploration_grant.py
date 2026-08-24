@@ -176,15 +176,60 @@ class ExplorationGrantResolver:
         self.constraints = constraints if constraints is not None else load_backbone_constraints()
         self._issued_depth: dict[str, int] = {}
 
-    @property
-    def issued_entities(self) -> tuple[str, ...]:
-        return tuple(self._issued_depth)
+    @staticmethod
+    def _parse_targets(target_entity: Any) -> tuple[str, ...]:
+        import re
 
-    def authorize(self, target_entity: str | None) -> GrantAuthorization:
-        requested = str(target_entity or "").strip()
-        canonical = self._canonical(requested) if requested else None
+        if not target_entity:
+            return ()
+        if isinstance(target_entity, (list, tuple, set, frozenset)):
+            items = []
+            for item in target_entity:
+                s = str(item or "").strip()
+                if s and s not in items:
+                    items.append(s)
+            return tuple(items)
+        raw = str(target_entity).strip()
+        if not raw:
+            return ()
+        parts = [s.strip() for s in re.split(r"[,，/、\n]+", raw) if s.strip()]
+        return tuple(dict.fromkeys(parts))
 
-        if not canonical:
+    def authorize(self, target_entity: Any) -> GrantAuthorization:
+        requested_raw = (
+            ", ".join(str(x) for x in target_entity)
+            if isinstance(target_entity, (list, tuple))
+            else str(target_entity or "").strip()
+        )
+        req_targets = self._parse_targets(target_entity)
+
+        scope_status = str(getattr(self.identity_scope, "identity_status", "unresolved") or "").strip()
+        if scope_status == "confirmed_topic":
+            if req_targets:
+                return GrantAuthorization(
+                    authorized=False,
+                    rejection_reason="confirmed_topic_cannot_grant_entity",
+                    requested_target=requested_raw,
+                )
+            return GrantAuthorization(
+                authorized=True,
+                grant=self._new_grant(
+                    targets=(),
+                    source_type="confirmed_topic",
+                    source_ref=f"topic:{getattr(self.identity_scope, 'confirmed_topic', '') or ''}",
+                    hop_depth=0,
+                ),
+                requested_target=None,
+            )
+
+        if scope_status != "confirmed_entity" and req_targets:
+            return GrantAuthorization(
+                authorized=False,
+                rejection_reason="identity_not_confirmed",
+                requested_target=requested_raw,
+            )
+
+        if not req_targets:
             if self._is_unbound_task():
                 return GrantAuthorization(
                     authorized=True,
@@ -198,73 +243,83 @@ class ExplorationGrantResolver:
                 )
             return GrantAuthorization(
                 authorized=False,
-                rejection_reason="target_entity_required",
-                requested_target=requested or None,
+                rejection_reason="target_entity_required" if scope_status == "confirmed_entity" else "identity_not_confirmed",
+                requested_target=requested_raw or None,
             )
 
-        if canonical not in self._issued_depth and len(self._issued_depth) >= self.max_entities:
+        authorized_targets: list[str] = []
+        direct_sources: list[str] = []
+        relation_sources: list[tuple[str, dict[str, Any], int]] = []
+        allowed_relations_set: set[str] = set()
+
+        for req in req_targets:
+            canonical = self._canonical(req) or req
+            if canonical not in self._issued_depth and len(self._issued_depth) >= self.max_entities:
+                return GrantAuthorization(
+                    authorized=False,
+                    rejection_reason="grant_entity_budget_exhausted",
+                    requested_target=requested_raw,
+                )
+            ds = self._direct_source(canonical)
+            if ds:
+                authorized_targets.append(canonical)
+                direct_sources.append(ds)
+                self._remember(canonical, 0)
+                continue
+            rel = self._find_graph_relation(canonical)
+            if rel is not None:
+                base_name, relation_row, depth = rel
+                authorized_targets.append(canonical)
+                relation_sources.append(rel)
+                rtype = str(relation_row.get("relation_type") or "")
+                if rtype:
+                    allowed_relations_set.add(rtype)
+                self._remember(canonical, depth)
+                continue
             return GrantAuthorization(
                 authorized=False,
-                rejection_reason="grant_entity_budget_exhausted",
-                requested_target=requested,
+                rejection_reason="target_not_authorized",
+                requested_target=requested_raw,
             )
 
-        direct_source = self._direct_source(canonical)
-        if direct_source:
-            grant = self._new_grant(
-                targets=(canonical,),
-                source_type=direct_source,
-                source_ref=self._source_ref(direct_source, canonical),
-                hop_depth=0,
-            )
-            self._remember(canonical, 0)
-            return GrantAuthorization(True, grant=grant, requested_target=requested)
+        if direct_sources:
+            source_type = "user_explicit_mention" if any(s == "user_explicit_mention" for s in direct_sources) else direct_sources[0]
+            source_ref = self._source_ref(source_type, authorized_targets[0])
+            hop_depth = 0
+        else:
+            source_type = "graph_relation"
+            source_ref = f"relation:{relation_sources[0][1].get('id') or ''}" if relation_sources else "graph_relation"
+            hop_depth = max((r[2] for r in relation_sources), default=1)
 
-        relation = self._find_graph_relation(canonical)
-        if relation is not None:
-            base_name, relation_row, depth = relation
-            grant = self._new_grant(
-                targets=(canonical,),
-                source_type="graph_relation",
-                source_ref=f"relation:{relation_row.get('id') or ''}",
-                hop_depth=depth,
-                allowed_relations=frozenset({str(relation_row.get("relation_type") or "")}),
-            )
-            self._remember(canonical, depth)
-            return GrantAuthorization(True, grant=grant, requested_target=requested)
-
-        return GrantAuthorization(
-            authorized=False,
-            rejection_reason="target_not_authorized",
-            requested_target=requested,
+        grant = self._new_grant(
+            targets=tuple(authorized_targets),
+            source_type=source_type,
+            source_ref=source_ref,
+            hop_depth=hop_depth,
+            allowed_relations=frozenset(allowed_relations_set),
         )
+        return GrantAuthorization(True, grant=grant, requested_target=requested_raw)
 
     def _direct_source(self, target: str) -> str | None:
-        selected = self._canonical(self.clarification_selected)
-        if selected and _same_entity(target, selected):
-            return "clarification_confirmed"
-
-        mentioned = tuple(getattr(self.semantic_task, "mentioned_entities", ()) or ())
-        if any(_same_entity(target, self._canonical(item) or item) for item in mentioned):
-            return "user_explicit_mention"
-
-        primary = self._canonical(getattr(self.semantic_task, "primary_entity", None))
-        if primary and _same_entity(target, primary):
-            return "stage1_resolved_entity"
-
-        previous = self._canonical(self.previous_confirmed_entity)
-        if previous and _same_entity(target, previous):
-            return "previous_confirmed_context"
+        confirmed_entities = tuple(getattr(self.identity_scope, "confirmed_entities", ()) or ())
+        confirmed_entity = getattr(self.identity_scope, "confirmed_entity", None)
+        if confirmed_entity and not confirmed_entities:
+            confirmed_entities = (confirmed_entity,)
 
         identity_primary = self._canonical(getattr(self.identity_scope, "primary_entity", None))
-        if identity_primary and _same_entity(target, identity_primary):
-            reason = str(getattr(self.identity_scope, "scope_reason", "") or "")
-            return (
-                "previous_confirmed_context"
-                if reason in {"previous_confirmed_context", "conversation_confirmed_subject"}
-                else "stage1_resolved_entity"
-            )
-        return None
+        if identity_primary and not confirmed_entities:
+            confirmed_entities = (identity_primary,)
+        if not any(_same_entity(target, self._canonical(item) or item) for item in confirmed_entities):
+            return None
+
+        reason = str(getattr(self.identity_scope, "scope_reason", "") or "")
+        if reason == "clarification_confirmed":
+            return "clarification_confirmed"
+        if reason in {"previous_confirmed_context", "conversation_confirmed_subject"}:
+            return "previous_confirmed_context"
+        if reason in {"request_explicit_entity", "user_explicit_mention"}:
+            return "user_explicit_mention"
+        return "stage1_resolved_entity"
 
     def _find_graph_relation(self, target: str) -> tuple[str, dict[str, Any], int] | None:
         if self.graph_db is None or self.max_hops <= 0:
@@ -279,11 +334,10 @@ class ExplorationGrantResolver:
         primary = self._canonical(getattr(self.identity_scope, "primary_entity", None))
         if primary and not any(_same_entity(primary, name) for name, _ in bases):
             bases.append((primary, 0))
-        for item in tuple(getattr(self.semantic_task, "mentioned_entities", ()) or ()):
+        for item in tuple(getattr(self.identity_scope, "confirmed_entities", ()) or ()):
             canonical = self._canonical(item)
             if canonical and not any(_same_entity(canonical, name) for name, _ in bases):
                 bases.append((canonical, 0))
-
         for base_name, base_depth in bases:
             next_depth = base_depth + 1
             if next_depth > self.max_hops:
@@ -382,10 +436,18 @@ class ExplorationGrantResolver:
         return None
 
     def _is_unbound_task(self) -> bool:
-        task_type = str(getattr(self.semantic_task, "task_type", "") or "")
+        scope_status = str(getattr(self.identity_scope, "identity_status", "") or "").strip()
+        if scope_status != "unresolved":
+            return False
+        raw_mention = str(getattr(self.identity_scope, "raw_entity_mention", "") or "").strip()
+        raw_mentions = tuple(getattr(self.identity_scope, "raw_entity_mentions", ()) or ())
+        if raw_mention or any(str(item or "").strip() for item in raw_mentions):
+            return False
         primary = str(getattr(self.semantic_task, "primary_entity", "") or "").strip()
         mentioned = tuple(getattr(self.semantic_task, "mentioned_entities", ()) or ())
-        return task_type == "unbound" and not primary and not mentioned
+        if primary or mentioned:
+            return False
+        return True
 
 
 def _same_entity(left: str | None, right: str | None) -> bool:

@@ -135,11 +135,12 @@ class HistoryCompressor:
         """调用配置的 helper_llm 进行摘要生成"""
         try:
             from rag_knowledge.llm_http import chat_role
+            from rag_knowledge.services.model_routing import ModelRoutePolicy
 
             logger.debug("开始调用 helper_llm 压缩对话历史...")
             content = chat_role(
                 self._main_cfg,
-                "llm",
+                ModelRoutePolicy(self._main_cfg).linear_preprocess_role(),
                 [
                     {
                         "role": "system",
@@ -160,6 +161,7 @@ class HistoryCompressor:
                 timeout=45.0,
                 think=False,
                 num_ctx=self._main_cfg.context_budget.context_window,
+                stage="history_compression",
             )
             return self._ensure_structured_summary((content or "").strip())
         except Exception as e:

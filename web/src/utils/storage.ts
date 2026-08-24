@@ -34,6 +34,7 @@ interface StoredMsg {
   id: string
   role: 'user' | 'assistant'
   content: string
+  mode?: ChatMessage['mode']
   hasImage: boolean
   sources?: SourceDoc[]
   feedback?: 'useful' | 'unuseful' | null
@@ -77,6 +78,7 @@ function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void 
       id: m.id,
       role: m.role,
       content: m.content,
+      mode: m.mode,
       hasImage: !!m.imageUrl,
       sources: m.sources,
       feedback: m.feedback,
@@ -205,6 +207,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         id: s.id,
         role: s.role,
         content: s.content,
+        mode: s.mode,
         sources: s.sources,
         feedback: s.feedback,
         trace_id: s.trace_id,
@@ -312,6 +315,7 @@ export async function loadSessionMessages(sessionId: string): Promise<ChatMessag
         id: m.id,
         role: m.role,
         content: m.content,
+        mode: m.mode,
         hasImage: !!m.hasImage,
         sources: m.sources,
         feedback: m.feedback,
@@ -403,6 +407,7 @@ export async function saveSessionState(
       id: m.id,
       role: m.role as 'user' | 'assistant',
       content: m.content,
+      mode: m.mode,
       hasImage: !!m.imageUrl,
       sources: m.sources,
       feedback: m.feedback,
