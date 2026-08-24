@@ -263,13 +263,11 @@ def test_builder_without_cfg_does_not_write_live_traces(tmp_path, monkeypatch):
 def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
     """Reproduce the original pollution path: object.__new__(RagChain) without _cfg."""
     import asyncio
-    from pathlib import Path
 
     from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
 
-    live_root = Path("data") / "qa_traces"
-    before = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
-
+    saved_payloads = []
+    monkeypatch.setattr(QaTraceStore, "save", lambda self, payload: saved_payloads.append(payload))
     monkeypatch.setenv("QA_TRACE_ENABLED", "true")
     monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
 
@@ -313,8 +311,7 @@ def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
         for e in events
     )
 
-    after = {p.name for p in live_root.rglob("*.json")} if live_root.exists() else set()
-    assert after == before
+    assert saved_payloads == []
 
 
 def test_rag_new_trace_preserves_requested_allow_general_knowledge(isolated_storage, monkeypatch):

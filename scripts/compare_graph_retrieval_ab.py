@@ -13,11 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_GOLD = (
     ROOT
-    / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4.json"
+    / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4.json"
 )
 DEFAULT_BASE_OUT = (
     ROOT
-    / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
+    / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
 )
 EVAL_SCRIPT = ROOT / "scripts/eval_multi_evidence_offline.py"
 PYTHON = ROOT / "venv/Scripts/python.exe"

@@ -551,7 +551,11 @@ def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
                             "chunk_id": c["chunk_id"],
                             "source": c["metadata"]["source"],
                             "doc_category": c["metadata"]["doc_category"],
-                            "review_status": "approved"
+                            "review_status": "approved",
+                            "document_entity": (
+                                "PipelineBuilder" if c["chunk_id"] == "c-tool"
+                                else "PipelinePublishConfig"
+                            ),
                         })
             return {
                 "ids": ret_ids,
@@ -575,7 +579,8 @@ def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
                             "chunk_id": "c-tool",
                             "source": "manual.docx",
                             "doc_category": "StampTools",
-                            "review_status": "approved"
+                            "review_status": "approved",
+                            "document_entity": "PipelineBuilder",
                         }
                     )]
                 def get_relevant_documents(self, query):
@@ -597,6 +602,22 @@ def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
             return AIMessage(content="Mock Answer referencing PipelinePublishConfig [1] [2]")
             
     monkeypatch.setattr(chain, "_build_llm", lambda model=None: MockLLM())
+    from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
+    pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
+        "verdict": "PASS",
+        "coverage": "FULL",
+        "summary": "graph retrieval fixture pass",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "fixture answer",
+            "claim_type": "knowledge_claim",
+            "evidence_ids": [1],
+            "status": "supported",
+            "reason": "fixture isolates graph retrieval behavior"
+        }],
+        "rewrite_actions": []
+    }""")
+    monkeypatch.setattr(chain, "_helper_grounding_reviewer", lambda: pass_reviewer)
     
     # Mock query planner to return deterministic config retrieval plan
     from rag_knowledge.services.query_contextualizer import RetrievalQuery

@@ -14,6 +14,7 @@ from rag_knowledge.services.helper_grounding_reviewer import (
     HelperGroundingReviewer,
     HelperGroundingReviewResult,
     RewriteAction,
+    review_response_json_schema,
 )
 from rag_knowledge.services.model_routing import ModelRoutePolicy
 
@@ -341,6 +342,7 @@ def _build_real_reviewer(cfg: Config) -> tuple[HelperGroundingReviewer, str, str
             default_ollama=cfg.ollama_base_url,
             temperature=0.0,
             format_json=True,
+            json_schema=review_response_json_schema(),
             timeout=cfg.grounding_reviewer_timeout,
             num_predict=4096,
             think=False,

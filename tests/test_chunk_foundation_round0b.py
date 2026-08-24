@@ -16,7 +16,7 @@ from rag_knowledge.services.loader import FileLoader
 from rag_knowledge.services.unstructured_loader import UnstructuredChapterLoader
 
 
-ROUND0A_DIR = Path("docs/3_待办清单/切块基石治理/已完成-第0A轮-基线审计与问题定位/审计产物")
+ROUND0A_DIR = Path("docs/04_已完成归档/01_文档解析与切块/已完成-第0A轮-基线审计与问题定位/审计产物")
 
 
 def _paragraph(text: str, *, size: int = 12, bold: bool = False):

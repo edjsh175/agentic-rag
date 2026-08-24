@@ -12,7 +12,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 def test_v4_review_covers_all_candidates_and_excludes_rejected_items():
-    candidate = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4_retrieval_candidate.json"
+    candidate = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4_retrieval_candidate.json"
     final_items, ledger = MODULE.review_candidates(json.loads(candidate.read_text(encoding="utf-8")))
 
     assert len(ledger) == 90
@@ -23,7 +23,7 @@ def test_v4_review_covers_all_candidates_and_excludes_rejected_items():
 
 
 def test_v4_revisions_correct_the_known_https_port_mapping_question():
-    candidate = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4_retrieval_candidate.json"
+    candidate = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v4_retrieval_candidate.json"
     final_items, _ = MODULE.review_candidates(json.loads(candidate.read_text(encoding="utf-8")))
     item = next(item for item in final_items if item["id"] == "mq-108")
 

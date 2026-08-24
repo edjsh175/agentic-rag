@@ -124,7 +124,7 @@
     "category": "historical_false_reject",
     "trace_id": "4788655806324e0da99a64bdb3f95a29",
     "question": "PipelineWebGL 是什么？",
-    "candidate": "文档在“Web应用镜像”下提供了 PipelineWebGL 镜像的 Dockerfile 配置 [1]，因此可以确认它存在 Docker 镜像部署方案。关于 3D 可视化等其他功能，当前这份证据不能证明。",
+    "candidate": "文档在“Web应用镜像”下提供了 PipelineWebGL 镜像的 Dockerfile 配置 [1]，因此可以确认它存在 Docker 镜像部署方案。关于其他产品功能，当前这份证据没有进一步说明。",
     "evidence": [{"evidence_id": 1, "source": "Docker部署手册.docx", "section": "Web应用镜像 > PipelineWebGL镜像", "content": "Web应用镜像 > PipelineWebGL镜像。vim Dockerfile.pipelinewebgl。编写 Dockerfile 并构建镜像。"}],
     "expected_verdict": "PASS",
     "expected_coverage": "PARTIAL",

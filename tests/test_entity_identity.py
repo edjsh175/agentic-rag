@@ -247,10 +247,7 @@ def test_graph_builder_injects_arbiter_when_entity_resolve_enabled(isolated_stor
             )
 
     monkeypatch.setattr(pipeline_mod, "EntityResolutionService", CapturingResolution)
-    monkeypatch.setattr(
-        "rag_knowledge.services.ollama_health.assert_ollama_reachable",
-        lambda **kwargs: None,
-    )
+    monkeypatch.setattr(pipeline_mod, "assert_ollama_reachable", lambda **kwargs: None)
 
     class FakeCfg:
         class graph_extraction_llm:
@@ -496,10 +493,7 @@ def test_graph_builder_injects_type_arbiter_when_enabled(isolated_storage, monke
             )
 
     monkeypatch.setattr(pipeline_mod, "EntityResolutionService", CapturingResolution)
-    monkeypatch.setattr(
-        "rag_knowledge.services.ollama_health.assert_ollama_reachable",
-        lambda **kwargs: None,
-    )
+    monkeypatch.setattr(pipeline_mod, "assert_ollama_reachable", lambda **kwargs: None)
 
     class FakeCfg:
         class graph_extraction_llm:

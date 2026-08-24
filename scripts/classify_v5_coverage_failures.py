@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
+BASE = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
 DEFAULT_REPORT = BASE / "fr10_live_2537_v5_coverage_baseline" / "fr10_baseline_report.json"
 DEFAULT_OUT_JSON = BASE / "fr10_live_2537_v5_coverage_baseline" / "v5_failure_taxonomy.json"
 DEFAULT_OUT_MD = BASE / "fr10_live_2537_v5_coverage_baseline" / "v5_failure_taxonomy.md"

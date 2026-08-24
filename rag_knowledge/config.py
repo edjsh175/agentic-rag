@@ -138,7 +138,7 @@ class GraphLLMExtractorConfig:
     # Second LLM pass when first yield misses business leaves (requires include-llm)
     leak_salvage_enabled: bool = False
     provider: str = "ollama"
-    model: str = "qwen3:30b"
+    model: str = "qwen3.5:9b"
     # Optional Ollama/OpenAI/Google endpoint; empty → Config.ollama_base_url (ollama only)
     base_url: str = ""
     api_key_env: str = ""
@@ -292,10 +292,10 @@ class Config:
             "embedding", legacy_model_key="embedding", default_model="qwen3-embedding:4b"
         )
         self.llm_endpoint = _load_endpoint(
-            "llm", legacy_model_key="llm", default_model="deepseek-r1:7b"
+            "llm", legacy_model_key="llm", default_model="qwen3.5:9b"
         )
         self.helper_llm_endpoint = _load_endpoint(
-            "helper_llm", legacy_model_key="helper_llm", default_model="gemma3:4b"
+            "helper_llm", legacy_model_key="helper_llm", default_model="qwen3.5:4b"
         )
         self.vision_endpoint = _load_endpoint(
             "vision", legacy_model_key="vision", default_model="qwen3-vl:8b"
@@ -554,7 +554,7 @@ class Config:
             ).lower()
             == "true",
             provider=_get("graph_extraction.llm", "provider", "ollama"),
-            model=_get("graph_extraction.llm", "model", "qwen3:30b"),
+            model=_get("graph_extraction.llm", "model", "qwen3.5:9b"),
             base_url=_get("graph_extraction.llm", "base_url", "").strip(),
             api_key_env=_get("graph_extraction.llm", "api_key_env", "").strip(),
             temperature=float(_get("graph_extraction.llm", "temperature", "0.0")),

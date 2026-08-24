@@ -300,7 +300,7 @@ class ScopeResolver:
             constraints=constraints,
         )
 
-        roots = list(subject.primary_entities)
+        roots = list(dict.fromkeys((*subject.primary_entities, *subject.referenced_entities)))
         all_roots = tuple(roots)
 
         if not all_roots:

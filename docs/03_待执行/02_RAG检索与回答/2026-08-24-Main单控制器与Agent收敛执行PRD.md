@@ -4,7 +4,7 @@
 | --- | --- |
 | 文档版本 | V1.0 |
 | 日期 | 2026-08-24 |
-| 状态 | 待实施 |
+| 状态 | 核心实施完成（DoD 已收口；待全量回归、仓库卫生与 SVN 交付门禁） |
 | 所属域 | `02_RAG检索与回答` |
 | 改造对象 | Agent Controller、Runtime Harness、Finalization/Evidence Gate、补检策略、Cycle Detection、Budget、Trace |
 | 解决问题 | Agent 反复决策、重复检索、Harness/Gate 越权编排、调用次数过多、无信息增量仍继续探索 |
@@ -1348,23 +1348,37 @@ Main LLM Agent Controller
 
 ## 20. Definition of Done
 
-- [ ] Main LLM 是唯一行为决策源。
-- [ ] Harness 只负责 allow / deny / fuse，不生成替代 Action。
-- [ ] Finalization / Evidence Gate 只返回 Observation，不触发自动 Recovery。
-- [ ] `_targeted_retrieval_after_finalization_rejection()` 不再参与生产编排。
-- [ ] `_graph_recovery_decision()` 不再参与生产编排。
-- [ ] `harness_autonomous_retry` 不再存在于新链路。
-- [ ] 每次 ToolCall 都产生 EvidenceDelta。
-- [ ] 首轮 `0 → 0` 正确判定 NO_PROGRESS。
-- [ ] 第二次及以后 Retrieval 必须携带 gap + expected_gain。
-- [ ] 同一 Gap NO_PROGRESS 后不得 Query 换皮重试。
-- [ ] 连续 NO_PROGRESS 达阈值后 Harness 只熔断，不自动选新工具。
-- [ ] `max_retrieve_attempts` 默认值统一为 2。
-- [ ] Budget 仅作为上限，不触发 retry。
-- [ ] PARTIAL Evidence 可以由 Main 主动结束并进入部分回答。
-- [ ] Trace 可以明确区分 Controller Decision / Guard / Tool / Observation / Evidence Delta。
-- [ ] 正常请求不再依赖 `step_budget_exhausted` 或 `retrieve_budget_exhausted` 才停止。
-- [ ] `pipelien` 历史事故不再出现重复 link/retrieve/recovery 链。
+- [x] Main LLM 是唯一行为决策源。
+- [x] Harness 只负责 allow / deny / fuse，不生成替代 Action。
+- [x] Finalization / Evidence Gate 只返回 Observation，不触发自动 Recovery。
+- [x] `_targeted_retrieval_after_finalization_rejection()` 不再参与生产编排。
+- [x] `_graph_recovery_decision()` 不再参与生产编排。
+- [x] `harness_autonomous_retry` 不再存在于新链路。
+- [x] 每次 ToolCall 都产生 EvidenceDelta。
+- [x] 首轮 `0 → 0` 正确判定 NO_PROGRESS。
+- [x] 第二次及以后 Retrieval 必须携带 gap + expected_gain。
+- [x] 同一 Gap NO_PROGRESS 后不得 Query 换皮重试。
+- [x] 连续 NO_PROGRESS 达阈值后 Harness 只熔断，不自动选新工具。
+- [x] `max_retrieve_attempts` 默认值统一为 2。
+- [x] Budget 仅作为上限，不触发 retry。
+- [x] PARTIAL Evidence 可以由 Main 主动结束并进入部分回答。
+- [x] Trace 可以明确区分 Controller Decision / Guard / Tool / Observation / Evidence Delta。
+- [x] 正常请求不再依赖 `step_budget_exhausted` 或 `retrieve_budget_exhausted` 才停止。
+- [x] `pipelien` 历史事故不再出现重复 link/retrieve/recovery 链。
+
+### 20.1 2026-08-24 实施与验证记录
+
+本轮最终收敛点：Controller Prompt 现在直接接收与 Gate 同源的 `current_evidence_state`（`coverage / admissibility / missing_facts / missing_relations / evidence_count / evidence_version`）。这只增加 Observation，不替 Main 选择动作；当 Retrieval 已不可继续且 Coverage 为 PARTIAL 时，由 Main 自己一次性选择 `finalize(answer_mode=partial)`。
+
+验证结果：
+
+- 核心回归：`tests/test_main_single_controller.py`、`tests/test_agent_orchestration.py`、`tests/test_agent_execution_transparency.py`、`tests/test_agent_two_stage_routing_v11.py`，**115 passed**。
+- 澄清/Fail-safe 回归：`tests/test_eval_main_clarification.py`、`tests/test_main_clarify_failsafe.py`，**13 passed**。
+- 真实 Ollama + 真实知识库：`StampServer 的主要用途是什么？` 收敛为 **3 次 Controller 调用：retrieve → retrieve → finalize(partial)**；`steps_used=3`、`retrieve_attempts=2`、`terminal_action=controller_finalize`，没有通过 `retrieve_budget_exhausted` 或 `step_budget_exhausted` 才终止。
+- 真实 `pipelien` 回归：首轮 Main 直接选择 `clarify`，没有进入 retrieve/link/recovery 循环。
+- 在线 SSE/Trace E2E 已跑通 Agent 执行、Trace 持久化与事件对账；当前唯一失败断言来自 **Helper Grounding Reviewer** 的协议校验并导致 `reviewer_error`，属于关联的 Helper Grounding PRD，不作为本 Main 单控制器 PRD 的架构回退理由。
+
+交付门禁仍未完成：当前工作树包含大量既有未提交改动，尚未得到一次新的全仓 pytest 全绿结论，也尚未进行 SVN 提交。因此本文状态为“核心实施完成”，而不是“已上线/已交付”。
 
 ---
 

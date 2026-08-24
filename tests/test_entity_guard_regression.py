@@ -12,6 +12,7 @@ from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.rag import RagChain, NO_KNOWLEDGE_ANSWER
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.graph_retrieval import GraphRetriever
+from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
 
 
 @pytest.fixture(autouse=True)
@@ -49,20 +50,21 @@ def setup_integration_env(isolated_storage, monkeypatch):
             ret_docs = []
             ret_metas = []
             chunks = {
-                "chunk-mb": ("ModelBuilder content", "ModelBuilderDoc"),
-                "chunk-uemb": ("UEModelBuilder content", "UEModelBuilderDoc"),
-                "chunk-omb": ("ObliqueModelBuilder content", "ObliqueModelBuilderDoc"),
-                "chunk-pb": ("PipelineBuilder content", "PipelineBuilderDoc"),
+                "chunk-mb": ("ModelBuilder content", "ModelBuilderDoc", "ModelBuilder"),
+                "chunk-uemb": ("UEModelBuilder content", "UEModelBuilderDoc", "UEModelBuilder"),
+                "chunk-omb": ("ObliqueModelBuilder content", "ObliqueModelBuilderDoc", "ObliqueModelBuilder"),
+                "chunk-pb": ("PipelineBuilder content", "PipelineBuilderDoc", "PipelineBuilder"),
             }
             for cid in ids:
                 if cid in chunks:
-                    content, category = chunks[cid]
+                    content, category, document_entity = chunks[cid]
                     ret_ids.append(cid)
                     ret_docs.append(content)
                     ret_metas.append({
                         "chunk_id": cid,
                         "source": f"{cid}.md",
                         "doc_category": category,
+                        "document_entity": document_entity,
                         "review_status": "approved"
                     })
             return {
@@ -87,13 +89,13 @@ def setup_integration_env(isolated_storage, monkeypatch):
                     entities_in_query = [e.casefold() for e in extract_explicit_entities(query)]
                     
                     if "uemodelbuilder" in entities_in_query:
-                        docs.append(Document(page_content="UEModelBuilder content", metadata={"chunk_id": "chunk-uemb", "source": "chunk-uemb.md", "doc_category": "UEModelBuilderDoc", "review_status": "approved"}))
+                        docs.append(Document(page_content="UEModelBuilder content", metadata={"chunk_id": "chunk-uemb", "source": "chunk-uemb.md", "doc_category": "UEModelBuilderDoc", "document_entity": "UEModelBuilder", "review_status": "approved"}))
                     if "obliquemodelbuilder" in entities_in_query:
-                        docs.append(Document(page_content="ObliqueModelBuilder content", metadata={"chunk_id": "chunk-omb", "source": "chunk-omb.md", "doc_category": "ObliqueModelBuilderDoc", "review_status": "approved"}))
+                        docs.append(Document(page_content="ObliqueModelBuilder content", metadata={"chunk_id": "chunk-omb", "source": "chunk-omb.md", "doc_category": "ObliqueModelBuilderDoc", "document_entity": "ObliqueModelBuilder", "review_status": "approved"}))
                     if "pipelinebuilder" in entities_in_query:
-                        docs.append(Document(page_content="PipelineBuilder content", metadata={"chunk_id": "chunk-pb", "source": "chunk-pb.md", "doc_category": "PipelineBuilderDoc", "review_status": "approved"}))
+                        docs.append(Document(page_content="PipelineBuilder content", metadata={"chunk_id": "chunk-pb", "source": "chunk-pb.md", "doc_category": "PipelineBuilderDoc", "document_entity": "PipelineBuilder", "review_status": "approved"}))
                     if "modelbuilder" in entities_in_query and not any(x in entities_in_query for x in ["uemodelbuilder", "obliquemodelbuilder"]):
-                        docs.append(Document(page_content="ModelBuilder content", metadata={"chunk_id": "chunk-mb", "source": "chunk-mb.md", "doc_category": "ModelBuilderDoc", "review_status": "approved"}))
+                        docs.append(Document(page_content="ModelBuilder content", metadata={"chunk_id": "chunk-mb", "source": "chunk-mb.md", "doc_category": "ModelBuilderDoc", "document_entity": "ModelBuilder", "review_status": "approved"}))
                     return docs
                 def get_relevant_documents(self, query):
                     return self.invoke(query)
@@ -121,6 +123,21 @@ def setup_integration_env(isolated_storage, monkeypatch):
             return AIMessage(content=content)
             
     monkeypatch.setattr(RagChain, "_build_llm", lambda self, model=None: MockLLM())
+    pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
+        "verdict": "PASS",
+        "coverage": "FULL",
+        "summary": "entity guard fixture pass",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "fixture answer",
+            "claim_type": "knowledge_claim",
+            "evidence_ids": [1],
+            "status": "supported",
+            "reason": "fixture isolates entity retrieval behavior"
+        }],
+        "rewrite_actions": []
+    }""")
+    monkeypatch.setattr(RagChain, "_helper_grounding_reviewer", lambda self: pass_reviewer)
 
 
 def test_scenario_1_model_builder_only():

@@ -102,10 +102,7 @@ def test_pipeline_injects_relation_type_arbiter(isolated_storage, monkeypatch):
             super().__init__(arbiter=arbiter)
 
     monkeypatch.setattr(pipeline_mod, "RelationTypeService", CapturingTypeService)
-    monkeypatch.setattr(
-        "rag_knowledge.services.ollama_health.assert_ollama_reachable",
-        lambda **kwargs: None,
-    )
+    monkeypatch.setattr(pipeline_mod, "assert_ollama_reachable", lambda **kwargs: None)
 
     class FakeCfg:
         class graph_extraction_llm:

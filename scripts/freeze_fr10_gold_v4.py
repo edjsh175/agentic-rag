@@ -12,7 +12,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
+BASE = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
 CANDIDATE = BASE / "multi_chunk_qa_gold_v4_retrieval_candidate.json"
 CANDIDATE_MANIFEST = BASE / "multi_chunk_qa_gold_v4.candidate.manifest.json"
 FINAL = BASE / "multi_chunk_qa_gold_v4.json"

@@ -108,10 +108,7 @@ def test_pipeline_injects_belonging_arbiter(isolated_storage, monkeypatch):
             )
 
     monkeypatch.setattr(pipeline_mod, "RelationBelongingService", CapturingBelonging)
-    monkeypatch.setattr(
-        "rag_knowledge.services.ollama_health.assert_ollama_reachable",
-        lambda **kwargs: None,
-    )
+    monkeypatch.setattr(pipeline_mod, "assert_ollama_reachable", lambda **kwargs: None)
 
     class FakeCfg:
         class graph_extraction_llm:

@@ -190,6 +190,7 @@ def chat(
     default_ollama: str = "",
     temperature: float = 0.0,
     format_json: bool = False,
+    json_schema: dict[str, Any] | None = None,
     timeout: float = 60.0,
     num_predict: int | None = None,
     num_ctx: int | None = None,
@@ -219,6 +220,7 @@ def chat(
                 default_ollama=default_ollama,
                 temperature=temperature,
                 format_json=format_json,
+                json_schema=json_schema,
                 timeout=timeout,
                 num_predict=num_predict,
                 num_ctx=num_ctx,
@@ -340,6 +342,7 @@ def _chat_ollama(
     default_ollama: str,
     temperature: float,
     format_json: bool,
+    json_schema: dict[str, Any] | None = None,
     timeout: float,
     num_predict: int | None,
     think: bool,
@@ -357,7 +360,9 @@ def _chat_ollama(
         "think": think,
         "options": options,
     }
-    if format_json:
+    if json_schema is not None:
+        payload["format"] = json_schema
+    elif format_json:
         payload["format"] = "json"
     with http_client(timeout=timeout) as client:
         resp = client.post(f"{base}/api/chat", json=payload)

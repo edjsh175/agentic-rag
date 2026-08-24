@@ -71,6 +71,38 @@ def test_toolcall_source_is_100_percent_controller():
             assert "harness" not in step or step.get("harness") is None
 
 
+def test_controller_evidence_summary_exposes_precise_partial_coverage():
+    """Main 必须看到 Gate 同源的当前覆盖状态，才能一次选择正确的 partial/full。"""
+    conv = ConversationContext.from_request("StampServer 是什么", [])
+    conv.head_entity = "StampServer"
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve(
+        [_doc("c1", "StampServer 默认管理端口是 8080")],
+        query="StampServer 端口",
+        head_entity="StampServer",
+        target_entity="StampServer",
+    )
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=4, max_retrieve_attempts=2),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=SimpleNamespace(
+            agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
+        ),
+        decide_fn=lambda *_: AgentDecision(action="finalize", source="llm"),
+        tool_timeout=0,
+    )
+
+    summary = loop._evidence_summary()
+
+    assert 'current_evidence_state={"coverage":"PARTIAL"' in summary
+    assert '"missing_facts":["缺少实体定位或概览的充分证据"]' in summary
+    assert '"evidence_count":1' in summary
+    assert '"evidence_version":1' in summary
+
+
 def test_first_step_zero_docs_marked_as_no_progress():
     """验证首轮检索 0 -> 0 docs 时，正确判定为 NO_PROGRESS 而不是 PROGRESS。"""
     conv = ConversationContext.from_request("StampServer 未知功能", [])

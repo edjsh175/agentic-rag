@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fixture",
         type=Path,
-        default=ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/第0C轮设计与留痕/留痕样例/lineage_spike.docx",
+        default=ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/第0C轮设计与留痕/留痕样例/lineage_spike.docx",
     )
     parser.add_argument("--out-root", type=Path, default=ROOT / "data" / "chunk_audit")
     args = parser.parse_args(argv)

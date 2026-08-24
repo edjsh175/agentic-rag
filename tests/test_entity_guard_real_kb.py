@@ -10,6 +10,7 @@ from rag_knowledge.repository.relational_db import RelationalDB
 from rag_knowledge.repository.vector_store import CachedOllamaEmbeddings, VectorStore
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
+from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
 
 
 def _fake_vector(text: str) -> list[float]:
@@ -127,6 +128,21 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
             return AIMessage(content="Mock answer " + " ".join(parts).strip())
 
     monkeypatch.setattr(RagChain, "_build_llm", lambda self, model=None: MockLLM())
+    pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
+        "verdict": "PASS",
+        "coverage": "FULL",
+        "summary": "entity guard real-KB fixture pass",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "fixture answer",
+            "claim_type": "knowledge_claim",
+            "evidence_ids": [1],
+            "status": "supported",
+            "reason": "fixture isolates retrieval/entity-guard behavior"
+        }],
+        "rewrite_actions": []
+    }""")
+    monkeypatch.setattr(RagChain, "_helper_grounding_reviewer", lambda self: pass_reviewer)
 
 
 def test_real_vectorstore_bm25_and_rag_chain_keep_followup_on_uemodelbuilder():

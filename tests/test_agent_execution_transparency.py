@@ -241,7 +241,7 @@ def test_no_progress_emits_evidence_update_then_explicit_evidence_gap():
     assert isinstance(gap.get("missing_facts"), list)
 
 
-def test_normal_and_forced_finalization_both_emit_finalization_check():
+def test_budget_exhaustion_does_not_emit_forced_finalization_check():
     _, normal_events = asyncio.run(
         _run_loop(
             [AgentDecision(action="finish", source="test")],
@@ -252,13 +252,13 @@ def test_normal_and_forced_finalization_both_emit_finalization_check():
     normal_check = normal_events[_event_index(normal_events, "finalization_check")]
     assert normal_check["data"].get("forced", False) is False
 
-    forced_pool = EvidencePool(question_id="forced-finalization")
+    exhausted_pool = EvidencePool(question_id="budget-exhausted")
 
     async def retrieve(arguments: dict) -> ToolObservation:
-        forced_pool.add_retrieve([_doc()], query=arguments["query"])
+        exhausted_pool.add_retrieve([_doc()], query=arguments["query"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="found evidence")
 
-    _, forced_events = asyncio.run(
+    result, exhausted_events = asyncio.run(
         _run_loop(
             [
                 AgentDecision(
@@ -270,15 +270,16 @@ def test_normal_and_forced_finalization_both_emit_finalization_check():
             ],
             handlers={"retrieve_kb": retrieve},
             max_steps=1,
-            evidence=forced_pool,
+            evidence=exhausted_pool,
         ),
     )
-    forced_index = _event_index(
-        forced_events,
-        "finalization_check",
-        lambda data: data.get("forced") is True,
+    assert result.terminal_action == "step_budget_exhausted"
+    assert result.evidence_snapshot is None
+    assert not any(
+        event.get("type") == "finalization_check"
+        and (event.get("data") or {}).get("forced") is True
+        for event in exhausted_events
     )
-    assert forced_events[forced_index]["data"]["forced"] is True
 
 
 def test_agent_trace_contains_the_same_lifecycle_events_as_the_live_projection():

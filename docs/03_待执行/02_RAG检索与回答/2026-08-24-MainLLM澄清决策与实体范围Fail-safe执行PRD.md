@@ -4,7 +4,7 @@
 | --- | --- |
 | 文档版本 | V1.0 |
 | 日期 | 2026-08-24 |
-| 状态 | 待实施 |
+| 状态 | 功能验收通过，待工作副本清场与提交 |
 | 所属域 | `02_RAG检索与回答` |
 | 解决问题 | 未解析/疑似拼写实体被错误放行到 Agent，随后在授权失败后扩大为无 target 的宽检索，最终出现“随机召回” |
 | 核心裁决 | **是否需要澄清由 Main LLM / Agent Controller 决定；代码负责候选发现、实体解析、Scope/Grant 和状态机约束；未确认实体不得被当作合法 `target_entity`；身份不确定时扩大澄清候选，不扩大证据检索范围。** |
@@ -1333,20 +1333,38 @@ confirmed entity can retrieve/link
 
 ## 21. Definition of Done
 
-- [ ] 是否需要澄清由 Main Controller 做最终 Action 决策。
-- [ ] `len(seeds) < min_options` 不再代表“无需澄清”。
-- [ ] Clarify Tool 支持 system candidates + Main suggested candidates。
-- [ ] Main suggested candidate 不直接写入 `filter.entity_name`。
-- [ ] 用户选择后统一经过 canonical resolution。
-- [ ] Identity State 明确区分 CONFIRMED_ENTITY / CONFIRMED_TOPIC / UNRESOLVED。
-- [ ] 只有 CONFIRMED_ENTITY 可成为 `target_entity` 并获得实体型 Grant。
-- [ ] CONFIRMED_TOPIC 可做文本检索，但不能做实体图谱探索。
-- [ ] unresolved target 在工具执行前被阻止。
-- [ ] 同一 rejected target 不重复实际调用。
-- [ ] 授权失败不得自动删除 target 并扩大为 broad retrieval。
-- [ ] Retriever 支持 NO_VALID_EVIDENCE / 0 docs。
-- [ ] `pipelien` 真实事故样本不再进入无 target 宽检索。
-- [ ] Trace 能还原 Clarification Decision → Candidates → Selection → Binding → Retrieval 全链路。
+- [x] 是否需要澄清由 Main Controller 做最终 Action 决策。
+- [x] `len(seeds) < min_options` 不再代表“无需澄清”。
+- [x] Clarify Tool 支持 system candidates + Main suggested candidates。
+- [x] Main suggested candidate 不直接写入 `filter.entity_name`。
+- [x] 用户选择后统一经过 canonical resolution。
+- [x] Identity State 明确区分 CONFIRMED_ENTITY / CONFIRMED_TOPIC / UNRESOLVED。
+- [x] 只有 CONFIRMED_ENTITY 可成为 `target_entity` 并获得实体型 Grant。
+- [x] CONFIRMED_TOPIC 可做文本检索，但不能做实体图谱探索。
+- [x] unresolved target 在工具执行前被阻止。
+- [x] 同一 rejected target 不重复实际调用。
+- [x] 授权失败不得自动删除 target 并扩大为 broad retrieval。
+- [x] Retriever 支持 NO_VALID_EVIDENCE / 0 docs。
+- [x] `pipelien` 真实事故样本不再进入无 target 宽检索。
+- [x] Trace 能还原 Clarification Decision → Candidates → Selection → Binding → Retrieval 全链路。
+
+### 21.1 2026-08-24 实施验收记录
+
+功能 DoD 已完成。当前验证结果：
+
+- PRD 聚焦后端回归：91 passed。
+- Agent/Clarification/Trace/Identity/Zero-result/实体回归组合已收口；旧 Linear 多实体比较场景中“只保留第一个实体来源”的 2 项回归已修复，根因是 `ScopeResolver.resolve()` 丢弃了 `referenced_entities`，现已改为 primary + referenced 共同进入 EvidenceScope roots。
+- 前端：74 tests passed；`vue-tsc --noEmit` 与 Vite production build 通过。
+- 真实 Main Controller Gold Set：`config-local.ini` / `qwen3.5:9b` / `http://192.168.10.158:11434`，16/16 正确；漏澄清率 0%，明确问题误澄清率 0%，LLM 调用错误 0。
+- `ExplorationGrantResolver` 与 Runtime 双层阻断 unresolved target 去 target 后 broad retrieval；普通无实体宽泛文本查询仍允许无 target 检索。
+
+仓库级功能验收已通过，当前仅剩工作副本卫生阻塞：
+
+1. 当前 SVN 主干工作副本为 revision 199，仍包含大量其他并行任务的未提交/未跟踪文件，因此 `scripts/check_repo_hygiene.py` 仍失败；本 PRD 不应擅自回滚或清理其他任务资产。
+2. 历史中文 Gold/fixture 并未缺失，根因是文档归档后测试与脚本仍硬编码旧 `docs/3_待办清单/切块基石治理/...` 路径。现已统一迁移到 `docs/04_已完成归档/01_文档解析与切块/...`，相关定向回归 18/18 通过，源码旧路径引用归零并通过 `py_compile`。
+3. 当前工作树三批测试全部通过：第一批 390 passed / 2 deselected；第二批 391 passed / 6 deselected；第三批 458 passed / 5 deselected / 16 subtests passed。当前功能测试无失败项。
+4. `config.ini`、`config-local.ini`、`config-prod.ini`、`config-mix.ini` 及代码默认模型已统一为 Ollama：Main=`qwen3.5:9b`，Helper=`qwen3.5:4b`；图谱抽取默认使用 `qwen3.5:9b`，不再启用 Google 外置模型。
+5. Linear 多实体比较的 EvidenceScope 根因已修复：`root_entities` 现在包含 primary entity 与 referenced entities，不再只授权第一个显式实体。
 
 ---
 

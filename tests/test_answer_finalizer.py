@@ -52,7 +52,9 @@ def _no_safe_answer_reviewer():
         "verdict": "NO_SAFE_ANSWER",
         "coverage": "NONE",
         "summary": "无法安全回答",
-        "claim_reviews": [],
+        "claim_reviews": [
+            {"claim_id": "c1", "claim": "第一版回答中的事实主张", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "当前证据无法支持该主张"}
+        ],
         "rewrite_actions": []
     }""")
 
@@ -155,6 +157,7 @@ def test_candidate_v1_revise_and_v2_pass_full():
     def _retry(review_result):
         retry_called.append(review_result)
         assert len(review_result.rewrite_actions) == 2
+        assert [action.claim_id for action in review_result.rewrite_actions] == ["c1", "c2"]
         return "StampServer 支持在线发布。[1]"
 
     res = finalizer.finalize(

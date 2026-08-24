@@ -106,6 +106,7 @@ _DECISION_PROMPT = """你是 RAG 知识库查询助手与唯一负责选择下�
    - 【澄清决策（clarify）】：当用户主体、产品、模块、专有名词不明确，或存在疑似拼写错误（例如输入 'pipelien'、'pipeline' 且涉及多个可能模块）、或意图不足以安全确定检索范围时，必须优先第一轮调用 clarify 工具向用户出示澄清卡片，严禁自行猜测实体或发起无范围宽检索。
    - 【多实体关系与对比（multi-entity）】：当用户提问显式涉及多个合法实体（如“StampServer 和 StampTools 是什么关系？”、“A 和 B 有什么区别？”）时，所有提及的合法实体均属于已确认范围。你可以在 target_entity 中传入组合实体（如 ["StampServer", "StampTools"] 或 "StampServer, StampTools"），或分步调用 retrieve_kb / link_entities 探索各实体及关联。
    - 【补检契约（gap & expected_gain）】：初次检索无需 gap。但若发起第二次及后续检索，必须明确指出具体缺失事实（gap）与预期增量（expected_gain）；若上一步 Observation 返回 NO_PROGRESS，严禁仅通过改写同义 query 重复尝试相同 gap！
+   - 【Guard/预算终止信号】：每轮 Observation 会给出 guard_constraints 与 budget。若 `retrieval_allowed=false` 或 `remaining_retrieve_attempts=0`，严禁再次选择 retrieve_kb；已有可引用证据时必须直接依据 `current_evidence_state.coverage` 选择回答模式：FULL → finalize full；PARTIAL 且已不能/不应继续补检 → finalize partial；NONE → 不得伪装成 full。若 latest Observation 为 DENIED 且 error 属于 tool_cycle_detected / retrieve_budget_exhausted / exhausted_gap / exploration_fuse_open，严禁通过改写 query 或换同义 gap 重试同一探索；主体仍不明确时才 clarify。
    - 【部分回答与终止（finalize）】：当已有证据足够时，设定 action="finalize"、answer_mode="full"。若知识库只能部分回答，可由你显式设定 answer_mode="partial"；系统不会根据尝试次数或熔断状态替你改成部分回答。
    - 若用户仅在进行会话反问、流程质询或历史回顾（例如“我们刚刚在讨论什么”），且无需外部知识支持，直接设定 action="finalize"、answer_mode="full"。
    - 若本轮属于澄清选择回调（用户刚选定歧义分支，例如“StampTools Web 端”），必须结合前文原始问题改写为完整查询词（例如“StampTools Web 端 配置”），调用 retrieve_kb 检索具体文档。
@@ -1226,10 +1227,25 @@ class AgentLoop:
             }
             for item in self._observations[-6:-1]
         ]
+        latest = self._observations[-1]
+        latest_error = str(latest.get("error") or "").strip()
+        hard_stop_errors = {
+            "tool_cycle_detected",
+            "retrieve_budget_exhausted",
+            "exhausted_gap",
+            "exploration_fuse_open",
+        }
         return json.dumps(
             {
                 "previous_observations": previous,
-                "latest_observation": self._observations[-1],
+                "latest_observation": latest,
+                "budget": self.budget.to_dict(),
+                "guard_constraints": {
+                    "retrieval_allowed": self.budget.can_retrieve(),
+                    "exploration_fuse_open": self._exploration_fuse_open,
+                    "must_not_retry_latest_exploration": latest_error in hard_stop_errors,
+                    "latest_denial_reason": latest_error or None,
+                },
             },
             ensure_ascii=False,
             separators=(",", ":"),
@@ -1989,10 +2005,13 @@ class AgentLoop:
         if task_type == "multi_entity_relation":
             coverage.append(f"relation={'covered' if relation_count else 'missing'}")
 
+        evidence_state = self._current_evidence_state()
         return (
             "EvidenceDigest（仅用于决定下一步；证据数量不等于证据充分）：\n"
             f"{self.evidence.decision_digest()}\n"
-            f"Coverage: {'; '.join(coverage)}"
+            f"Coverage: {'; '.join(coverage)}\n"
+            "current_evidence_state="
+            + json.dumps(evidence_state, ensure_ascii=False, separators=(",", ":"), default=str)
         )
 
     async def _execute(self, name: str, arguments: dict[str, Any]) -> ToolObservation:

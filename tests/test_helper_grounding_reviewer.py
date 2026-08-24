@@ -243,7 +243,8 @@ def test_reviewer_revise_atomic_actions():
     assert result.coverage == "PARTIAL"
     assert len(result.claim_reviews) == 2
     assert len(result.rewrite_actions) == 2
-    assert result.rewrite_actions[0].action == "preserve"
+    assert [action.claim_id for action in result.rewrite_actions] == ["c1", "c2"]
+    assert result.rewrite_actions[1].claim_id == "c2"
     assert result.rewrite_actions[1].action == "rewrite_to_supported_scope_or_remove"
     assert len(result.unsupported_claims) == 1
     assert result.unsupported_claims[0].claim_id == "c2"
@@ -334,7 +335,7 @@ def test_reviewer_evidence_formatting():
 
 @pytest.mark.parametrize(
     "missing_field",
-    ["verdict", "coverage", "summary", "claim_reviews", "rewrite_actions"],
+    ["coverage", "summary", "claim_reviews"],
 )
 def test_reviewer_fails_closed_when_required_top_level_field_is_missing(missing_field):
     payload = _pass_payload()
@@ -348,11 +349,9 @@ def test_reviewer_fails_closed_when_required_top_level_field_is_missing(missing_
 @pytest.mark.parametrize(
     ("field", "value", "expected_reason"),
     [
-        ("verdict", "pass", "invalid_verdict"),
         ("coverage", "SOME", "invalid_coverage"),
         ("summary", [], "summary_not_string"),
         ("claim_reviews", {}, "claim_reviews_not_list"),
-        ("rewrite_actions", {}, "rewrite_actions_not_list"),
     ],
 )
 def test_reviewer_top_level_types_and_enums_are_strict(field, value, expected_reason):
@@ -364,22 +363,21 @@ def test_reviewer_top_level_types_and_enums_are_strict(field, value, expected_re
     _assert_protocol_error(result, expected_reason)
 
 
-@pytest.mark.parametrize(
-    ("payload_factory", "coverage"),
-    [
-        (_pass_payload, "NONE"),
-        (_revise_payload, "NONE"),
-        (_no_safe_answer_payload, "FULL"),
-        (_no_safe_answer_payload, "PARTIAL"),
-    ],
-)
-def test_reviewer_fails_closed_on_invalid_verdict_coverage_pair(payload_factory, coverage):
-    payload = payload_factory()
-    payload["coverage"] = coverage
+def test_model_declared_verdict_must_match_protocol_state():
+    pass_payload = _pass_payload()
+    pass_payload["verdict"] = "NO_SAFE_ANSWER"
+    revise_payload = _revise_payload()
+    revise_payload["verdict"] = "PASS"
+    none_payload = _pass_payload()
+    none_payload["coverage"] = "NONE"
 
-    result = _review_payload(payload)
+    pass_result = _review_payload(pass_payload)
+    revise_result = _review_payload(revise_payload)
+    none_result = _review_payload(none_payload)
 
-    _assert_protocol_error(result, "invalid_verdict_coverage")
+    _assert_protocol_error(pass_result, "invalid_verdict_coverage")
+    _assert_protocol_error(revise_result, "pass_contains_problem_claim")
+    _assert_protocol_error(none_result, "invalid_verdict_coverage")
 
 
 def test_reviewer_fails_closed_on_truncated_json():
@@ -450,7 +448,7 @@ def test_reviewer_fails_closed_when_claim_field_is_missing():
 
 
 @pytest.mark.parametrize("status", ["unsupported", "contradicted"])
-def test_pass_cannot_contain_non_supported_claim(status):
+def test_pass_with_problem_claim_fails_protocol_validation(status):
     payload = _pass_payload()
     payload["claim_reviews"][0]["status"] = status
     if status == "unsupported":
@@ -458,113 +456,57 @@ def test_pass_cannot_contain_non_supported_claim(status):
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "pass_contains_non_supported_claim")
+    _assert_protocol_error(result, "pass_contains_problem_claim")
 
 
-def test_pass_requires_at_least_one_claim_review():
+def test_pass_requires_all_declared_claims_to_be_supported():
+    payload = _pass_payload()
+    payload["claim_reviews"][0]["claim_type"] = "limitation_statement"
+    payload["claim_reviews"][0]["status"] = "unsupported"
+    payload["claim_reviews"][0]["evidence_ids"] = []
+
+    result = _review_payload(payload)
+
+    _assert_protocol_error(result, "pass_contains_problem_claim")
+
+
+def test_review_requires_at_least_one_claim_review():
     payload = _pass_payload()
     payload["claim_reviews"] = []
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "pass_requires_claim_reviews")
+    _assert_protocol_error(result, "review_requires_claim_reviews")
 
 
-def test_revise_requires_atomic_rewrite_actions():
+def test_model_supplied_rewrite_actions_are_validated():
     payload = _revise_payload()
-    payload["rewrite_actions"] = []
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, "revise_requires_rewrite_actions")
-
-
-def test_revise_actions_must_cover_every_claim_id():
-    payload = _revise_payload()
-    payload["rewrite_actions"] = payload["rewrite_actions"][1:]
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, "revise_actions_must_cover_all_claim_ids")
-
-
-def test_rewrite_action_must_reference_an_existing_claim():
-    payload = _revise_payload()
-    payload["rewrite_actions"][1]["claim_id"] = "missing"
+    payload["rewrite_actions"] = [
+        {"claim_id": "missing", "action": "preserve", "instruction": "malicious or stale"}
+    ]
 
     result = _review_payload(payload)
 
     _assert_protocol_error(result, "unknown_claim_id")
 
 
-@pytest.mark.parametrize(
-    ("field", "value", "expected_reason"),
-    [
-        ("claim_id", 2, "claim_id_not_string"),
-        ("action", "remove", "invalid_action"),
-        ("instruction", [], "instruction_not_string"),
-    ],
-)
-def test_reviewer_rewrite_action_schema_is_strict(field, value, expected_reason):
-    payload = _revise_payload()
-    payload["rewrite_actions"][1][field] = value
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, expected_reason)
-
-
-def test_reviewer_fails_closed_when_rewrite_action_field_is_missing():
-    payload = _revise_payload()
-    del payload["rewrite_actions"][1]["instruction"]
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, "missing_fields")
-
-
-def test_reviewer_fails_closed_on_duplicate_action_claim_id():
-    payload = _revise_payload()
-    payload["rewrite_actions"][1]["claim_id"] = "c1"
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, "duplicate_action_claim_id")
-
-
-@pytest.mark.parametrize(
-    ("claim_index", "action", "expected_status"),
-    [
-        (0, "rewrite_to_supported_scope_or_remove", "supported"),
-        (1, "preserve", "unsupported"),
-    ],
-)
-def test_rewrite_action_must_match_claim_status(claim_index, action, expected_status):
-    payload = _revise_payload()
-    payload["rewrite_actions"][claim_index]["action"] = action
-
-    result = _review_payload(payload)
-
-    _assert_protocol_error(result, f"{action}+{expected_status}")
-
-
-def test_contradicted_claim_requires_correct_to_evidence_action():
+def test_contradicted_claim_requires_compatible_model_action():
     payload = _revise_payload()
     payload["claim_reviews"][1]["status"] = "contradicted"
-    payload["rewrite_actions"][1]["action"] = "correct_to_evidence"
-
-    valid_result = _review_payload(payload)
-    payload["rewrite_actions"][1]["action"] = "rewrite_to_supported_scope_or_remove"
-    invalid_result = _review_payload(payload)
-
-    assert valid_result.verdict == "REVISE"
-    _assert_protocol_error(invalid_result, "contradicted")
-
-
-def test_no_safe_answer_rejects_supported_knowledge_claim():
-    payload = _no_safe_answer_payload()
-    payload["claim_reviews"][0] = _pass_payload()["claim_reviews"][0]
+    payload["rewrite_actions"] = [
+        {"claim_id": "c2", "action": "preserve", "instruction": "stale model action"}
+    ]
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "no_safe_answer_contains_supported_knowledge_claim")
+    _assert_protocol_error(result, "action_status_mismatch")
+
+
+def test_pass_plus_none_is_invalid_protocol():
+    payload = _pass_payload()
+    payload["coverage"] = "NONE"
+    payload["verdict"] = "PASS"
+
+    result = _review_payload(payload)
+
+    _assert_protocol_error(result, "invalid_verdict_coverage")

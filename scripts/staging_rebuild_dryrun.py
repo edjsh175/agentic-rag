@@ -36,8 +36,8 @@ from rag_knowledge.services.knowledge_base_consistency import KnowledgeBaseConsi
 from rag_knowledge.evaluation.multi_evidence_metrics import score_answer, summarize_scores
 from rag_knowledge.services.document_support import classify_suffix
 
-GOLD_PATH = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v2.json"
-REPORT_DIR = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0C轮-切块合并与隔离验证/首次隔离验证"
+GOLD_PATH = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集/multi_chunk_qa_gold_v2.json"
+REPORT_DIR = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0C轮-切块合并与隔离验证/首次隔离验证"
 
 # Phase 2 extensions we want to validate
 PHASE2_EXTS = {".pdf", ".pptx", ".html", ".htm", ".sql", ".cnf", ".conf", ".cfg", ".ini", ".xml"}

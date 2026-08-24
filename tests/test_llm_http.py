@@ -101,6 +101,29 @@ def test_chat_ollama_payload(monkeypatch):
     assert capture[0]["json"]["stream"] is False
 
 
+def test_chat_ollama_accepts_json_schema_structured_output(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.http_client",
+        lambda **kw: _FakeClient(capture, {"message": {"content": "{}"}}),
+    )
+    schema = {
+        "type": "object",
+        "properties": {"verdict": {"type": "string"}},
+        "required": ["verdict"],
+    }
+    ep = ModelEndpoint(role="helper_llm", provider="ollama", model="qwen3.5:4b", base_url="http://x:1")
+
+    chat(
+        ep,
+        [{"role": "user", "content": "hi"}],
+        format_json=True,
+        json_schema=schema,
+    )
+
+    assert capture[0]["json"]["format"] == schema
+
+
 def test_chat_ollama_passes_num_ctx_and_num_predict(monkeypatch):
     capture: list = []
     monkeypatch.setattr(

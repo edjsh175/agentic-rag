@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "docs/3_待办清单/切块基石治理/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
+BASE = ROOT / "docs/04_已完成归档/01_文档解析与切块/已完成-第0B轮-并行准备与预研/评测基线与黄金集"
 V2 = BASE / "multi_chunk_qa_gold_v2.json"
 LEDGER = BASE / "section_anchor_migration_v3.json"
 V3 = BASE / "multi_chunk_qa_gold_v3.json"

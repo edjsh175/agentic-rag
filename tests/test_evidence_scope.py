@@ -94,6 +94,14 @@ def test_scope_resolver_subject_resolution():
     assert subj4.primary_entities == ("PipelineWebGL",)
     assert subj4.referenced_entities == ("PipelineBuilder",)
 
+    scope4 = ScopeResolver.resolve(
+        "PipelineWebGL 和 PipelineBuilder 有什么区别？",
+        constraints=constraints,
+    )
+    assert scope4.root_entities == ("PipelineWebGL", "PipelineBuilder")
+    assert "PipelineWebGL" in scope4.admissible_entities
+    assert "PipelineBuilder" in scope4.admissible_entities
+
 
 def test_scope_resolver_bounded_expansion():
     """测试 ScopeResolver 生成的广义 ProvenancePath 与有界预算。"""

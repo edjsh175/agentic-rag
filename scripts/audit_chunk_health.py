@@ -20,7 +20,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("docs/3_待办清单/切块基石治理/已完成-第0A轮-基线审计与问题定位/审计产物"),
+        default=Path("docs/04_已完成归档/01_文档解析与切块/已完成-第0A轮-基线审计与问题定位/审计产物"),
         help="Directory for JSON/Markdown audit outputs",
     )
     parser.add_argument(

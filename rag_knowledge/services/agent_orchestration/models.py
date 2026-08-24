@@ -351,12 +351,16 @@ class AgentBudget:
         return self.call_history[-1] == (tool, self._call_fingerprint(arguments, gap=gap, expected_gain=expected_gain))
 
     def to_dict(self) -> dict[str, Any]:
+        max_retrieves = self.effective_max_retrieves()
+        remaining_retrieves = max(0, max_retrieves - self.retrieve_attempts)
         return {
             "max_steps": self.max_steps,
-            "max_retrieve_attempts": self.effective_max_retrieves(),
+            "max_retrieve_attempts": max_retrieves,
             "hard_retrieve_cap": self.hard_retrieve_cap,
             "steps_used": self.steps_used,
             "retrieve_attempts": self.retrieve_attempts,
+            "remaining_retrieve_attempts": remaining_retrieves,
+            "retrieval_allowed": remaining_retrieves > 0,
         }
 
 

@@ -378,6 +378,9 @@ class RagChunkHitTelemetryTests(unittest.TestCase):
         chain._aretrieve_uncached = AsyncMock(return_value=([], ""))
         chain._aretrieve_multi_uncached = AsyncMock(return_value=([], ""))
         chain._record_chunk_hit_query = MagicMock()
+        chain._get_understanding_service = lambda: SimpleNamespace(
+            analyze=lambda *args, **kwargs: SimpleNamespace(mode="retrieve", clarify=None)
+        )
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
 
         async def collect():

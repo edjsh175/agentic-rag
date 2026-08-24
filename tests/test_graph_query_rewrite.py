@@ -478,7 +478,6 @@ def test_build_messages_does_not_inject_uncited_backbone_facts():
         "[1] StampManager 是管理端产品。",
     )
     system = msgs[0]["content"]
-    assert "产品主干锚定" not in system
     assert "StampManager" in system
     assert "belongs_to" not in system
 

@@ -2657,7 +2657,10 @@ class RagChain:
             return None
 
         from rag_knowledge.llm_http import chat_role
-        from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
+        from rag_knowledge.services.helper_grounding_reviewer import (
+            HelperGroundingReviewer,
+            review_response_json_schema,
+        )
         from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         role = ModelRoutePolicy(cfg).grounding_reviewer_role()
@@ -2670,7 +2673,8 @@ class RagChain:
                 messages,
                 temperature=0.0,
                 format_json=True,
-                num_predict=2048,
+                json_schema=review_response_json_schema(),
+                num_predict=4096,
                 timeout=timeout,
                 think=False,
                 stage="grounding_reviewer",
@@ -3084,7 +3088,7 @@ class RagChain:
                     {
                         "tool": "retrieve_kb",
                         "target_entity": target,
-                        "reason": authorization.reason,
+                        "reason": authorization.rejection_reason,
                     },
                 )
                 return ToolObservation(
@@ -3251,7 +3255,7 @@ class RagChain:
                     {
                         "tool": "link_entities",
                         "target_entity": target,
-                        "reason": authorization.reason,
+                        "reason": authorization.rejection_reason,
                     },
                 )
                 return ToolObservation(
