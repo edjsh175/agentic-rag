@@ -17,6 +17,7 @@ from rag_knowledge.services.answer_finalizer import FinalizedAnswer
 from rag_knowledge.services.agent_orchestration.models import (
     AgentBudget,
     AgentDecision,
+    AnswerGenerationContext,
     ConversationContext,
     EvidencePool,
     AgentTurnResult,
@@ -63,7 +64,9 @@ def _assert_reasoning_is_chinese(events: list[dict]) -> None:
 
 def _live_cfg() -> Config:
     os.environ["ALLOW_LIVE_STORAGE_IN_TESTS"] = "1"
-    os.environ["RAG_CONFIG"] = "config-local.ini"
+    # Respect an explicitly selected integration-test config (for example
+    # config-mix.ini); keep config-local.ini as the default for normal runs.
+    os.environ.setdefault("RAG_CONFIG", "config-local.ini")
     Config._instance = None
     return Config()
 
@@ -98,11 +101,19 @@ def test_real_controller_micro_chain():
     assert reasoning_events[0]["type"] == "llm_reasoning_start"
     assert reasoning_events[-1]["type"] == "llm_reasoning_end"
     end_data = reasoning_events[-1]["data"]
-    assert end_data["reasoning_available"] is True
-    assert end_data["reasoning_chars"] > 0
     assert end_data["content_chars"] > 0
-    assert end_data["num_predict"] == 8192
-    _assert_reasoning_is_chinese(reasoning_events)
+
+    controller_endpoint = cfg.endpoint_for("llm")
+    if controller_endpoint.normalized_provider() == "ollama" and "qwen3" in controller_endpoint.model.lower():
+        assert end_data["num_predict"] == 8192
+        assert end_data["reasoning_available"] is True
+        assert end_data["reasoning_chars"] > 0
+        _assert_reasoning_is_chinese(reasoning_events)
+    else:
+        # OpenAI/Google-compatible providers may not expose a separate native
+        # reasoning channel even when the decision call itself succeeds.
+        assert end_data["num_predict"] == 2048
+        assert end_data["reasoning_available"] is False
 
 
 @pytest.mark.integration
@@ -144,14 +155,34 @@ def test_real_answer_generator_micro_chain():
     conversation = ConversationContext.from_request("StampServer 的端口是多少？", [])
     evidence = EvidencePool(question_id="real-answer-q")
     evidence.add_retrieve([_doc()], query="StampServer 端口")
+    snapshot = evidence.create_snapshot(
+        verdict={"allow_knowledge_answer": True, "coverage": "FULL"},
+    )
+    answer_context = AnswerGenerationContext.from_snapshot(
+        original_question="StampServer 的端口是多少？",
+        resolved_question="StampServer 的端口是多少？",
+        conversation_context="当前主体身份：StampServer",
+        snapshot=snapshot,
+        answer_contract={
+            "answer_type": "knowledge",
+            "evidence_required": True,
+            "answer_mode": "full",
+        },
+        answer_policy={"allow_general_knowledge": False},
+        execution_summary="真实 Answer Generator 微链",
+    )
     result = AgentTurnResult(
         conversation=conversation,
         evidence=evidence,
         route="retrieve",
         answer_gate={"allow_knowledge_answer": True, "coverage": "FULL"},
-        evidence_snapshot=evidence.create_snapshot(
-            verdict={"allow_knowledge_answer": True, "coverage": "FULL"},
-        ),
+        evidence_snapshot=snapshot,
+        answer_context=answer_context,
+        answer_contract={
+            "answer_type": "knowledge",
+            "evidence_required": True,
+            "answer_mode": "full",
+        },
     )
 
     class _Trace:
@@ -178,12 +209,9 @@ def test_real_answer_generator_micro_chain():
     chain._safe_set_retrieval = lambda *_args, **_kwargs: None
     chain._safe_set_grounding = lambda *_args, **_kwargs: None
     chain._commit_qa_trace = lambda *_args, **_kwargs: "real-answer-trace"
-    chain._apply_vram_guard = lambda model: (model or "qwen3.5:9b", False)
+    answer_endpoint = cfg.endpoint_for("llm")
+    chain._apply_vram_guard = lambda model: (model or answer_endpoint.model, False)
     chain._filter_cited_sources = lambda _answer, docs: docs
-    chain._build_messages = lambda *_args, **_kwargs: [{
-        "role": "user",
-        "content": "仅根据证据回答 StampServer 的端口，并标注 [1]。",
-    }]
 
     async def fake_run_agent_turn(*_args, **_kwargs):
         return result
@@ -211,7 +239,7 @@ def test_real_answer_generator_micro_chain():
             async for event in chain._stream_agent_query(
                 "StampServer 的端口是多少？",
                 None,
-                llm_model="qwen3.5:9b",
+                llm_model=answer_endpoint.model,
                 kb_name=None,
                 doc_category=None,
                 entity_name=None,
@@ -237,10 +265,7 @@ def test_real_answer_generator_micro_chain():
     reasoning = [event for event in events if event["type"].startswith("llm_reasoning_")]
     assert reasoning[0]["type"] == "llm_reasoning_start"
     assert reasoning[-1]["type"] == "llm_reasoning_end"
-    assert any(event["type"] == "llm_reasoning_delta" for event in reasoning)
     end_data = reasoning[-1]["data"]
-    assert end_data["reasoning_available"] is True
-    assert end_data["reasoning_chars"] > 0
     assert end_data["content_chars"] > 0
     assert end_data["num_predict"] == 8192
     reasoning_text = "".join(
@@ -248,9 +273,18 @@ def test_real_answer_generator_micro_chain():
         for event in reasoning
         if event["type"] == "llm_reasoning_delta"
     )
-    assert any("\u4e00" <= ch <= "\u9fff" for ch in reasoning_text)
-    assert "Thinking Process" not in reasoning_text
-    assert "Analyze the Request" not in reasoning_text
+    if end_data["reasoning_available"]:
+        assert any(event["type"] == "llm_reasoning_delta" for event in reasoning)
+        assert end_data["reasoning_chars"] > 0
+        # When a provider exposes native reasoning, the production Answer prompt
+        # requires it to be Chinese from the first reasoning token.
+        assert any("\u4e00" <= ch <= "\u9fff" for ch in reasoning_text)
+        assert "Thinking Process" not in reasoning_text
+        assert "Analyze the Request" not in reasoning_text
+    else:
+        # Some external providers/models do not expose a separate reasoning
+        # channel; content generation must still complete normally.
+        assert not any(event["type"] == "llm_reasoning_delta" for event in reasoning)
     assert not any(event["type"] == "token" for event in events)
     assert [event["type"] for event in events].index("llm_reasoning_end") < [
         event["type"] for event in events
