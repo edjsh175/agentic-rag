@@ -1655,23 +1655,33 @@ class AgentLoop:
             if not denied:
                 denied = self._entity_tool_denial(decision.tool, tgt)
 
-            # 4. 澄清回调重澄清拦截
+            # 4. 澄清回调重澄清拦截（比通用“已确认实体”原因更具体）。
             if not denied and self.conversation.clarification_callback and decision.tool == "clarify":
                 denied = "clarify_callback_reclarify_blocked"
 
-            # 5. 严格重复调用循环检测
+            # 5. 已确认实体不得被短词/模糊原词重新拉回澄清；真正切题时
+            # Stage-1/Scope 应先把 identity 状态更新为 unresolved/transition。
+            if (
+                not denied
+                and decision.tool == "clarify"
+                and self._identity_status() == "confirmed_entity"
+                and not (self.conversation.topic_shift or self.conversation.entity_transition)
+            ):
+                denied = "confirmed_entity_reclarify_blocked"
+
+            # 6. 严格重复调用循环检测
             if not denied and self.budget.is_cycle(decision.tool, decision.arguments, gap=decision.gap, expected_gain=decision.expected_gain):
                 denied = "tool_cycle_detected"
 
-            # 6. 连续 NO_PROGRESS 熔断保护
+            # 7. 连续 NO_PROGRESS 熔断保护
             if not denied and self._exploration_fuse_open and decision.tool in {"retrieve_kb", "link_entities", "web_search"}:
                 denied = "exploration_fuse_open"
 
-            # 7. 检索预算
+            # 8. 检索预算
             if not denied and decision.tool == "retrieve_kb" and not self.budget.can_retrieve():
                 denied = "retrieve_budget_exhausted"
 
-            # 8. 二次补检 Gap 契约（PRD 7.2 / 7.3 / 7.4）
+            # 9. 二次补检 Gap 契约（PRD 7.2 / 7.3 / 7.4）
             if not denied and decision.tool == "retrieve_kb" and self.budget.retrieve_attempts >= 1:
                 if not decision.gap or not decision.expected_gain:
                     denied = "missing_retrieval_gap"
@@ -1679,7 +1689,7 @@ class AgentLoop:
                 if self.gap_registry.is_exhausted(decision.gap, target_scope=tgt_str):
                     denied = "exhausted_gap"
 
-            # 9. reuse_evidence 拦截
+            # 10. reuse_evidence 拦截
             if not denied and decision.tool == "reuse_evidence":
                 blocked = self.reuse_blocked_reason()
                 if blocked:

@@ -1245,6 +1245,55 @@ def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
     assert "clarify" in state["allowed_tools"]
 
 
+def test_runtime_vetoes_reclarify_after_entity_confirmation():
+    conversation = ConversationContext.from_request("pipeline", [])
+    conversation.identity_status = "confirmed_entity"
+    conversation.confirmed_entity = "PipelineWebGL"
+    conversation.head_entity = "PipelineWebGL"
+    conversation.scope = SimpleNamespace(
+        identity_status="confirmed_entity",
+        confirmed_entity="PipelineWebGL",
+        primary_entity="PipelineWebGL",
+    )
+    evidence = EvidencePool(question_id="confirmed-reclarify-veto")
+    clarify_calls = 0
+    events: list[dict] = []
+
+    async def clarify_handler(_args):
+        nonlocal clarify_calls
+        clarify_calls += 1
+        return ToolObservation(tool="clarify", ok=True, summary="should not run")
+
+    def decide(*_args):
+        return AgentDecision(
+            action="tool_call",
+            tool="clarify",
+            arguments={"question": "您指的是哪个 pipeline？"},
+            reason="重新澄清",
+            source="llm",
+        )
+
+    async def on_event(event):
+        events.append(event)
+
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=1, max_retrieve_attempts=2),
+        registry=build_agent_registry(),
+        handlers={"clarify": clarify_handler},
+        decide_fn=decide,
+    )
+
+    asyncio.run(loop.run(on_event=on_event))
+
+    assert clarify_calls == 0
+    guards = [event for event in events if event.get("type") == "guard"]
+    assert guards
+    assert guards[-1]["data"]["allowed"] is False
+    assert guards[-1]["data"]["reason"] == "confirmed_entity_reclarify_blocked"
+
+
 def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
     """When controller outputs reasoning but zero content (e.g. token limit), it must report diagnosis and attempt repair."""
     context = ConversationContext.from_request("StampServer 端口？", [])
