@@ -1366,6 +1366,19 @@ confirmed entity can retrieve/link
 4. `config.ini`、`config-local.ini`、`config-prod.ini`、`config-mix.ini` 及代码默认模型已统一为 Ollama：Main=`qwen3.5:9b`，Helper=`qwen3.5:4b`；图谱抽取默认使用 `qwen3.5:9b`，不再启用 Google 外置模型。
 5. Linear 多实体比较的 EvidenceScope 根因已修复：`root_entities` 现在包含 primary entity 与 referenced entities，不再只授权第一个显式实体。
 
+### 21.2 2026-08-25 原始 `pipeline → PipelineWebGL` 真实在线 E2E 复验
+
+在 live Chroma、真实 Main=`qwen3.5:9b`、真实 Helper=`qwen3.5:4b`、`config-local.ini` 下执行原始事故专项回归：
+
+- pytest：`1 passed in 235.41s`。
+- Trace：`1997865bd97b4e67be0cf06479e8aa7b`。
+- 用户输入 `pipeline`，澄清选择 `PipelineWebGL（StampTools）` 后，`scope.primary_entity == PipelineWebGL` 且 `is_identity_locked == true`。
+- Retrieval / Evidence / source documents 均持续绑定 `PipelineWebGL`，最终来源实体中未出现 `PipelineBuilder`。
+- Controller 判断现有证据 `coverage=FULL` 后正常 finalize；Grounding Reviewer 最终 `PASS + FULL`，`unsupported_count=0`、`contradicted_count=0`。
+- Publication 为 `final_mode=generated`，最终答案正常发布，无 `controller_error / reviewer_error / review_blocked / false no_knowledge`。
+
+因此，本 PRD 所覆盖的原始实体澄清、canonical binding、EvidenceScope 锁定与发布链路已通过真实在线事故复验。
+
 ---
 
 ## 22. 最终架构

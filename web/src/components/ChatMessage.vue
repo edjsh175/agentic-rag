@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { Role, SourceDoc, MessageClarification, ClarificationOption, ClarificationSelection, PipelineStep, EvidencePack, EvidenceItem, AgentToolCall, AgentTimelineItem, WorkMode } from '../types'
+import type { Role, SourceDoc, MessageClarification, ClarificationOption, ClarificationSelection, PipelineStep, EvidencePack, EvidenceItem, AssistantBlock, WorkMode } from '../types'
 import { decorateCitations } from '../utils/citations'
 import EvidencePanel from './EvidencePanel.vue'
-import AgentThinkingBlock from './AgentThinkingBlock.vue'
-import AgentToolTimeline from './AgentToolTimeline.vue'
 import AgentStepStream from './AgentStepStream.vue'
+
+const router = useRouter()
 
 const props = defineProps<{
   role: Role
@@ -16,11 +17,7 @@ const props = defineProps<{
   imageUrl?: string
   loading?: boolean
   status?: string
-  thinking?: string
-  isThinking?: boolean
-  thinkingDuration?: string
-  agentTools?: AgentToolCall[]
-  timelineItems?: AgentTimelineItem[]
+  blocks?: AssistantBlock[]
   sources?: SourceDoc[]
   clarification?: MessageClarification
   feedback?: 'useful' | 'unuseful' | null
@@ -37,6 +34,7 @@ const emit = defineEmits<{
   excludeChunk: [chunkId: string, item: EvidenceItem]
   cancelClarification: []
   sourcesClick: []
+  openTrace: [traceId: string]
 }>()
 
 const otherInputVal = ref('')
@@ -76,9 +74,7 @@ function submitOther() {
 const isUser = computed(() => props.role === 'user')
 const displayMode = computed<WorkMode>(() => {
   if (props.mode) return props.mode
-  return props.timelineItems?.length || props.agentTools?.length || props.thinking
-    ? 'agent'
-    : 'linear'
+  return props.blocks?.length ? 'agent' : 'linear'
 })
 const isAgentMode = computed(() => displayMode.value === 'agent')
 
@@ -95,18 +91,27 @@ renderer.image = ({ href, title, text }) => {
   return `<img src="${href}" alt="${text || ''}" referrerpolicy="no-referrer"${title ? ` title="${title}"` : ''} />`
 }
 
-const rendered = computed(() => {
-  if (props.loading) return ''
-  const content = isUser.value ? props.content : decorateCitations(props.content, props.sources)
-  const raw = marked.parse(content, { async: false, renderer }) as string
+function renderMarkdown(content: string): string {
+  const decorated = isUser.value ? content : decorateCitations(content, props.sources)
+  const raw = marked.parse(decorated, { async: false, renderer }) as string
   return DOMPurify.sanitize(raw)
-})
+}
+
+const rendered = computed(() => props.loading ? '' : renderMarkdown(props.content))
 
 function handleContentClick(event: MouseEvent) {
   const target = (event.target as HTMLElement).closest<HTMLElement>('[data-citation-id]')
   if (!target) return
   const citationId = Number(target.dataset.citationId)
   if (Number.isInteger(citationId)) emit('citationClick', citationId)
+}
+
+function handleOpenTrace() {
+  if (!props.traceId) return
+  emit('openTrace', props.traceId)
+  try {
+    router.push({ path: '/qa-debug', query: { trace_id: props.traceId } })
+  } catch {}
 }
 </script>
 
@@ -117,58 +122,48 @@ function handleContentClick(event: MouseEvent) {
 
     <div class="body">
       <!-- 名称行 -->
-      <div class="name" v-if="!isUser">RAG 知识库</div>
+      <div class="name-row" v-if="!isUser">
+        <div class="name">RAG 知识库</div>
+        <button
+          v-if="traceId"
+          type="button"
+          class="trace-detail-btn"
+          title="在 QA Debug 中查看完整执行事件与工程 Trace"
+          @click="handleOpenTrace"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M16 8L10.8571 12V10.552L14.1383 8L10.8571 5.448V4L16 8ZM5.14286 10.552L1.86171 8L5.14286 5.448V4L0 8L5.14286 12V10.552ZM9.02514 4L5.59657 12H6.84057L10.2691 4H9.02514Z" fill="currentColor"/>
+          </svg>
+          执行详情
+        </button>
+      </div>
       <div class="name name--user" v-else>你</div>
 
       <!-- 气泡 -->
       <div class="bubble" :class="{ 'bubble--user': isUser, 'bubble--loading': loading && !content && !clarification }">
         <img v-if="imageUrl" :src="imageUrl" class="msg-image" />
 
-        <section
-          v-if="!isUser && isAgentMode && timelineItems && timelineItems.length > 0"
-          class="answer-segment execution-segment"
-          data-testid="execution-timeline"
+        <!-- Agent 用户可见 Block Stream：四类 Block 是唯一渲染来源 -->
+        <AgentStepStream
+          v-if="!isUser && isAgentMode && blocks && blocks.length > 0"
+          :blocks="blocks"
         >
-          <div class="segment-heading">
-            <span class="segment-index">01</span>
-            <span>Execution Timeline</span>
-          </div>
-          <AgentStepStream
-            :items="timelineItems"
-            :loading="loading"
-          />
-        </section>
+          <template #markdown="{ block }">
+            <div class="md" v-html="renderMarkdown(block.text)" @click="handleContentClick"></div>
+          </template>
+        </AgentStepStream>
 
+        <!-- Linear 模式：阶段状态 -->
         <section
           v-if="!isUser && !isAgentMode && loading && status"
           class="answer-segment pipeline-stage-segment"
           data-testid="pipeline-status"
         >
-          <div class="segment-heading">
-            <span class="segment-index">01</span>
-            <span>Pipeline Status</span>
-          </div>
           <div class="stream-status">
             <span class="status-dot"></span>
             <span>{{ status }}</span>
           </div>
         </section>
-
-        <!-- 降级兼容：若只有旧版 thinking 且无 timelineItems -->
-        <AgentThinkingBlock
-          v-else-if="thinking && !isUser && isAgentMode && (!timelineItems || timelineItems.length === 0)"
-          :thinking="thinking"
-          :is-thinking="isThinking"
-          :duration="thinkingDuration"
-        />
-
-        <!-- 降级兼容：若只有旧版 agentTools 且无 timelineItems -->
-        <AgentToolTimeline
-          v-if="!isUser && isAgentMode && (!timelineItems || timelineItems.length === 0) && (agentTools && agentTools.length > 0)"
-          :tools="agentTools || []"
-          :loading="loading"
-          :active-status="status"
-        />
 
         <!-- 歧义反问卡片 -->
         <div v-if="clarification && !isUser" class="clarification-card">
@@ -253,21 +248,17 @@ function handleContentClick(event: MouseEvent) {
           </div>
         </div>
 
-        <div v-if="loading && !content && !thinking && (!agentTools || agentTools.length === 0) && !status" class="typing">
+        <div v-if="loading && !content && (!blocks || blocks.length === 0) && !status" class="typing">
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
         </div>
 
         <section
-          v-if="content"
+          v-if="content && (isUser || !isAgentMode)"
           class="answer-segment final-answer-segment"
           :data-testid="isUser ? undefined : 'final-answer'"
         >
-          <div v-if="!isUser" class="segment-heading">
-            <span class="segment-index">02</span>
-            <span>Final Answer</span>
-          </div>
           <div class="md" v-html="rendered" @click="handleContentClick"></div>
         </section>
 
@@ -331,13 +322,13 @@ function handleContentClick(event: MouseEvent) {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 14V2"/>
-              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3 3 0 0 1-3-3.88Z"/>
+              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0 1.79 1.11L12 22h0a3 3 0 0 1-3-3.88Z"/>
             </svg>
             <span>无用</span>
           </button>
         </div>
 
-        <!-- 问答过程与证据调试面板 -->
+        <!-- 问答过程与证据调试面板 (仅在 Linear 模式调试下使用) -->
         <EvidencePanel
           v-if="!isUser && !isAgentMode && !loading && (pipelineSteps?.length || evidencePack)"
           :pipeline-steps="pipelineSteps"
@@ -428,15 +419,42 @@ function handleContentClick(event: MouseEvent) {
   min-width: 0;
 }
 
+.name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+
 .name {
   font-size: 12px;
   color: #8a8f99;
-  margin-bottom: 6px;
-  padding-left: 4px;
 }
 .name--user {
   text-align: right;
   padding-right: 4px;
+  margin-bottom: 6px;
+}
+
+.trace-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trace-detail-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .bubble {
@@ -480,6 +498,8 @@ function handleContentClick(event: MouseEvent) {
 }
 .dot:nth-child(1) { animation-delay: -0.32s; }
 .dot:nth-child(2) { animation-delay: -0.16s; }
+.dot:nth-child(3) { animation-delay: 0s; }
+
 .stream-status {
   display: flex;
   align-items: center;
@@ -604,34 +624,52 @@ function handleContentClick(event: MouseEvent) {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #3370ff;
+  margin-bottom: 10px;
 }
 
 .clarification-icon {
-  font-size: 14px;
+  color: #3370ff;
+  flex-shrink: 0;
 }
 
 .clarification-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #1e2a41;
   flex: 1;
 }
 
 .clarification-trigger-badge {
   font-size: 11px;
-  font-weight: normal;
+  color: #49617f;
+  background: #f0f4fc;
   padding: 2px 8px;
-  background: #eef3fe;
-  color: #3370ff;
-  border-radius: 10px;
-  border: 1px solid #d0e1fd;
+  border-radius: 4px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clarification-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #8a8f99;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.clarification-close-btn:hover {
+  color: #1e2a41;
+  background: #f0f4fc;
 }
 
 .clarification-question {
-  font-size: 14px;
-  color: #1e2a41;
-  font-weight: 500;
+  font-size: 13px;
+  color: #374151;
   margin-bottom: 12px;
   line-height: 1.5;
 }
@@ -639,184 +677,171 @@ function handleContentClick(event: MouseEvent) {
 .clarification-options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 280px;
-  overflow-y: auto;
+  gap: 6px;
 }
 
 .clarification-option-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 14px;
-  background: #f7f9fc;
-  border: 1px solid #e4e8f0;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #d9e2f2;
   border-radius: 6px;
+  background: #f8fafc;
+  color: #1e2a41;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
-  color: #2c3e50;
+  transition: all 0.15s ease;
 }
 
 .clarification-option-btn:hover:not(:disabled) {
-  background: #eef4ff;
-  border-color: #a4c2ff;
-  color: #3370ff;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(51, 112, 255, 0.12);
+  border-color: #3370ff;
+  background: #f0f5ff;
 }
 
 .clarification-option-btn.is-selected {
-  background: #eef4ff;
   border-color: #3370ff;
+  background: #eef4ff;
   color: #3370ff;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .clarification-option-btn.is-disabled:not(.is-selected) {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #fafbfc;
 }
 
 .option-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: #e4e8f0;
-  color: #5c6475;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  color: #475569;
 }
 
-.is-selected .option-badge {
+.clarification-option-btn.is-selected .option-badge {
   background: #3370ff;
-  color: #ffffff;
+  color: #fff;
 }
 
 .option-label {
   flex: 1;
-  word-break: break-word;
 }
 
 .check-icon {
-  flex-shrink: 0;
   color: #3370ff;
+  flex-shrink: 0;
 }
 
-.clarification-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: #94a3b8;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.clarification-option-btn.is-other-option {
+  border-style: dashed;
 }
 
-.clarification-close-btn:hover {
-  background: #f1f5f9;
-  color: #ef4444;
+.clarification-option-btn.is-active {
+  border-color: #3370ff;
+  background: #f0f5ff;
 }
 
 .clarification-other-input-panel {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 4px;
   padding: 4px;
   background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
 }
 
-.clarification-other-input-panel .other-input {
+.other-input {
   flex: 1;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
-  background: #ffffff;
 }
 
-.clarification-other-input-panel .other-input:focus {
+.other-input:focus {
   border-color: #3370ff;
 }
 
-.clarification-other-input-panel .other-submit-btn {
-  height: 32px;
-  padding: 0 16px;
-  border: none;
+.other-submit-btn {
+  padding: 6px 12px;
   background: #3370ff;
-  color: #ffffff;
+  color: #fff;
+  border: none;
   border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
   cursor: pointer;
-  transition: background 0.2s;
+  font-weight: 500;
 }
 
-.clarification-other-input-panel .other-submit-btn:hover:not(:disabled) {
-  background: #1a56db;
-}
-
-.clarification-other-input-panel .other-submit-btn:disabled {
-  background: #cbd5e1;
-  color: #94a3b8;
+.other-submit-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* ===== 移动端响应式 ===== */
-@media (max-width: 768px) {
-  .msg {
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    font-size: 11px;
-  }
-  .body {
-    max-width: 85%;
-  }
-  .name {
-    font-size: 11px;
-    margin-bottom: 4px;
-  }
-  .bubble {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-  .msg-image {
-    max-height: 200px;
-  }
-  .md :deep(pre) {
-    padding: 8px;
-    font-size: 12px;
-  }
-  .md :deep(code) {
-    font-size: 12px;
-  }
-  .md :deep(.citation-chip) {
-    max-width: 220px;
-    font-size: 10px;
-  }
-  .thinking-content {
-    font-size: 12px;
-  }
+/* Sources */
+.sources-segment {
+  margin-top: 10px;
+}
+.sources-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.sources-open {
+  background: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: #3b82f6;
+  cursor: pointer;
+}
+.source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #334155;
+  cursor: pointer;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.15s ease;
+}
+.source-chip:hover {
+  background: #f8fafc;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+.source-number {
+  font-weight: 600;
+  color: #3b82f6;
+}
+.source-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-chip--more {
+  background: #f1f5f9;
+  color: #64748b;
 }
 </style>

@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from rag_knowledge.config import Config
-from rag_knowledge.llm_http import ModelEndpoint, achat_stream, chat
+from rag_knowledge.llm_http import ModelEndpoint, achat_stream, achat_stream_parts, chat
 
 
 class _FakeResp:
@@ -169,6 +170,109 @@ def test_ollama_stream_explicitly_disables_thinking(monkeypatch):
 
     assert asyncio.run(collect()) == ["answer"]
     assert capture[0]["json"]["think"] is False
+
+
+def test_ollama_stream_parts_separate_reasoning_and_structured_content(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.async_client",
+        lambda **kwargs: _FakeAsyncClient(
+            capture,
+            [
+                '{"message":{"thinking":"先核对证据"},"done":false}',
+                '{"message":{"content":"{\\"action\\":\\"finalize\\"}"},"done":false}',
+            ],
+        ),
+    )
+    schema = {
+        "type": "object",
+        "properties": {"action": {"type": "string"}},
+        "required": ["action"],
+    }
+    ep = ModelEndpoint(role="llm", provider="ollama", model="qwen3.5:9b", base_url="http://x:1")
+
+    async def collect():
+        return [
+            (part.kind, part.delta)
+            async for part in achat_stream_parts(
+                ep,
+                [{"role": "user", "content": "hi"}],
+                think=True,
+                format_json=True,
+                json_schema=schema,
+            )
+        ]
+
+    assert asyncio.run(collect()) == [
+        ("reasoning", "先核对证据"),
+        ("content", '{"action":"finalize"}'),
+    ]
+    assert capture[0]["json"]["think"] is True
+    assert capture[0]["json"]["format"] == schema
+
+
+def test_stream_parts_retries_before_first_output(monkeypatch):
+    import httpx
+
+    attempts = 0
+
+    async def fake_stream(*_args, **_kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise httpx.ReadTimeout("before first output")
+        yield SimpleNamespace(kind="content", delta="ok")
+
+    monkeypatch.setattr("rag_knowledge.llm_http._astream_ollama", fake_stream)
+
+    async def no_sleep(_delay):
+        return None
+
+    monkeypatch.setattr("rag_knowledge.llm_http.asyncio.sleep", no_sleep)
+    ep = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="m",
+        base_url="http://x:1",
+        max_retries=2,
+    )
+
+    async def collect():
+        return [part.delta async for part in achat_stream_parts(ep, [{"role": "user", "content": "hi"}])]
+
+    assert asyncio.run(collect()) == ["ok"]
+    assert attempts == 2
+
+
+def test_stream_parts_does_not_retry_after_partial_output(monkeypatch):
+    import httpx
+
+    attempts = 0
+
+    async def fake_stream(*_args, **_kwargs):
+        nonlocal attempts
+        attempts += 1
+        yield SimpleNamespace(kind="reasoning", delta="partial")
+        raise httpx.ReadTimeout("after partial output")
+
+    monkeypatch.setattr("rag_knowledge.llm_http._astream_ollama", fake_stream)
+    ep = ModelEndpoint(
+        role="helper_llm",
+        provider="ollama",
+        model="m",
+        base_url="http://x:1",
+        max_retries=3,
+    )
+
+    async def collect():
+        parts = []
+        with pytest.raises(httpx.ReadTimeout, match="after partial output"):
+            async for part in achat_stream_parts(ep, [{"role": "user", "content": "hi"}]):
+                parts.append((part.kind, part.delta))
+        return parts
+
+    assert asyncio.run(collect()) == [("reasoning", "partial")]
+    assert attempts == 1
 
 
 def test_chat_openai_payload(monkeypatch):

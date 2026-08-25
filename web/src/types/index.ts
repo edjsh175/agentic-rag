@@ -11,6 +11,19 @@ export interface UnderstandingEventData {
   summary: string
 }
 
+export interface LLMReasoningEventData {
+  call_id: string
+  role: 'main' | 'helper' | string
+  stage?: string
+  model?: string
+  provider?: string
+  step?: number
+  delta?: string
+  reasoning_available?: boolean
+  elapsed_ms?: number
+  error?: string
+}
+
 export interface DecisionEventData {
   step?: number
   action: string
@@ -106,7 +119,7 @@ export interface ReviewStatusEventData {
   reviewer_role?: 'helper_llm'
   review_count: number
   verdict: string
-  coverage: string
+  coverage?: string | number
   message: string
   summary?: string
   claim_reviews?: ClaimReviewEventData[]
@@ -150,6 +163,7 @@ export interface ExecutionErrorEventData {
 
 export type KnowledgeStreamEvent =
   | { type: 'understanding'; data: UnderstandingEventData }
+  | { type: 'llm_reasoning_start' | 'llm_reasoning_delta' | 'llm_reasoning_end'; data: LLMReasoningEventData }
   | { type: 'decision'; data: DecisionEventData }
   | { type: 'guard'; data: GuardEventData }
   | { type: 'tool_start'; data: ToolStartEventData }
@@ -172,7 +186,75 @@ export type KnowledgeStreamEvent =
   | { type: 'answer_generation_started'; data?: unknown }
   | { type: 'done'; data?: unknown }
 
-/** Agent 工具调用记录 */
+/** Agent 用户可见 Block 流基础模型 */
+export interface BaseBlock {
+  id: string
+  kind: 'reasoning' | 'tool' | 'system_event' | 'markdown'
+  type?: 'reasoning' | 'tool' | 'system_event' | 'markdown'
+  sequence: number
+}
+
+export interface ReasoningBlock extends BaseBlock {
+  kind: 'reasoning'
+  type?: 'reasoning'
+  callId: string
+  stage: 'agent_controller' | 'answer_generation' | 'grounded_retry' | string
+  role: 'main'
+  model?: string
+  provider?: string
+  text: string
+  content?: string
+  status: 'running' | 'completed' | 'unavailable' | 'error'
+  isStreaming?: boolean
+  duration?: string
+  elapsedMs?: number
+}
+
+export interface ToolBlock extends BaseBlock {
+  kind: 'tool'
+  type?: 'tool'
+  toolCallKey: string
+  tool: string
+  toolName?: string
+  label: string
+  description?: string
+  input?: unknown
+  output?: unknown
+  in?: unknown
+  out?: unknown
+  status: 'running' | 'completed' | 'failed' | 'denied'
+  isStreaming?: boolean
+  elapsedMs?: number
+  error?: string | null
+  gap?: string | null
+  expectedGain?: string | null
+}
+
+export interface SystemEventBlock extends BaseBlock {
+  kind: 'system_event'
+  type?: 'system_event'
+  event: string
+  level: 'info' | 'warning' | 'error'
+  text: string
+  status?: 'active' | 'completed' | 'failed'
+  correlationId?: string
+}
+
+export interface MarkdownBlock extends BaseBlock {
+  kind: 'markdown'
+  type?: 'markdown'
+  text: string
+  markdown?: string
+  status: 'final'
+}
+
+export type AssistantBlock =
+  | ReasoningBlock
+  | ToolBlock
+  | SystemEventBlock
+  | MarkdownBlock
+
+/** Agent 工具调用记录 (兼容保留) */
 export interface AgentToolCall {
   name: string
   step?: number
@@ -198,6 +280,12 @@ export type AgentTimelineItem =
       duration?: string
       isThinking?: boolean
       _startTime?: number
+      callId?: string
+      role?: string
+      stage?: string
+      model?: string
+      provider?: string
+      reasoningAvailable?: boolean
     }
   | {
       type: 'understanding'
@@ -356,16 +444,8 @@ export interface Message {
   loading?: boolean
   /** 仅用于当前流式请求，不持久化 */
   status?: string
-  /** 深度思考过程（assistant 消息） */
-  thinking?: string
-  /** 是否正在进行深度思考 */
-  isThinking?: boolean
-  /** 思考耗时描述（如 "1.2s"） */
-  thinkingDuration?: string
-  /** Agent 工具执行轨迹 */
-  agentTools?: AgentToolCall[]
-  /** Agent 完整时序流（Think / Tool Call IN/OUT） */
-  timelineItems?: AgentTimelineItem[]
+  /** Agent 用户可见 Block 流（Reasoning / Tool / System Event / Markdown 唯一来源） */
+  blocks?: AssistantBlock[]
   /** 歧义反问卡片 */
   clarification?: MessageClarification
   /** 用户反馈（useful / unuseful） */
@@ -953,6 +1033,14 @@ export interface QaTraceCandidate extends Record<string, unknown> {
   content_preview?: string
 }
 
+export interface ExecutionTraceEvent {
+  type: string
+  data?: unknown
+  sequence?: number
+  elapsed_ms?: number
+  [key: string]: unknown
+}
+
 export interface QaTraceDetail {
   meta: {
     trace_id: string
@@ -976,6 +1064,7 @@ export interface QaTraceDetail {
   understanding?: UnderstandingTraceData
   clarify?: ClarifyTraceData
   agent?: AgentTraceData
+  execution_events?: ExecutionTraceEvent[]
   pack?: Record<string, unknown>
   evidence: EvidenceChain
   answer: {

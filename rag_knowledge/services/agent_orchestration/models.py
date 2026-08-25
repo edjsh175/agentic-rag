@@ -129,6 +129,9 @@ class ExecutionEventType(str, Enum):
     """Finite event vocabulary shared by the runtime, SSE and QA Trace."""
 
     UNDERSTANDING = "understanding"
+    LLM_REASONING_START = "llm_reasoning_start"
+    LLM_REASONING_DELTA = "llm_reasoning_delta"
+    LLM_REASONING_END = "llm_reasoning_end"
     DECISION = "decision"
     GUARD = "guard"
     TOOL_START = "tool_start"

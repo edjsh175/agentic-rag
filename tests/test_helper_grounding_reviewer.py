@@ -73,11 +73,6 @@ def _revise_payload() -> dict:
         ],
         "rewrite_actions": [
             {
-                "claim_id": "c1",
-                "action": "preserve",
-                "instruction": "保留受支持事实",
-            },
-            {
                 "claim_id": "c2",
                 "action": "rewrite_to_supported_scope_or_remove",
                 "instruction": "删除未受支持的端口信息",
@@ -219,11 +214,6 @@ def test_reviewer_revise_atomic_actions():
         ],
         "rewrite_actions": [
             {
-                "claim_id": "c1",
-                "action": "preserve",
-                "instruction": "保留在线发布功能",
-            },
-            {
                 "claim_id": "c2",
                 "action": "rewrite_to_supported_scope_or_remove",
                 "instruction": "删除关于 Redis 缓存的陈述",
@@ -242,10 +232,10 @@ def test_reviewer_revise_atomic_actions():
     assert result.verdict == "REVISE"
     assert result.coverage == "PARTIAL"
     assert len(result.claim_reviews) == 2
-    assert len(result.rewrite_actions) == 2
-    assert [action.claim_id for action in result.rewrite_actions] == ["c1", "c2"]
-    assert result.rewrite_actions[1].claim_id == "c2"
-    assert result.rewrite_actions[1].action == "rewrite_to_supported_scope_or_remove"
+    assert len(result.rewrite_actions) == 1
+    assert [action.claim_id for action in result.rewrite_actions] == ["c2"]
+    assert result.rewrite_actions[0].claim_id == "c2"
+    assert result.rewrite_actions[0].action == "rewrite_to_supported_scope_or_remove"
     assert len(result.unsupported_claims) == 1
     assert result.unsupported_claims[0].claim_id == "c2"
 
@@ -325,6 +315,10 @@ def test_reviewer_evidence_formatting():
 
     assert len(captured_msgs) == 2
     assert captured_msgs[0]["role"] == "system"
+    assert "原子事实拆分是审核的前置条件" in captured_msgs[0]["content"]
+    assert "每个 claim_reviews 项只能表达一个可独立判定真假的事实" in captured_msgs[0]["content"]
+    assert "在部署过程中" in captured_msgs[0]["content"]
+    assert "Claim 是否 supported 只看该 Claim 自身是否被 Evidence 支持" in captured_msgs[0]["content"]
     assert captured_msgs[1]["role"] == "user"
     content = captured_msgs[1]["content"]
     assert "manual.pdf" in content
@@ -363,7 +357,7 @@ def test_reviewer_top_level_types_and_enums_are_strict(field, value, expected_re
     _assert_protocol_error(result, expected_reason)
 
 
-def test_model_declared_verdict_must_match_protocol_state():
+def test_model_declared_verdict_is_ignored_and_state_is_derived():
     pass_payload = _pass_payload()
     pass_payload["verdict"] = "NO_SAFE_ANSWER"
     revise_payload = _revise_payload()
@@ -375,9 +369,9 @@ def test_model_declared_verdict_must_match_protocol_state():
     revise_result = _review_payload(revise_payload)
     none_result = _review_payload(none_payload)
 
-    _assert_protocol_error(pass_result, "invalid_verdict_coverage")
-    _assert_protocol_error(revise_result, "pass_contains_problem_claim")
-    _assert_protocol_error(none_result, "invalid_verdict_coverage")
+    assert pass_result.verdict == "PASS"
+    assert revise_result.verdict == "REVISE"
+    assert none_result.verdict == "NO_SAFE_ANSWER"
 
 
 def test_reviewer_fails_closed_on_truncated_json():
@@ -448,7 +442,7 @@ def test_reviewer_fails_closed_when_claim_field_is_missing():
 
 
 @pytest.mark.parametrize("status", ["unsupported", "contradicted"])
-def test_pass_with_problem_claim_fails_protocol_validation(status):
+def test_problem_claim_without_rewrite_action_fails_protocol_validation(status):
     payload = _pass_payload()
     payload["claim_reviews"][0]["status"] = status
     if status == "unsupported":
@@ -456,10 +450,10 @@ def test_pass_with_problem_claim_fails_protocol_validation(status):
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "pass_contains_problem_claim")
+    _assert_protocol_error(result, "revise_requires_rewrite_actions")
 
 
-def test_pass_requires_all_declared_claims_to_be_supported():
+def test_unsupported_non_knowledge_claim_also_requires_rewrite_action():
     payload = _pass_payload()
     payload["claim_reviews"][0]["claim_type"] = "limitation_statement"
     payload["claim_reviews"][0]["status"] = "unsupported"
@@ -467,7 +461,7 @@ def test_pass_requires_all_declared_claims_to_be_supported():
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "pass_contains_problem_claim")
+    _assert_protocol_error(result, "revise_requires_rewrite_actions")
 
 
 def test_review_requires_at_least_one_claim_review():
@@ -490,11 +484,26 @@ def test_model_supplied_rewrite_actions_are_validated():
     _assert_protocol_error(result, "unknown_claim_id")
 
 
+def test_redundant_supported_claim_action_is_discarded():
+    payload = _pass_payload()
+    payload["rewrite_actions"] = [{
+        "claim_id": "c1",
+        "action": "add_limitation_statement",
+        "instruction": "redundant action that must not override supported status",
+    }]
+
+    result = _review_payload(payload)
+
+    assert result.verdict == "PASS"
+    assert result.error is None
+    assert result.rewrite_actions == []
+
+
 def test_contradicted_claim_requires_compatible_model_action():
     payload = _revise_payload()
     payload["claim_reviews"][1]["status"] = "contradicted"
     payload["rewrite_actions"] = [
-        {"claim_id": "c2", "action": "preserve", "instruction": "stale model action"}
+        {"claim_id": "c2", "action": "add_limitation_statement", "instruction": "stale model action"}
     ]
 
     result = _review_payload(payload)
@@ -502,11 +511,85 @@ def test_contradicted_claim_requires_compatible_model_action():
     _assert_protocol_error(result, "action_status_mismatch")
 
 
-def test_pass_plus_none_is_invalid_protocol():
+def test_coverage_none_derives_no_safe_answer_even_if_legacy_verdict_says_pass():
     payload = _pass_payload()
     payload["coverage"] = "NONE"
     payload["verdict"] = "PASS"
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "invalid_verdict_coverage")
+    assert result.verdict == "NO_SAFE_ANSWER"
+    assert result.error is None
+
+
+def test_protocol_repair_retries_once_and_can_recover():
+    invalid = _revise_payload()
+    invalid["rewrite_actions"][0]["claim_id"] = "c1"
+    invalid["rewrite_actions"][0]["action"] = "rewrite_to_supported_scope_or_remove"
+
+    repaired = _revise_payload()
+    repaired["rewrite_actions"] = [repaired["rewrite_actions"][0]]
+    calls = []
+
+    def _caller(messages):
+        calls.append(messages)
+        return invalid if len(calls) == 1 else repaired
+
+    reviewer = HelperGroundingReviewer(_caller)
+    result = reviewer.review(
+        "StampServer 支持什么功能？",
+        [_source(1, "StampServer 支持服务发布。")],
+        "StampServer 支持服务发布，并默认开放 9999 端口。",
+    )
+
+    assert result.verdict == "REVISE"
+    assert result.error is None
+    assert len(calls) == 2
+    assert len(result.protocol_attempts) == 2
+    assert result.protocol_attempts[0]["error"] is not None
+    assert result.protocol_attempts[1]["error"] is None
+    assert "协议修复" in calls[1][0]["content"]
+    assert calls[1][1]["role"] == "user"
+
+
+def test_protocol_repair_rejects_semantic_drift():
+    invalid = _revise_payload()
+    invalid["rewrite_actions"][0]["claim_id"] = "c1"
+    invalid["rewrite_actions"][0]["action"] = "rewrite_to_supported_scope_or_remove"
+
+    drifted = _revise_payload()
+    drifted["claim_reviews"][1]["status"] = "contradicted"
+    drifted["rewrite_actions"] = [{
+        "claim_id": "c2",
+        "action": "correct_to_evidence",
+        "instruction": "改成证据支持的内容",
+    }]
+    calls = 0
+
+    def _caller(_messages):
+        nonlocal calls
+        calls += 1
+        return invalid if calls == 1 else drifted
+
+    reviewer = HelperGroundingReviewer(_caller)
+    result = reviewer.review(
+        "StampServer 支持什么功能？",
+        [_source(1, "StampServer 支持服务发布。")],
+        "StampServer 支持服务发布，并默认开放 9999 端口。",
+    )
+
+    assert result.verdict == "ERROR"
+    assert result.error == "invalid_review_protocol:protocol_repair_semantic_drift"
+    assert len(result.protocol_attempts) == 2
+    assert result.protocol_attempts[1]["error"] == result.error
+
+
+def test_structured_output_schema_has_single_semantic_source():
+    from rag_knowledge.services.helper_grounding_reviewer import review_response_json_schema
+
+    schema = review_response_json_schema()
+
+    assert "verdict" not in schema["properties"]
+    assert "verdict" not in schema["required"]
+    action_enum = schema["properties"]["rewrite_actions"]["items"]["properties"]["action"]["enum"]
+    assert "preserve" not in action_enum

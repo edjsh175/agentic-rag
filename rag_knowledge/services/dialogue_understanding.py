@@ -216,6 +216,7 @@ class DialogueUnderstanding:
         kb_name: str | None = None,
         rolling_summary: str | None = None,
         run_clarify: bool = False,
+        on_reasoning_event=None,
     ) -> UnderstandingResult:
         """
         产出 UnderstandingResult。
@@ -277,6 +278,7 @@ class DialogueUnderstanding:
             history=history,
             filters=filters,
             rolling_summary=rolling_summary,
+            on_reasoning_event=on_reasoning_event,
         )
         return self._finalize_semantic_task(q, result)
 
@@ -294,6 +296,7 @@ class DialogueUnderstanding:
         history: list[dict] | None,
         filters: dict[str, Any],
         rolling_summary: str | None = None,
+        on_reasoning_event=None,
     ) -> UnderstandingResult:
         last_user = ""
         if history:
@@ -366,6 +369,7 @@ class DialogueUnderstanding:
                 rolling_summary="" if topic_shifted else (session.rolling_summary or ""),
                 recent_rounds=0 if topic_shifted else 2,
                 drop_history_anchors=topic_shifted,
+                on_reasoning_event=on_reasoning_event,
             )
             specs = self._protect_specs(question, raw_specs, last_user)
             resolved = question

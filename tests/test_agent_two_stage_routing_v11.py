@@ -83,6 +83,156 @@ def test_agent_controller_uses_main_and_normalizes_legacy_finish(isolated_storag
     assert mocked.call_args.kwargs["stage"] == "agent_controller"
 
 
+def test_agent_controller_repairs_protocol_once_without_changing_decision_authority(isolated_storage):
+    isolated_storage()
+    Config._instance = None
+    cfg = Config()
+    conv = ConversationContext.from_request("StampServer 是什么", [])
+    pool = EvidencePool(question_id="q")
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=2),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=cfg,
+        tool_timeout=0,
+    )
+    responses = iter([
+        '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
+        '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+    ])
+    with patch("rag_knowledge.llm_http.chat_role", side_effect=lambda *args, **kwargs: next(responses)) as mocked:
+        decision = loop._decide_via_llm()
+
+    assert decision.action == "finalize"
+    assert decision.tool is None
+    assert decision.arguments["answer_mode"] == "partial"
+    assert mocked.call_count == 2
+    assert loop._controller_protocol_attempts == [
+        {
+            "attempt": 1,
+            "raw_response": '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
+            "error": "malformed_finalize: finalize cannot carry tool",
+        },
+        {
+            "attempt": 2,
+            "raw_response": '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+            "error": None,
+        },
+    ]
+    repair_prompt = mocked.call_args_list[1].args[2][0]["content"]
+    assert "只修复决策 JSON 协议" in repair_prompt
+    assert "malformed_finalize" in repair_prompt
+
+
+def test_controller_protocol_repair_rejects_semantic_drift(isolated_storage):
+    isolated_storage()
+    Config._instance = None
+    cfg = Config()
+    conv = ConversationContext.from_request("StampServer 是什么", [])
+    pool = EvidencePool(question_id="q")
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=2),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=cfg,
+        tool_timeout=0,
+    )
+    responses = iter([
+        '{"action":"tool_call","tool":"missing_tool","arguments":{}}',
+        '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+    ])
+    with patch("rag_knowledge.llm_http.chat_role", side_effect=lambda *args, **kwargs: next(responses)):
+        try:
+            loop._decide_via_llm()
+        except ValueError as exc:
+            assert "controller_protocol_repair_semantic_drift:action" in str(exc)
+            assert len(loop._controller_protocol_attempts) == 2
+            assert loop._controller_protocol_attempts[0]["error"].startswith("malformed_tool_call")
+            assert loop._controller_protocol_attempts[1]["error"] == "controller_protocol_repair_semantic_drift:action"
+        else:
+            raise AssertionError("protocol repair must not change controller action semantics")
+
+
+def test_controller_error_preserves_existing_evidence_state():
+    conv = ConversationContext.from_request("StampServer 的主要用途是什么？", [])
+    conv.head_entity = "StampServer"
+    pool = EvidencePool(question_id="q-controller-error")
+    pool.add_retrieve([_doc("c1", "StampServer 的部署目录为 /data/stampserver。")], query="StampServer 用途")
+
+    def _fail_decision(*_args, **_kwargs):
+        raise ValueError("malformed_decision_action: unknown action ''")
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=1),
+        registry=build_agent_registry(),
+        handlers={},
+        decide_fn=_fail_decision,
+    )
+    result = asyncio.run(loop.run())
+
+    assert result.terminal_action == "controller_error"
+    assert result.answer_gate["coverage"] != "NONE"
+    assert result.answer_gate["evidence_count"] == 1
+    assert result.answer_gate["reason"] == "controller_decision_error"
+    assert result.agent_steps[-1]["controller"]["protocol_attempts"] == []
+
+
+def test_streaming_agent_controller_repairs_protocol_once(isolated_storage):
+    isolated_storage()
+    Config._instance = None
+    cfg = Config()
+    conv = ConversationContext.from_request("StampServer 是什么", [])
+    pool = EvidencePool(question_id="q")
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=2),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=cfg,
+        tool_timeout=0,
+    )
+
+    async def _parts(*_args, **_kwargs):
+        yield SimpleNamespace(
+            kind="content",
+            delta='{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
+        )
+
+    async def _run():
+        with patch("rag_knowledge.llm_http.achat_stream_parts", _parts), patch(
+            "rag_knowledge.llm_http.chat_role",
+            return_value='{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+        ) as repair_call, patch("rag_knowledge.llm_http.record_model_call"):
+            decision = await loop._adecide_via_llm(None, 1)
+        return decision, repair_call
+
+    decision, repair_call = asyncio.run(_run())
+    assert decision.action == "finalize"
+    assert decision.tool is None
+    assert decision.arguments["answer_mode"] == "partial"
+    assert repair_call.call_count == 1
+    assert loop._controller_protocol_attempts == [
+        {
+            "attempt": 1,
+            "raw_response": '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
+            "error": "malformed_finalize: finalize cannot carry tool",
+        },
+        {
+            "attempt": 2,
+            "raw_response": '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+            "error": None,
+        },
+    ]
+    assert "只修复决策 JSON 协议" in repair_call.call_args.args[2][0]["content"]
+
+
 def test_finalize_rejection_returns_observation_then_controller_retrieves():
     conv = ConversationContext.from_request("StampServer 的端口是多少", [])
     pool = EvidencePool(question_id="q")
@@ -600,10 +750,6 @@ def test_grounded_retry_includes_candidate_v1_and_complete_review_payload():
 
     chain = object.__new__(RagChain)
     chain._build_llm = lambda _model: _Llm()
-    original_messages = [
-        {"role": "system", "content": "Frozen Evidence Snapshot: 完整事实"},
-        {"role": "user", "content": "原问题"},
-    ]
     review_payload = {
         "verdict": "REVISE",
         "coverage": "PARTIAL",
@@ -623,13 +769,44 @@ def test_grounded_retry_includes_candidate_v1_and_complete_review_payload():
         ],
     }
     review = SimpleNamespace(
-        rewrite_actions=review_payload["rewrite_actions"],
+        rewrite_actions=[SimpleNamespace(**item, to_dict=lambda item=item: dict(item)) for item in review_payload["rewrite_actions"]],
+        claim_reviews=[SimpleNamespace(
+            claim_id="c1",
+            claim="受支持事实",
+            claim_type="knowledge_claim",
+            status="supported",
+            evidence_ids=(1,),
+            reason="支持",
+            to_dict=lambda: {
+                "claim_id": "c1",
+                "claim": "受支持事实",
+                "claim_type": "knowledge_claim",
+                "status": "supported",
+                "evidence_ids": [1],
+                "reason": "支持",
+            },
+        ), SimpleNamespace(
+            claim_id="c2",
+            claim="未支持事实",
+            claim_type="knowledge_claim",
+            status="unsupported",
+            evidence_ids=(),
+            reason="无依据",
+            to_dict=lambda: {
+                "claim_id": "c2",
+                "claim": "未支持事实",
+                "claim_type": "knowledge_claim",
+                "status": "unsupported",
+                "evidence_ids": [],
+                "reason": "无依据",
+            },
+        )],
         to_dict=lambda: review_payload,
     )
 
     answer = chain._retry_grounded_candidate(
         "main-model",
-        original_messages,
+        "原问题",
         "Candidate V1 原文",
         [{"content": "完整事实", "metadata": {"citation_id": 1}}],
         review,
@@ -637,14 +814,19 @@ def test_grounded_retry_includes_candidate_v1_and_complete_review_payload():
 
     contents = [message.content for message in captured["messages"]]
     assert answer == "Candidate V2"
-    assert contents[:2] == [item["content"] for item in original_messages]
-    assert contents[2] == "Candidate V1 原文"
-    assert '"claim_id": "c2"' in contents[3]
-    assert '"instruction": "缩回证据支持范围"' in contents[3]
-    assert original_messages == [
-        {"role": "system", "content": "Frozen Evidence Snapshot: 完整事实"},
-        {"role": "user", "content": "原问题"},
-    ]
+    assert len(contents) == 4
+    assert "语言硬约束" in contents[0]
+    assert "简体中文" in contents[0]
+    assert "Grounded Rewrite Executor" in contents[1]
+    assert "immutable_supported_claims" in contents[1]
+    assert "rewrite_contract" in contents[1]
+    assert '"question": "原问题"' in contents[2]
+    assert '"candidate_v1": "Candidate V1 原文"' in contents[2]
+    assert '"claim_id": "c1"' in contents[2]
+    assert '"claim_id": "c2"' in contents[2]
+    assert '"instruction": "缩回证据支持范围"' in contents[2]
+    assert "直接用简体中文开始分析" in contents[3]
+    assert "最终只输出 Candidate V2 正文" in contents[3]
 
 
 def test_evidence_snapshot_and_answer_context_are_immutable():
@@ -695,11 +877,32 @@ def test_answer_prompt_excludes_tools_and_raw_agent_trace():
         snapshot=snapshot,
     )
     system, user = [item["content"] for item in build_answer_generation_messages(context)]
+    assert "语言硬约束" in system
+    assert "从第一个 reasoning/thinking token 开始，只使用简体中文" in system
     assert "retrieve_kb" not in system
     assert "tool schema" not in system.lower()
     assert "Thought" not in user
     assert "Observation" not in user
     assert "<evidence_snapshot>" in user
+
+
+def test_partial_answer_prompt_forbids_inference_from_adjacent_operational_facts():
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([_doc("c1", "将 StampServer 服务上传到 /data/stampserver。")], query="StampServer 用途")
+    snapshot = pool.create_snapshot(verdict={"verdict": "PARTIAL"})
+    context = AnswerGenerationContext.from_snapshot(
+        original_question="StampServer 的主要用途是什么？",
+        resolved_question="StampServer 的主要用途是什么？",
+        conversation_context="当前实体为 StampServer",
+        snapshot=snapshot,
+        answer_contract={"answer_type": "knowledge", "evidence_required": True, "answer_mode": "partial"},
+    )
+
+    system, user = [item["content"] for item in build_answer_generation_messages(context)]
+
+    assert "若回答契约 answer_mode=partial" in system
+    assert "禁止把部署步骤、配置项、模块名、目录结构等相邻事实推断成证据未明确支持的产品用途" in system
+    assert "'answer_mode': 'partial'" in user
 
 
 def test_answer_prompt_uses_snapshot_citations_and_excludes_history_facts():

@@ -103,6 +103,40 @@ def test_scope_resolver_subject_resolution():
     assert "PipelineBuilder" in scope4.admissible_entities
 
 
+def test_pipeline_clarification_selection_locks_pipelinewebgl_over_ambiguous_alias():
+    constraints = {
+        "canonical_by_alias": {
+            "pipeline": "PipelineBuilder",
+            "pipelinewebgl": "PipelineWebGL",
+            "pipelinebuilder": "PipelineBuilder",
+        },
+        "entity_type_by_name": {
+            "PipelineWebGL": "Product",
+            "PipelineBuilder": "Product",
+        },
+        "relations": [
+            {"source": "PipelineWebGL", "relation_type": "different_from", "target": "PipelineBuilder"},
+        ],
+    }
+
+    subject = ScopeResolver.resolve_subject(
+        "pipeline",
+        clarification_selected="PipelineWebGL（StampTools）",
+        constraints=constraints,
+    )
+    scope = ScopeResolver.resolve(
+        "pipeline",
+        clarification_selected="PipelineWebGL（StampTools）",
+        constraints=constraints,
+    )
+
+    assert subject.binding_strength == BindingStrength.CONFIRMED
+    assert subject.primary_entities == ("PipelineWebGL",)
+    assert scope.is_identity_locked
+    assert scope.primary_root == "PipelineWebGL"
+    assert "PipelineBuilder" not in scope.root_entities
+
+
 def test_scope_resolver_bounded_expansion():
     """测试 ScopeResolver 生成的广义 ProvenancePath 与有界预算。"""
     constraints = {

@@ -1608,7 +1608,7 @@ def test_controller_failure_emits_structured_error_without_fallback_notice():
             data={},
         )
 
-    def failing_decide_llm():
+    def failing_decide_llm(*_args, **_kwargs):
         raise RuntimeError("LLM connection timeout")
 
     loop = AgentLoop(
@@ -1617,8 +1617,8 @@ def test_controller_failure_emits_structured_error_without_fallback_notice():
         budget=budget,
         registry=build_agent_registry(),
         handlers={"retrieve_kb": mock_handler},
+        decide_fn=failing_decide_llm,
     )
-    loop._decide_via_llm = failing_decide_llm
 
     result = asyncio.run(loop.run(on_event=on_event))
     assert result.terminal_action == "controller_error"
@@ -1632,6 +1632,9 @@ def test_controller_failure_emits_structured_error_without_fallback_notice():
         "recoverable": False,
         "step": 1,
         "exception_type": "RuntimeError",
+        "validation_error": "LLM connection timeout",
+        "repair_attempted": False,
+        "protocol_attempts": [],
     }]
 
 

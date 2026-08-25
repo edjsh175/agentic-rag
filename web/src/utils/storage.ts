@@ -5,7 +5,8 @@
  * 保存策略：服务器为主，localStorage 为回退
  * 图片策略：base64 仅存浏览器 IndexedDB，服务器存 hasImage 标记
  */
-import type { Message as ChatMessage, SourceDoc, MessageClarification, ChatSessionSummary } from '../types'
+import type { Message as ChatMessage, SourceDoc, MessageClarification, ChatSessionSummary, AssistantBlock } from '../types'
+import { normalizeLegacyMessageToBlocks } from './agentBlockProjector'
 import {
   fetchServerSessions,
   syncServerSessionsFromTraces,
@@ -40,6 +41,7 @@ interface StoredMsg {
   feedback?: 'useful' | 'unuseful' | null
   trace_id?: string | null
   clarification?: MessageClarification
+  blocks?: AssistantBlock[]
   thinking?: string
   thinkingDuration?: string
   agentTools?: any[]
@@ -84,10 +86,7 @@ function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void 
       feedback: m.feedback,
       trace_id: m.trace_id,
       clarification: m.clarification,
-      thinking: m.thinking,
-      thinkingDuration: m.thinkingDuration,
-      agentTools: m.agentTools,
-      timelineItems: m.timelineItems,
+      blocks: m.blocks,
     }))
     localStorage.setItem(`${SESSION_MSGS_PREFIX}${sessionId}`, JSON.stringify(stored))
   } catch {}
@@ -203,6 +202,16 @@ function trimMessages(messages: ChatMessage[]): ChatMessage[] {
 async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
   return Promise.all(
     stored.map(async (s) => {
+      const restoredBlocks = s.blocks && s.blocks.length > 0
+        ? s.blocks
+        : normalizeLegacyMessageToBlocks({
+            thinking: s.thinking,
+            thinkingDuration: s.thinkingDuration,
+            agentTools: s.agentTools,
+            timelineItems: s.timelineItems,
+            content: s.content,
+          })
+
       const msg: ChatMessage = {
         id: s.id,
         role: s.role,
@@ -212,10 +221,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         feedback: s.feedback,
         trace_id: s.trace_id,
         clarification: s.clarification,
-        thinking: s.thinking,
-        thinkingDuration: s.thinkingDuration,
-        agentTools: s.agentTools,
-        timelineItems: s.timelineItems,
+        blocks: restoredBlocks.length > 0 ? restoredBlocks : undefined,
       }
       if (s.hasImage) {
         msg.imageUrl = (await loadImageFromDB(s.id)) ?? undefined
@@ -321,6 +327,7 @@ export async function loadSessionMessages(sessionId: string): Promise<ChatMessag
         feedback: m.feedback,
         trace_id: m.trace_id,
         clarification: m.clarification,
+        blocks: m.blocks,
         thinking: m.thinking,
         thinkingDuration: m.thinkingDuration,
         agentTools: m.agentTools,
@@ -413,10 +420,7 @@ export async function saveSessionState(
       feedback: m.feedback,
       trace_id: m.trace_id,
       clarification: m.clarification,
-      thinking: m.thinking,
-      thinkingDuration: m.thinkingDuration,
-      agentTools: m.agentTools,
-      timelineItems: m.timelineItems,
+      blocks: m.blocks,
     }))
 
   try {

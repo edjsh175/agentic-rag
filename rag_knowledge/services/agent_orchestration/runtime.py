@@ -96,14 +96,23 @@ _ENTITY_AUTHORIZATION_ERRORS = frozenset({
     "target_not_authorized",
 })
 
+_REASONING_LANGUAGE_SYSTEM_PROMPT = """语言硬约束：
+- 从第一个 reasoning/thinking token 开始，只使用简体中文进行自然语言分析。
+- 不得先用英文起草、分析或列提纲后再翻译成中文。
+- 不得使用 Thinking Process、Analyze、Reasoning、Step、Decision Criteria、Let's 等英文推理标题或句式。
+- 代码、JSON 字段名、工具名、API 名称、配置项和专有名词可以保留原文。
+- 最终结构化输出协议不变。"""
+
 _DECISION_PROMPT = """你是 RAG 知识库查询助手与唯一负责选择下一步行为的 Agent Controller。
-系统不会替你自动补检或自动切换工具，一切动作由你根据 Observation 与 EvidencePool 决定。
+语言要求：如果模型提供方暴露独立的 reasoning/thinking channel，该 channel 中的分析、判断、步骤标题和自然语言说明必须使用简体中文；代码、JSON 字段名、工具名、API 名称和专有名词保持原文。
+Runtime 已提前计算实体状态、证据状态、预算与当前合法工具范围。你不要重新推断这些确定性状态；只在 ControllerState 允许的范围内，根据 Observation 与 EvidencePool 选择下一步。
 你有以下工具可以调用（@tools）：
 {tool_list}
 
 决策准则：
 1. 【用户可见决策理由（reason）】：在 reason 中简明说明用户意图、当前证据缺口与下一步依据；不要输出模型内部自由推理。
-   - 【澄清决策（clarify）】：当用户主体、产品、模块、专有名词不明确，或存在疑似拼写错误（例如输入 'pipelien'、'pipeline' 且涉及多个可能模块）、或意图不足以安全确定检索范围时，必须优先第一轮调用 clarify 工具向用户出示澄清卡片，严禁自行猜测实体或发起无范围宽检索。
+   - 【ControllerState 是权威状态】：`identity_status`、`confirmed_entity/confirmed_entities`、`evidence_state`、`budget`、`allowed_tools` 都由 Runtime 计算。不要根据原始短词、历史措辞或工具描述重新解释这些字段；若某工具不在 `allowed_tools` 中，不得选择它。
+   - 【澄清决策（clarify）】：仅当 `identity_status=unresolved` 且确实需要先确定专有实体范围，或用户显式切换/否定当前主体且新主体仍未确认时，才调用 clarify。若 `identity_status=confirmed_entity`，不得仅因用户原始词较短、泛化、存在拼写近似（例如 `pipeline`）而再次澄清；EvidencePool 为空时优先围绕已确认实体做首次 retrieve_kb。
    - 【多实体关系与对比（multi-entity）】：当用户提问显式涉及多个合法实体（如“StampServer 和 StampTools 是什么关系？”、“A 和 B 有什么区别？”）时，所有提及的合法实体均属于已确认范围。你可以在 target_entity 中传入组合实体（如 ["StampServer", "StampTools"] 或 "StampServer, StampTools"），或分步调用 retrieve_kb / link_entities 探索各实体及关联。
    - 【补检契约（gap & expected_gain）】：初次检索无需 gap。但若发起第二次及后续检索，必须明确指出具体缺失事实（gap）与预期增量（expected_gain）；若上一步 Observation 返回 NO_PROGRESS，严禁仅通过改写同义 query 重复尝试相同 gap！
    - 【Guard/预算终止信号】：每轮 Observation 会给出 guard_constraints 与 budget。若 `retrieval_allowed=false` 或 `remaining_retrieve_attempts=0`，严禁再次选择 retrieve_kb；已有可引用证据时必须直接依据 `current_evidence_state.coverage` 选择回答模式：FULL → finalize full；PARTIAL 且已不能/不应继续补检 → finalize partial；NONE → 不得伪装成 full。若 latest Observation 为 DENIED 且 error 属于 tool_cycle_detected / retrieve_budget_exhausted / exhausted_gap / exploration_fuse_open，严禁通过改写 query 或换同义 gap 重试同一探索；主体仍不明确时才 clarify。
@@ -113,7 +122,7 @@ _DECISION_PROMPT = """你是 RAG 知识库查询助手与唯一负责选择下�
 2. 【工具调用（action="tool_call"）】：
    - clarify: 向用户出示反问澄清卡片并暂停等待用户选择。入参：question (澄清问题), model_suggested_options (建议选项列表)。
    - retrieve_kb: 知识库检索。必须在 arguments.query 中填入精准改写词；当任务已绑定实体时同时给出 target_entity。二次及以上检索必须在顶层提供 gap 与 expected_gain。严禁传递空 query！
-   - link_entities: 知识图谱实体与依赖关系检索。当用户提问涉及专有名词或组件依赖时调用。若 Observation 返回未命中或 NO_PROGRESS，停止重复调用。
+   - link_entities: 在实体已确认后查询其图谱主干层级、一跳关系与依赖背景；它不是用户澄清工具，也不负责给未确认主体做授权。仅当 `link_entities` 位于 ControllerState.allowed_tools 时可调用；若 Observation 返回未命中或 NO_PROGRESS，停止重复调用。
    - reuse_evidence: 连续追问且前序证据仍有效时复用。
    - environment.read_status: 读取系统服务状态。
 3. 【终止与组织回答（action="finalize"）】：
@@ -137,6 +146,16 @@ _DECISION_PROMPT = """你是 RAG 知识库查询助手与唯一负责选择下�
 证据池摘要：[1] StampServer 配置文档：默认服务端口为 8080，管理端口为 8081。
 输出：
 {{"reason":"证据池已覆盖默认端口问题，结束检索并进入回答生成。","action":"finalize","answer_mode":"full","tool":null,"arguments":{{}},"gap":null,"expected_gain":null}}
+
+示例 4（原始词很短，但主体已由用户确认，不得重复澄清）：
+用户问题：pipeline
+对话上下文：当前主体身份为 PipelineWebGL；用户已选实体为 PipelineWebGL
+证据池摘要：为空
+输出：
+{{"reason":"PipelineWebGL 已由上下文明确绑定，当前只是缺少该实体的知识证据，无需再次做实体澄清，先检索其概览信息。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"PipelineWebGL 概览","target_entity":"PipelineWebGL","intent":"conceptual_overview","mode":"hybrid"}},"gap":null,"expected_gain":null}}
+
+ControllerState（Runtime 已计算；不要重新推断）：
+{controller_state}
 
 用户问题：
 {question}
@@ -175,6 +194,7 @@ _AGENT_SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不�
 
 ## 输出规则
 
+- 如果模型提供方暴露独立的 reasoning/thinking channel，从第一个 thinking token 开始，分析、证据判断、回答规划和步骤标题必须使用简体中文；不得先用英文起草再翻译，不得使用 Thinking Process、Analyze、Reasoning、Step、Let's 等英文推理标题或句式。代码、配置项、JSON 字段、API、工具名与专有名词保持原文。
 - 在完整、详尽地涵盖 evidence_pool 中已有技术细节、实现步骤、参数说明和代码示例的前提下，使用清晰、结构化的中文进行回答，保留关键专业术语。
 - 如果 evidence_pool 包含具体的排查步骤、操作命令、配置参数或原理介绍，应分步骤或分模块进行详细展开。回答中的每一句事实叙述都必须严格对应引用编号。
 - 可按需要使用 Markdown、带语言标识的代码块和表格。
@@ -456,12 +476,14 @@ def build_answer_generation_messages(
     valid_citation_ids = ", ".join(f"[{index}]" for index in range(1, len(context.documents()) + 1))
     instruction = (agent_prompt or "").strip() or "无。不得改变以下证据与引用规则。"
     system = (
+        f"{_REASONING_LANGUAGE_SYSTEM_PROMPT}\n\n"
         "你是 RAG Answer Generator。你只负责在证据冻结后生成最终回答。\n"
         "你没有工具，也不得调用工具；不要输出 Thought、Action 或 Observation。\n"
         "只能依据 <evidence_snapshot> 中的证据陈述知识事实，每个关键事实都要紧跟合法引用编号。\n"
         f"本轮合法引用编号只有：{valid_citation_ids or '无'}；严禁使用其他编号或沿用历史回答中的编号。\n"
         "对话上下文只用于理解指代，不能作为知识事实来源；证据不足时明确说明缺口。\n"
         "先给出针对问题的归纳，再列出少量有代表性的事实；不要把证据片段逐条原样转储。\n"
+        "若回答契约 answer_mode=partial，禁止把部署步骤、配置项、模块名、目录结构等相邻事实推断成证据未明确支持的产品用途、整体定位、核心角色、业务价值或实现目的；只能陈述证据直接支持的事实，并明确未覆盖的部分。\n"
         f"{general_rule}\n"
         f"附加回答要求：{instruction}"
     )
@@ -483,7 +505,7 @@ def build_answer_generation_messages(
         f"{evidence_text}\n"
         "</evidence_snapshot>\n"
         "</answer_generation_context>\n"
-        "请直接输出最终答案。"
+        "如果存在独立 reasoning/thinking channel，必须从第一段开始直接使用简体中文分析，不得使用英文推理标题；随后直接输出最终答案。"
     )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
@@ -721,7 +743,7 @@ def build_agent_registry(
     registry = build_phase1_registry()
     registry.register(ToolSpec(
         name="link_entities",
-        description="图谱实体检索与消歧：定位核心实体、别名归一化、主干层级与一跳关系。若用户问题涉及特定工具/产品/模块，应先调用此工具获取图谱背景。",
+        description="已确认实体的图谱主干与关系查询：返回规范实体、主干层级和一跳关系。未确认主体应先走澄清流程；本工具不负责用户实体授权或澄清。",
         input_schema={
             "type": "object",
             "properties": {
@@ -892,6 +914,7 @@ class AgentLoop:
         self.lifecycle_events: list[dict[str, Any]] = []
         self._event_started_at = time.perf_counter()
         self._pending_decision_error: dict[str, Any] | None = None
+        self._controller_protocol_attempts: list[dict[str, Any]] = []
 
     async def _emit(
         self,
@@ -1213,6 +1236,60 @@ class AgentLoop:
             return f"controller_tool_call:{decision.tool}"
         return "controller_protocol_error"
 
+    def _controller_state_for_prompt(self) -> str:
+        status = self._identity_status()
+        conv = self.conversation
+        scope = getattr(conv, "scope", None)
+        confirmed_entity = (
+            getattr(scope, "confirmed_entity", None)
+            or getattr(conv, "confirmed_entity", None)
+            or getattr(scope, "primary_entity", None)
+            or getattr(conv, "head_entity", None)
+        )
+        confirmed_entities = tuple(getattr(conv, "confirmed_entities", ()) or ())
+        allowed_tools = set(self.registry.names())
+
+        # Mirror Runtime legality in the prompt so Main does not have to infer it
+        # from natural-language instructions. Runtime validation remains final.
+        if status != "confirmed_entity":
+            allowed_tools.discard("link_entities")
+        if status == "confirmed_entity" and not (conv.topic_shift or conv.entity_transition):
+            allowed_tools.discard("clarify")
+        if conv.clarification_callback:
+            allowed_tools.discard("reuse_evidence")
+
+        latest_error = ""
+        if self._observations:
+            latest_error = str(self._observations[-1].get("error") or "").strip()
+        hard_stop_errors = {
+            "tool_cycle_detected",
+            "retrieve_budget_exhausted",
+            "exhausted_gap",
+            "exploration_fuse_open",
+        }
+        retrieval_allowed = bool(
+            self.budget.can_retrieve()
+            and not self._exploration_fuse_open
+            and latest_error not in hard_stop_errors
+        )
+        if not retrieval_allowed:
+            allowed_tools.discard("retrieve_kb")
+
+        state = {
+            "identity_status": status,
+            "confirmed_entity": str(confirmed_entity or "") or None,
+            "confirmed_entities": list(confirmed_entities),
+            "clarification_callback": bool(conv.clarification_callback),
+            "topic_shift": bool(conv.topic_shift),
+            "entity_transition": bool(conv.entity_transition),
+            "evidence_state": self._current_evidence_state(),
+            "budget": self.budget.to_dict(),
+            "retrieval_allowed": retrieval_allowed,
+            "allowed_tools": sorted(allowed_tools),
+            "latest_denial_reason": latest_error or None,
+        }
+        return json.dumps(state, ensure_ascii=False, separators=(",", ":"), default=str)
+
     def _observation_history_for_prompt(self) -> str:
         if not self._observations:
             return "（暂无 Observation）"
@@ -1264,20 +1341,25 @@ class AgentLoop:
         while self.budget.can_step():
             self.budget.consume_step()
             step_index = self.budget.steps_used
+            self._controller_protocol_attempts = []
             try:
-                decision = self._decide()
+                if self._decide_fn is not None:
+                    decision = self._decide()
+                else:
+                    decision = await self._adecide_via_llm(on_event, step_index)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Main Controller decision failed; terminating safely: %s", exc)
                 self.fallbacks.append("controller_decision_error")
                 self._terminal_action = "controller_error"
+                evidence_state = self._current_evidence_state()
                 self._last_verdict = {
                     "allow_knowledge_answer": False,
                     "admissibility": "INVALID",
-                    "coverage": "NONE",
-                    "missing_facts": ["Main Controller 未能生成合法决策"],
-                    "missing_relations": [],
-                    "evidence_count": len(self.evidence.citable_docs()),
-                    "evidence_version": self.evidence.evidence_version,
+                    "coverage": evidence_state.get("coverage", "NONE"),
+                    "missing_facts": list(evidence_state.get("missing_facts") or []),
+                    "missing_relations": list(evidence_state.get("missing_relations") or []),
+                    "evidence_count": int(evidence_state.get("evidence_count") or 0),
+                    "evidence_version": int(evidence_state.get("evidence_version") or self.evidence.evidence_version),
                     "reason": "controller_decision_error",
                 }
                 error_observation = {
@@ -1300,6 +1382,7 @@ class AgentLoop:
                         "role": "llm",
                         "action": None,
                         "tool": None,
+                        "protocol_attempts": list(self._controller_protocol_attempts),
                     },
                     "guard": {"allowed": False, "reason": "controller_decision_error"},
                     "observation": error_observation,
@@ -1316,6 +1399,9 @@ class AgentLoop:
                         "recoverable": False,
                         "step": step_index,
                         "exception_type": type(exc).__name__,
+                        "validation_error": str(exc),
+                        "repair_attempted": len(self._controller_protocol_attempts) > 1,
+                        "protocol_attempts": list(self._controller_protocol_attempts),
                     },
                 )
                 break
@@ -1333,6 +1419,7 @@ class AgentLoop:
                     "tool": decision.tool,
                     "gap": decision.gap,
                     "expected_gain": decision.expected_gain,
+                    "protocol_attempts": list(self._controller_protocol_attempts),
                 },
                 "decision": decision.to_dict(),
             }
@@ -1897,6 +1984,13 @@ class AgentLoop:
             return self._decide_fn(self.conversation, self.evidence, self._observations)
         return self._decide_via_llm()
 
+    @staticmethod
+    def _controller_reasoning_enabled(endpoint: Any) -> bool:
+        return bool(
+            endpoint.normalized_provider() == "ollama"
+            and "qwen3" in str(endpoint.model or "").lower()
+        )
+
     def _decide_via_llm(self) -> AgentDecision:
         from rag_knowledge.llm_http import chat_role
 
@@ -1905,10 +1999,13 @@ class AgentLoop:
         from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         role = ModelRoutePolicy(self._cfg).agent_controller_role()
-        num_predict = 2048
+        endpoint = self._cfg.endpoint_for(role)
+        reasoning_enabled = self._controller_reasoning_enabled(endpoint)
+        num_predict = 8192 if reasoning_enabled else 2048
         timeout = 45.0
         prompt = _DECISION_PROMPT.format(
             tool_list=self.registry.prompt_list(),
+            controller_state=self._controller_state_for_prompt(),
             question=self.conversation.user_question,
             conversation=self.conversation.to_prompt()[:1200],
             evidence=self._evidence_summary(),
@@ -1917,15 +2014,237 @@ class AgentLoop:
         raw = chat_role(
             self._cfg,
             role,
-            [{"role": "user", "content": prompt}],
+            ([{"role": "system", "content": _REASONING_LANGUAGE_SYSTEM_PROMPT}]
+             if reasoning_enabled else [])
+            + [{"role": "user", "content": prompt}],
             temperature=0.0,
             format_json=True,
             num_predict=num_predict,
             timeout=timeout,
-            think=False,
+            think=reasoning_enabled,
             num_ctx=self._cfg.context_budget.context_window,
             stage="agent_controller",
         )
+        try:
+            decision = self._decision_from_raw(raw)
+            self._controller_protocol_attempts = [
+                {"attempt": 1, "raw_response": raw, "error": None}
+            ]
+            return decision
+        except ValueError as exc:
+            self._controller_protocol_attempts = [
+                {"attempt": 1, "raw_response": raw, "error": str(exc)}
+            ]
+            repair_prompt = (
+                "上一份 Agent Controller JSON 没有通过协议校验。"
+                "你仍然是唯一决策者；这不是重新分析任务，只修复决策 JSON 协议。\n"
+                f"validation_error: {exc}\n"
+                "保持原决策意图不变，只修正 action/tool/arguments/answer_mode/gap/expected_gain 等协议字段，"
+                "输出一个可被原协议接受的完整 JSON 对象，不要输出解释。\n"
+                f"previous_response:\n{raw}\n\n"
+                "原始决策上下文如下，仅用于保持原决策语义：\n"
+                f"{prompt}"
+            )
+            repaired_raw = chat_role(
+                self._cfg,
+                role,
+                [{"role": "user", "content": repair_prompt}],
+                temperature=0.0,
+                format_json=True,
+                num_predict=num_predict,
+                timeout=timeout,
+                think=False,
+                num_ctx=self._cfg.context_budget.context_window,
+                stage="agent_controller",
+            )
+            try:
+                repaired = self._decision_from_raw(repaired_raw)
+                self._validate_decision_repair_semantics(raw, repaired)
+            except ValueError as repair_exc:
+                self._controller_protocol_attempts.append(
+                    {"attempt": 2, "raw_response": repaired_raw, "error": str(repair_exc)}
+                )
+                raise
+            self._controller_protocol_attempts.append(
+                {"attempt": 2, "raw_response": repaired_raw, "error": None}
+            )
+            return repaired
+
+    async def _adecide_via_llm(self, on_event, step_index: int) -> AgentDecision:
+        from rag_knowledge.llm_http import achat_stream_parts, chat_role, record_model_call
+
+        if self._cfg is None:
+            raise RuntimeError("cfg required for llm decide")
+        from rag_knowledge.services.model_routing import ModelRoutePolicy
+
+        role = ModelRoutePolicy(self._cfg).agent_controller_role()
+        endpoint = self._cfg.endpoint_for(role)
+        reasoning_enabled = self._controller_reasoning_enabled(endpoint)
+        prompt = _DECISION_PROMPT.format(
+            tool_list=self.registry.prompt_list(),
+            controller_state=self._controller_state_for_prompt(),
+            question=self.conversation.user_question,
+            conversation=self.conversation.to_prompt()[:1200],
+            evidence=self._evidence_summary(),
+            history=self._observation_history_for_prompt(),
+        )
+        call_id = f"agent_controller_{step_index}"
+        started = time.perf_counter()
+        reasoning_available = False
+        reasoning_chars = 0
+        content_parts: list[str] = []
+        # Reasoning policy belongs to the model role, not to whether the caller
+        # happens to expose SSE events. Keep the same policy across entry points.
+        reasoning_num_predict = 8192 if reasoning_enabled else 2048
+        fallback: str | None = None
+        await self._emit(
+            on_event,
+            ExecutionEventType.LLM_REASONING_START,
+            {
+                "call_id": call_id,
+                "role": "main",
+                "stage": "agent_controller",
+                "model": endpoint.model,
+                "provider": endpoint.normalized_provider(),
+                "step": step_index,
+            },
+        )
+        try:
+            async for part in achat_stream_parts(
+                endpoint,
+                [
+                    {"role": "system", "content": _REASONING_LANGUAGE_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                default_ollama=getattr(self._cfg, "ollama_base_url", ""),
+                temperature=0.0,
+                timeout=45.0,
+                num_predict=reasoning_num_predict,
+                think=reasoning_enabled,
+                num_ctx=self._cfg.context_budget.context_window,
+                format_json=True,
+            ):
+                if part.kind == "reasoning":
+                    reasoning_available = True
+                    reasoning_chars += len(part.delta)
+                    await self._emit(
+                        on_event,
+                        ExecutionEventType.LLM_REASONING_DELTA,
+                        {
+                            "call_id": call_id,
+                            "role": "main",
+                            "stage": "agent_controller",
+                            "delta": part.delta,
+                            "step": step_index,
+                        },
+                    )
+                else:
+                    content_parts.append(part.delta)
+        except Exception as exc:
+            fallback = type(exc).__name__
+            raise
+        finally:
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            await self._emit(
+                on_event,
+                ExecutionEventType.LLM_REASONING_END,
+                {
+                    "call_id": call_id,
+                    "role": "main",
+                    "stage": "agent_controller",
+                    "model": endpoint.model,
+                    "provider": endpoint.normalized_provider(),
+                    "reasoning_available": reasoning_available,
+                    "reasoning_chars": reasoning_chars,
+                    "content_chars": sum(len(part) for part in content_parts),
+                    "num_predict": reasoning_num_predict,
+                    "elapsed_ms": round(elapsed_ms, 1),
+                    "step": step_index,
+                },
+            )
+            record_model_call(
+                role=role,
+                stage="agent_controller",
+                provider=endpoint.normalized_provider(),
+                model=endpoint.model,
+                elapsed_ms=elapsed_ms,
+                fallback=fallback,
+            )
+        raw = "".join(content_parts)
+        try:
+            if not raw.strip() and reasoning_available:
+                raise ValueError(
+                    f"controller_output_empty_after_reasoning:num_predict={reasoning_num_predict}"
+                )
+            decision = self._decision_from_raw(raw)
+            self._controller_protocol_attempts = [
+                {"attempt": 1, "raw_response": raw, "error": None}
+            ]
+            return decision
+        except ValueError as exc:
+            self._controller_protocol_attempts = [
+                {"attempt": 1, "raw_response": raw, "error": str(exc)}
+            ]
+            import asyncio
+
+            repair_prompt = (
+                "上一份 Agent Controller JSON 没有通过协议校验。"
+                "你仍然是唯一决策者；这不是重新分析任务，只修复决策 JSON 协议。\n"
+                f"validation_error: {exc}\n"
+                "保持原决策意图不变，只修正 action/tool/arguments/answer_mode/gap/expected_gain 等协议字段，"
+                "输出一个可被原协议接受的完整 JSON 对象，不要输出解释。\n"
+                f"previous_response:\n{raw}\n\n"
+                "原始决策上下文如下，仅用于保持原决策语义：\n"
+                f"{prompt}"
+            )
+            repaired_raw = await asyncio.to_thread(
+                chat_role,
+                self._cfg,
+                role,
+                [{"role": "user", "content": repair_prompt}],
+                temperature=0.0,
+                format_json=True,
+                num_predict=2048,
+                timeout=45.0,
+                think=False,
+                num_ctx=self._cfg.context_budget.context_window,
+                stage="agent_controller",
+            )
+            try:
+                repaired = self._decision_from_raw(repaired_raw)
+                self._validate_decision_repair_semantics(raw, repaired)
+            except ValueError as repair_exc:
+                self._controller_protocol_attempts.append(
+                    {"attempt": 2, "raw_response": repaired_raw, "error": str(repair_exc)}
+                )
+                raise
+            self._controller_protocol_attempts.append(
+                {"attempt": 2, "raw_response": repaired_raw, "error": None}
+            )
+            return repaired
+
+    @staticmethod
+    def _validate_decision_repair_semantics(raw: str, repaired: AgentDecision) -> None:
+        """Protocol repair may fix structure, but must not change a parseable action/tool intent."""
+        try:
+            original = parse_json_object(raw)
+        except Exception:
+            return
+        original_action = str(original.get("action") or "").strip().casefold()
+        if original_action == "finish":
+            original_action = "finalize"
+        if original_action in {"tool_call", "finalize"} and repaired.action != original_action:
+            raise ValueError("controller_protocol_repair_semantic_drift:action")
+        original_tool = original.get("tool") or original.get("name") or original.get("tool_name")
+        original_tool_name = str(original_tool).strip() if original_tool else None
+        if (
+            original_action == "tool_call"
+            and original_tool_name
+            and repaired.tool != original_tool_name
+        ):
+            raise ValueError("controller_protocol_repair_semantic_drift:tool")
+
+    def _decision_from_raw(self, raw: str) -> AgentDecision:
         data = normalize_decision_payload(parse_json_object(raw))
         raw_action = str(data.get("action") or "").strip().lower()
         tool_val = data.get("tool") or data.get("name") or data.get("tool_name")
@@ -1957,7 +2276,7 @@ class AgentLoop:
                 expected_gain=gain_str,
                 source="llm",
             )
-        elif raw_action == "finalize":
+        if raw_action == "finalize":
             if tool_name:
                 raise ValueError("malformed_finalize: finalize cannot carry tool")
             raw_focus = data.get("focus_evidence_ids")
@@ -1976,8 +2295,7 @@ class AgentLoop:
                 source="llm",
                 focus_evidence_ids=focus,
             )
-        else:
-            raise ValueError(f"malformed_decision_action: unknown action '{raw_action}'")
+        raise ValueError(f"malformed_decision_action: unknown action '{raw_action}'")
 
     def _evidence_summary(self) -> str:
         docs = self.evidence.citable_docs()

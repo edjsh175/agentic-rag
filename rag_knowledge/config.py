@@ -337,7 +337,7 @@ class Config:
             "answer", "grounding_reviewer_enabled", "true"
         ).strip().lower() in ("1", "true", "yes")
         self.grounding_reviewer_timeout = float(_get(
-            "answer", "grounding_reviewer_timeout", "30"
+            "answer", "grounding_reviewer_timeout", "120"
         ))
 
         # ---- 向量数据库 ----
@@ -698,7 +698,7 @@ class Config:
         host = (urlparse(base_url).hostname or "").strip()
         if not host:
             return
-        extras = [host, "127.0.0.1", "localhost", "::1"]
+        extras = [host, "127.0.0.1", "localhost"]
         for key in ("NO_PROXY", "no_proxy"):
             current = os.environ.get(key, "")
             parts = [p.strip() for p in current.split(",") if p.strip()]

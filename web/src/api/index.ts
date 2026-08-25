@@ -45,6 +45,7 @@ import type {
   ClarificationOption,
   ClarificationSelectionKind,
   MessageClarification,
+  AssistantBlock,
   GpuStatus,
   ChatSessionSummary,
   SourceDoc,
@@ -52,6 +53,7 @@ import type {
   WorkMode,
   KnowledgeStreamEvent,
   UnderstandingEventData,
+  LLMReasoningEventData,
   DecisionEventData,
   GuardEventData,
   ToolStartEventData,
@@ -253,6 +255,9 @@ export interface KnowledgeStreamCallbacks {
   onStatus?: (status: string) => void
   onThinking?: (thought: string) => void
   onUnderstanding?: (data: UnderstandingEventData) => void
+  onLLMReasoningStart?: (data: LLMReasoningEventData) => void
+  onLLMReasoningDelta?: (data: LLMReasoningEventData) => void
+  onLLMReasoningEnd?: (data: LLMReasoningEventData) => void
   onDecision?: (data: DecisionEventData) => void
   onGuard?: (data: GuardEventData) => void
   onToolStart?: (data: ToolStartEventData) => void
@@ -367,6 +372,12 @@ export async function queryKnowledgeStream(
         callbacks.onThinking?.(event.data)
       } else if (event.type === 'understanding') {
         callbacks.onUnderstanding?.(event.data)
+      } else if (event.type === 'llm_reasoning_start') {
+        callbacks.onLLMReasoningStart?.(event.data)
+      } else if (event.type === 'llm_reasoning_delta') {
+        callbacks.onLLMReasoningDelta?.(event.data)
+      } else if (event.type === 'llm_reasoning_end') {
+        callbacks.onLLMReasoningEnd?.(event.data)
       } else if (event.type === 'decision') {
         callbacks.onDecision?.(event.data)
       } else if (event.type === 'guard') {
@@ -660,9 +671,12 @@ interface StoredMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  mode?: 'agent' | 'linear'
   hasImage?: boolean
   sources?: any[]
   clarification?: MessageClarification
+  blocks?: AssistantBlock[]
+  /** 仅用于读取历史会话；新保存路径不再写入。 */
   thinking?: string
   thinkingDuration?: string
   agentTools?: any[]

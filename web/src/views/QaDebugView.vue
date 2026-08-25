@@ -1,12 +1,14 @@
 <script setup lang="ts">
 defineOptions({ name: 'QaDebugView' })
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { deleteQaTrace, getQaTrace, listQaTraces, queryAdminDebugStream, updateQaTraceFeedback, queryClarify, getModels, getKnowledgeBases, getAgents } from '../api'
 import type { DebugStreamOptions } from '../api'
 import type { EvidenceChain, QaTraceDetail, QaTraceSummary, ClarificationOption, ClarifyResult, RetrievalTraceSnapshot, AgentStepRecord, AgentTraceData } from '../types'
 
+const route = useRoute()
 const question = ref('')
 const loading = ref(false)
 const debugClarification = ref<ClarifyResult | null>(null)
@@ -123,6 +125,7 @@ const retrievalTraceSnapshot = computed<RetrievalTraceSnapshot | null>(() => {
 
 const agentData = computed<AgentTraceData | null>(() => detail.value?.agent || null)
 const agentSteps = computed<AgentStepRecord[]>(() => detail.value?.agent?.agent_steps || [])
+const executionEvents = computed(() => detail.value?.execution_events || [])
 const hasAgent = computed(() => Boolean(detail.value?.agent && (detail.value.agent.agent_steps?.length || detail.value.agent.route)))
 const isClarifyTrace = computed(() => Boolean(detail.value?.clarify?.needs_clarification))
 const isDirectChatTrace = computed(() => Boolean(detail.value?.agent?.route === 'direct'))
@@ -516,7 +519,8 @@ function getItemTitle(item: any): string {
 }
 
 onMounted(async () => {
-  refreshList()
+  const requestedTraceId = typeof route.query.trace_id === 'string' ? route.query.trace_id : undefined
+  await refreshList(requestedTraceId)
   try {
     const modelsResp = await getModels()
     availableModels.value = modelsResp.models || []
@@ -1036,6 +1040,29 @@ onUnmounted(() => {
               </article>
             </div>
             <div v-else class="empty-hint">暂无 Agent 步骤记录</div>
+
+            <!-- 全量工程执行事件流 (Execution Events) -->
+            <div v-if="executionEvents && executionEvents.length > 0" class="margin-top-lg">
+              <h3 class="section-title">全量工程执行事件流 (Execution Events - 时序透明)</h3>
+              <div class="execution-events-list">
+                <div
+                  v-for="(ev, idx) in executionEvents"
+                  :key="idx"
+                  class="execution-event-item"
+                  :class="`ev-type-${ev.type || 'default'}`"
+                >
+                  <div class="ev-header">
+                    <span class="ev-index">#{{ idx + 1 }}</span>
+                    <span class="ev-name font-mono">{{ ev.type }}</span>
+                    <span v-if="ev.step !== undefined" class="ev-step">第 {{ ev.step }} 步</span>
+                    <span v-if="ev.elapsed_ms != null" class="ev-ms">{{ ev.elapsed_ms }}ms</span>
+                  </div>
+                  <div class="ev-body">
+                    <pre class="ev-json font-mono">{{ JSON.stringify(ev.data ?? ev, null, 2) }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <!-- 检索计划 Tab -->
@@ -1365,6 +1392,55 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.execution-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.execution-event-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.ev-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ev-index {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.ev-name {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.ev-step, .ev-ms {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.ev-json {
+  margin: 0;
+  background: #f8fafc;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
 .qa-debug {
   height: calc(100vh - 64px);
   display: flex;

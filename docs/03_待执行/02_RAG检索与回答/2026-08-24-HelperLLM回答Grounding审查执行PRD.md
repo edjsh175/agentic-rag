@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | V1.2 |
+| 文档版本 | V1.3 |
 | 日期 | 2026-08-24 |
 | 状态 | **实施完成（2026-08-24 验收通过）** |
 | 所属域 | `02_RAG检索与回答` |
@@ -131,8 +131,8 @@ Helper LLM Grounding Reviewer
 
 ```text
 Helper 是否返回合法 JSON
-是否包含 verdict
-verdict 是否属于约定枚举
+是否包含 coverage / summary / claim_reviews / rewrite_actions
+coverage / claim status / action 是否属于约定枚举
 claim_reviews 是否为数组
 返回的 evidence_id 是否属于当前 Evidence Snapshot
 是否超时
@@ -245,13 +245,16 @@ Frozen Evidence Snapshot
 Main Candidate Answer
 ```
 
-Helper 输出：
+Helper 输出语义事实：
 
 ```text
-PASS
-REVISE
-NO_SAFE_ANSWER
+coverage
+claim_reviews
+rewrite_actions
+summary
 ```
+
+最终 `PASS / REVISE / NO_SAFE_ANSWER` 由代码根据 `coverage + claim status` 做确定性状态映射；代码不自行判断任何 Claim 是否被 Evidence 支持。
 
 Helper **只审核，不直接替用户生成最终回答**。
 
@@ -364,7 +367,7 @@ Helper 必须执行以下任务：
 6. 区分用户问题上下文、事实声明和证据边界说明。
 7. 检查 Candidate 中的引用是否真的支持对应事实。
 8. 不使用模型自身世界知识为 Candidate 补证。
-9. 给出整体 `PASS / REVISE / NO_SAFE_ANSWER`。
+9. 给出 `coverage` 与逐 Claim 的语义判断；最终 `PASS / REVISE / NO_SAFE_ANSWER` 由状态机确定性生成。
 
 ### 7.2 Claim 类型
 
@@ -402,53 +405,26 @@ contradicted
 - `unsupported`：内容可能真实，但当前 Evidence 无法支持。
 - `contradicted`：Evidence 与该 Claim 明确冲突。
 
-### 7.4 整体 Verdict
+### 7.4 整体 Verdict 由状态机生成
 
-#### PASS
-
-满足：
+`verdict` 不再由 Helper 重复输出，而是由 Helper 的语义结果确定性映射：
 
 ```text
-所有 knowledge_claim 均 supported
-不存在 contradicted
-引用语义与 Evidence 一致
-不存在利用外部知识补充的事实
+coverage = NONE
+→ NO_SAFE_ANSWER
+
+coverage = FULL / PARTIAL
+且存在 unsupported / contradicted Claim
+→ REVISE
+
+coverage = FULL / PARTIAL
+且所有 Claim 均 supported
+→ PASS
 ```
 
-行为：
+这里的代码只做状态映射，不参与自然语言判断。`supported / unsupported / contradicted` 与 `coverage` 本身仍完全由 Helper 根据 Evidence 语义裁决。
 
-```text
-直接发布 Main Candidate
-```
-
-#### REVISE
-
-满足：
-
-```text
-Candidate 中存在 unsupported / contradicted
-但 Evidence 仍足以形成一个有意义的修正版回答
-```
-
-行为：
-
-```text
-Helper 将 Candidate 拆成原子事实（Atomic Claims）
-→ 为每个 Claim 返回 claim_id / status / evidence_ids / rewrite_action
-→ Main 只执行原子事实级 Grounded Rewrite
-→ Helper 再审一次
-```
-
-`REVISE` 的修正单位是**原子事实**，不是句子。不得因为一句话中混有一个 unsupported Claim 就删除整句，从而连带丢失同句中已经 supported 的事实。
-
-#### NO_SAFE_ANSWER
-
-只有满足以下条件之一时才允许进入：
-
-```text
-当前 Evidence 中不存在能够直接回答用户问题的有意义 supported 内容
-或 Evidence 与可回答部分存在明确冲突，无法形成安全结论
-```
+`REVISE` 的修正单位是**原子事实**，不是句子。Helper 只为 `unsupported / contradicted` Claim 返回 rewrite action；`supported` Claim 不再重复输出 `preserve`，避免同一语义被重复表达后产生协议冲突。
 
 特别强调：
 
@@ -458,27 +434,22 @@ Evidence 只能回答一部分 ≠ NO_SAFE_ANSWER
 删除 unsupported 后仍剩下有意义 supported 内容 ≠ NO_SAFE_ANSWER
 ```
 
-只要剩余 Evidence 还能支撑用户问题的一部分，就必须优先生成受限的部分答案，而不是直接返回无证据。
-
-行为：
-
-```text
-仅当 coverage = NONE 时：
-不发布 Candidate
-不摘抄 Chunk
-不调用 deterministic fallback
-返回受控 no-safe-answer 状态
-```
-
+只要剩余 Evidence 还能支撑用户问题的一部分，就必须优先生成受限的部分答案，而不是直接返回无证据。仅当 `coverage = NONE` 时，不发布 Candidate、不摘抄 Chunk、不调用 deterministic fallback。
 ### 7.5 Grounding Verdict 与回答覆盖度分离
 
 本设计不把“答案是否安全”和“答案是否完整”混为一个状态。
 
-Helper 同时输出两个维度：
+Helper 输出语义维度：
 
 ```text
-verdict  = PASS / REVISE / NO_SAFE_ANSWER
 coverage = FULL / PARTIAL / NONE
+claim status = supported / unsupported / contradicted
+```
+
+代码据此生成：
+
+```text
+verdict = PASS / REVISE / NO_SAFE_ANSWER
 ```
 
 语义如下：
@@ -503,7 +474,6 @@ coverage = FULL / PARTIAL / NONE
 
 ```json
 {
-  "verdict": "PASS",
   "coverage": "PARTIAL",
   "summary": "回答中的知识事实均可由当前证据支持，但当前证据只覆盖用户问题的一部分。",
   "claim_reviews": [
@@ -532,7 +502,6 @@ coverage = FULL / PARTIAL / NONE
 
 ```json
 {
-  "verdict": "REVISE",
   "coverage": "PARTIAL",
   "summary": "回答包含当前证据未支持的额外端口，但仍存在可支撑的部分答案。",
   "claim_reviews": [
@@ -555,11 +524,6 @@ coverage = FULL / PARTIAL / NONE
   ],
   "rewrite_actions": [
     {
-      "claim_id": "c1",
-      "action": "preserve",
-      "instruction": "保留该受支持事实及其证据边界。"
-    },
-    {
       "claim_id": "c2",
       "action": "rewrite_to_supported_scope_or_remove",
       "instruction": "不得继续断言 3478；如果 Evidence 只能确认信息缺失，则改写为当前资料未确认其他 UDP 端口。"
@@ -568,7 +532,7 @@ coverage = FULL / PARTIAL / NONE
 }
 ```
 
-代码只验证该 JSON 是否符合协议；不得重新判断 Helper 的语义结论是否正确。
+代码只验证该 JSON 是否符合协议，并根据 `coverage + claim status` 生成最终 verdict；不得重新判断 Helper 的语义结论是否正确。协议校验失败时允许同一 Helper 进行最多一次 Protocol Repair；Repair 只能修结构，`coverage / claim_id / claim / claim_type / status / evidence_ids` 必须保持不变，否则以 `protocol_repair_semantic_drift` fail-closed。
 
 ---
 
@@ -694,32 +658,34 @@ Helper 对每个 Claim 至少返回：
 ```text
 claim_id
 claim
+claim_type
 status = supported / unsupported / contradicted
 Evidence IDs
-rewrite_action
 ```
 
-推荐 action 语义：
+其中 **Atomic Claim 拆分必须先于 status 判定**：一个 Claim 只能表达一个可独立判定真假的事实属性、关系、条件或结论。不能因为多个事实位于同一句、共用引用编号或属于同一主题，就把它们合并成一个 `supported` Claim。复合句必须先拆分，再逐项绑定 `status + Evidence IDs`。
+
+`rewrite_actions` 是独立数组，只为问题 Claim 输出：
 
 ```text
 supported
-→ preserve
+→ 不输出 rewrite action
 
 unsupported
 → rewrite_to_supported_scope_or_remove
+→ add_limitation_statement
+→ correct_to_evidence（仅 Evidence 已给出可直接替换表述时）
 
 contradicted
 → correct_to_evidence
-
-需要表达证据边界
-→ add_limitation_statement
+→ rewrite_to_supported_scope_or_remove
 ```
 
-这些 action 由 Helper 产生；代码只校验协议并传给 Main，不自行根据文本内容决定 action。
+这些 action 由 Helper 产生；代码只校验协议并传给 Main，不自行根据文本内容决定 action。supported Claim 不再通过 `preserve` 重复表达同一语义。
 
 Main Rewrite 必须遵守：
 
-1. `preserve` 的 supported Claim 原则上必须保留，不得因同一句中存在错误 Claim 而整句删除。
+1. 没有 rewrite action 的 supported Atomic Claim 原则上必须保留，不得因相邻 Claim 存在错误而整段删除；前提是 Reviewer 已按原子事实正确拆分。
 2. `unsupported` Claim 优先缩回 Evidence 实际支持的范围；确实无法形成受支持表达时才删除该 Claim。
 3. `contradicted` Claim 必须纠正到 Evidence 支持的方向、条件和范围，不能只模糊化措辞逃避冲突。
 4. 可以新增 `limitation_statement`，明确哪些问题当前 Evidence 未覆盖。
@@ -728,6 +694,13 @@ Main Rewrite 必须遵守：
 核心原则：
 
 > **REVISE = 原子事实级 Grounded Rewrite；目标是修错并最大程度保留 supported 信息，而不是通过删除句子来通过审核。**
+
+补充稳定性约束：
+
+- `claim status` 是唯一语义来源。若 Helper 对 `supported` Claim 仍冗余输出 rewrite action，代码可直接丢弃该 action；不得让重复语义表达重新升级为 fatal protocol error。
+- Reviewer 对 Claim 的 supported/unsupported 判断必须与 Question coverage 解耦。即使用户问“用途/定位”，只要某条部署、配置、运行事实本身被 Evidence 明确支持，就不能因为它不足以完整回答“用途”而反判 unsupported；完整程度由 coverage 单独表达。
+- Evidence 的 section/title 或正文已经明确处于“部署 / 安装 / 配置 / 上传 / 创建目录”等过程语境时，Candidate 使用“在部署过程中”“配置时”等中性过程框架属于不增强语义的归纳；只有新增“为了实现 X / 因此负责 Y / 其目的在于 Z”等未被 Evidence 支持的目的、因果或业务用途，才判 unsupported。
+- Grounded Rewrite 中 `add_limitation_statement` 必须删除原 unsupported/contradicted 的正向事实断言，改为证据边界说明；不得在限制说明中再次把原事实作为肯定结论重复。
 
 ---
 
@@ -1013,7 +986,62 @@ final_mode = grounded_rewrite | grounded_partial
 如果失败：
 
 ```text
-final_mode = review_blocked | reviewer_error
+final_mode = review_blocked | reviewer_error | controller_error
+```
+
+Controller 决策协议也必须可观测。每个 Agent Step 的 `controller` 至少记录：
+
+```json
+{
+  "protocol_attempts": [
+    {
+      "attempt": 1,
+      "raw_response": "...",
+      "error": "malformed_finalize: finalize cannot carry tool"
+    },
+    {
+      "attempt": 2,
+      "raw_response": "...",
+      "error": null
+    }
+  ]
+}
+```
+
+Controller Protocol Repair 约束：
+
+```text
+- 最多一次；
+- 仍由同一个 Main Controller 完成；
+- 只允许修复 JSON / action / tool / arguments 等协议结构；
+- 不得把可识别的 tool_call 改成 finalize，或反向改变 action；
+- 不得把已可识别的目标工具替换为另一个工具；
+- Repair 仍失败或发生语义漂移时，进入 controller_error。
+```
+
+全链必须满足以下状态不变量：
+
+```text
+EvidencePool 非空时，Controller / Reviewer / Answer 模型异常不得映射为 no_knowledge。
+controller_error 必须保留出错前真实的 coverage / evidence_count，并明确表示“已有证据但控制器异常”。
+no_knowledge 只表示当前合法证据确实为空或与问题主体不可用于回答。
+```
+
+因此，以下情况是错误映射：
+
+```text
+11 个合法 Evidence + coverage=PARTIAL
+→ controller_decision_error
+→ final_mode=no_knowledge / coverage=NONE
+```
+
+正确行为是：
+
+```text
+11 个合法 Evidence + coverage=PARTIAL
+→ controller_decision_error
+→ final_mode=controller_error / coverage=PARTIAL
+→ 阻断回答生成，但保留本轮真实 Evidence 状态
 ```
 
 旧的：
@@ -1141,6 +1169,50 @@ Helper Reviewer 上线门槛：
 - 生产残留扫描未发现 `semantic_verifier`、`verify_grounding`、`DETERMINISTIC_GROUNDING_POLICY_VERSION`、`unsupported_latin_term`、`unsupported_semantic_operator`、`unsupported_semantic_relation` 参与当前生产发布路径。
 - 四份配置 `config.ini / config-local.ini / config-prod.ini / config-mix.ini` 已统一解析为 Main=`qwen3.5:9b`、Helper=`qwen3.5:4b`、Ollama=`http://192.168.10.158:11434`、`allow_general_knowledge=false`；主问答与图谱抽取不再默认使用 Google 外置模型。
 
+### 17.3 2026-08-25 在线稳定性复验与 Reviewer 流式超时修复
+
+对严格 StampServer 在线 E2E 进行串行稳定性复验：
+
+- Round 1：PASS，Trace `11ea28a6fe4e46e9b9d7bb95dc5ab1ef`，`coverage=PARTIAL`，Grounding PASS，发布 `grounded_partial`。
+- Round 2：FAIL，Trace `48bc8427418f4c8b93c0c33bd63097a3`，最终 `reviewer_error`。
+- Round 3：PASS，Trace `88266787af7844ee9e395453fa1088f6`，`coverage=PARTIAL`，Grounding PASS，发布 `grounded_partial`。
+
+Round 2 的 Retrieval、Controller、Answer Generation 均完成，失败点仅位于 Helper Grounding Reviewer 调用层。Trace 显示 Reviewer 已产生 reasoning，但最终没有形成结构化 JSON content：
+
+```text
+reasoning_chars = 47943
+content_chars = 0
+elapsed_ms = 277029.2
+error = ReadTimeout
+```
+
+同时 HTTP 层日志显示同一逻辑 Reviewer 调用发生多次 `ReadTimeout` 自动重试。进一步审查 `achat_stream_parts()` 发现：旧实现即使已经向调用方 yield 过 reasoning/content，也会在可重试网络异常后从头重新执行整个流式生成。这会把多个模型 attempt 的输出拼接进同一个逻辑调用，并可能重复展示 reasoning。
+
+修复后的流式重试不变量：
+
+```text
+尚未产生任何 streaming part
++ transient network error
+→ 允许按 endpoint.max_retries 重试
+
+已经产生任意 reasoning/content part
++ transient network error
+→ 禁止透明重试整次生成
+→ 直接把当前调用标记为失败
+```
+
+原因：流式生成一旦有输出逃逸，就不再具备 replay-safe 性质。透明重跑会造成重复 reasoning、重复 content 或跨 attempt 拼接，不能作为可靠的网络容错策略。
+
+Reviewer 专项 read timeout 同时由默认 `30s` 调整为 `120s`。该调整只作用于 Grounding Reviewer，不放大全局 Controller、Answer 或 Tool 超时。依据是：
+
+- Round 3 正常 Reviewer 单次调用总耗时约 39.3 秒；
+- Round 2 最后一段 reasoning 到失败之间存在超过 30 秒的读空窗；
+- 本地 Ollama 模型切换、长 reasoning 与结构化 JSON 生成之间可能存在较长无 chunk 时间。
+
+本次调整不改变 Reviewer 的 Prompt、Claim 语义判断、coverage/verdict 映射或 fail-closed 策略。若 120 秒后仍发生 `ReadTimeout`，当前 Candidate 仍必须阻断发布，不允许绕过 Reviewer。
+
+修复后必须重新执行连续在线稳定性验证；修复前的 2 PASS / 1 FAIL 仅作为事故基线，不计入修复后 3/3 验收。
+
 如果 `qwen3.5:4b` 达不到门槛：
 
 ```text
@@ -1152,6 +1224,58 @@ Helper Reviewer 上线门槛：
 ```
 
 不得通过重新堆硬编码 Grounding 规则“补齐”模型不足。
+
+### 17.4 Post-fix Round 1：Grounded Rewrite 输出预算耗尽
+
+修复 Reviewer 流式超时后重新执行 3 轮 StampServer 在线 E2E：
+
+- Post-fix Round 1：`review_blocked`，Trace `7b06695afaa649c2b8882e99c5d72be6`。
+- Post-fix Round 2：PASS，Trace `aee9bba1274a475d9b9f7d440f7a4615`。
+- Post-fix Round 3：PASS，Trace `cca76595199f4787b98e92666623a0cb`。
+
+Round 1 不是 Reviewer 超时，也不是二审语义波动。Trace 显示 Reviewer #1 正确输出 `REVISE + FULL`，唯一问题 Claim 为 `c5`，动作是 `correct_to_evidence`；随后 Main Grounded Rewrite 进入 `grounded_retry_v2`，但 `num_predict=4096` 被 native reasoning 全部消耗：
+
+```text
+reasoning_chars = 14406
+content_chars = 0
+num_predict = 4096
+elapsed_ms ~= 69749
+→ rewrite_empty_candidate
+→ review_blocked
+```
+
+该问题与此前 Reviewer `reasoning 有输出但 JSON content 为零` 属于同类输出预算失效模式，但发生在 Main Rewrite。根因是 V2 Rewrite 与 V1 Answer Generator 同属 Main `qwen3.5:9b`，却只有 V1 一半的输出预算；同时 V2 还需要读取 Frozen Evidence、Candidate V1 和 Review Contract，没有合理架构依据维持 4096。
+
+修复：Grounded Rewrite V2 的 `num_predict` 从 `4096` 对齐 Main Answer Generator V1 为 `8192`。不新增 StampServer 特判，不改变 Reviewer verdict、rewrite action 或 fail-closed 规则。
+
+新增/更新验证：
+
+- `test_agent_execution_transparency.py` 明确断言 grounded retry `num_predict == 8192`。
+- 透明流 + 两阶段 Agent 回归：`55 passed`。
+- 真实 `test_real_rewrite_micro_chain`：`1 passed`，证明 Main Rewrite 在真实 `qwen3.5:9b` 下可以产生非空 Candidate V2。
+
+由于生产逻辑再次发生修改，前述 Post-fix `FAIL / PASS / PASS` 仅作为修复前基线，不能计入最终 3/3 稳定性。必须基于 8192 修复重新执行完整在线 E2E 三轮。
+
+### 17.5 最终稳定性验收：Rewrite 闭环 + StampServer 3/3
+
+基于 Reviewer timeout / replay-safe streaming / Grounded Rewrite 8192 三项修复，重新执行真实模型验收：
+
+| 验收项 | 结果 | 耗时 | Trace |
+| --- | --- | ---: | --- |
+| Reviewer → Rewrite → Reviewer #2 微链 | **PASS** | 283.51s | 微链不持久化 QA Trace |
+| Final Round 1 | **PASS** | 194.70s | `05d6c3e6c2be434abb5e3ab68f116002` |
+| Final Round 2 | **PASS** | 154.89s | `5da8c04bfed0421a9f7883fe301fafc6` |
+| Final Round 3 | **PASS** | 162.77s | `0b19a58f97064c9c97b37a36094ed975` |
+
+三轮持久化 Trace 复核一致：
+
+- Final Round 1：Evidence 13，`coverage=PARTIAL`，Reviewer `PASS`，`unsupported=0`，`contradicted=0`，`final_mode=grounded_partial`。
+- Final Round 2：Evidence 9，`coverage=PARTIAL`，Reviewer `PASS`，`unsupported=0`，`contradicted=0`，`final_mode=grounded_partial`。
+- Final Round 3：Evidence 9，`coverage=PARTIAL`，Reviewer `PASS`，`unsupported=0`，`contradicted=0`，`final_mode=grounded_partial`。
+- 三轮 Controller 均执行 3 个 step；每个 step 的 `protocol_attempts` 均只有 attempt 1，且 `error=null`，没有触发 Protocol Repair。
+- 三轮均未出现 `controller_decision_error`、`reviewer_invocation_error`、`rewrite_empty_candidate`、`reviewer_error`、`review_blocked` 或 false `no_knowledge`。
+
+结论：**StampServer 真实在线主链稳定性验收通过（3/3）**。该结论只覆盖本 PRD 的 Grounding / Rewrite / Publication 真实链路，不等价于整个 Agent/RAG 项目的全部 DoD 已完成；原始 `pipeline → PipelineWebGL` 澄清与实体范围事故仍应单独执行真实 E2E 回归。
 
 ---
 

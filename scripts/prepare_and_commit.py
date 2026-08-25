@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: optimize helper grounding reviewer and align strategy PRD"
+    commit_msg = "feat: implement agent execution details block stream and scroll follow projection"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit

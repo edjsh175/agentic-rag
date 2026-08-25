@@ -33,10 +33,11 @@ describe('ChatMessage clarification card', () => {
         },
       },
       global: {
+        provide: {
+          [Symbol.for('vue-router')]: { push: () => {} },
+        },
         stubs: {
           AgentStepStream: true,
-          AgentThinkingBlock: true,
-          AgentToolTimeline: true,
           EvidencePanel: true,
         },
       },
@@ -66,7 +67,7 @@ describe('ChatMessage clarification card', () => {
 })
 
 describe('ChatMessage execution presentation', () => {
-  it('renders Agent execution, final answer, and sources without Pipeline status', () => {
+  it('renders Agent blocks stream, final answer, and sources without Pipeline status', () => {
     const wrapper = mount(ChatMessage, {
       props: {
         role: 'assistant',
@@ -74,14 +75,28 @@ describe('ChatMessage execution presentation', () => {
         content: '这是经审核的答案。',
         loading: false,
         status: '正在检索知识库…',
-        timelineItems: [
+        blocks: [
           {
-            type: 'decision',
-            eventKey: 'decision:1',
-            step: 1,
-            action: 'tool_call',
+            id: 'block_1',
+            kind: 'tool',
+            type: 'tool',
+            sequence: 1,
+            toolCallKey: 'tool:1:retrieve_kb',
             tool: 'retrieve_kb',
-            reason: '需要检索已审核证据。',
+            toolName: 'retrieve_kb',
+            label: '知识库检索',
+            description: '检索流水线部署',
+            status: 'completed',
+            isStreaming: false,
+          },
+          {
+            id: 'markdown_2',
+            kind: 'markdown',
+            type: 'markdown',
+            sequence: 2,
+            text: '这是经审核的答案。',
+            markdown: '这是经审核的答案。',
+            status: 'final',
           },
         ],
         sources: [
@@ -90,21 +105,20 @@ describe('ChatMessage execution presentation', () => {
             metadata: { source: '部署手册.md', citation_id: 1, title: '部署手册' },
           },
         ],
+        traceId: 'trace_123',
       },
       global: {
         stubs: {
-          AgentStepStream: true,
-          AgentThinkingBlock: true,
-          AgentToolTimeline: true,
           EvidencePanel: true,
         },
       },
     })
 
-    expect(wrapper.find('[data-testid="execution-timeline"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'AgentStepStream' }).exists()).toBe(true)
     expect(wrapper.get('[data-testid="final-answer"]').text()).toContain('这是经审核的答案。')
     expect(wrapper.get('[data-testid="answer-sources"]').text()).toContain('部署手册')
     expect(wrapper.find('[data-testid="pipeline-status"]').exists()).toBe(false)
+    expect(wrapper.find('.trace-detail-btn').exists()).toBe(true)
   })
 
   it('keeps Linear stage status and ignores Agent timeline presentation', () => {
@@ -115,26 +129,15 @@ describe('ChatMessage execution presentation', () => {
         content: '',
         loading: true,
         status: '正在检索知识库…',
-        timelineItems: [
-          {
-            type: 'decision',
-            eventKey: 'decision:1',
-            action: 'tool_call',
-            reason: '不应出现在 Linear 模式。',
-          },
-        ],
       },
       global: {
         stubs: {
-          AgentStepStream: true,
-          AgentThinkingBlock: true,
-          AgentToolTimeline: true,
           EvidencePanel: true,
         },
       },
     })
 
     expect(wrapper.get('[data-testid="pipeline-status"]').text()).toContain('正在检索知识库…')
-    expect(wrapper.find('[data-testid="execution-timeline"]').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'AgentStepStream' }).exists()).toBe(false)
   })
 })

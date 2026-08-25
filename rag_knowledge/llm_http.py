@@ -139,6 +139,18 @@ def _sync_retry(func, *, max_retries: int, role: str):
 
 
 @dataclass(frozen=True)
+class LLMStreamPart:
+    """One provider-native stream delta, separated by semantic channel."""
+
+    kind: str
+    delta: str
+
+    def __post_init__(self) -> None:
+        if self.kind not in {"reasoning", "content"}:
+            raise ValueError(f"unsupported stream part kind: {self.kind}")
+
+
+@dataclass(frozen=True)
 class ModelEndpoint:
     """Per-role model binding."""
 
@@ -250,6 +262,82 @@ def chat(
         return _sync_retry(_dispatch, max_retries=endpoint.max_retries, role=endpoint.role)
 
 
+async def achat_stream_parts(
+    endpoint: ModelEndpoint,
+    messages: list[dict[str, Any]],
+    *,
+    default_ollama: str = "",
+    temperature: float = 0.1,
+    timeout: float = 600.0,
+    num_predict: int | None = 2048,
+    think: bool = False,
+    num_ctx: int | None = None,
+    format_json: bool = False,
+    json_schema: dict[str, Any] | None = None,
+) -> AsyncIterator[LLMStreamPart]:
+    """Yield provider output with reasoning and content on separate channels."""
+    provider = endpoint.normalized_provider()
+    if provider not in SUPPORTED_PROVIDERS:
+        raise ValueError(f"unsupported provider: {provider}")
+    sem = _get_async_semaphore(endpoint.role, endpoint.concurrency_limit)
+
+    delay = 1.0
+    emitted_any = False
+    for attempt in range(endpoint.max_retries + 1):
+        try:
+            async with sem:
+                if provider == "ollama":
+                    stream = _astream_ollama(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                        think=think,
+                        num_ctx=num_ctx,
+                        format_json=format_json,
+                        json_schema=json_schema,
+                    )
+                elif provider == "openai":
+                    stream = _astream_openai(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                        format_json=format_json,
+                    )
+                else:
+                    stream = _astream_google(
+                        endpoint,
+                        messages,
+                        default_ollama=default_ollama,
+                        temperature=temperature,
+                        timeout=timeout,
+                        num_predict=num_predict,
+                        format_json=format_json,
+                    )
+                async for part in stream:
+                    emitted_any = True
+                    yield part
+                return
+        except Exception as exc:  # noqa: BLE001
+            # Once any streaming output has escaped, the generation is no longer
+            # replay-safe. Retrying from the beginning would duplicate partial
+            # reasoning/content and merge multiple attempts into one response.
+            if emitted_any or attempt == endpoint.max_retries or not _should_retry(exc):
+                raise
+            logger.warning(
+                "llm_http [%s] stream attempt %d/%d failed (%s: %s); retry in %.1fs",
+                endpoint.role, attempt + 1, endpoint.max_retries + 1,
+                type(exc).__name__, exc, delay,
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 16.0)
+
+
 async def achat_stream(
     endpoint: ModelEndpoint,
     messages: list[dict[str, Any]],
@@ -260,65 +348,35 @@ async def achat_stream(
     num_predict: int | None = 2048,
     think: bool = False,
     num_ctx: int | None = None,
+    format_json: bool = False,
+    json_schema: dict[str, Any] | None = None,
 ) -> AsyncIterator[str]:
-    """Yield assistant text deltas.
-
-    The *connection + first byte* phase is protected by an asyncio.Semaphore
-    (``endpoint.concurrency_limit``) and retried up to ``endpoint.max_retries``
-    times on transient errors.  Token streaming itself is not retried mid-stream
-    to avoid duplicate output.
-    """
-    provider = endpoint.normalized_provider()
-    sem = _get_async_semaphore(endpoint.role, endpoint.concurrency_limit)
-
-    delay = 1.0
-    for attempt in range(endpoint.max_retries + 1):
-        try:
-            async with sem:
-                if provider == "ollama":
-                    async for part in _astream_ollama(
-                        endpoint,
-                        messages,
-                        default_ollama=default_ollama,
-                        temperature=temperature,
-                        timeout=timeout,
-                        num_predict=num_predict,
-                        think=think,
-                        num_ctx=num_ctx,
-                    ):
-                        yield part
-                    return
-                if provider == "openai":
-                    async for part in _astream_openai(
-                        endpoint,
-                        messages,
-                        default_ollama=default_ollama,
-                        temperature=temperature,
-                        timeout=timeout,
-                        num_predict=num_predict,
-                    ):
-                        yield part
-                    return
-                async for part in _astream_google(
-                    endpoint,
-                    messages,
-                    default_ollama=default_ollama,
-                    temperature=temperature,
-                    timeout=timeout,
-                    num_predict=num_predict,
-                ):
-                    yield part
-                return
-        except Exception as exc:  # noqa: BLE001
-            if attempt == endpoint.max_retries or not _should_retry(exc):
-                raise
-            logger.warning(
-                "llm_http [%s] stream attempt %d/%d failed (%s: %s); retry in %.1fs",
-                endpoint.role, attempt + 1, endpoint.max_retries + 1,
-                type(exc).__name__, exc, delay,
-            )
-            await asyncio.sleep(delay)
-            delay = min(delay * 2, 16.0)
+    """Compatibility stream that serializes reasoning as ``<think>`` blocks."""
+    in_reasoning = False
+    async for part in achat_stream_parts(
+        endpoint,
+        messages,
+        default_ollama=default_ollama,
+        temperature=temperature,
+        timeout=timeout,
+        num_predict=num_predict,
+        think=think,
+        num_ctx=num_ctx,
+        format_json=format_json,
+        json_schema=json_schema,
+    ):
+        if part.kind == "reasoning":
+            if not in_reasoning:
+                yield "<think>"
+                in_reasoning = True
+            yield part.delta
+            continue
+        if in_reasoning:
+            yield "</think>"
+            in_reasoning = False
+        yield part.delta
+    if in_reasoning:
+        yield "</think>"
 
 
 def _resolve_default_num_ctx(num_ctx: int | None) -> int:
@@ -494,7 +552,9 @@ async def _astream_ollama(
     num_predict: int | None,
     think: bool,
     num_ctx: int | None = None,
-) -> AsyncIterator[str]:
+    format_json: bool = False,
+    json_schema: dict[str, Any] | None = None,
+) -> AsyncIterator[LLMStreamPart]:
     base = endpoint.resolved_base_url(default_ollama)
     options: dict[str, Any] = {
         "temperature": temperature,
@@ -506,7 +566,7 @@ async def _astream_ollama(
     options["num_ctx"] = _resolve_default_num_ctx(num_ctx)
     if think:
         options["thinking"] = True
-    payload = {
+    payload: dict[str, Any] = {
         "model": endpoint.model,
         "messages": messages,
         "stream": True,
@@ -515,12 +575,15 @@ async def _astream_ollama(
         "think": bool(think),
         "options": options,
     }
+    if json_schema is not None:
+        payload["format"] = json_schema
+    elif format_json:
+        payload["format"] = "json"
     async with async_client(base_url=base, timeout=timeout) as client:
         async with client.stream("POST", "/api/chat", json=payload) as resp:
             if resp.status_code != 200:
                 body = await resp.aread()
                 raise RuntimeError(f"ollama stream HTTP {resp.status_code}: {body[:300]!r}")
-            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line:
                     continue
@@ -532,17 +595,9 @@ async def _astream_ollama(
                 thinking_piece = msg.get("thinking") or ""
                 content_piece = msg.get("content") or ""
                 if thinking_piece:
-                    if not in_thinking:
-                        yield "<think>"
-                        in_thinking = True
-                    yield thinking_piece
+                    yield LLMStreamPart("reasoning", str(thinking_piece))
                 if content_piece:
-                    if in_thinking:
-                        yield "</think>"
-                        in_thinking = False
-                    yield content_piece
-            if in_thinking:
-                yield "</think>"
+                    yield LLMStreamPart("content", str(content_piece))
 
 
 async def _astream_openai(
@@ -553,7 +608,8 @@ async def _astream_openai(
     temperature: float,
     timeout: float,
     num_predict: int | None,
-) -> AsyncIterator[str]:
+    format_json: bool = False,
+) -> AsyncIterator[LLMStreamPart]:
     base = endpoint.resolved_base_url(default_ollama)
     api_key = endpoint.resolved_api_key()
     if not api_key:
@@ -567,6 +623,8 @@ async def _astream_openai(
     }
     if num_predict is not None:
         payload["max_tokens"] = num_predict
+    if format_json:
+        payload["response_format"] = {"type": "json_object"}
     async with async_client(timeout=timeout) as client:
         async with client.stream(
             "POST", f"{base}/chat/completions", headers=headers, json=payload
@@ -574,7 +632,6 @@ async def _astream_openai(
             if resp.status_code != 200:
                 body = await resp.aread()
                 raise RuntimeError(f"openai stream HTTP {resp.status_code}: {body[:300]!r}")
-            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line or not line.startswith("data:"):
                     continue
@@ -592,17 +649,9 @@ async def _astream_openai(
                 reasoning_piece = delta.get("reasoning_content") or delta.get("reasoning") or ""
                 content_piece = delta.get("content") or ""
                 if reasoning_piece:
-                    if not in_thinking:
-                        yield "<think>"
-                        in_thinking = True
-                    yield reasoning_piece
+                    yield LLMStreamPart("reasoning", str(reasoning_piece))
                 if content_piece:
-                    if in_thinking:
-                        yield "</think>"
-                        in_thinking = False
-                    yield content_piece
-            if in_thinking:
-                yield "</think>"
+                    yield LLMStreamPart("content", str(content_piece))
 
 
 async def _astream_google(
@@ -613,7 +662,8 @@ async def _astream_google(
     temperature: float,
     timeout: float,
     num_predict: int | None,
-) -> AsyncIterator[str]:
+    format_json: bool = False,
+) -> AsyncIterator[LLMStreamPart]:
     base = endpoint.resolved_base_url(default_ollama)
     api_key = endpoint.resolved_api_key()
     if not api_key:
@@ -623,14 +673,13 @@ async def _astream_google(
     if "alt=" not in url:
         url = url + ("&" if "?" in url else "?") + "alt=sse"
     body = _to_google_body(
-        messages, temperature=temperature, format_json=False, num_predict=num_predict
+        messages, temperature=temperature, format_json=format_json, num_predict=num_predict
     )
     async with async_client(timeout=timeout) as client:
         async with client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 raw = await resp.aread()
                 raise RuntimeError(f"google stream HTTP {resp.status_code}: {raw[:300]!r}")
-            in_thinking = False
             async for line in resp.aiter_lines():
                 if not line:
                     continue
@@ -650,17 +699,9 @@ async def _astream_google(
                         thought = part.get("thought") or ""
                         text = part.get("text") or ""
                         if thought:
-                            if not in_thinking:
-                                yield "<think>"
-                                in_thinking = True
-                            yield str(thought)
+                            yield LLMStreamPart("reasoning", str(thought))
                         if text:
-                            if in_thinking:
-                                yield "</think>"
-                                in_thinking = False
-                            yield str(text)
-            if in_thinking:
-                yield "</think>"
+                            yield LLMStreamPart("content", str(text))
 
 
 def chat_role(cfg: Any, role: str, messages: list[dict[str, Any]], **kwargs: Any) -> str:

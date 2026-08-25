@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import logging
 import re
 from typing import Any, Callable
@@ -382,6 +382,7 @@ class AnswerFinalizer:
                     },
                 })
                 review2 = self._invoke_reviewer(reviewer, question, context_docs, retried)
+                review2 = self._freeze_review_coverage(review2, review1.coverage)
                 last_review = review2
                 review_count = 2
                 _emit(self._review_status_event(review2, review_count=2))
@@ -518,12 +519,13 @@ class AnswerFinalizer:
 
         # 3. Blocked from publication
         last_verdict = last_review.verdict
+        last_coverage = last_review.coverage
         _emit({
             "type": "publication",
             "data": {
                 "final_mode": "review_blocked",
                 "review_verdict": last_verdict,
-                "coverage": "NONE",
+                "coverage": last_coverage,
                 "published_candidate_attempt": None,
                 "message": "候选答案未能通过证据审核，已阻断发布。",
             },
@@ -533,7 +535,7 @@ class AnswerFinalizer:
             grounding={
                 "policy": "strict_kb",
                 "verdict": "blocked",
-                "coverage": "NONE",
+                "coverage": last_coverage,
                 "review_verdict": last_verdict,
                 "review_count": review_count,
                 "review_attempts": review_count,
@@ -549,6 +551,29 @@ class AnswerFinalizer:
                 "fallback_used": False,
             },
         )
+
+    @staticmethod
+    def _freeze_review_coverage(
+        result: HelperGroundingReviewResult,
+        coverage: str,
+    ) -> HelperGroundingReviewResult:
+        """Keep Question × Frozen Evidence coverage invariant across Candidate rewrites."""
+        if result.error or result.verdict == "ERROR":
+            return result
+        problem_claims = [
+            claim
+            for claim in result.claim_reviews
+            if claim.status in {"unsupported", "contradicted"}
+        ]
+        if coverage == "NONE":
+            verdict = "NO_SAFE_ANSWER"
+        elif problem_claims:
+            verdict = "REVISE"
+        else:
+            verdict = "PASS"
+        if result.coverage == coverage and result.verdict == verdict:
+            return result
+        return replace(result, coverage=coverage, verdict=verdict)
 
     @staticmethod
     def _review_status_event(

@@ -12,9 +12,11 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +39,7 @@ class RetrievalQuery:
 
 _CONTEXTUALIZE_PROMPT = """你是对话式 RAG 查询上下文化助手。
 你不会回答问题，只负责把当前用户问题改写成适合知识库检索的独立查询。
+如果模型提供方暴露独立的 reasoning/thinking channel，该 channel 中的分析与改写判断必须使用简体中文；代码、JSON 字段名、API 名称和专有名词保持原文。
 
 要求：
 1. 如果当前问题依赖历史（如"再详细说明一下""第3步呢？""为什么？"），
@@ -240,6 +243,7 @@ class QueryContextualizer:
         focus_text: str = "",
         rolling_summary: str = "",
         recent_rounds: int = 2,
+        on_reasoning_event=None,
     ) -> dict[str, Any]:
         """将用户问题上下文化，返回独立检索查询。
 
@@ -281,7 +285,11 @@ class QueryContextualizer:
         # 尝试 LLM
         try:
             res = self._contextualize_via_llm(
-                q, history_text, sources_text, last_user
+                q,
+                history_text,
+                sources_text,
+                last_user,
+                on_reasoning_event=on_reasoning_event,
             )
         except Exception as e:
             logger.warning("Helper 上下文化失败，升级 Main: %s", e)
@@ -295,6 +303,7 @@ class QueryContextualizer:
                     last_user,
                     role=ModelRoutePolicy(self._cfg).linear_escalation_role(),
                     stage="linear_escalation",
+                    on_reasoning_event=on_reasoning_event,
                 )
             except Exception as escalation_error:
                 logger.warning(
@@ -334,6 +343,7 @@ class QueryContextualizer:
         focus_text: str = "",
         rolling_summary: str = "",
         recent_rounds: int = 2,
+        on_reasoning_event=None,
     ) -> list[RetrievalQuery]:
         """生成带类型与权重的多角度检索查询。"""
         specs, _meta = self.build_query_specs_with_meta(
@@ -343,6 +353,7 @@ class QueryContextualizer:
             focus_text=focus_text,
             rolling_summary=rolling_summary,
             recent_rounds=recent_rounds,
+            on_reasoning_event=on_reasoning_event,
         )
         return specs
 
@@ -356,6 +367,7 @@ class QueryContextualizer:
         rolling_summary: str = "",
         recent_rounds: int = 2,
         drop_history_anchors: bool = False,
+        on_reasoning_event=None,
     ) -> tuple[list[RetrievalQuery], dict[str, Any]]:
         """生成检索查询，并返回上下文化元数据（供 Understanding 一次消费）。
 
@@ -380,6 +392,7 @@ class QueryContextualizer:
             focus_text=focus_text,
             rolling_summary=rolling_summary,
             recent_rounds=recent_rounds,
+            on_reasoning_event=on_reasoning_event,
         )
         standalone = ctx.get("standalone_query", q)
         search_queries = ctx.get("search_queries", [])
@@ -538,6 +551,7 @@ class QueryContextualizer:
         *,
         role: str | None = None,
         stage: str = "common_stage1",
+        on_reasoning_event=None,
     ) -> dict[str, Any]:
         """通过 LLM 调用完成上下文化。"""
         prompt = _CONTEXTUALIZE_PROMPT.format(
@@ -546,19 +560,92 @@ class QueryContextualizer:
             question=question,
         )
 
-        from rag_knowledge.llm_http import chat_role
+        from rag_knowledge.llm_http import achat_stream_parts, chat_role
         from rag_knowledge.services.model_routing import ModelRoutePolicy
 
-        raw = chat_role(
-            self._cfg,
-            role or ModelRoutePolicy(self._cfg).common_stage1_role(),
-            [{"role": "user", "content": prompt}],
-            temperature=0.0,
-            num_predict=512,
-            timeout=float(self._timeout),
-            think=False,
-            stage=stage,
-        ).strip()
+        resolved_role = role or ModelRoutePolicy(self._cfg).common_stage1_role()
+        messages = [{"role": "user", "content": prompt}]
+        if on_reasoning_event is None:
+            raw = chat_role(
+                self._cfg,
+                resolved_role,
+                messages,
+                temperature=0.0,
+                num_predict=512,
+                timeout=float(self._timeout),
+                think=False,
+                stage=stage,
+            ).strip()
+        else:
+            endpoint = self._cfg.endpoint_for(resolved_role)
+            call_id = f"{stage}_contextualize"
+            started = time.perf_counter()
+            reasoning_available = False
+            reasoning_chars = 0
+            content_parts: list[str] = []
+            reasoning_num_predict = 2048
+            on_reasoning_event({
+                "type": "llm_reasoning_start",
+                "data": {
+                    "call_id": call_id,
+                    "role": "helper" if resolved_role == "helper_llm" else "main",
+                    "stage": stage,
+                    "model": endpoint.model,
+                    "provider": endpoint.normalized_provider(),
+                },
+            })
+
+            async def _collect() -> None:
+                nonlocal reasoning_available, reasoning_chars
+                async for part in achat_stream_parts(
+                    endpoint,
+                    messages,
+                    default_ollama=getattr(self._cfg, "ollama_base_url", ""),
+                    temperature=0.0,
+                    timeout=float(self._timeout),
+                    num_predict=reasoning_num_predict,
+                    think=True,
+                    num_ctx=self._cfg.context_budget.context_window,
+                ):
+                    if part.kind == "reasoning":
+                        reasoning_available = True
+                        reasoning_chars += len(part.delta)
+                        on_reasoning_event({
+                            "type": "llm_reasoning_delta",
+                            "data": {
+                                "call_id": call_id,
+                                "role": "helper" if resolved_role == "helper_llm" else "main",
+                                "stage": stage,
+                                "delta": part.delta,
+                            },
+                        })
+                    else:
+                        content_parts.append(part.delta)
+
+            error_name: str | None = None
+            try:
+                asyncio.run(_collect())
+            except Exception as exc:
+                error_name = type(exc).__name__
+                raise
+            finally:
+                on_reasoning_event({
+                    "type": "llm_reasoning_end",
+                    "data": {
+                        "call_id": call_id,
+                        "role": "helper" if resolved_role == "helper_llm" else "main",
+                        "stage": stage,
+                        "model": endpoint.model,
+                        "provider": endpoint.normalized_provider(),
+                        "reasoning_available": reasoning_available,
+                        "reasoning_chars": reasoning_chars,
+                        "content_chars": sum(len(part) for part in content_parts),
+                        "num_predict": reasoning_num_predict,
+                        "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
+                        **({"error": error_name} if error_name else {}),
+                    },
+                })
+            raw = "".join(content_parts).strip()
 
         # 清洗可能的 markdown 代码块包装
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw)

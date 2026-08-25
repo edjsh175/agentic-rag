@@ -41,7 +41,6 @@ def _revise_reviewer():
             {"claim_id": "c2", "claim": "未支持断言", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
         ],
         "rewrite_actions": [
-            {"claim_id": "c1", "action": "preserve", "instruction": "保留有效断言"},
             {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除未支持断言"}
         ]
     }""")
@@ -118,7 +117,7 @@ def test_candidate_v1_pass_partial_publishes_grounded_partial():
     assert res.grounding["coverage"] == "PARTIAL"
 
 
-def test_candidate_v1_revise_and_v2_pass_full():
+def test_candidate_v1_revise_and_v2_pass_keeps_frozen_partial_coverage():
     finalizer = AnswerFinalizer()
     docs = [_source(1, "StampServer 支持在线发布。")]
 
@@ -137,7 +136,6 @@ def test_candidate_v1_revise_and_v2_pass_full():
                     {"claim_id": "c2", "claim": "支持离线发布", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
                 ],
                 "rewrite_actions": [
-                    {"claim_id": "c1", "action": "preserve", "instruction": "保留在线发布"},
                     {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除离线发布"}
                 ]
             }"""
@@ -156,8 +154,8 @@ def test_candidate_v1_revise_and_v2_pass_full():
 
     def _retry(review_result):
         retry_called.append(review_result)
-        assert len(review_result.rewrite_actions) == 2
-        assert [action.claim_id for action in review_result.rewrite_actions] == ["c1", "c2"]
+        assert len(review_result.rewrite_actions) == 1
+        assert [action.claim_id for action in review_result.rewrite_actions] == ["c2"]
         return "StampServer 支持在线发布。[1]"
 
     res = finalizer.finalize(
@@ -170,10 +168,10 @@ def test_candidate_v1_revise_and_v2_pass_full():
 
     assert len(retry_called) == 1
     assert res.answer == "StampServer 支持在线发布。[1]"
-    assert res.final_mode == "grounded_rewrite"
+    assert res.final_mode == "grounded_partial"
     assert res.grounding["review_verdict"] == "PASS"
     assert res.grounding["review_attempts"] == 2
-    assert res.grounding["coverage"] == "FULL"
+    assert res.grounding["coverage"] == "PARTIAL"
 
 
 def test_candidate_v1_revise_and_v2_pass_partial():
@@ -195,7 +193,6 @@ def test_candidate_v1_revise_and_v2_pass_partial():
                     {"claim_id": "c2", "claim": "必须开放 3478", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
                 ],
                 "rewrite_actions": [
-                    {"claim_id": "c1", "action": "preserve", "instruction": "保留 31443"},
                     {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除 3478，若无其他端口说明资料未确认"}
                 ]
             }"""
@@ -230,6 +227,50 @@ def test_candidate_v1_revise_and_v2_pass_partial():
     assert res.grounding["coverage"] == "PARTIAL"
 
 
+def test_candidate_v2_cannot_change_frozen_coverage_to_none():
+    finalizer = AnswerFinalizer()
+    docs = [_source(1, "StampServer 提供授权服务。")]
+    review_count = 0
+
+    def _caller(_msgs):
+        nonlocal review_count
+        review_count += 1
+        if review_count == 1:
+            return """{
+                "coverage": "PARTIAL",
+                "summary": "需要修改",
+                "claim_reviews": [
+                    {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "负责模型处理", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                ],
+                "rewrite_actions": [
+                    {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除模型处理"}
+                ]
+            }"""
+        return """{
+            "coverage": "NONE",
+            "summary": "错误地改变 coverage",
+            "claim_reviews": [
+                {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                {"claim_id": "c2", "claim": "仍有未支持内容", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+            ],
+            "rewrite_actions": []
+        }"""
+
+    res = finalizer.finalize(
+        "StampServer 提供授权服务，同时负责模型处理。",
+        "StampServer 的主要用途是什么？",
+        docs,
+        retry_candidate=lambda _review: "StampServer 提供授权服务，但仍有未支持内容。",
+        helper_reviewer=HelperGroundingReviewer(_caller),
+    )
+
+    assert res.final_mode == "review_blocked"
+    assert res.grounding["review_verdict"] == "REVISE"
+    assert res.grounding["coverage"] == "PARTIAL"
+    assert res.grounding["attempts"][1]["coverage"] == "PARTIAL"
+
+
 def test_candidate_v1_revise_and_v2_fail_blocks():
     finalizer = AnswerFinalizer()
     docs = [_source(1, "StampServer 资料。")]
@@ -250,6 +291,7 @@ def test_candidate_v1_revise_and_v2_fail_blocks():
     assert res.answer == REVIEW_BLOCKED_ANSWER
     assert res.final_mode == "review_blocked"
     assert res.grounding["review_verdict"] == "REVISE"
+    assert res.grounding["coverage"] == "PARTIAL"
     assert res.grounding["review_attempts"] == 2
 
 
