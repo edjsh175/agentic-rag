@@ -71,6 +71,17 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
 
     scope = conversation.scope
     identity_scope_id = str(getattr(scope, "scope_id", "") or "")
+    for group in evidence.groups:
+        if group.status != "ACTIVE":
+            continue
+        for doc in group.docs:
+            meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+            if not meta.get("candidate_pipeline_v2"):
+                continue
+            if group.kind not in {"retrieve", "relation", "reuse", "previous_turn_cited"}:
+                return {"allow_knowledge_answer": False, "reason": "v2_non_retrieve_evidence"}
+            if meta.get("admission_verdict") and meta.get("admission_verdict") != "PASS":
+                return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
     grant_groups = [
         group for group in evidence.groups
         if group.status == "ACTIVE" and group.kind == "retrieve" and group.grant_id
@@ -80,7 +91,7 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             if meta.get("source_type") == "external":
                 continue
-            if getattr(group, "grant_id", None) and meta.get("admission_verdict") not in {None, "PASS"}:
+            if meta.get("candidate_pipeline_v2") and meta.get("admission_verdict") != "PASS":
                 return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
             if str(meta.get("grant_id") or "") != str(group.grant_id or ""):
                 return {"allow_knowledge_answer": False, "reason": "grant_id_mismatch"}

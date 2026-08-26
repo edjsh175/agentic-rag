@@ -209,6 +209,19 @@ class AgentOrchestrationConfig:
     # deliberately Agent-only: legacy linear retrieval keeps its existing
     # compatibility contract until it is retired separately.
     candidate_pipeline_v2: bool = True
+    # Agent Graph Bootstrap & WorkingSet settings (PRD 2026-08-26)
+    graph_bootstrap_enabled: bool = True
+    graph_bootstrap_hops: int = 1
+    graph_max_hops_per_expansion: int = 2
+    graph_max_total_depth: int = 3
+    graph_max_expansion_calls: int = 2
+    graph_max_entities_total: int = 24
+    graph_max_relations_total: int = 64
+    graph_relation_admission_enabled: bool = True
+    agent_graph_working_set_v1: bool = True
+    reasoning_stream_policy: str = "summarized"
+    trace_reasoning_policy: str = "summarized"
+    trace_reasoning_max_chars: int = 4000
 
 
 @dataclass
@@ -626,6 +639,42 @@ class Config:
             candidate_pipeline_v2=_get(
                 "agent_orchestration", "candidate_pipeline_v2", "true"
             ).lower() == "true",
+            graph_bootstrap_enabled=_get(
+                "agent_orchestration", "graph_bootstrap_enabled", "true"
+            ).lower() == "true",
+            graph_bootstrap_hops=int(
+                _get("agent_orchestration", "graph_bootstrap_hops", "1")
+            ),
+            graph_max_hops_per_expansion=int(
+                _get("agent_orchestration", "graph_max_hops_per_expansion", "2")
+            ),
+            graph_max_total_depth=int(
+                _get("agent_orchestration", "graph_max_total_depth", "3")
+            ),
+            graph_max_expansion_calls=int(
+                _get("agent_orchestration", "graph_max_expansion_calls", "2")
+            ),
+            graph_max_entities_total=int(
+                _get("agent_orchestration", "graph_max_entities_total", "24")
+            ),
+            graph_max_relations_total=int(
+                _get("agent_orchestration", "graph_max_relations_total", "64")
+            ),
+            graph_relation_admission_enabled=_get(
+                "agent_orchestration", "graph_relation_admission_enabled", "true"
+            ).lower() == "true",
+            agent_graph_working_set_v1=_get(
+                "agent_orchestration", "agent_graph_working_set_v1", "true"
+            ).lower() == "true",
+            reasoning_stream_policy=_get(
+                "agent_orchestration", "reasoning_stream_policy", "summarized"
+            ).strip().lower(),
+            trace_reasoning_policy=_get(
+                "agent_orchestration", "trace_reasoning_policy", "summarized"
+            ).strip().lower(),
+            trace_reasoning_max_chars=int(
+                _get("agent_orchestration", "trace_reasoning_max_chars", "4000")
+            ),
         )
 
         self.model_routing = ModelRoutingConfig(

@@ -1,0 +1,316 @@
+"""Multi-root GraphWorkingSet, GraphEntityState, GraphRelationCandidate and GraphBudget (PRD 2026-08-26)."""
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class GraphEntityState:
+    """State tracking for a single graph node in the multi-root working set."""
+
+    entity_id: str
+    canonical_name: str
+    entity_type: str = ""
+    depth_from_root: int = 0  # Local depth relative to origin_root
+    origin_root: str = ""
+    is_root: bool = False
+    is_frontier: bool = True
+    first_seen_via_relation_id: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entity_id": self.entity_id,
+            "canonical_name": self.canonical_name,
+            "entity_type": self.entity_type,
+            "depth_from_root": self.depth_from_root,
+            "origin_root": self.origin_root,
+            "is_root": self.is_root,
+            "is_frontier": self.is_frontier,
+            "first_seen_via_relation_id": self.first_seen_via_relation_id,
+        }
+
+
+@dataclass
+class GraphRelationCandidate:
+    """Graph edge candidate in the working set, pending or passed relation admission."""
+
+    relation_id: str
+    source_entity_id: str
+    source_name: str
+    source_type: str
+    relation_type: str
+    target_entity_id: str
+    target_name: str
+    target_type: str
+    review_status: str = "approved"
+    confidence: float = 1.0
+    depth_from_root: int = 1
+    origin_root: str = ""
+    discovery_source: str = "bootstrap"  # bootstrap | depth_expansion | root_expansion
+    discovery_path: tuple[str, ...] = ()
+
+    @property
+    def relation_key(self) -> str:
+        return f"{self.source_name} -[{self.relation_type}]-> {self.target_name}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "relation_id": self.relation_id,
+            "relation_key": self.relation_key,
+            "source_entity_id": self.source_entity_id,
+            "source_name": self.source_name,
+            "source_type": self.source_type,
+            "relation_type": self.relation_type,
+            "target_entity_id": self.target_entity_id,
+            "target_name": self.target_name,
+            "target_type": self.target_type,
+            "review_status": self.review_status,
+            "confidence": self.confidence,
+            "depth_from_root": self.depth_from_root,
+            "origin_root": self.origin_root,
+            "discovery_source": self.discovery_source,
+            "discovery_path": list(self.discovery_path),
+        }
+
+
+@dataclass
+class GraphPathCandidate:
+    """Multi-hop path candidate in the working set for candidate ranking and tracing."""
+
+    path_id: str
+    nodes: tuple[str, ...]
+    edges: tuple[str, ...]
+    length: int = 0
+    origin_root: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path_id": self.path_id,
+            "nodes": list(self.nodes),
+            "edges": list(self.edges),
+            "length": self.length,
+            "origin_root": self.origin_root,
+        }
+
+
+@dataclass
+class GraphBudget:
+    """Query-scoped graph execution budget independent from text retrieval budget."""
+
+    bootstrap_calls: int = 0
+    expansion_calls: int = 0
+    entities_seen: int = 0
+    relations_seen: int = 0
+    max_expansion_calls: int = 2
+    max_entities_total: int = 24
+    max_relations_total: int = 64
+    max_total_depth: int = 3  # Per-root local depth cap
+
+    def remaining_expansion_calls(self) -> int:
+        return max(0, self.max_expansion_calls - self.expansion_calls)
+
+    def can_expand(self) -> bool:
+        return (
+            self.expansion_calls < self.max_expansion_calls
+            and self.entities_seen < self.max_entities_total
+            and self.relations_seen < self.max_relations_total
+        )
+
+    def consume_expansion(self) -> bool:
+        if not self.can_expand():
+            return False
+        self.expansion_calls += 1
+        return True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "bootstrap_calls": self.bootstrap_calls,
+            "expansion_calls": self.expansion_calls,
+            "remaining_expansion_calls": self.remaining_expansion_calls(),
+            "expansion_allowed": self.can_expand(),
+            "entities_seen": self.entities_seen,
+            "relations_seen": self.relations_seen,
+            "max_expansion_calls": self.max_expansion_calls,
+            "max_entities_total": self.max_entities_total,
+            "max_relations_total": self.max_relations_total,
+            "max_total_depth": self.max_total_depth,
+        }
+
+
+@dataclass
+class GraphWorkingSet:
+    """Agent Query 级一等多根局部图谱世界状态对象（Multi-root GraphWorkingSet）."""
+
+    graph_scope_id: str = field(default_factory=lambda: f"gws_{uuid.uuid4().hex[:12]}")
+    question_id: str = ""
+    graph_revision: str = "rev_v1"
+
+    exploration_roots: tuple[str, ...] = ()  # 探索起点集合（含 anchor 及后续授权扩展的 root）
+    anchor_entities: tuple[str, ...] = ()    # 原始锚定实体集合
+
+    entities: dict[str, GraphEntityState] = field(default_factory=dict)
+    relations: dict[str, GraphRelationCandidate] = field(default_factory=dict)
+    paths: list[GraphPathCandidate] = field(default_factory=list)
+
+    frontier_entity_ids: tuple[str, ...] = ()
+    visited_entity_ids: set[str] = field(default_factory=set)
+    visited_relation_ids: set[str] = field(default_factory=set)
+
+    max_depth_reached: int = 0
+    expansion_signatures: set[str] = field(default_factory=set)
+    expansion_calls: int = 0
+    bootstrap_status: str = "NOT_STARTED"  # NOT_STARTED | COMPLETE | EMPTY | UNAVAILABLE | DISABLED
+    last_graph_status: str = "PROGRESS"    # PROGRESS | NO_PROGRESS | DENIED | ERROR
+
+    budget: GraphBudget = field(default_factory=GraphBudget)
+    admitted_relation_ids: set[str] = field(default_factory=set)
+
+    def add_root(
+        self,
+        root_name: str,
+        *,
+        entity_id: str | None = None,
+        entity_type: str = "Product",
+    ) -> GraphEntityState:
+        """Register a new exploration root into the working set (local depth = 0)."""
+        norm_name = str(root_name or "").strip()
+        if not norm_name:
+            raise ValueError("root_name cannot be empty")
+        if norm_name not in self.exploration_roots:
+            self.exploration_roots = (*self.exploration_roots, norm_name)
+        eid = str(entity_id or f"ent_{hashlib.sha256(norm_name.encode()).hexdigest()[:12]}")
+        key = norm_name.casefold()
+        existing = self.entities.get(key)
+        if existing is not None:
+            existing.is_root = True
+            existing.origin_root = norm_name
+            existing.depth_from_root = 0
+            self.visited_entity_ids.add(existing.entity_id)
+            return existing
+
+        state = GraphEntityState(
+            entity_id=eid,
+            canonical_name=norm_name,
+            entity_type=entity_type,
+            depth_from_root=0,
+            origin_root=norm_name,
+            is_root=True,
+            is_frontier=True,
+        )
+        self.entities[key] = state
+        self.visited_entity_ids.add(eid)
+        self.budget.entities_seen = len(self.entities)
+        return state
+
+    def add_entity(self, state: GraphEntityState) -> bool:
+        """Add or update an entity state. Returns True if this is a newly discovered entity."""
+        key = str(state.canonical_name or state.entity_id).strip().casefold()
+        if not key:
+            return False
+        is_new = key not in self.entities
+        if is_new:
+            self.entities[key] = state
+            self.budget.entities_seen = len(self.entities)
+            if state.depth_from_root > self.max_depth_reached:
+                self.max_depth_reached = state.depth_from_root
+        else:
+            existing = self.entities[key]
+            # Update to shorter depth if discovered via a shorter path from a root
+            if state.depth_from_root < existing.depth_from_root:
+                existing.depth_from_root = state.depth_from_root
+                existing.origin_root = state.origin_root
+        return is_new
+
+    def add_relation(self, rel: GraphRelationCandidate) -> bool:
+        """Add a relation candidate. Returns True if newly added."""
+        key = str(rel.relation_id or rel.relation_key).strip().casefold()
+        if not key:
+            return False
+        is_new = key not in self.relations
+        if is_new:
+            self.relations[key] = rel
+            self.visited_relation_ids.add(rel.relation_id)
+            self.budget.relations_seen = len(self.relations)
+        return is_new
+
+    def recalculate_frontier(self) -> tuple[str, ...]:
+        """Recalculate frontier entities (entities not yet fully expanded at max local depth)."""
+        frontier: list[str] = []
+        for state in self.entities.values():
+            if state.depth_from_root < self.budget.max_total_depth and state.is_frontier:
+                frontier.append(state.canonical_name)
+        self.frontier_entity_ids = tuple(sorted(set(frontier)))
+        return self.frontier_entity_ids
+
+    def make_expansion_signature(
+        self,
+        start_entities: list[str] | tuple[str, ...],
+        relation_types: list[str] | tuple[str, ...],
+        direction: str,
+        additional_hops: int,
+        goal_entities: list[str] | tuple[str, ...] | None = None,
+    ) -> str:
+        payload = {
+            "start_entities": sorted(str(s).strip().casefold() for s in (start_entities or [])),
+            "relation_types": sorted(str(r).strip().casefold() for r in (relation_types or [])),
+            "direction": str(direction or "both").strip().lower(),
+            "additional_hops": int(additional_hops or 1),
+            "goal_entities": sorted(str(g).strip().casefold() for g in (goal_entities or [])),
+            "graph_revision": self.graph_revision,
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
+    def is_duplicate_expansion(self, signature: str) -> bool:
+        return signature in self.expansion_signatures
+
+    def record_expansion_signature(self, signature: str) -> None:
+        self.expansion_signatures.add(signature)
+
+    def mark_relation_admitted(self, relation_id: str) -> None:
+        if relation_id:
+            self.admitted_relation_ids.add(str(relation_id).strip())
+
+    def to_controller_state(self) -> dict[str, Any]:
+        """Compact graph summary for Main ControllerState injection."""
+        self.recalculate_frontier()
+        return {
+            "bootstrap_status": self.bootstrap_status,
+            "roots": list(self.exploration_roots),
+            "max_depth_reached": self.max_depth_reached,
+            "frontier_entities": list(self.frontier_entity_ids),
+            "entity_count": len(self.entities),
+            "relation_count": len(self.relations),
+            "admitted_relation_evidence_count": len(self.admitted_relation_ids),
+            "remaining_expansion_calls": self.budget.remaining_expansion_calls(),
+            "max_total_depth": self.budget.max_total_depth,
+            "expansion_allowed": self.budget.can_expand(),
+            "last_graph_status": self.last_graph_status,
+        }
+
+    def to_trace(self) -> dict[str, Any]:
+        """Comprehensive trace serialization."""
+        return {
+            "graph_scope_id": self.graph_scope_id,
+            "question_id": self.question_id,
+            "graph_revision": self.graph_revision,
+            "exploration_roots": list(self.exploration_roots),
+            "anchor_entities": list(self.anchor_entities),
+            "entities": {k: v.to_dict() for k, v in self.entities.items()},
+            "relations": {k: v.to_dict() for k, v in self.relations.items()},
+            "paths": [p.to_dict() for p in self.paths],
+            "frontier_entities": list(self.frontier_entity_ids),
+            "visited_entity_ids": list(self.visited_entity_ids),
+            "visited_relation_ids": list(self.visited_relation_ids),
+            "admitted_relation_ids": list(self.admitted_relation_ids),
+            "max_depth_reached": self.max_depth_reached,
+            "expansion_calls": self.expansion_calls,
+            "bootstrap_status": self.bootstrap_status,
+            "last_graph_status": self.last_graph_status,
+            "budget": self.budget.to_dict(),
+        }

@@ -148,6 +148,12 @@ class ExecutionEventType(str, Enum):
     HELPER_GROUNDING_REVIEW_STARTED = "helper_grounding_review_started"
     REVIEW_STATUS = "review_status"
     REWRITE_STATUS = "rewrite_status"
+    GRAPH_BOOTSTRAP_STARTED = "graph_bootstrap_started"
+    GRAPH_BOOTSTRAP_COMPLETED = "graph_bootstrap_completed"
+    GRAPH_SCOPE_EXPANSION_STARTED = "graph_scope_expansion_started"
+    GRAPH_SCOPE_EXPANSION_COMPLETED = "graph_scope_expansion_completed"
+    GRAPH_RELATION_ADMISSION_UPDATED = "graph_relation_admission_updated"
+    GRAPH_BUDGET_UPDATED = "graph_budget_updated"
     PUBLICATION = "publication"
     FINAL_ANSWER = "final_answer"
     SOURCES = "sources"
@@ -224,7 +230,6 @@ def normalize_execution_event(
         sequence=int(event.get("sequence") or 0) if sequence is None else sequence,
         elapsed_ms=float(event.get("elapsed_ms") or 0.0) if elapsed_ms is None else elapsed_ms,
     )
-
 
 
 @dataclass
@@ -541,15 +546,42 @@ class EvidencePool:
                 return group
         before_keys = self._evidence_keys(active_only=True)
         provenance_items = list(provenance or [])
+        relation_id = None
+        relation_type = None
+        source_entity_id = None
+        source_name = None
+        target_entity_id = None
+        target_name = None
+        origin_root = None
+        depth_from_root = 0
+        discovery_source = None
+        admission_verdict = None
+        admission_reason = None
+        graph_revision = None
+        tool = None
         source_ref = ""
         if provenance_items:
-            source_ref = str(provenance_items[0].get("source_ref") or "").strip()
+            item = provenance_items[0]
+            relation_id = item.get("relation_id") or item.get("id")
+            relation_type = item.get("relation_type") or item.get("type")
+            source_entity_id = item.get("source_entity_id") or item.get("source_id")
+            source_name = item.get("source_name")
+            target_entity_id = item.get("target_entity_id") or item.get("target_id")
+            target_name = item.get("target_name")
+            origin_root = item.get("origin_root")
+            depth_from_root = item.get("depth_from_root") or item.get("hop_depth") or 0
+            discovery_source = item.get("discovery_source")
+            admission_verdict = item.get("admission_verdict")
+            admission_reason = item.get("admission_reason")
+            graph_revision = item.get("graph_revision")
+            tool = item.get("tool")
+            source_ref = str(item.get("source_ref") or "").strip()
         if not source_ref and grant is not None:
             source_ref = str(getattr(grant, "source_ref", "") or "").strip()
-        relation_id = source_ref.split("relation:", 1)[1] if source_ref.startswith("relation:") else ""
-        relation_type = ""
-        if provenance_items:
-            relation_type = str(provenance_items[0].get("relation_type") or "").strip()
+        if not tool and grant is not None:
+            tool = getattr(grant, "tool", None)
+        if not relation_id and source_ref.startswith("relation:"):
+            relation_id = source_ref.split("relation:", 1)[1]
         synthetic_chunk_id = f"graph-relation:{relation_id or uuid.uuid4().hex[:12]}"
         identity_scope_id = str(getattr(grant, "identity_scope_id", "") or "")
         grant_id = str(getattr(grant, "grant_id", "") or "") or None
@@ -559,11 +591,21 @@ class EvidencePool:
                 "chunk_id": synthetic_chunk_id,
                 "source_type": "graph_relation",
                 "file_name": "知识图谱（已审核关系）",
-                "document_entity": target_entity or "",
-                "evidence_target_entity": target_entity or "",
+                "document_entity": target_entity or target_name or source_name or "",
+                "evidence_target_entity": target_entity or target_name or source_name or "",
                 "relation_key": relation_key,
                 "relation_id": relation_id,
                 "relation_type": relation_type,
+                "source_entity_id": source_entity_id,
+                "source_name": source_name,
+                "target_entity_id": target_entity_id,
+                "target_name": target_name,
+                "origin_root": origin_root,
+                "depth_from_root": depth_from_root,
+                "discovery_source": discovery_source,
+                "admission_verdict": admission_verdict,
+                "admission_reason": admission_reason,
+                "graph_revision": graph_revision,
                 "grant_id": grant_id or "",
                 "grant_admitted": True,
                 "identity_scope_id": identity_scope_id,
@@ -579,11 +621,11 @@ class EvidencePool:
             chunk_ids=[synthetic_chunk_id],
             docs=[relation_doc],
             status="ACTIVE",
-            target_entity=target_entity,
+            target_entity=target_entity or target_name or source_name,
             relation_key=relation_key,
             grant_id=grant_id,
             provenance=provenance_items,
-            tool="link_entities",
+            tool=tool,
         )
         self.groups.append(group)
         if self._evidence_keys(active_only=True) != before_keys:
@@ -1193,6 +1235,8 @@ class AgentTurnResult:
     finalization_rejections: int = 0
     answer_stage_started: bool = False
     lifecycle_events: list[dict[str, Any]] = field(default_factory=list)
+    graph_working_set: Any = None
+    graph_budget: dict[str, Any] = field(default_factory=dict)
 
     def to_trace(self) -> dict[str, Any]:
         grant_authorizations = []
@@ -1201,6 +1245,11 @@ class AgentTurnResult:
             auth = data.get("grant_authorization") if isinstance(data, dict) else None
             if isinstance(auth, dict):
                 grant_authorizations.append(dict(auth))
+        graph_ws_trace = (
+            self.graph_working_set.to_trace()
+            if self.graph_working_set is not None and hasattr(self.graph_working_set, "to_trace")
+            else (dict(self.graph_working_set) if isinstance(self.graph_working_set, dict) else None)
+        )
         return {
             "agent_steps": list(self.agent_steps),
             "tools": list(self.tools),
@@ -1210,6 +1259,8 @@ class AgentTurnResult:
             "evidence_groups": self.evidence.to_trace(),
             "evidence_version": self.evidence.evidence_version,
             "budget": dict(self.budget),
+            "graph_working_set": graph_ws_trace,
+            "graph_budget": dict(self.graph_budget),
             "fallback": list(self.fallbacks),
             "retrieve_attempts": self.retrieve_attempts,
             "reuse": self.reuse,

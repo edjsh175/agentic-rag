@@ -3048,6 +3048,7 @@ class RagChain:
         doc_category: str | None,
         pinned_chunk_ids: list[str] | None,
         excluded_chunk_ids: list[str] | None,
+        semantic_task: Any = None,
     ) -> tuple[list[dict], str]:
         """Run Agent V2: candidates → structural guard → rerank → admission.
 
@@ -3065,6 +3066,14 @@ class RagChain:
             graph_db=graph_db,
         )
         started = time.perf_counter()
+        pinned_documents = [
+            Document(
+                page_content=str(item.get("content") or ""),
+                metadata=dict(item.get("metadata") or {}),
+            )
+            for item in self._fetch_pinned_chunks(pinned_chunk_ids or [])
+            if isinstance(item, dict)
+        ]
         candidates = await asyncio.to_thread(
             pipeline.generate,
             question,
@@ -3072,6 +3081,7 @@ class RagChain:
             kb_name=kb_name,
             review_status="approved",
             doc_category=doc_category,
+            extra_sources={"pinned": pinned_documents},
         )
         generated_at = time.perf_counter()
         guarded = await asyncio.to_thread(
@@ -3098,7 +3108,9 @@ class RagChain:
                 candidate.document = document
                 reranked.append(candidate)
         def semantic_admitter(query, candidate, deterministic):
-            return self._semantic_admit_agent_candidate(query, candidate, target, deterministic)
+            return self._semantic_admit_agent_candidate(
+                query, candidate, target, deterministic, semantic_task=semantic_task,
+            )
 
         admissions = await asyncio.to_thread(
             lambda: {
@@ -3119,11 +3131,14 @@ class RagChain:
         ]
         source_docs = self._apply_pinned_excluded(
             source_docs,
-            pinned_chunk_ids=pinned_chunk_ids,
+            # Pinned chunks are candidate signals, never post-admission inserts.
+            pinned_chunk_ids=None,
             excluded_chunk_ids=excluded_chunk_ids,
         )
         self._last_agent_candidate_trace = {
+            "retrieval_architecture": "multi_path_v2",
             "target_entity": target,
+            "generators": pipeline.generator_trace(candidates),
             "raw_candidates": [candidate.trace() for candidate in candidates],
             "structural_candidates": [candidate.trace() for candidate in guarded],
             "reranked_chunk_ids": [candidate.chunk_id for candidate in reranked],
@@ -3143,9 +3158,12 @@ class RagChain:
         self._record_chunk_hit_query(source_docs)
         return source_docs, self._format_context(source_docs)
 
-    def _semantic_admit_agent_candidate(self, question, candidate, target_entity, deterministic):
+    def _semantic_admit_agent_candidate(self, question, candidate, target_entity, deterministic, *, semantic_task=None):
         """Ask the configured helper model only for a genuinely ambiguous candidate."""
-        from rag_knowledge.services.agent_candidate_pipeline import AdmissionResult
+        from rag_knowledge.services.agent_candidate_pipeline import (
+            AdmissionResult,
+            valid_admission_protocol,
+        )
         from rag_knowledge.llm_http import chat_role
 
         payload = {
@@ -3154,6 +3172,7 @@ class RagChain:
             "document_entity": (candidate.document.metadata or {}).get("document_entity", ""),
             "candidate_text": candidate.document.page_content[:1800],
             "candidate_sources": candidate.source_generators,
+            "semantic_task": self._serialize_semantic_task_for_admission(semantic_task),
             "deterministic_result": deterministic.to_dict(),
         }
         prompt = (
@@ -3179,14 +3198,91 @@ class RagChain:
             if verdict not in {"PASS", "REJECT"} or entity not in {"HIGH", "MEDIUM", "LOW", "CONFLICT"} or intent not in {"HIGH", "MEDIUM", "LOW", "NONE"}:
                 return None
             signals = data.get("admission_signals") or []
-            return AdmissionResult(
+            result = AdmissionResult(
                 verdict, entity, intent,
                 str(data.get("reason") or "semantic_admission"),
                 tuple(str(item) for item in signals if str(item).strip()),
             )
+            return result if valid_admission_protocol(result, target_entity=target_entity) else None
         except Exception as exc:  # Semantic admission must fail closed.
             logger.warning("semantic candidate admission failed; using deterministic rejection: %s", exc)
             return None
+
+    async def _admit_existing_agent_docs_v2(
+        self,
+        question: str,
+        source_docs: list[dict[str, Any]],
+        *,
+        grant: Any,
+        semantic_task: Any = None,
+        kb_name: str | None = None,
+        doc_category: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Treat reused content as fresh candidates for the current query."""
+        from rag_knowledge.services.agent_candidate_pipeline import (
+            AgentCandidatePipeline,
+            CandidateProvenance,
+            CandidateResult,
+        )
+
+        target = str(getattr(grant, "primary_root", None) or "").strip()
+        pipeline = AgentCandidatePipeline(
+            vector_store=self._store,
+            retrieval_strategy=self._strategy,
+            graph_db=getattr(getattr(self, "_graph_retriever", None), "db", None),
+        )
+        candidates: list[CandidateResult] = []
+        for rank, item in enumerate(source_docs or [], start=1):
+            if not isinstance(item, dict):
+                continue
+            document = Document(
+                page_content=str(item.get("content") or ""),
+                metadata=dict(item.get("metadata") or {}),
+            )
+            if not pipeline._hard_boundary(
+                document,
+                kb_name=kb_name,
+                review_status="approved",
+                doc_category=doc_category,
+            ):
+                continue
+            candidates.append(CandidateResult(
+                document=document,
+                target_entity=target,
+                provenance=[CandidateProvenance("previous_turn_reuse", rank)],
+            ))
+        guarded = pipeline.structural_guard(candidates, target_entity=target)
+
+        def semantic_admitter(query, candidate, deterministic):
+            return self._semantic_admit_agent_candidate(
+                query, candidate, target, deterministic, semantic_task=semantic_task,
+            )
+
+        admissions = await asyncio.to_thread(
+            lambda: {
+                candidate.chunk_id: pipeline.admit(
+                    question, candidate, target_entity=target, semantic_admitter=semantic_admitter,
+                )
+                for candidate in guarded
+            }
+        )
+        return [
+            self._normalize_source(doc.page_content, doc.metadata, index + 1)
+            for index, doc in enumerate(pipeline.admitted_documents(guarded, admissions))
+        ]
+
+    @staticmethod
+    def _serialize_semantic_task_for_admission(task: Any) -> dict[str, Any]:
+        if task is None:
+            return {}
+        if hasattr(task, "to_dict"):
+            return dict(task.to_dict() or {})
+        if hasattr(task, "__dict__"):
+            return {
+                key: value for key, value in vars(task).items()
+                if isinstance(value, (str, int, float, bool, list, tuple, type(None)))
+            }
+        return {"value": str(task)}
 
     async def _retrieve_kb_for_agent(
         self,
@@ -3200,6 +3296,7 @@ class RagChain:
         pinned_chunk_ids: list[str] | None,
         excluded_chunk_ids: list[str] | None,
         understanding=None,
+        semantic_task=None,
         method: str | None = None,
         retrieval_scope=None,
     ) -> tuple[list[dict], str, Any]:
@@ -3245,6 +3342,7 @@ class RagChain:
                 doc_category=doc_category,
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
+                semantic_task=semantic_task,
             )
             return source_docs, context, plan
         plan, graph_context, graph_docs = await asyncio.to_thread(
@@ -3461,6 +3559,9 @@ class RagChain:
                 await on_event(event)
 
         def materialize_grant_relation(grant) -> None:
+            if getattr(grant, "candidate_pipeline_v2", False):
+                # V2 graph edges are candidate provenance only, never EvidencePool entries.
+                return
             if grant is None or str(getattr(grant, "source_type", "") or "") != "graph_relation":
                 return
             if graph_db is None:
@@ -3580,6 +3681,7 @@ class RagChain:
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
                 understanding=conv.understanding,
+                semantic_task=conv.semantic_task,
                 method=effective_mode,
                 retrieval_scope=grant,
             )
@@ -3594,6 +3696,7 @@ class RagChain:
                 meta["grant_admitted"] = True
                 meta["grant_source_type"] = grant.source_type
                 meta["grant_source_ref"] = grant.source_ref
+                meta["candidate_pipeline_v2"] = bool(getattr(grant, "candidate_pipeline_v2", False))
                 meta["evidence_target_entity"] = (
                     str(meta.get("evidence_target_entity") or "").strip()
                     or grant.primary_root
@@ -3612,7 +3715,8 @@ class RagChain:
                 target_entity=grant.primary_root,
                 grant=grant,
             )
-            mode_label = f"（模式: {effective_mode or 'hybrid'}）" if (effective_mode or intent) else ""
+            reported_mode = "multi_path_v2" if getattr(grant, "candidate_pipeline_v2", False) else (effective_mode or "hybrid")
+            mode_label = f"（模式: {reported_mode}）" if (effective_mode or intent) else ""
             if len(docs) == 0:
                 summary_label = f"未召回有效文档片段{mode_label}"
                 retrieval_status = "NO_VALID_EVIDENCE"
@@ -3629,28 +3733,39 @@ class RagChain:
                 summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
                 retrieval_status = "MATCHED"
 
-            if intent == "exact_parameter":
-                applied_weights = {"bm25": 0.85, "vector": 0.15}
-                graph_expansion_hops = 0
-            elif intent == "conceptual_overview":
-                applied_weights = {"bm25": 0.30, "vector": 0.70}
-                graph_expansion_hops = 1
-            elif intent == "troubleshooting":
-                applied_weights = {"bm25": 0.50, "vector": 0.50}
-                graph_expansion_hops = 1
+            if getattr(grant, "candidate_pipeline_v2", False):
+                retrieval_trace_snapshot = {
+                    "retrieval_architecture": "multi_path_v2",
+                    "requested_mode": effective_mode,
+                    "generators": dict(
+                        (getattr(self, "_last_agent_candidate_trace", {}) or {}).get("generators") or {}
+                    ),
+                    "top_k": int(getattr(plan, "top_k", 0) or len(docs)),
+                    "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                    "retrieval_status": retrieval_status,
+                }
             else:
-                applied_weights = {"bm25": 0.50, "vector": 0.50}
-                graph_expansion_hops = 0
-
-            retrieval_trace_snapshot = {
-                "intent": intent or "general_qa",
-                "applied_weights": applied_weights,
-                "graph_expansion_hops": graph_expansion_hops,
-                "top_k": int(getattr(plan, "top_k", 0) or len(docs)),
-                "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
-                "effective_mode": effective_mode or "hybrid",
-                "retrieval_status": retrieval_status,
-            }
+                if intent == "exact_parameter":
+                    applied_weights = {"bm25": 0.85, "vector": 0.15}
+                    graph_expansion_hops = 0
+                elif intent == "conceptual_overview":
+                    applied_weights = {"bm25": 0.30, "vector": 0.70}
+                    graph_expansion_hops = 1
+                elif intent == "troubleshooting":
+                    applied_weights = {"bm25": 0.50, "vector": 0.50}
+                    graph_expansion_hops = 1
+                else:
+                    applied_weights = {"bm25": 0.50, "vector": 0.50}
+                    graph_expansion_hops = 0
+                retrieval_trace_snapshot = {
+                    "intent": intent or "general_qa",
+                    "applied_weights": applied_weights,
+                    "graph_expansion_hops": graph_expansion_hops,
+                    "top_k": int(getattr(plan, "top_k", 0) or len(docs)),
+                    "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                    "effective_mode": effective_mode or "hybrid",
+                    "retrieval_status": retrieval_status,
+                }
 
             return ToolObservation(
                 tool="retrieve_kb",
@@ -3660,7 +3775,7 @@ class RagChain:
                     "chunk_ids": group.chunk_ids,
                     "plan": serialize_plan(plan),
                     "n": len(docs),
-                    "mode": effective_mode or "hybrid",
+                    "mode": reported_mode,
                     "intent": intent or "general_qa",
                     "retrieval_trace": retrieval_trace_snapshot,
                     "grant_authorization": authorization.to_dict(),
@@ -3671,6 +3786,60 @@ class RagChain:
         async def handle_reuse(args: dict) -> ToolObservation:
             raw_ids = args.get("chunk_ids")
             chunk_ids = [str(x) for x in raw_ids] if isinstance(raw_ids, list) else None
+            if bool(getattr(orch, "candidate_pipeline_v2", False)):
+                source = evidence.previous_cited_group()
+                if source is None or not source.docs:
+                    return ToolObservation(
+                        tool="reuse_evidence", ok=False, summary="无可用复用证据",
+                        error="no_previous_cited", fallback="reuse_to_retrieve",
+                    )
+                wanted = {str(item) for item in (chunk_ids or []) if str(item).strip()}
+                previous_docs = [
+                    item for item in source.docs
+                    if not wanted or str((item.get("metadata") or {}).get("chunk_id") or "") in wanted
+                ]
+                authorization = grant_resolver.authorize(conv.head_entity)
+                if not authorization.authorized or authorization.grant is None:
+                    return ToolObservation(
+                        tool="reuse_evidence", ok=False, summary="当前 Identity 未获得检索授权",
+                        error="exploration_not_authorized", status=ToolProgressStatus.DENIED,
+                    )
+                grant = replace(authorization.grant, candidate_pipeline_v2=True)
+                admitted_docs = await self._admit_existing_agent_docs_v2(
+                    conv.user_question,
+                    previous_docs,
+                    grant=grant,
+                    semantic_task=conv.semantic_task,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                )
+                for doc in admitted_docs:
+                    meta = dict(doc.get("metadata") or {})
+                    meta.update({
+                        "identity_scope_id": getattr(conv.scope, "scope_id", ""),
+                        "grant_id": grant.grant_id,
+                        "grant_admitted": True,
+                        "grant_source_type": grant.source_type,
+                        "grant_source_ref": grant.source_ref,
+                        "candidate_pipeline_v2": True,
+                        "evidence_target_entity": grant.primary_root or "",
+                    })
+                    doc["metadata"] = meta
+                group = evidence.add_retrieve(
+                    admitted_docs, query=conv.user_question, tool="reuse_evidence",
+                    head_entity=conv.head_entity, target_entity=grant.primary_root, grant=grant,
+                )
+                if not admitted_docs:
+                    return ToolObservation(
+                        tool="reuse_evidence", ok=False, summary="历史片段未通过当前问题准入",
+                        error="reuse_admission_rejected", fallback="reuse_to_retrieve",
+                    )
+                return ToolObservation(
+                    tool="reuse_evidence", ok=True,
+                    summary=f"复用候选经本轮准入后保留 {len(group.chunk_ids)} 个片段",
+                    data={"chunk_ids": group.chunk_ids, "admission": "PASS"},
+                )
+
             group = evidence.reuse(chunk_ids, head_entity=conv.head_entity)
             if group is None:
                 return ToolObservation(
@@ -3703,6 +3872,25 @@ class RagChain:
                     status=ToolProgressStatus.DENIED,
                 )
             target = _args.get("target_entity") if _args.get("target_entity") is not None else conv.head_entity
+            if bool(getattr(orch, "candidate_pipeline_v2", False)):
+                identity_targets = tuple(
+                    getattr(conv.scope, "confirmed_entities", ()) or ()
+                ) or tuple(filter(None, (
+                    getattr(conv.scope, "primary_entity", None),
+                    conv.head_entity,
+                )))
+                target_value = str(target or "").strip()
+                if target_value and not any(
+                    str(item or "").strip().casefold() == target_value.casefold()
+                    for item in identity_targets
+                ):
+                    return ToolObservation(
+                        tool="link_entities",
+                        ok=False,
+                        summary="V2 图谱工具不能把邻居改写为 Query Identity",
+                        error="identity_target_required",
+                        status=ToolProgressStatus.DENIED,
+                    )
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
                 self._safe_add_trace_event(
@@ -3764,7 +3952,7 @@ class RagChain:
                                     if s_name and t_name and r_type:
                                         relation_key = f"{s_name} -[{r_type}]-> {t_name}"
                                         relation_summaries.append(relation_key)
-                                        if not evidence.has_relation(relation_key):
+                                        if not bool(getattr(orch, "candidate_pipeline_v2", False)) and not evidence.has_relation(relation_key):
                                             evidence.add_relation(
                                                 relation_key=relation_key,
                                                 target_entity=grant.primary_root,

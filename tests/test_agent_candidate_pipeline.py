@@ -5,10 +5,16 @@ from unittest.mock import MagicMock
 
 from langchain_core.documents import Document
 
-from rag_knowledge.services.agent_candidate_pipeline import AdmissionResult, AgentCandidatePipeline
+from rag_knowledge.services.agent_candidate_pipeline import (
+    AdmissionResult,
+    AgentCandidatePipeline,
+    valid_admission_protocol,
+)
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.exploration_grant import ExplorationGrant
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
+from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
+from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
 
 
 class _Store:
@@ -111,6 +117,50 @@ def test_admission_rejects_correct_entity_with_wrong_intent():
     assert admission.verdict == "REJECT"
 
 
+def test_admission_ignores_unrelated_overview_terms_in_merged_chunk():
+    merged = _doc(
+        "deploy-merged",
+        "StampServer",
+        "PipelineWebRTC 的 IP 地址需要在部署时修改。\n\n"
+        "多显卡渲染系统支持超高分辨率大屏展示。",
+    )
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([merged]), retrieval_strategy=_Strategy([merged], [merged]), graph_db=_Graph(),
+    )
+    candidate = pipeline.generate(
+        "PipelineWebRTC 的主要功能是什么？",
+        target_entity="PipelineWebRTC",
+        kb_name=None,
+        review_status="approved",
+        doc_category=None,
+    )[0]
+
+    admission = pipeline.admit(
+        "PipelineWebRTC 的主要功能是什么？",
+        candidate,
+        target_entity="PipelineWebRTC",
+        semantic_admitter=lambda *_: AdmissionResult("PASS", "HIGH", "HIGH", "must_not_override"),
+    )
+
+    assert admission.entity_relevance == "HIGH"
+    assert admission.intent_relevance == "LOW"
+    assert admission.verdict == "REJECT"
+    assert "overview_intent_mismatch" in admission.signals
+
+
+def test_unlisted_intent_does_not_auto_pass_without_semantic_admission():
+    deployment = _doc("deploy-limit", "PipelineWebRTC", "PipelineWebRTC 上传到 /data/html 目录。")
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([deployment]), retrieval_strategy=_Strategy([deployment], [deployment]), graph_db=_Graph(),
+    )
+    candidate = pipeline.generate("PipelineWebRTC 有哪些限制？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)[0]
+
+    admission = pipeline.admit("PipelineWebRTC 有哪些限制？", candidate, target_entity="PipelineWebRTC")
+    assert admission.entity_relevance == "HIGH"
+    assert admission.intent_relevance == "LOW"
+    assert admission.verdict == "REJECT"
+
+
 def test_ambiguous_graph_candidate_uses_semantic_admission_protocol():
     generic = _doc("generic", "WebRTC", "该组件提供实时媒体处理能力。")
     pipeline = AgentCandidatePipeline(
@@ -151,3 +201,209 @@ def test_v2_grant_keeps_only_hard_chroma_boundary_and_bm25_is_unscoped():
     ])
     hits = store.search("共同关键词", top_k=2, scope=grant)
     assert {doc.metadata["document_entity"] for doc in hits} == {"PipelineWebRTC", "WebRTC"}
+
+
+def test_unbound_pipeline_generates_candidates_and_requires_intent_admission():
+    topic = _doc("topic", "WebRTC", "实时媒体处理组件的配置说明。")
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([topic]), retrieval_strategy=_Strategy([topic], [topic]), graph_db=_Graph(),
+    )
+    candidates = pipeline.generate("如何配置实时媒体组件？", target_entity="", kb_name=None, review_status="approved", doc_category=None)
+
+    assert candidates
+    assert {"bm25", "vector"} <= set(candidates[0].source_generators)
+    assert "exact_lexical" not in candidates[0].source_generators
+    rejected = pipeline.admit("如何配置实时媒体组件？", candidates[0], target_entity="")
+    admitted = pipeline.admit(
+        "如何配置实时媒体组件？", candidates[0], target_entity="",
+        semantic_admitter=lambda *_: AdmissionResult("PASS", "HIGH", "HIGH", "topic_intent_match", ("semantic_task",)),
+    )
+    assert rejected.verdict == "REJECT"
+    assert admitted.verdict == "PASS"
+
+
+def test_graph_rrf_rank_is_continuous_and_strength_weighted():
+    strong_a = _doc("strong-a", "WebRTC", "PipelineWebRTC 功能 A")
+    strong_b = _doc("strong-b", "WebRTC", "PipelineWebRTC 功能 B")
+    weak = _doc("weak", "PipelineBuilder", "PipelineWebRTC 相关说明")
+
+    class StrengthGraph(_Graph):
+        def list_relations(self, entity_id="", relation_type="", review_status=""):
+            rows = [
+                {"source_entity_id": "pipe", "target_entity_id": "webrtc", "source_name": "PipelineWebRTC", "target_name": "WebRTC", "relation_type": "belongs_to"},
+                {"source_entity_id": "pipe", "target_entity_id": "builder", "source_name": "PipelineWebRTC", "target_name": "PipelineBuilder", "relation_type": "related_to"},
+            ]
+            if entity_id:
+                rows = [r for r in rows if entity_id in {r["source_entity_id"], r["target_entity_id"]}]
+            if relation_type:
+                rows = [r for r in rows if r["relation_type"] == relation_type]
+            return rows
+
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([strong_a, strong_b, weak]), retrieval_strategy=_Strategy([], []), graph_db=StrengthGraph(),
+    )
+    candidates = pipeline.generate("PipelineWebRTC", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
+    graph = {
+        item.chunk_id: next(p for p in item.provenance if p.generator == "graph_expansion")
+        for item in candidates if any(p.generator == "graph_expansion" for p in item.provenance)
+    }
+
+    assert graph["strong-a"].rank == 1
+    assert graph["strong-b"].rank == 2
+    assert graph["strong-a"].weight > graph["weak"].weight
+
+
+def test_v2_evidence_gate_requires_current_admission_and_retrieve_group():
+    conv = ConversationContext(user_question="q", session=SimpleNamespace(turns=[]))
+    pool = EvidencePool(question_id="q")
+    pool.add_retrieve([{
+        "content": "unreviewed candidate",
+        "metadata": {"chunk_id": "x", "candidate_pipeline_v2": True, "admission_verdict": "", "grant_id": "g", "grant_admitted": True},
+    }], grant=SimpleNamespace(grant_id="g", target_entities=(), source_type="", source_ref="", hop_depth=0, primary_root=None))
+    assert evaluate_rules(conv, pool)["reason"] == "query_admission_failed"
+
+    relation_pool = EvidencePool(question_id="q")
+    relation_pool.add_relation(relation_key="A -[depends_on]-> B")
+    relation_pool.groups[0].kind = "unknown"
+    relation_pool.groups[0].docs[0]["metadata"]["candidate_pipeline_v2"] = True
+    relation_pool.groups[0].docs[0]["metadata"]["admission_verdict"] = "PASS"
+    assert evaluate_rules(conv, relation_pool)["reason"] == "v2_non_retrieve_evidence"
+
+
+def test_v2_pinned_chunk_is_admitted_instead_of_inserted_after_admission():
+    import asyncio
+    from rag_knowledge.services.rag import RagChain
+
+    pinned = {
+        "content": "PipelineWebRTC 上传到 /data/html 目录。",
+        "metadata": {"chunk_id": "pinned", "document_entity": "PipelineWebRTC", "review_status": "approved", "pinned": True},
+    }
+    chain = object.__new__(RagChain)
+    chain._store = _Store([])
+    chain._strategy = _Strategy([], [])
+    chain._graph_retriever = None
+    chain._fetch_pinned_chunks = lambda _: [pinned]
+    chain._postprocess_docs = lambda _q, docs, *_args, **_kwargs: asyncio.sleep(0, result=docs)
+    chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
+    chain._apply_pinned_excluded = RagChain._apply_pinned_excluded.__get__(chain, RagChain)
+    chain._record_chunk_hit_query = lambda _docs: None
+    grant = ExplorationGrant(
+        grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
+        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
+    )
+    plan = SimpleNamespace(enable_rerank=False, top_k=8)
+
+    docs, _ = asyncio.run(chain._retrieve_agent_candidates_v2(
+        "PipelineWebRTC 的主要功能是什么？", plan=plan, scope=grant,
+        kb_name=None, doc_category=None, pinned_chunk_ids=["pinned"], excluded_chunk_ids=None,
+    ))
+    assert docs == []
+
+
+def test_v2_reuse_is_re_admitted_for_the_current_question():
+    import asyncio
+    from rag_knowledge.services.rag import RagChain
+
+    chain = object.__new__(RagChain)
+    chain._store = _Store([])
+    chain._strategy = _Strategy([], [])
+    chain._graph_retriever = None
+    chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
+    grant = ExplorationGrant(
+        grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
+        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
+    )
+    reused = [{
+        "content": "PipelineWebRTC 上传到 /data/html 目录。",
+        "metadata": {"chunk_id": "old-deploy", "document_entity": "PipelineWebRTC", "review_status": "approved"},
+    }]
+
+    docs = asyncio.run(chain._admit_existing_agent_docs_v2(
+        "PipelineWebRTC 的主要功能是什么？", reused, grant=grant,
+    ))
+    assert docs == []
+
+
+def test_v2_reuse_respects_current_kb_and_category_boundary():
+    import asyncio
+    from rag_knowledge.services.rag import RagChain
+
+    chain = object.__new__(RagChain)
+    chain._store = _Store([])
+    chain._strategy = _Strategy([], [])
+    chain._graph_retriever = None
+    chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
+    grant = ExplorationGrant(
+        grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
+        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
+    )
+    previous = [{
+        "content": "PipelineWebRTC 用于实时音视频处理。",
+        "metadata": {
+            "chunk_id": "old", "document_entity": "PipelineWebRTC", "review_status": "approved",
+            "kb_name": "KB-A", "doc_category": "manual",
+        },
+    }]
+
+    rejected_kb = asyncio.run(chain._admit_existing_agent_docs_v2(
+        "PipelineWebRTC 的功能是什么？", previous, grant=grant, kb_name="KB-B", doc_category="manual",
+    ))
+    rejected_category = asyncio.run(chain._admit_existing_agent_docs_v2(
+        "PipelineWebRTC 的功能是什么？", previous, grant=grant, kb_name="KB-A", doc_category="guide",
+    ))
+    assert rejected_kb == []
+    assert rejected_category == []
+
+
+def test_semantic_admission_pass_protocol_is_fail_closed():
+    assert valid_admission_protocol(
+        AdmissionResult("PASS", "CONFLICT", "HIGH", "bad"), target_entity="PipelineWebRTC",
+    ) is False
+    assert valid_admission_protocol(
+        AdmissionResult("PASS", "HIGH", "LOW", "bad"), target_entity="PipelineWebRTC",
+    ) is False
+    assert valid_admission_protocol(
+        AdmissionResult("PASS", "LOW", "HIGH", "bad"), target_entity="",
+    ) is True
+
+
+def test_multi_path_trace_reports_actual_generator_contributions():
+    doc = _doc("trace", "PipelineWebRTC", "PipelineWebRTC 用于实时音视频处理。")
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([doc]), retrieval_strategy=_Strategy([doc], [doc]), graph_db=_Graph(),
+    )
+    candidates = pipeline.generate("PipelineWebRTC 的功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
+    trace = pipeline.generator_trace(candidates)
+
+    assert set(trace) >= {"direct_document_entity", "exact_lexical", "bm25", "vector"}
+    assert all("rrf_contribution" in value for value in trace.values())
+
+
+def test_v2_agent_entrypoint_retrieves_unbound_topic_instead_of_returning_empty():
+    import asyncio
+    from rag_knowledge.services.rag import RagChain
+
+    topic = _doc("topic-main", "WebRTC", "实时媒体组件配置包括编码参数。")
+    chain = object.__new__(RagChain)
+    chain._store = _Store([topic])
+    chain._strategy = _Strategy([topic], [topic])
+    chain._graph_retriever = None
+    chain._build_retrieval_query_specs = lambda *_: ["实时媒体组件配置"]
+    chain._plan_retrieval = lambda *_args, **_kwargs: SimpleNamespace(enable_rerank=False, top_k=8)
+    chain._fetch_pinned_chunks = lambda _: []
+    chain._postprocess_docs = lambda _q, docs, *_args, **_kwargs: asyncio.sleep(0, result=docs)
+    chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
+    chain._apply_pinned_excluded = RagChain._apply_pinned_excluded.__get__(chain, RagChain)
+    chain._record_chunk_hit_query = lambda _docs: None
+    chain._semantic_admit_agent_candidate = lambda *_args, **_kwargs: AdmissionResult("PASS", "HIGH", "HIGH", "topic_match", ("semantic_task",))
+    grant = ExplorationGrant(
+        grant_id="topic", identity_scope_id="i", target_entities=(),
+        source_type="confirmed_topic", source_ref="topic:media", candidate_pipeline_v2=True,
+    )
+
+    docs, _, _ = asyncio.run(chain._retrieve_kb_for_agent(
+        "实时媒体组件如何配置？", history=None, kb_name=None, doc_category=None,
+        entity_name=None, web_search=False, pinned_chunk_ids=None, excluded_chunk_ids=None,
+        retrieval_scope=grant,
+    ))
+    assert [doc["metadata"]["chunk_id"] for doc in docs] == ["topic-main"]

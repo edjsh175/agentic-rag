@@ -711,6 +711,34 @@ class AnswerFinalizer:
                         "fallback_used": False,
                     },
                 )
+            # Claim-level publication: split supported claims and unsupported claims
+            claims = list(getattr(review, "claims", []) or [])
+            supported_claims = [c for c in claims if getattr(c, "status", "") == "supported"]
+            unsupported_claims = [c for c in claims if getattr(c, "status", "") != "supported"]
+
+            if supported_claims:
+                kb_part = " ".join(c.claim_text for c in supported_claims if getattr(c, "claim_text", "")).strip()
+                unsupported_part = " ".join(self._strip_kb_citations(c.claim_text) for c in unsupported_claims if getattr(c, "claim_text", "")).strip()
+                parts = []
+                if kb_part:
+                    parts.append(kb_part)
+                else:
+                    parts.append(NO_KNOWLEDGE_ANSWER)
+                general_section = self._general_section(unsupported_part)
+                if general_section:
+                    parts.append(general_section)
+                return FinalizedAnswer(
+                    answer="\n\n".join(parts),
+                    grounding={
+                        "policy": "mixed",
+                        "verdict": "partial",
+                        "reasons": [review.verdict.lower()],
+                        "details": review.to_dict(),
+                        "final_mode": "mixed_claim_split",
+                        "fallback_used": False,
+                    },
+                )
+
             # Re-label candidate text as general knowledge
             general_body = self._strip_kb_citations(text).strip()
             parts = [NO_KNOWLEDGE_ANSWER]
