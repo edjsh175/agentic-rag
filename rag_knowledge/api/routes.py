@@ -391,6 +391,7 @@ async def query(req: QueryRequest):
                                    thinking=req.thinking, web_search=req.web_search,
                                    allow_general_knowledge=req.allow_general_knowledge,
                                    agent_prompt=req.agent_prompt,
+                                   mode=req.mode,
                                    clarification_question=req.clarification_question,
                                    **callback.to_rag_kwargs(),
                                    agent_orchestration_enabled=agent_orchestration_enabled)
@@ -474,6 +475,7 @@ async def query_stream(req: QueryRequest):
                                               thinking=req.thinking, web_search=req.web_search,
                                               allow_general_knowledge=req.allow_general_knowledge,
                                               agent_prompt=req.agent_prompt,
+                                              mode=req.mode,
                                               pipeline_events=bool(req.pipeline_events),
                                               pinned_chunk_ids=req.pinned_chunk_ids,
                                               excluded_chunk_ids=req.excluded_chunk_ids,
@@ -1342,7 +1344,7 @@ async def admin_qa_debug(req: QueryRequest):
             kb_name=kb_name, doc_category=doc_category, entity_name=entity_name,
             thinking=req.thinking,
             web_search=req.web_search, allow_general_knowledge=req.allow_general_knowledge,
-            agent_prompt=req.agent_prompt, include_evidence=True,
+            agent_prompt=req.agent_prompt, mode=req.mode, include_evidence=True,
             clarification_question=req.clarification_question,
             **callback.to_rag_kwargs(),
         )
@@ -1384,6 +1386,7 @@ async def admin_qa_debug_stream(req: QueryRequest):
             web_search=req.web_search,
             allow_general_knowledge=req.allow_general_knowledge,
             agent_prompt=req.agent_prompt,
+            mode=req.mode,
             pipeline_events=True,
             pinned_chunk_ids=req.pinned_chunk_ids,
             excluded_chunk_ids=req.excluded_chunk_ids,

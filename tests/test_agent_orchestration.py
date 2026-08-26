@@ -1390,7 +1390,7 @@ def test_decision_prompt_has_one_shot():
     assert "示例 1" in _DECISION_PROMPT or "示例" in _DECISION_PROMPT
     assert "StampServer 默认端口" in _DECISION_PROMPT
     assert "retrieve_kb" in _DECISION_PROMPT
-    assert "link_entities" in _DECISION_PROMPT
+    assert "expand_graph_scope" in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():

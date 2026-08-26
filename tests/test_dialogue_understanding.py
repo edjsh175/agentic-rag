@@ -27,6 +27,21 @@ def test_surface_underspecified_and_wide_terms():
     assert not is_vague_surface_question("管线点表字段有哪些")
 
 
+def test_semantic_task_distinguishes_topic_from_required_entity_binding(isolated_storage):
+    isolated_storage()
+    understanding = DialogueUnderstanding(MagicMock(), contextualizer=MagicMock())
+
+    topic = understanding.analyze(
+        "知识库里关于部署的注意事项有哪些？", run_clarify=False,
+    )
+    assert topic.semantic_task_context["task_type"] == "unbound"
+    assert topic.semantic_task_context["entity_binding_required"] is False
+
+    underspecified = understanding.analyze("pipeline", run_clarify=False)
+    assert underspecified.semantic_task_context["task_type"] == "unbound"
+    assert underspecified.semantic_task_context["entity_binding_required"] is True
+
+
 def test_understanding_no_history_keeps_original(isolated_storage):
     isolated_storage()
     cfg = MagicMock()

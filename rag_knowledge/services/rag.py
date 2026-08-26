@@ -365,6 +365,7 @@ class RagChain:
         llm_model: str | None = None,
         thinking: bool | None = None,
         allow_general_knowledge: bool | None = None,
+        mode: str | None = None,
         path: str | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
@@ -382,6 +383,7 @@ class RagChain:
             llm_model=llm_model or getattr(self, "_llm_model", None),
             thinking=thinking,
             allow_general_knowledge=allow_general_knowledge,
+            mode=mode,
             history_rounds=len(history or []) // 2,
             cfg=getattr(self, "_cfg", None),
             clarification_question=clarification_question,
@@ -3049,6 +3051,7 @@ class RagChain:
         pinned_chunk_ids: list[str] | None,
         excluded_chunk_ids: list[str] | None,
         semantic_task: Any = None,
+        graph_working_set: Any = None,
     ) -> tuple[list[dict], str]:
         """Run Agent V2: candidates → structural guard → rerank → admission.
 
@@ -3082,6 +3085,7 @@ class RagChain:
             review_status="approved",
             doc_category=doc_category,
             extra_sources={"pinned": pinned_documents},
+            graph_working_set=graph_working_set,
         )
         generated_at = time.perf_counter()
         guarded = await asyncio.to_thread(
@@ -3299,6 +3303,7 @@ class RagChain:
         semantic_task=None,
         method: str | None = None,
         retrieval_scope=None,
+        graph_working_set: Any = None,
     ) -> tuple[list[dict], str, Any]:
         from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
         from rag_knowledge.services.query_contextualizer import RetrievalQuery
@@ -3343,6 +3348,7 @@ class RagChain:
                 pinned_chunk_ids=pinned_chunk_ids,
                 excluded_chunk_ids=excluded_chunk_ids,
                 semantic_task=semantic_task,
+                graph_working_set=graph_working_set,
             )
             return source_docs, context, plan
         plan, graph_context, graph_docs = await asyncio.to_thread(
@@ -3559,9 +3565,6 @@ class RagChain:
                 await on_event(event)
 
         def materialize_grant_relation(grant) -> None:
-            if getattr(grant, "candidate_pipeline_v2", False):
-                # V2 graph edges are candidate provenance only, never EvidencePool entries.
-                return
             if grant is None or str(getattr(grant, "source_type", "") or "") != "graph_relation":
                 return
             if graph_db is None:
@@ -3584,20 +3587,48 @@ class RagChain:
             relation_type = str(relation.get("relation_type") or "").strip()
             if not source_name or not target_name or not relation_type:
                 return
-            relation_key = f"{source_name} -[{relation_type}]-> {target_name}"
-            if evidence.has_relation(relation_key):
+            from rag_knowledge.services.agent_orchestration.graph_working_set import GraphRelationCandidate
+
+            candidate = GraphRelationCandidate(
+                relation_id=relation_id,
+                source_name=source_name,
+                target_name=target_name,
+                relation_type=relation_type,
+                source_entity_id=str(relation.get("source_entity_id") or ""),
+                source_type=str(relation.get("source_type") or ""),
+                target_entity_id=str(relation.get("target_entity_id") or ""),
+                target_type=str(relation.get("target_type") or ""),
+                review_status=str(relation.get("review_status") or "approved"),
+                confidence=float(relation.get("confidence") or 1.0),
+                discovery_source="legacy_grant_adapter",
+            )
+            working_set = getattr(loop, "graph_working_set", None)
+            if working_set is not None:
+                working_set.add_relation(candidate)
+            admission = graph_admission_service.admit_relation(
+                candidate,
+                question=conv.user_question,
+                working_set=working_set,
+                target_entities=list(getattr(grant, "target_entities", ()) or ()) or [getattr(grant, "primary_root", "")],
+                task_type=getattr(conv.semantic_task, "task_type", None),
+            )
+            if admission.verdict != "PASS" or evidence.has_relation(candidate.relation_key):
                 return
-            evidence.add_relation(
-                relation_key=relation_key,
+            evidence.add_admitted_relation(
+                candidate,
+                admission,
                 target_entity=getattr(grant, "primary_root", None),
-                grant=grant,
                 provenance=[{
                     "source_type": "graph_relation",
                     "source_ref": f"relation:{relation_id}",
                     "relation_type": relation_type,
                     "source_entity": source_name,
                     "target_entity": target_name,
+                    "admission_verdict": admission.verdict,
+                    "admission_reason": admission.reason,
+                    "tool": "reuse_evidence",
                 }],
+                tool="reuse_evidence",
             )
 
         async def handle_retrieve(args: dict) -> ToolObservation:
@@ -3667,6 +3698,7 @@ class RagChain:
                 # 精确参数/配置查询优先使用 hybrid 兼顾精准匹配
                 effective_mode = "hybrid"
 
+            ws = getattr(loop, "graph_working_set", None) if 'loop' in locals() else None
             docs, _context, plan = await self._retrieve_kb_for_agent(
                 query,
                 history=history,
@@ -3684,6 +3716,7 @@ class RagChain:
                 semantic_task=conv.semantic_task,
                 method=effective_mode,
                 retrieval_scope=grant,
+                graph_working_set=ws,
             )
             for doc in docs:
                 meta = dict(doc.get("metadata") or {})
@@ -3932,41 +3965,59 @@ class RagChain:
                         "confidence": float(getattr(item, "confidence", 0.0) or 0.0),
                         "match_method": getattr(item, "match_method", "") or "",
                     })
-                if linked and retriever is not None and getattr(retriever, "expander", None) is not None:
+                if linked:
                     try:
-                        g_context = retriever.expander.expand(linked, "definition", q_text)
-                        if g_context and g_context.relation_ids and getattr(retriever, "db", None) is not None:
-                            relation_by_id: dict[str, dict] = {}
-                            for linked_item in linked:
-                                for relation in retriever.db.list_relations(
-                                    entity_id=str(getattr(linked_item, "entity_id", "") or ""),
-                                    review_status="approved",
-                                ):
-                                    relation_by_id[str(relation.get("id") or "")] = relation
-                            for rel_id in g_context.relation_ids[:6]:
-                                rel = relation_by_id.get(str(rel_id))
-                                if rel:
-                                    s_name = rel.get("source_name") or rel.get("source_canonical_name") or rel.get("source_entity_id")
-                                    t_name = rel.get("target_name") or rel.get("target_canonical_name") or rel.get("target_entity_id")
-                                    r_type = rel.get("relation_type")
-                                    if s_name and t_name and r_type:
-                                        relation_key = f"{s_name} -[{r_type}]-> {t_name}"
-                                        relation_summaries.append(relation_key)
-                                        if not bool(getattr(orch, "candidate_pipeline_v2", False)) and not evidence.has_relation(relation_key):
-                                            evidence.add_relation(
-                                                relation_key=relation_key,
-                                                target_entity=grant.primary_root,
-                                                grant=grant,
-                                                provenance=[{
-                                                    "source_type": "graph_relation",
-                                                    "source_ref": f"relation:{rel_id}",
-                                                    "relation_type": r_type,
-                                                    "source_entity": s_name,
-                                                    "target_entity": t_name,
-                                                }],
-                                            )
+                        working_set = getattr(loop, "graph_working_set", None)
+                        start_entities = list(getattr(grant, "target_entities", ()) or ())
+                        if not start_entities and getattr(grant, "primary_root", None):
+                            start_entities = [grant.primary_root]
+                        if working_set is not None and start_entities:
+                            awaitable_observation = graph_explorer.expand_graph_scope(
+                                working_set=working_set,
+                                start_entities=start_entities,
+                                direction="both",
+                                additional_hops=1,
+                                stage1_confirmed_entities=set(getattr(conv, "confirmed_entities", ()) or ()),
+                                user_mentioned_entities=set(getattr(conv.semantic_task, "mentioned_entities", ()) or ()),
+                                question=conv.user_question,
+                                task_type=getattr(conv.semantic_task, "task_type", None),
+                                conversation_context=conv,
+                                admission_service=graph_admission_service,
+                            )
+                            if awaitable_observation.ok:
+                                loop.graph_working_set = working_set
+                            for candidate in working_set.relations.values():
+                                if candidate.relation_key not in relation_summaries:
+                                    relation_summaries.append(candidate.relation_key)
+                                if candidate.relation_id not in working_set.admitted_relation_ids:
+                                    continue
+                                if evidence.has_relation(candidate.relation_key):
+                                    continue
+                                admission = graph_admission_service.admit_relation(
+                                    candidate,
+                                    question=conv.user_question,
+                                    working_set=working_set,
+                                    target_entities=list(working_set.exploration_roots),
+                                    task_type=getattr(conv.semantic_task, "task_type", None),
+                                )
+                                evidence.add_admitted_relation(
+                                    candidate,
+                                    admission,
+                                    target_entity=grant.primary_root,
+                                    provenance=[{
+                                        "source_type": "graph_relation",
+                                        "source_ref": f"relation:{candidate.relation_id}",
+                                        "relation_type": candidate.relation_type,
+                                        "source_name": candidate.source_name,
+                                        "target_name": candidate.target_name,
+                                        "admission_verdict": admission.verdict,
+                                        "admission_reason": admission.reason,
+                                        "tool": "link_entities",
+                                    }],
+                                    tool="link_entities",
+                                )
                     except Exception as exc:  # noqa: BLE001
-                        logger.debug("graph expander in handle_link: %s", exc)
+                        logger.debug("graph explorer in handle_link: %s", exc)
 
             existing_links = {
                 str(item.get("entity_id") or item.get("canonical_name") or ""): item
@@ -4054,15 +4105,26 @@ class RagChain:
                 },
             )
 
+            meaningful_options = [opt for opt in merged if getattr(opt, "source", None) != "fixed_other"]
+            if len(meaningful_options) < 2:
+                self._safe_add_trace_event(
+                    trace,
+                    "clarification_suppressed_insufficient_candidates",
+                    {"meaningful_count": len(meaningful_options), "query": conv.user_question},
+                )
+                return ToolObservation(
+                    tool="clarify",
+                    ok=False,
+                    summary="有效澄清候选项不足 2 个，取消反问，请继续检索或直接回答。",
+                    status=ToolProgressStatus.DENIED,
+                    error="meaningful_candidates_insufficient",
+                )
+
             ask_q = str(_args.get("question") or "").strip()
             if not ask_q:
                 ask_q = "您指的是以下哪一个产品或模块？" if merged else "请选择您具体关注的模块或方向："
 
             payload = {
-                # Main has already selected the clarify action.  Candidate
-                # count controls card richness, never whether the action is
-                # honored.  With no discovered/suggested candidate the fixed
-                # Other option still lets the user provide more context.
                 "needs_clarification": True,
                 "ask_question": ask_q,
                 "options": [opt.to_dict() for opt in merged],
@@ -4142,58 +4204,79 @@ class RagChain:
             additional_hops = int(_args.get("additional_hops", 1) or 1)
             goal_ents = _args.get("goal_entities")
 
+            # 4-source authorization:
+            stage1_confirmed_entities = set(getattr(conv, "confirmed_entities", ()) or ())
+            if conv.head_entity:
+                stage1_confirmed_entities.add(conv.head_entity)
+
+            admitted_text_entities = set()
+            for grp in evidence.groups:
+                if grp.status == "ACTIVE" and grp.kind in ("retrieve", "reuse"):
+                    if grp.target_entity:
+                        admitted_text_entities.add(str(grp.target_entity).strip())
+                    for doc in grp.docs:
+                        meta = doc.get("metadata") or {}
+                        for key in ("document_entity", "evidence_target_entity", "scope_entity", "entity_name"):
+                            val = meta.get(key)
+                            if val:
+                                admitted_text_entities.add(str(val).strip())
+
+            user_mentioned = set(getattr(conv.semantic_task, "mentioned_entities", ()) or ())
+
             working_set = getattr(loop, "graph_working_set", None) if 'loop' in locals() else None
-            ws, admitted, res_status = graph_explorer.expand_graph_scope(
+            obs = graph_explorer.expand_graph_scope(
                 working_set=working_set,
                 start_entities=start_ents,
                 relation_types=rel_types,
                 direction=direction,
                 additional_hops=additional_hops,
                 goal_entities=goal_ents,
+                admitted_text_entities=admitted_text_entities,
+                stage1_confirmed_entities=stage1_confirmed_entities,
+                user_mentioned_entities=user_mentioned,
                 question=conv.user_question,
                 semantic_task=conv.semantic_task,
                 conversation_context=conv,
                 admission_service=graph_admission_service,
             )
-            if 'loop' in locals():
-                loop.graph_working_set = ws
+            if 'loop' in locals() and working_set is not None:
+                loop.graph_working_set = working_set
 
-            for rel in admitted:
-                prov = [{
-                    "relation_id": rel.relation_id,
-                    "relation_type": rel.relation_type,
-                    "source_entity_id": rel.source_entity_id,
-                    "source_name": rel.source_name,
-                    "target_entity_id": rel.target_entity_id,
-                    "target_name": rel.target_name,
-                    "origin_root": rel.origin_root,
-                    "depth_from_root": rel.depth_from_root,
-                    "discovery_source": "expand_graph_scope",
-                    "admission_verdict": "PASS",
-                    "admission_reason": rel.admission_reason,
-                    "graph_revision": rel.graph_revision,
-                    "tool": "expand_graph_scope",
-                }]
-                evidence.add_relation(
-                    relation_key=rel.relation_key,
-                    target_entity=rel.origin_root or rel.target_name or rel.source_name,
-                    provenance=prov,
-                )
+            if obs.ok and working_set is not None:
+                for rid in working_set.admitted_relation_ids:
+                    rel = working_set.relations.get(rid.casefold()) or next((r for r in working_set.relations.values() if r.relation_id == rid), None)
+                    if rel is not None and not evidence.has_relation(rel.relation_key):
+                        prov = [{
+                            "relation_id": rel.relation_id,
+                            "relation_type": rel.relation_type,
+                            "source_entity_id": rel.source_entity_id,
+                            "source_name": rel.source_name,
+                            "target_entity_id": rel.target_entity_id,
+                            "target_name": rel.target_name,
+                            "origin_root": rel.origin_root,
+                            "depth_from_root": rel.depth_from_root,
+                            "discovery_source": rel.discovery_source or "expand_graph_scope",
+                            "admission_verdict": "PASS",
+                            "admission_reason": rel.admission_reason,
+                            "graph_revision": rel.graph_revision,
+                            "tool": "expand_graph_scope",
+                        }]
+                        admission = graph_admission_service.admit_relation(
+                            rel,
+                            question=conv.user_question,
+                            working_set=working_set,
+                            target_entities=list(working_set.exploration_roots),
+                            task_type=getattr(conv.semantic_task, "task_type", None),
+                        )
+                        evidence.add_admitted_relation(
+                            rel,
+                            admission,
+                            target_entity=rel.origin_root or rel.target_name or rel.source_name,
+                            provenance=prov,
+                            tool="expand_graph_scope",
+                        )
 
-            summary = f"图谱扩展（{res_status}）：探索到 {len(ws.entities)} 个实体、{len(ws.relations)} 条关系（{len(admitted)} 条准入为事实证据）"
-            return ToolObservation(
-                tool="expand_graph_scope",
-                ok=True,
-                status=ToolProgressStatus.PROGRESS if res_status == "PROGRESS" else ToolProgressStatus.NO_PROGRESS,
-                summary=summary[:120],
-                data={
-                    "status": res_status,
-                    "entities": [e.canonical_name for e in ws.entities.values()],
-                    "admitted_relations": [r.relation_key for r in admitted],
-                    "frontier_entities": list(ws.frontier_entity_ids),
-                    "budget": ws.budget.to_dict(),
-                },
-            )
+            return obs
 
         handlers: dict[str, Any] = {
             "retrieve_kb": handle_retrieve,
@@ -4555,18 +4638,22 @@ class RagChain:
         self._record_execution_event(trace, explanation_event)
         yield explanation_event
         reasoning_started = time.perf_counter()
-        reasoning_start_event = {
-            "type": "llm_reasoning_start",
-            "data": {
-                "call_id": reasoning_call_id,
-                "role": "main",
-                "stage": "answer_generation",
-                "model": ep.model,
-                "provider": ep.normalized_provider(),
-            },
-        }
-        self._record_execution_event(trace, reasoning_start_event)
-        yield reasoning_start_event
+        orch = getattr(self._cfg, "agent_orchestration", None)
+        stream_policy = str(getattr(orch, "reasoning_stream_policy", "token") or "token").lower()
+        stream_policy = {"summarized": "summary"}.get(stream_policy, stream_policy)
+        if stream_policy != "never":
+            reasoning_start_event = {
+                "type": "llm_reasoning_start",
+                "data": {
+                    "call_id": reasoning_call_id,
+                    "role": "main",
+                    "stage": "answer_generation",
+                    "model": ep.model,
+                    "provider": ep.normalized_provider(),
+                },
+            }
+            self._record_execution_event(trace, reasoning_start_event)
+            yield reasoning_start_event
         try:
             async for part in achat_stream_parts(
                 ep,
@@ -4583,39 +4670,41 @@ class RagChain:
                 if part.kind == "reasoning":
                     reasoning_available = True
                     thinking_parts.append(part.delta)
-                    reasoning_delta_event = {
-                        "type": "llm_reasoning_delta",
-                        "data": {
-                            "call_id": reasoning_call_id,
-                            "role": "main",
-                            "stage": "answer_generation",
-                            "delta": part.delta,
-                        },
-                    }
-                    self._record_execution_event(trace, reasoning_delta_event)
-                    yield reasoning_delta_event
+                    if stream_policy == "token":
+                        reasoning_delta_event = {
+                            "type": "llm_reasoning_delta",
+                            "data": {
+                                "call_id": reasoning_call_id,
+                                "role": "main",
+                                "stage": "answer_generation",
+                                "delta": part.delta,
+                            },
+                        }
+                        self._record_execution_event(trace, reasoning_delta_event)
+                        yield reasoning_delta_event
                 else:
                     answer_parts.append(part.delta)
         except Exception as stream_exc:
             logger.error("模型流式调用失败: %s", stream_exc)
-            reasoning_end_event = {
-                "type": "llm_reasoning_end",
-                "data": {
-                    "call_id": reasoning_call_id,
-                    "role": "main",
-                    "stage": "answer_generation",
-                    "model": ep.model,
-                    "provider": ep.normalized_provider(),
-                    "reasoning_available": reasoning_available,
-                    "reasoning_chars": sum(len(part) for part in thinking_parts),
-                    "content_chars": sum(len(part) for part in answer_parts),
-                    "num_predict": reasoning_num_predict,
-                    "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
-                    "error": type(stream_exc).__name__,
-                },
-            }
-            self._record_execution_event(trace, reasoning_end_event)
-            yield reasoning_end_event
+            if stream_policy != "never":
+                reasoning_end_event = {
+                    "type": "llm_reasoning_end",
+                    "data": {
+                        "call_id": reasoning_call_id,
+                        "role": "main",
+                        "stage": "answer_generation",
+                        "model": ep.model,
+                        "provider": ep.normalized_provider(),
+                        "reasoning_available": reasoning_available,
+                        "reasoning_chars": sum(len(part) for part in thinking_parts),
+                        "content_chars": sum(len(part) for part in answer_parts),
+                        "num_predict": reasoning_num_predict,
+                        "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
+                        "error": type(stream_exc).__name__,
+                    },
+                }
+                self._record_execution_event(trace, reasoning_end_event)
+                yield reasoning_end_event
             fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
             error_event = {
                 "type": "error",
@@ -4650,23 +4739,41 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        reasoning_end_event = {
-            "type": "llm_reasoning_end",
-            "data": {
-                "call_id": reasoning_call_id,
-                "role": "main",
-                "stage": "answer_generation",
-                "model": ep.model,
-                "provider": ep.normalized_provider(),
-                "reasoning_available": reasoning_available,
-                "reasoning_chars": sum(len(part) for part in thinking_parts),
-                "content_chars": sum(len(part) for part in answer_parts),
-                "num_predict": reasoning_num_predict,
-                "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
-            },
-        }
-        self._record_execution_event(trace, reasoning_end_event)
-        yield reasoning_end_event
+        if stream_policy == "summary" and thinking_parts:
+            summary_text = "".join(thinking_parts)
+            max_chars = int(getattr(orch, "trace_reasoning_max_chars", 2000) or 2000)
+            if len(summary_text) > max_chars:
+                summary_text = summary_text[:max_chars] + "..."
+            reasoning_summary_event = {
+                "type": "llm_reasoning_summary",
+                "data": {
+                    "call_id": reasoning_call_id,
+                    "role": "main",
+                    "stage": "answer_generation",
+                    "summary": summary_text,
+                },
+            }
+            self._record_execution_event(trace, reasoning_summary_event)
+            yield reasoning_summary_event
+
+        if stream_policy != "never":
+            reasoning_end_event = {
+                "type": "llm_reasoning_end",
+                "data": {
+                    "call_id": reasoning_call_id,
+                    "role": "main",
+                    "stage": "answer_generation",
+                    "model": ep.model,
+                    "provider": ep.normalized_provider(),
+                    "reasoning_available": reasoning_available,
+                    "reasoning_chars": sum(len(part) for part in thinking_parts),
+                    "content_chars": sum(len(part) for part in answer_parts),
+                    "num_predict": reasoning_num_predict,
+                    "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
+                },
+            }
+            self._record_execution_event(trace, reasoning_end_event)
+            yield reasoning_end_event
         trace.mark("generate")
         answer_text = "".join(answer_parts)
         if not answer_text.strip():
@@ -5254,6 +5361,7 @@ class RagChain:
                      web_search: bool | None = None,
                      allow_general_knowledge: bool | None = None,
                      agent_prompt: str | None = None,
+                     mode: str | None = None,
                      include_evidence: bool = False,
                      clarification_question: str | None = None,
                      clarification_selected: str | None = None,
@@ -5269,6 +5377,7 @@ class RagChain:
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking,
             allow_general_knowledge=allow_general_knowledge,
+            mode=mode,
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
@@ -5639,6 +5748,7 @@ class RagChain:
                            web_search: bool | None = None,
                            allow_general_knowledge: bool | None = None,
                            agent_prompt: str | None = None,
+                           mode: str | None = None,
                            *,
                            pipeline_events: bool = False,
                            pinned_chunk_ids: list[str] | None = None,
@@ -5665,6 +5775,7 @@ class RagChain:
             thinking=thinking,
             web_search=web_search,
             allow_general_knowledge=allow_general_knowledge,
+            mode=mode,
             agent_prompt=agent_prompt,
             pipeline_events=pipeline_events,
             pinned_chunk_ids=pinned_chunk_ids,
@@ -5719,6 +5830,7 @@ class RagChain:
                                    web_search: bool | None = None,
                                    allow_general_knowledge: bool | None = None,
                                    agent_prompt: str | None = None,
+                                   mode: str | None = None,
                                    *,
                                    pipeline_events: bool = False,
                                    pinned_chunk_ids: list[str] | None = None,
@@ -5740,6 +5852,7 @@ class RagChain:
             q, history=history, kb_name=kb_name, doc_category=doc_category,
             llm_model=llm_model, thinking=thinking,
             allow_general_knowledge=allow_general_knowledge,
+            mode=mode,
             path=path or "query/stream",
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,

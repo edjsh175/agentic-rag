@@ -177,6 +177,7 @@ class GraphWorkingSet:
 
     entities: dict[str, GraphEntityState] = field(default_factory=dict)
     relations: dict[str, GraphRelationCandidate] = field(default_factory=dict)
+    entity_chunk_links: dict[str, tuple[str, ...]] = field(default_factory=dict)
     paths: list[GraphPathCandidate] = field(default_factory=list)
 
     frontier_entity_ids: tuple[str, ...] = ()
@@ -306,6 +307,12 @@ class GraphWorkingSet:
         if relation_id:
             self.admitted_relation_ids.add(str(relation_id).strip())
 
+    def add_entity_chunk_links(self, entity_name: str, chunk_ids: list[str] | tuple[str, ...]) -> None:
+        key = str(entity_name or "").strip().casefold()
+        values = tuple(dict.fromkeys(str(item or "").strip() for item in chunk_ids if str(item or "").strip()))
+        if key and values:
+            self.entity_chunk_links[key] = values
+
     def to_controller_state(self) -> dict[str, Any]:
         """Compact graph summary for Main ControllerState injection."""
         self.recalculate_frontier()
@@ -333,6 +340,7 @@ class GraphWorkingSet:
             "anchor_entities": list(self.anchor_entities),
             "entities": {k: v.to_dict() for k, v in self.entities.items()},
             "relations": {k: v.to_dict() for k, v in self.relations.items()},
+            "entity_chunk_links": {k: list(v) for k, v in self.entity_chunk_links.items()},
             "paths": [p.to_dict() for p in self.paths],
             "frontier_entities": list(self.frontier_entity_ids),
             "visited_entity_ids": list(self.visited_entity_ids),

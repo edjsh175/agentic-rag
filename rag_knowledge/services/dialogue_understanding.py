@@ -26,6 +26,7 @@ class SemanticTaskContext:
     mentioned_entities: tuple[str, ...]
     task_type: str
     confidence: float
+    entity_binding_required: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -43,6 +44,12 @@ class SemanticTaskContext:
             ),
             task_type=str(payload.get("task_type") or "unbound"),
             confidence=float(payload.get("confidence") or 0.0),
+            entity_binding_required=bool(
+                payload.get(
+                    "entity_binding_required",
+                    str(payload.get("task_type") or "unbound") != "unbound",
+                )
+            ),
         )
 
 
@@ -152,12 +159,15 @@ def build_semantic_task_context(
     else:
         task_type = "unbound"
 
+    from rag_knowledge.services.query_surface import question_is_underspecified
+
     return SemanticTaskContext(
         resolved_question=resolved,
         primary_entity=primary,
         mentioned_entities=tuple(mentioned),
         task_type=task_type,
         confidence=float(result.confidence),
+        entity_binding_required=(task_type != "unbound" or question_is_underspecified(question)),
     )
 
 

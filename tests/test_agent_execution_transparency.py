@@ -560,6 +560,9 @@ def test_budget_exhaustion_does_not_emit_forced_finalization_check():
         ),
     )
     assert result.terminal_action == "step_budget_exhausted"
+    trace = result.to_trace()
+    assert trace["execution_stop_reason"] == "step_budget_exhausted"
+    assert trace["terminal_outcome"] == "NO_SAFE_ANSWER"
     assert result.evidence_snapshot is None
     assert not any(
         event.get("type") == "finalization_check"
@@ -1250,6 +1253,45 @@ def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
     assert state["identity_status"] == "unresolved"
     assert "link_entities" not in state["allowed_tools"]
     assert "clarify" in state["allowed_tools"]
+
+
+def test_unbound_topic_vetoes_clarify_and_keeps_corpus_retrieval_available():
+    conversation = ConversationContext.from_request("知识库里关于部署的注意事项有哪些？", [])
+    evidence = EvidencePool(question_id="controller-state-unbound-topic")
+    events: list[dict] = []
+
+    def decide(*_args):
+        return AgentDecision(
+            action="tool_call",
+            tool="clarify",
+            arguments={
+                "question": "您想了解哪个产品？",
+                "model_suggested_options": ["StampServer", "StampWebRTC"],
+            },
+            reason="泛化问题，先澄清",
+            source="llm",
+        )
+
+    async def on_event(event):
+        events.append(event)
+
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=1, max_retrieve_attempts=2),
+        registry=build_agent_registry(),
+        handlers={},
+        decide_fn=decide,
+    )
+
+    state = json.loads(loop._controller_state_for_prompt())
+    assert state["entity_binding_required"] is False
+    assert "clarify" not in state["allowed_tools"]
+    assert "retrieve_kb" in state["allowed_tools"]
+
+    asyncio.run(loop.run(on_event=on_event))
+    guards = [event for event in events if event.get("type") == "guard"]
+    assert guards[-1]["data"]["reason"] == "entity_binding_not_required"
 
 
 def test_runtime_vetoes_reclarify_after_entity_confirmation():

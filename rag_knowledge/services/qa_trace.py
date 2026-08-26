@@ -214,6 +214,7 @@ class QaTraceBuilder:
         excluded_chunk_ids: list[str] | None = None,
         history_rounds: int = 0,
         cfg: Config | None = None,
+        mode: str | None = None,
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
         clarification_option_id: str | None = None,
@@ -244,6 +245,7 @@ class QaTraceBuilder:
         self._runtime_overrides: dict[str, Any] = {}
         self._retrieval_diagnostics_token = None
         self._request = {
+            "mode": mode or ("agent" if bool(cfg is not None and getattr(getattr(cfg, "agent_orchestration", None), "enabled", False)) else "linear"),
             "question": question or "",
             "collection_name": collection_name,
             "kb_name": kb_name,
@@ -481,7 +483,9 @@ class QaTraceBuilder:
         now = datetime.now(timezone.utc).astimezone()
         runtime_data = runtime_fingerprint(self._cfg)
         has_agent_steps = bool(self._agent and self._agent.get("agent_steps"))
+        inferred_effective_mode = "agent" if has_agent_steps else ("clarify" if bool(self._clarify.get("needs_clarification")) else "linear")
         runtime_data["effective_agent_orchestration_enabled"] = has_agent_steps or bool(runtime_data.get("agent_orchestration_enabled"))
+        runtime_data["effective_mode"] = self._runtime_overrides.get("effective_mode", inferred_effective_mode)
         runtime_data["requested_allow_general_knowledge"] = self._request.get("allow_general_knowledge")
         runtime_data["effective_allow_general_knowledge"] = self._runtime_overrides.get(
             "effective_allow_general_knowledge",
@@ -496,6 +500,18 @@ class QaTraceBuilder:
             model_calls = []
         grounding_payload = dict(self._grounding)
         grounding_payload["lifecycle_events"] = list(self._grounding_lifecycle)
+
+        # Reasoning policy filtering for QA trace persistence
+        orch_cfg = getattr(self._cfg, "agent_orchestration", None) if self._cfg else None
+        reasoning_policy = str(getattr(orch_cfg, "trace_reasoning_policy", "redact") or "redact").lower()
+        reasoning_policy = {"summarized": "summary", "never": "redact"}.get(reasoning_policy, reasoning_policy)
+        max_chars = int(getattr(orch_cfg, "trace_reasoning_max_chars", 2000) or 2000)
+        final_thinking = thinking
+        if reasoning_policy == "redact":
+            final_thinking = None
+        elif reasoning_policy in ("summary", "raw") and final_thinking:
+            final_thinking = final_thinking[:max_chars]
+
         payload = {
             "meta": {
                 "trace_id": self.trace_id,
@@ -522,7 +538,7 @@ class QaTraceBuilder:
             "evidence": evidence or {},
             "answer": {
                 "text": answer or "",
-                "thinking": thinking or "",
+                "thinking": final_thinking or "",
                 "source_documents": source_documents or [],
             },
         }

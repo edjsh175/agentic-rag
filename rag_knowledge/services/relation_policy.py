@@ -4,6 +4,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+EXACT_PARAMETER_TERMS = ("端口", "port", "参数", "密码", "密钥", "默认值", "路径", "命令", "ip", "url")
+OVERVIEW_TERMS = ("是什么", "介绍", "概览", "定位", "作用", "用途", "功能", "组件", "体系", "包含", "模块", "组成", "结构", "架构")
+RELATION_QUERY_TERMS: dict[str, tuple[str, ...]] = {
+    "belongs_to": ("属于", "归属", "产品", "体系", "定位", "是什么", "介绍", "概览", "关系", "架构", "包含", "模块", "组成", "结构"),
+    "depends_on": ("依赖", "要求", "依赖于", "前提", "需要", "服务", "组件", "关系", "架构"),
+    "requires": ("依赖", "要求", "需要", "前提", "环境", "组件", "关系"),
+    "different_from": ("区别", "不同", "对比", "比较", "差异", "关系"),
+    "implements": ("实现", "接口", "协议", "标准", "规范", "关系"),
+    "uses": ("使用", "调用", "采用", "关系"),
+    "has_service": ("服务", "模块", "包含", "子服务", "组件", "关系", "组成"),
+    "has_module": ("模块", "包含", "组件", "子系统", "关系", "组成"),
+}
+
+
 @dataclass(frozen=True)
 class RelationRule:
     """Stable semantic policy for one graph relation type."""
@@ -189,6 +203,21 @@ def is_answer_evidence_relation(relation_type: str, intent: str | None = None) -
         if norm_intent and norm_intent not in rule.evidence_intents:
             return False
     return True
+
+
+def relation_query_terms(relation_type: str) -> tuple[str, ...]:
+    """Return policy-owned lexical hints used only for query-level alignment."""
+    return RELATION_QUERY_TERMS.get(str(relation_type or "").strip(), ())
+
+
+def is_exact_parameter_query(question: str) -> bool:
+    query = str(question or "").casefold()
+    return any(term.casefold() in query for term in EXACT_PARAMETER_TERMS)
+
+
+def is_overview_query(question: str) -> bool:
+    query = str(question or "")
+    return any(term in query for term in OVERVIEW_TERMS)
 
 
 def graph_relations_for_intent(intent: str) -> frozenset[str]:

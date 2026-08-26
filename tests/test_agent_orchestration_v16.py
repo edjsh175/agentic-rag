@@ -187,6 +187,7 @@ def test_evidence_digest_exposes_facts_and_relations_for_controller_decisions():
     pool.add_relation(
         relation_key="PipelineBuilder -[different_from]-> PipelineWebGL",
         target_entity="PipelineWebGL",
+        admission_verdict="PASS",
     )
 
     digest = pool.decision_digest()
@@ -461,6 +462,7 @@ def test_v16_claim_guard_accepts_matching_approved_relation_evidence():
         relation_key="EntityA -[depends_on]-> ServiceX",
         target_entity="ServiceX",
         grant=grant_s,
+        admission_verdict="PASS",
         provenance=[{
             "source_type": "graph_relation",
             "source_ref": "relation:dep",
@@ -485,10 +487,9 @@ def test_v16_claim_guard_accepts_matching_approved_relation_evidence():
     assert verdict["allow_claims"] is True
 
 
-def test_v16_tool_schema_exposes_target_entity_for_retrieve_and_link():
+def test_v16_tool_schema_exposes_target_entity_for_retrieve_and_retired_link():
     registry = build_agent_registry()
     retrieve_props = registry.get("retrieve_kb").input_schema["properties"]
-    link_props = registry.get("link_entities").input_schema["properties"]
 
     assert "target_entity" in retrieve_props
-    assert "target_entity" in link_props
+    assert registry.get("link_entities") is None

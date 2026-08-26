@@ -131,6 +131,7 @@ class ExecutionEventType(str, Enum):
     UNDERSTANDING = "understanding"
     LLM_REASONING_START = "llm_reasoning_start"
     LLM_REASONING_DELTA = "llm_reasoning_delta"
+    LLM_REASONING_SUMMARY = "llm_reasoning_summary"
     LLM_REASONING_END = "llm_reasoning_end"
     PUBLIC_EXPLANATION = "public_explanation"
     DECISION = "decision"
@@ -547,11 +548,18 @@ class EvidencePool:
         origin_root: str | None = None,
         depth_from_root: int = 1,
         discovery_source: str = "bootstrap",
-        admission_verdict: str = "PASS",
+        admission_verdict: str = "",
         admission_reason: str = "",
         graph_revision: str = "",
         tool: str = "expand_graph_scope",
-    ) -> EvidenceGroup:
+    ) -> EvidenceGroup | None:
+        # Graph relations must carry an explicit PASS from GraphRelationAdmission.
+        # A provenance item may carry that verdict when adapting legacy callers.
+        explicit_verdict = str(admission_verdict or "").strip().upper()
+        if not explicit_verdict and provenance:
+            explicit_verdict = str((provenance[0] or {}).get("admission_verdict") or "").strip().upper()
+        if explicit_verdict != "PASS":
+            return None
         normalized_relation = str(relation_key or "").strip().casefold()
         for group in self.groups:
             if (
@@ -618,7 +626,7 @@ class EvidencePool:
                 "origin_root": o_root or "",
                 "depth_from_root": d_from_root,
                 "discovery_source": d_source or "bootstrap",
-                "admission_verdict": adm_verdict or "PASS",
+                "admission_verdict": adm_verdict,
                 "admission_reason": adm_reason or "",
                 "graph_revision": g_revision or "",
                 "grant_id": grant_id or "",
@@ -646,6 +654,37 @@ class EvidencePool:
         if self._evidence_keys(active_only=True) != before_keys:
             self._touch()
         return group
+
+    def add_admitted_relation(
+        self,
+        candidate: Any,
+        admission_result: Any,
+        *,
+        target_entity: str | None = None,
+        provenance: list[dict[str, Any]] | None = None,
+        tool: str = "expand_graph_scope",
+    ) -> EvidenceGroup | None:
+        """Materialize GraphRelationEvidence only after an explicit PASS."""
+        if str(getattr(admission_result, "verdict", "") or "").strip().upper() != "PASS":
+            return None
+        return self.add_relation(
+            relation_key=getattr(candidate, "relation_key", ""),
+            target_entity=target_entity,
+            provenance=provenance,
+            source_name=getattr(candidate, "source_name", None),
+            target_name=getattr(candidate, "target_name", None),
+            relation_type=getattr(candidate, "relation_type", None),
+            source_entity_id=getattr(candidate, "source_entity_id", None),
+            target_entity_id=getattr(candidate, "target_entity_id", None),
+            relation_id=getattr(candidate, "relation_id", None),
+            origin_root=getattr(candidate, "origin_root", None),
+            depth_from_root=getattr(candidate, "depth_from_root", 1),
+            discovery_source=getattr(candidate, "discovery_source", "bootstrap"),
+            admission_verdict="PASS",
+            admission_reason=getattr(admission_result, "reason", ""),
+            graph_revision=getattr(candidate, "graph_revision", ""),
+            tool=tool,
+        )
 
     def has_relation(self, relation_key: str) -> bool:
         key = str(relation_key or "").strip().casefold()
@@ -1243,6 +1282,8 @@ class AgentTurnResult:
     retrieve_improvement: int | None = None
     retrieval_trace: dict[str, Any] | None = None
     terminal_action: str = ""
+    execution_stop_reason: str = ""
+    terminal_outcome: str = ""
     evidence_snapshot: EvidenceSnapshot | None = None
     answer_context: AnswerGenerationContext | None = None
     answer_contract: dict[str, Any] = field(default_factory=dict)
@@ -1286,6 +1327,8 @@ class AgentTurnResult:
             "retrieve_improvement": self.retrieve_improvement,
             "retrieval_trace": dict(self.retrieval_trace or {}),
             "terminal_action": self.terminal_action,
+            "execution_stop_reason": self.execution_stop_reason or self.terminal_action,
+            "terminal_outcome": self.terminal_outcome,
             "evidence_snapshot_id": (
                 self.evidence_snapshot.snapshot_id
                 if self.evidence_snapshot is not None

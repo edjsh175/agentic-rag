@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.services.agent_orchestration.graph_admission import (
@@ -12,7 +12,6 @@ from rag_knowledge.services.agent_orchestration.graph_admission import (
 from rag_knowledge.services.agent_orchestration.graph_working_set import (
     GraphBudget,
     GraphEntityState,
-    GraphPathCandidate,
     GraphRelationCandidate,
     GraphWorkingSet,
 )
@@ -90,6 +89,15 @@ class GraphExplorer:
             etype = str(root_entity.get("entity_type") or "Product") if root_entity else "Product"
             working_set.add_root(root_name, entity_id=eid, entity_type=etype)
 
+            try:
+                links = self.db.list_links(entity_id=eid)
+                working_set.add_entity_chunk_links(
+                    root_name,
+                    [item.get("chunk_id") for item in links if isinstance(item, dict)],
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("failed to materialize entity chunk links for %s: %s", root_name, exc)
+
             if not eid:
                 continue
 
@@ -129,6 +137,14 @@ class GraphExplorer:
                     first_seen_via_relation_id=rid,
                 )
                 working_set.add_entity(neighbor_state)
+                try:
+                    links = self.db.list_links(entity_id=neighbor_id)
+                    working_set.add_entity_chunk_links(
+                        neighbor_name,
+                        [item.get("chunk_id") for item in links if isinstance(item, dict)],
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("failed to materialize entity chunk links for %s: %s", neighbor_name, exc)
 
                 rel_candidate = GraphRelationCandidate(
                     relation_id=rid,
@@ -175,7 +191,11 @@ class GraphExplorer:
 
         working_set.bootstrap_status = "COMPLETE" if working_set.entities else "EMPTY"
         working_set.recalculate_frontier()
-        admitted = [r for r in new_relations if working_set.relations[str(r.relation_id or r.relation_key).casefold()].relation_id in working_set.admitted_relation_ids]
+        admitted = [
+            r for r in new_relations
+            if r.relation_id in working_set.admitted_relation_ids
+            or r.relation_key.casefold() in working_set.admitted_relation_ids
+        ]
         return working_set, admitted, admissions
 
     def expand_graph_scope(
@@ -272,40 +292,56 @@ class GraphExplorer:
         working_set.budget.consume_expansion()
         working_set.record_expansion_signature(signature)
 
-        # 3. Perform Expansion Traversal
+        # 3. Perform Expansion Traversal (Multi-hop BFS)
         new_entities_count = 0
         new_relations_count = 0
         new_candidates: list[GraphRelationCandidate] = []
         filter_types = {str(r).strip().lower() for r in (relation_types or ()) if str(r).strip()}
 
-        for start_name in start_entities:
-            start_norm = _norm(start_name)
-            is_existing_node = start_norm in working_set.entities
+        current_frontier_names: list[str] = list(start_entities)
+        visited_in_call: set[str] = set()
 
-            if is_existing_node:
-                current_state = working_set.entities[start_norm]
-                root_origin = current_state.origin_root
-                base_depth = current_state.depth_from_root
-                discovery_source = "depth_expansion"
-            else:
-                # Root Expansion: Create new local root with local depth = 0
-                root_origin = start_name
-                root_ent = self._find_entity(start_name)
-                eid = str(root_ent.get("id") or "") if root_ent else None
-                etype = str(root_ent.get("entity_type") or "Product") if root_ent else "Product"
-                current_state = working_set.add_root(start_name, entity_id=eid, entity_type=etype)
-                base_depth = 0
-                discovery_source = "root_expansion"
-                new_entities_count += 1
+        for hop_idx in range(1, hops + 1):
+            next_frontier_names: list[str] = []
+            for node_name in current_frontier_names:
+                node_norm = _norm(node_name)
+                if not node_norm:
+                    continue
+                is_existing_node = node_norm in working_set.entities
 
-            if current_state.entity_id:
+                if is_existing_node:
+                    current_state = working_set.entities[node_norm]
+                    root_origin = current_state.origin_root
+                    base_depth = current_state.depth_from_root
+                    discovery_source = "depth_expansion"
+                else:
+                    # Root Expansion: Create new local root with local depth = 0
+                    root_origin = node_name
+                    root_ent = self._find_entity(node_name)
+                    eid = str(root_ent.get("id") or "") if root_ent else None
+                    etype = str(root_ent.get("entity_type") or "Product") if root_ent else "Product"
+                    current_state = working_set.add_root(node_name, entity_id=eid, entity_type=etype)
+                    base_depth = 0
+                    discovery_source = "root_expansion"
+                    new_entities_count += 1
+
+                if not current_state.entity_id:
+                    root_ent = self._find_entity(node_name)
+                    if root_ent:
+                        current_state.entity_id = str(root_ent.get("id") or "")
+                        current_state.entity_type = str(root_ent.get("entity_type") or current_state.entity_type or "Product")
+
+                if not current_state.entity_id or current_state.entity_id in visited_in_call:
+                    continue
+                visited_in_call.add(current_state.entity_id)
+
                 try:
                     relations = self.db.list_relations(
                         entity_id=current_state.entity_id,
                         review_status="approved",
                     )
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("expand_graph_scope failed for %s: %s", start_name, exc)
+                    logger.warning("expand_graph_scope failed for %s: %s", node_name, exc)
                     relations = []
 
                 for rel in relations:
@@ -322,7 +358,7 @@ class GraphExplorer:
                     t_type = str(rel.get("target_type") or "")
                     conf = float(rel.get("confidence", 1.0) or 1.0)
 
-                    is_source = (s_id == current_state.entity_id or _norm(s_name) == start_norm)
+                    is_source = (s_id == current_state.entity_id or _norm(s_name) == node_norm)
                     if direction == "out" and not is_source:
                         continue
                     if direction == "in" and is_source:
@@ -346,8 +382,18 @@ class GraphExplorer:
                         is_frontier=True,
                         first_seen_via_relation_id=rid,
                     )
-                    if working_set.add_entity(neighbor_state):
+                    is_new_ent = working_set.add_entity(neighbor_state)
+                    if is_new_ent:
                         new_entities_count += 1
+                        next_frontier_names.append(neighbor_name)
+                    try:
+                        links = self.db.list_links(entity_id=neighbor_id)
+                        working_set.add_entity_chunk_links(
+                            neighbor_name,
+                            [item.get("chunk_id") for item in links if isinstance(item, dict)],
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("failed to materialize entity chunk links for %s: %s", neighbor_name, exc)
 
                     rel_candidate = GraphRelationCandidate(
                         relation_id=rid,
@@ -360,15 +406,18 @@ class GraphExplorer:
                         target_type=t_type,
                         review_status="approved",
                         confidence=conf,
-                        graph_revision=working_set.graph_revision,
                         depth_from_root=next_depth,
                         origin_root=root_origin,
                         discovery_source=discovery_source,
-                        discovery_path=(f"{start_name} --{rtype}--> {neighbor_name}",),
+                        discovery_path=(f"{node_name} --{rtype}--> {neighbor_name}",),
                     )
                     if working_set.add_relation(rel_candidate):
                         new_relations_count += 1
                         new_candidates.append(rel_candidate)
+
+            current_frontier_names = next_frontier_names
+            if not current_frontier_names:
+                break
 
         working_set.recalculate_frontier()
 

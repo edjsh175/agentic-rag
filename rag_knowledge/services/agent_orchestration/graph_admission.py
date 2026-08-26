@@ -12,24 +12,13 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import (
 )
 from rag_knowledge.services.relation_policy import (
     RELATION_RULES,
-    is_answer_evidence_relation,
+    is_exact_parameter_query,
+    is_overview_query,
+    relation_query_terms,
     relation_rule,
 )
 
 logger = logging.getLogger(__name__)
-
-_EXACT_PARAMETER_TERMS = ("端口", "port", "参数", "密码", "密钥", "默认值", "路径", "命令", "ip", "url")
-_RELATION_INTENT_TERMS = {
-    "belongs_to": ("属于", "归属", "产品", "体系", "定位", "是什么", "介绍", "概览", "关系", "架构"),
-    "depends_on": ("依赖", "要求", "依赖于", "前提", "需要", "服务", "组件", "关系"),
-    "requires": ("依赖", "要求", "需要", "前提", "环境", "组件", "关系"),
-    "different_from": ("区别", "不同", "对比", "比较", "差异", "关系"),
-    "implements": ("实现", "接口", "协议", "标准", "规范", "关系"),
-    "uses": ("使用", "调用", "采用", "关系"),
-    "has_service": ("服务", "模块", "包含", "子服务", "组件", "关系"),
-    "has_module": ("模块", "包含", "组件", "子系统", "关系"),
-}
-
 
 @dataclass(frozen=True)
 class GraphRelationAdmissionResult:
@@ -90,7 +79,7 @@ class GraphRelationAdmissionService:
         if candidate.relation_type not in RELATION_RULES:
             return False, f"unregistered_relation_type:{candidate.relation_type}"
         rule = relation_rule(candidate.relation_type)
-        if not rule or not rule.answer_evidence:
+        if not rule or not rule.answer_evidence or not rule.evidence_intents:
             return False, f"relation_type_not_answer_evidence:{candidate.relation_type}"
         return True, "ok"
 
@@ -164,7 +153,7 @@ class GraphRelationAdmissionService:
             )
 
         # Exact parameter questions shouldn't admit generic belongs_to relations as evidence
-        is_exact_parameter = any(term in q_norm for term in _EXACT_PARAMETER_TERMS)
+        is_exact_parameter = is_exact_parameter_query(q_norm)
         if is_exact_parameter and candidate.relation_type in {"belongs_to", "alias_of"}:
             return GraphRelationAdmissionResult(
                 verdict="REJECT",
@@ -176,7 +165,7 @@ class GraphRelationAdmissionService:
             )
 
         # Keyword alignment
-        matching_terms = _RELATION_INTENT_TERMS.get(candidate.relation_type, ())
+        matching_terms = relation_query_terms(candidate.relation_type)
         has_intent_term = any(term in q_norm for term in matching_terms)
 
         if has_intent_term and entity_relevance == "HIGH":
@@ -193,8 +182,7 @@ class GraphRelationAdmissionService:
             )
 
         # Overview questions can admit belongs_to / requires / different_from for high entity relevance
-        overview_terms = ("是什么", "介绍", "概览", "定位", "作用", "用途", "功能", "组件", "体系")
-        is_overview = any(term in q_norm for term in overview_terms)
+        is_overview = is_overview_query(q_norm)
         if is_overview and entity_relevance == "HIGH" and candidate.relation_type in {"belongs_to", "requires", "different_from", "has_service", "has_module"}:
             intent_relevance = "HIGH"
             relation_relevance = "DIRECT" if candidate.relation_type in {"belongs_to", "has_service", "has_module"} else "CONTEXTUAL"

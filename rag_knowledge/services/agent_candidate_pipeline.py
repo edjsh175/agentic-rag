@@ -172,7 +172,17 @@ class AgentCandidatePipeline:
             conditions.append({"doc_category": doc_category})
         return conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
-    def _entity(self, name: str) -> dict[str, Any] | None:
+    def _entity(self, name: str, graph_working_set: Any = None) -> dict[str, Any] | None:
+        if graph_working_set is not None and hasattr(graph_working_set, "entities"):
+            for ent in graph_working_set.entities.values():
+                if _same(getattr(ent, "canonical_name", ""), name):
+                    return {
+                        "id": getattr(ent, "entity_id", "") or "",
+                        "name": getattr(ent, "canonical_name", "") or "",
+                        "canonical_name": getattr(ent, "canonical_name", "") or "",
+                        "entity_type": getattr(ent, "entity_type", "") or "",
+                    }
+            return None
         if self._graph_db is None:
             return None
         for item in self._graph_db.list_entities(review_status="approved"):
@@ -247,15 +257,29 @@ class AgentCandidatePipeline:
                 ),
                 (), False, False,
             ))
-            target_graph_entity = self._entity(target)
-            lists.append((
-                "entity_chunk_link",
-                self._linked_chunks(
-                    target_graph_entity, budgets.entity_chunk,
-                    kb_name=kb_name, review_status=review_status, doc_category=doc_category,
-                ),
-                (), True, False,
-            ))
+            target_graph_entity = self._entity(target, graph_working_set=graph_working_set)
+            if graph_working_set is not None and hasattr(graph_working_set, "entity_chunk_links"):
+                linked_ids = graph_working_set.entity_chunk_links.get(target.casefold(), ())
+                lists.append((
+                    "entity_chunk_link",
+                    self._chunks(
+                        self._generator_filter(
+                            {"chunk_id": {"$in": list(linked_ids)[:budgets.entity_chunk]}},
+                            kb_name=kb_name, review_status=review_status, doc_category=doc_category,
+                        ),
+                        budgets.entity_chunk,
+                    ),
+                    (), True, False,
+                ))
+            elif self._graph_db is not None:
+                lists.append((
+                    "entity_chunk_link",
+                    self._linked_chunks(
+                        target_graph_entity, budgets.entity_chunk,
+                        kb_name=kb_name, review_status=review_status, doc_category=doc_category,
+                    ),
+                    (), True, False,
+                ))
             if graph_working_set is not None and hasattr(graph_working_set, "entities"):
                 neighbors: list[tuple[str, tuple[str, ...], float]] = []
                 for ent_state in getattr(graph_working_set, "entities", {}).values():
@@ -277,7 +301,6 @@ class AgentCandidatePipeline:
                             strength = max(strength, strengths.get(getattr(rule, "candidate_expansion", "weak"), 1.0))
                     path = tuple(rel_paths) if rel_paths else (f"{target} -> {ent_state.canonical_name}",)
                     neighbors.append((ent_state.canonical_name, path, strength))
-                neighbors.sort(key=lambda item: (-item[2], item[0].casefold()))
             else:
                 neighbors = self._graph_neighbors(target)
             strength_total = sum(item[2] for item in neighbors) or 1.0
