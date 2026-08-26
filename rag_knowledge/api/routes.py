@@ -1140,14 +1140,6 @@ def list_chat_sessions(x_device_fingerprint: str = Header(...)):
     return _chat_storage.list_sessions(x_device_fingerprint)
 
 
-@router.post("/chat/sessions/sync-traces")
-def sync_chat_sessions_from_traces(x_device_fingerprint: str = Header(...)):
-    """从 qa_traces 调试记录同步并恢复会话"""
-    if _chat_storage is None:
-        raise HTTPException(503, detail="聊天记录服务未初始化")
-    return _chat_storage.sync_from_qa_traces(x_device_fingerprint)
-
-
 @router.post("/chat/sessions")
 def create_chat_session(body: dict | None = None, x_device_fingerprint: str = Header(...)):
     """创建新会话"""
@@ -1178,6 +1170,8 @@ def save_chat_session(session_id: str, body: dict, x_device_fingerprint: str = H
     messages = body.get("messages", [])
     title = body.get("title")
     saved = _chat_storage.save_session(x_device_fingerprint, session_id, messages, title=title)
+    if saved is None:
+        raise HTTPException(404, detail="会话不存在")
     return saved
 
 

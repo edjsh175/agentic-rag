@@ -9,11 +9,11 @@ import type { Message as ChatMessage, SourceDoc, MessageClarification, ChatSessi
 import { normalizeLegacyMessageToBlocks } from './agentBlockProjector'
 import {
   fetchServerSessions,
-  syncServerSessionsFromTraces,
   createServerSession,
   fetchServerSessionDetail,
   saveServerSession,
   renameServerSession,
+  setActiveServerSession,
   deleteServerSession,
   loadServerChat,
   saveServerChat,
@@ -72,6 +72,12 @@ function loadLocalSessionsMeta(): { activeSessionId: string | null; sessions: Ch
   } catch {
     return { activeSessionId: null, sessions: [] }
   }
+}
+
+function isNetworkUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return true
+  const requestError = error as { isAxiosError?: boolean; response?: unknown }
+  return !requestError.isAxiosError || !requestError.response
 }
 
 function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void {
@@ -232,7 +238,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
 }
 
 /**
- * 加载所有会话列表
+ * 加载所有会话列表（服务端为唯一持久化真相源，仅在网络异常时回退本地只读展示）
  */
 export async function loadChatSessions(): Promise<{ activeSessionId: string | null; sessions: ChatSessionSummary[] }> {
   const fingerprint = getFingerprint()
@@ -240,71 +246,35 @@ export async function loadChatSessions(): Promise<{ activeSessionId: string | nu
   // 1. 尝试从服务端加载
   try {
     const resp = await fetchServerSessions(fingerprint)
-    if (resp && resp.sessions && resp.sessions.length > 0) {
+    if (resp && Array.isArray(resp.sessions)) {
       saveLocalSessionsMeta(resp.sessions, resp.active_session_id)
       return {
-        activeSessionId: resp.active_session_id || resp.sessions[0].id,
+        activeSessionId: resp.active_session_id || (resp.sessions[0]?.id ?? null),
         sessions: resp.sessions,
       }
     }
-  } catch {
-    // 服务端异常时回退到本地
+  } catch (e) {
+    if (!isNetworkUnavailable(e)) throw e
+    console.warn('服务端会话列表加载失败，回退到本地缓存:', e)
   }
 
-  // 2. 检查本地是否有会话列表
+  // 2. 仅在服务端抛出网络/不可达异常时，回退到本地缓存
   const local = loadLocalSessionsMeta()
   if (local.sessions && local.sessions.length > 0) {
     return local
-  }
-
-  // 3. 检查是否有旧版本 legacy localStorage 消息
-  const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
-  if (legacyRaw) {
-    try {
-      const legacyMsgs: StoredMsg[] = JSON.parse(legacyRaw)
-      if (legacyMsgs && legacyMsgs.length > 0) {
-        let title = '历史对话'
-        for (const m of legacyMsgs) {
-          if (m.role === 'user' && m.content) {
-            title = generateSessionTitle(m.content)
-            break
-          }
-        }
-        const newId = `session_${Date.now()}`
-        const legacySession: ChatSessionSummary = {
-          id: newId,
-          title,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          message_count: legacyMsgs.length,
-        }
-        saveLocalSessionsMeta([legacySession], newId)
-        localStorage.setItem(`${SESSION_MSGS_PREFIX}${newId}`, legacyRaw)
-        localStorage.removeItem(LEGACY_STORAGE_KEY)
-        return { activeSessionId: newId, sessions: [legacySession] }
-      }
-    } catch {}
   }
 
   return { activeSessionId: null, sessions: [] }
 }
 
 /**
- * 从服务端 qa_traces 调试记录中同步恢复历史会话
+ * 设置当前活跃会话（同步服务端与本地）
  */
-export async function syncChatSessionsFromTraces(): Promise<{ activeSessionId: string | null; sessions: ChatSessionSummary[] }> {
+export async function setActiveChatSession(sessionId: string): Promise<void> {
   const fingerprint = getFingerprint()
-  try {
-    const resp = await syncServerSessionsFromTraces(fingerprint)
-    if (resp && resp.sessions && resp.sessions.length > 0) {
-      saveLocalSessionsMeta(resp.sessions, resp.active_session_id)
-      return {
-        activeSessionId: resp.active_session_id || resp.sessions[0].id,
-        sessions: resp.sessions,
-      }
-    }
-  } catch {}
-  return loadChatSessions()
+  await setActiveServerSession(fingerprint, sessionId)
+  const { sessions } = loadLocalSessionsMeta()
+  saveLocalSessionsMeta(sessions, sessionId)
 }
 
 /**
@@ -316,6 +286,7 @@ export async function loadSessionMessages(sessionId: string): Promise<ChatMessag
   // 1. 服务端优先
   try {
     const detail = await fetchServerSessionDetail(fingerprint, sessionId)
+    if (detail === null) return []
     if (detail && detail.messages) {
       const stored: StoredMsg[] = detail.messages.map((m: any) => ({
         id: m.id,
@@ -336,7 +307,9 @@ export async function loadSessionMessages(sessionId: string): Promise<ChatMessag
       saveLocalSessionMsgs(sessionId, stored as any)
       return restoreMessages(stored)
     }
-  } catch {}
+  } catch (e) {
+    if (!isNetworkUnavailable(e)) throw e
+  }
 
   // 2. 本地回退
   const localStored = loadLocalSessionMsgs(sessionId)
@@ -357,7 +330,10 @@ export async function createChatSession(
   const fingerprint = getFingerprint()
   const sid = sessionId || `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
-  // 1. 本地立即更新
+  // 1. 服务端创建
+  await createServerSession(fingerprint, title, sid)
+
+  // 2. 本地同步更新
   const { sessions } = loadLocalSessionsMeta()
   const newSummary: ChatSessionSummary = {
     id: sid,
@@ -369,11 +345,6 @@ export async function createChatSession(
   const nextSessions = [newSummary, ...sessions.filter((s) => s.id !== sid)]
   saveLocalSessionsMeta(nextSessions, sid)
   saveLocalSessionMsgs(sid, [])
-
-  // 2. 异步同步服务端
-  try {
-    await createServerSession(fingerprint, title, sid)
-  } catch {}
 
   return { id: sid, title }
 }
@@ -407,7 +378,7 @@ export async function saveSessionState(
   ]
   saveLocalSessionsMeta(nextSessions, sessionId)
 
-  // 2. 写入服务端
+  // 2. 写入服务端（不吞掉异常）
   const toSave = trimmed
     .filter((m) => !m.loading)
     .map((m) => ({
@@ -423,9 +394,7 @@ export async function saveSessionState(
       blocks: m.blocks,
     }))
 
-  try {
-    await saveServerSession(fingerprint, sessionId, toSave, title)
-  } catch {}
+  await saveServerSession(fingerprint, sessionId, toSave, title)
 
   // 3. 图片写入 IndexedDB
   const imageJobs = messages
@@ -459,6 +428,7 @@ export function saveSessionStateLocalSync(
  */
 export async function renameChatSession(sessionId: string, title: string): Promise<void> {
   const fingerprint = getFingerprint()
+  await renameServerSession(fingerprint, sessionId, title)
   const { sessions, activeSessionId } = loadLocalSessionsMeta()
   const target = sessions.find((s) => s.id === sessionId)
   if (target) {
@@ -466,9 +436,6 @@ export async function renameChatSession(sessionId: string, title: string): Promi
     target.updated_at = new Date().toISOString()
     saveLocalSessionsMeta(sessions, activeSessionId)
   }
-  try {
-    await renameServerSession(fingerprint, sessionId, title)
-  } catch {}
 }
 
 /**
@@ -477,20 +444,18 @@ export async function renameChatSession(sessionId: string, title: string): Promi
 export async function deleteChatSession(sessionId: string): Promise<void> {
   const fingerprint = getFingerprint()
 
-  // 1. 本地删除
+  // 1. 服务端删除
+  await deleteServerSession(fingerprint, sessionId)
+
+  // 2. 本地删除
   removeLocalSession(sessionId)
 
-  // 2. 清除该会话的消息与图片
+  // 3. 清除该会话的消息与图片
   const msgs = loadLocalSessionMsgs(sessionId)
   const imgIds = msgs.filter((m) => m.hasImage).map((m) => m.id)
   if (imgIds.length) {
     removeImagesFromDB(imgIds).catch(() => {})
   }
-
-  // 3. 服务端删除
-  try {
-    await deleteServerSession(fingerprint, sessionId)
-  } catch {}
 }
 
 /**

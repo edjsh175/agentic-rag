@@ -9,10 +9,10 @@ import {
   saveSessionState,
   saveSessionStateLocalSync,
   loadChatSessions,
-  syncChatSessionsFromTraces,
   loadSessionMessages,
   createChatSession,
   renameChatSession,
+  setActiveChatSession,
   deleteChatSession,
   generateSessionTitle,
 } from '../utils/storage'
@@ -345,23 +345,27 @@ async function handleNewChat() {
     return
   }
 
-  const created = await createChatSession('新建对话')
-  activeSessionId.value = created.id
-  sessions.value = [
-    {
-      id: created.id,
-      title: created.title,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      message_count: 0,
-    },
-    ...sessions.value.filter((s) => s.id !== created.id),
-  ]
-  messages.value = []
-  currentSources.value = []
-  showSources.value = false
-  pinnedChunks.value = []
-  excludedChunks.value = []
+  try {
+    const created = await createChatSession('新建对话')
+    activeSessionId.value = created.id
+    sessions.value = [
+      {
+        id: created.id,
+        title: created.title,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        message_count: 0,
+      },
+      ...sessions.value.filter((s) => s.id !== created.id),
+    ]
+    messages.value = []
+    currentSources.value = []
+    showSources.value = false
+    pinnedChunks.value = []
+    excludedChunks.value = []
+  } catch (e: any) {
+    showToast('创建新对话失败: ' + (e.message || '网络异常'))
+  }
 }
 
 async function handleSwitchSession(sessionId: string) {
@@ -373,9 +377,20 @@ async function handleSwitchSession(sessionId: string) {
   loading.value = false
 
   if (activeSessionId.value && messages.value.length > 0) {
-    await persist()
+    try {
+      await persist()
+    } catch (e: any) {
+      showToast('保存当前对话失败: ' + (e.message || '网络异常'))
+      return
+    }
   }
 
+  try {
+    await setActiveChatSession(sessionId)
+  } catch (e: any) {
+    showToast('切换对话失败: ' + (e.message || '网络异常'))
+    return
+  }
   activeSessionId.value = sessionId
   messages.value = await loadSessionMessages(sessionId)
   const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
@@ -402,8 +417,14 @@ async function commitRenameSession(session: ChatSessionSummary) {
   if (editingSessionId.value !== session.id) return
   const newTitle = editingTitle.value.trim()
   if (newTitle && newTitle !== session.title) {
+    const oldTitle = session.title
     session.title = newTitle
-    await renameChatSession(session.id, newTitle)
+    try {
+      await renameChatSession(session.id, newTitle)
+    } catch (e: any) {
+      session.title = oldTitle
+      showToast('重命名失败: ' + (e.message || '网络异常'))
+    }
   }
   editingSessionId.value = null
 }
@@ -416,17 +437,37 @@ async function handleDeleteSession(sessionId: string) {
   const ok = await showConfirm('确定删除该对话记录？')
   if (!ok) return
 
-  if (activeSessionId.value === sessionId && abortController.value) {
-    abortController.value.abort()
-    abortController.value = null
+  const isCurrent = activeSessionId.value === sessionId
+
+  if (isCurrent) {
+    if (abortController.value) {
+      abortController.value.abort()
+      abortController.value = null
+    }
+    loading.value = false
+    messages.value = []
+    currentSources.value = []
+    pinnedChunks.value = []
+    excludedChunks.value = []
   }
 
-  await deleteChatSession(sessionId)
+  try {
+    await deleteChatSession(sessionId)
+  } catch (e: any) {
+    showToast('删除对话失败: ' + (e.message || '网络异常'))
+    return
+  }
+
   sessions.value = sessions.value.filter((s) => s.id !== sessionId)
 
-  if (activeSessionId.value === sessionId) {
+  if (isCurrent) {
     if (sessions.value.length > 0) {
-      await handleSwitchSession(sessions.value[0].id)
+      const nextId = sessions.value[0].id
+      activeSessionId.value = nextId
+      messages.value = await loadSessionMessages(nextId)
+      const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
+      currentSources.value = withSources.length ? withSources[withSources.length - 1].sources! : []
+      scrollDown(true)
     } else {
       await handleNewChat()
     }
@@ -434,52 +475,35 @@ async function handleDeleteSession(sessionId: string) {
   showToast('对话已删除')
 }
 
-const syncingTraces = ref(false)
-async function handleSyncTraces() {
-  if (syncingTraces.value) return
-  syncingTraces.value = true
-  try {
-    const meta = await syncChatSessionsFromTraces()
-    sessions.value = meta.sessions
-    if (meta.sessions.length > 0) {
-      if (!activeSessionId.value || !sessions.value.some((s) => s.id === activeSessionId.value)) {
-        activeSessionId.value = meta.activeSessionId || meta.sessions[0].id
-        messages.value = await loadSessionMessages(activeSessionId.value)
-      }
-    }
-    showToast('已从证据调试记录恢复历史对话')
-  } catch (e: any) {
-    showToast('同步失败: ' + (e.message || '网络异常'))
-  } finally {
-    syncingTraces.value = false
-  }
-}
-
 onMounted(async () => {
-  let meta = await loadChatSessions()
-  // 如果会话列表为空或仅有一个空会话，自动尝试从 qa_traces 调试记录中恢复
-  if (meta.sessions.length === 0 || (meta.sessions.length === 1 && meta.sessions[0].message_count === 0)) {
-    try {
-      meta = await syncChatSessionsFromTraces()
-    } catch {}
+  let meta: Awaited<ReturnType<typeof loadChatSessions>>
+  try {
+    meta = await loadChatSessions()
+  } catch (e: any) {
+    showToast('加载会话失败: ' + (e.message || '服务端异常'))
+    return
   }
   sessions.value = meta.sessions
   if (meta.sessions.length > 0) {
     activeSessionId.value = meta.activeSessionId || meta.sessions[0].id
     messages.value = await loadSessionMessages(activeSessionId.value)
   } else {
-    const created = await createChatSession('新建对话')
-    activeSessionId.value = created.id
-    sessions.value = [
-      {
-        id: created.id,
-        title: created.title,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        message_count: 0,
-      },
-    ]
-    messages.value = []
+    try {
+      const created = await createChatSession('新建对话')
+      activeSessionId.value = created.id
+      sessions.value = [
+        {
+          id: created.id,
+          title: created.title,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          message_count: 0,
+        },
+      ]
+      messages.value = []
+    } catch (e) {
+      console.warn('初始化新会话失败:', e)
+    }
   }
 
   const withSources = messages.value.filter((m) => m.role === 'assistant' && m.sources?.length)
@@ -1315,11 +1339,6 @@ function scrollDown(force = false) {
           </svg>
           <span class="btn-text">新建对话</span>
         </button>
-        <button class="sync-traces-btn" :class="{ spinning: syncingTraces }" @click="handleSyncTraces" title="从证据调试记录同步历史对话">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-          </svg>
-        </button>
         <button class="toggle-sidebar-btn" @click="toggleSidebar" title="收起会话列表">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -1845,35 +1864,6 @@ function scrollDown(force = false) {
 
 .new-chat-btn:active {
   transform: scale(0.98);
-}
-
-.sync-traces-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.sync-traces-btn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-}
-
-.sync-traces-btn.spinning svg {
-  animation: traceSyncSpin 0.8s linear infinite;
-}
-
-@keyframes traceSyncSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .toggle-sidebar-btn {

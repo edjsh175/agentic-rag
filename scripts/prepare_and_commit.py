@@ -125,7 +125,7 @@ def main():
             run_cmd(["git", "add", f])
 
     # 6. 提交信息
-    commit_msg = "feat: adjust controller prompt format parameter and repair related unit test"
+    commit_msg = "feat: support dual-track session storage with local cache fallback"
     print(f"\nUsing commit message: '{commit_msg}'")
 
     # 7. 执行 Git commit
