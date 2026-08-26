@@ -4121,10 +4121,85 @@ class RagChain:
                 data=status_data,
             )
 
+        from rag_knowledge.services.agent_orchestration.graph_admission import GraphRelationAdmissionService
+        from rag_knowledge.services.agent_orchestration.graph_explorer import GraphExplorer
+
+        graph_on = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
+        graph_db = getattr(getattr(self, "_graph_retriever", None), "db", None) if graph_on else None
+        graph_admission_service = GraphRelationAdmissionService(graph_db=graph_db)
+        graph_explorer = GraphExplorer(
+            graph_db=graph_db,
+            config=orch,
+            admission_service=graph_admission_service,
+        )
+
+        async def handle_expand_graph_scope(_args: dict) -> ToolObservation:
+            start_ents = _args.get("start_entities") or []
+            if isinstance(start_ents, str):
+                start_ents = [s.strip() for s in re.split(r"[,，;；\n]+", start_ents) if s.strip()]
+            rel_types = _args.get("relation_types")
+            direction = str(_args.get("direction") or "both")
+            additional_hops = int(_args.get("additional_hops", 1) or 1)
+            goal_ents = _args.get("goal_entities")
+
+            working_set = getattr(loop, "graph_working_set", None) if 'loop' in locals() else None
+            ws, admitted, res_status = graph_explorer.expand_graph_scope(
+                working_set=working_set,
+                start_entities=start_ents,
+                relation_types=rel_types,
+                direction=direction,
+                additional_hops=additional_hops,
+                goal_entities=goal_ents,
+                question=conv.user_question,
+                semantic_task=conv.semantic_task,
+                conversation_context=conv,
+                admission_service=graph_admission_service,
+            )
+            if 'loop' in locals():
+                loop.graph_working_set = ws
+
+            for rel in admitted:
+                prov = [{
+                    "relation_id": rel.relation_id,
+                    "relation_type": rel.relation_type,
+                    "source_entity_id": rel.source_entity_id,
+                    "source_name": rel.source_name,
+                    "target_entity_id": rel.target_entity_id,
+                    "target_name": rel.target_name,
+                    "origin_root": rel.origin_root,
+                    "depth_from_root": rel.depth_from_root,
+                    "discovery_source": "expand_graph_scope",
+                    "admission_verdict": "PASS",
+                    "admission_reason": rel.admission_reason,
+                    "graph_revision": rel.graph_revision,
+                    "tool": "expand_graph_scope",
+                }]
+                evidence.add_relation(
+                    relation_key=rel.relation_key,
+                    target_entity=rel.origin_root or rel.target_name or rel.source_name,
+                    provenance=prov,
+                )
+
+            summary = f"图谱扩展（{res_status}）：探索到 {len(ws.entities)} 个实体、{len(ws.relations)} 条关系（{len(admitted)} 条准入为事实证据）"
+            return ToolObservation(
+                tool="expand_graph_scope",
+                ok=True,
+                status=ToolProgressStatus.PROGRESS if res_status == "PROGRESS" else ToolProgressStatus.NO_PROGRESS,
+                summary=summary[:120],
+                data={
+                    "status": res_status,
+                    "entities": [e.canonical_name for e in ws.entities.values()],
+                    "admitted_relations": [r.relation_key for r in admitted],
+                    "frontier_entities": list(ws.frontier_entity_ids),
+                    "budget": ws.budget.to_dict(),
+                },
+            )
+
         handlers: dict[str, Any] = {
             "retrieve_kb": handle_retrieve,
             "reuse_evidence": handle_reuse,
             "link_entities": handle_link,
+            "expand_graph_scope": handle_expand_graph_scope,
             "clarify": handle_clarify,
             "environment.read_status": handle_env_status,
         }
@@ -4140,6 +4215,7 @@ class RagChain:
             cfg=self._cfg,
             decide_fn=getattr(self, "_agent_decide_fn", None),
             tool_timeout=float(getattr(orch, "tool_timeout", 60.0) or 0.0),
+            graph_explorer=graph_explorer,
         )
         result = await loop.run(on_event=emit)
         self._safe_record_agent_rejections(trace, result)
@@ -4293,7 +4369,7 @@ class RagChain:
         if result.plan is not None:
             trace.set_plan(result.plan)
         trace.set_agent(result.to_trace())
-        if result.terminal_action == "controller_error":
+        if getattr(result, "terminal_action", "") == "controller_error":
             error_docs = self._freeze_generation_source_docs(result.evidence.citable_docs())
             coverage = str((result.answer_gate or {}).get("coverage") or "NONE").upper()
             self._safe_set_retrieval(
@@ -4758,7 +4834,7 @@ class RagChain:
         if result.plan is not None:
             trace.set_plan(result.plan)
         trace.set_agent(result.to_trace())
-        if result.terminal_action == "controller_error":
+        if getattr(result, "terminal_action", "") == "controller_error":
             error_docs = self._freeze_generation_source_docs(result.evidence.citable_docs())
             self._safe_set_retrieval(
                 trace,

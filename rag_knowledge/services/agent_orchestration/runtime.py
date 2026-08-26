@@ -70,6 +70,7 @@ PHASE1_TOOL_NAMES = frozenset({
 
 PHASE2_TOOL_NAMES = frozenset({
     "link_entities",
+    "expand_graph_scope",
 })
 
 PHASE4_TOOL_NAMES = frozenset({
@@ -85,7 +86,7 @@ _FORBIDDEN_TOOLS = frozenset({
 
 ToolHandler = Callable[[dict[str, Any]], Awaitable[ToolObservation]]
 
-_ENTITY_TOOLS = frozenset({"retrieve_kb", "link_entities"})
+_ENTITY_TOOLS = frozenset({"retrieve_kb", "link_entities", "expand_graph_scope"})
 _ENTITY_AUTHORIZATION_ERRORS = frozenset({
     "broadening_after_target_rejection",
     "confirmed_topic_cannot_grant_entity",
@@ -742,6 +743,22 @@ def build_agent_registry(
 ) -> "ToolRegistry":
     registry = build_phase1_registry()
     registry.register(ToolSpec(
+        name="expand_graph_scope",
+        description="扩大图谱工作集覆盖范围：支持从已有 frontier 继续向外加深的 Depth Expansion，以及从已授权合法新实体开辟局部探索根的 Root Expansion。支持指定 relation_types, direction, additional_hops (1或2)。严禁凭空编造实体。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "start_entities": {"type": "array", "items": {"type": "string"}},
+                "relation_types": {"type": "array", "items": {"type": "string"}},
+                "direction": {"type": "string", "enum": ["in", "out", "both"]},
+                "additional_hops": {"type": "integer", "enum": [1, 2]},
+                "goal_entities": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["start_entities"],
+        },
+        side_effect="read",
+    ))
+    registry.register(ToolSpec(
         name="link_entities",
         description="已确认实体的图谱主干与关系查询：返回规范实体、主干层级和一跳关系。未确认主体应先走澄清流程；本工具不负责用户实体授权或澄清。",
         input_schema={
@@ -872,6 +889,8 @@ class AgentLoop:
         tool_timeout: float = 60.0,
         resolve_binding_fn: Callable[[ConversationContext], Any] | None = None,
         answer_policy: dict[str, Any] | None = None,
+        graph_explorer: Any | None = None,
+        graph_working_set: Any | None = None,
     ) -> None:
         self.conversation = conversation
         self.evidence = evidence
@@ -903,6 +922,8 @@ class AgentLoop:
         self.continuous_no_progress_count = 0
         self._exploration_fuse_open = False
         self._answer_policy = dict(answer_policy or {})
+        self.graph_explorer = graph_explorer
+        self.graph_working_set = graph_working_set
         self._terminal_finalization_v2 = bool(
             # A configured production runtime defaults to V2; an unconfigured
             # loop is only a legacy/unit harness and has no rollout contract.
@@ -1275,6 +1296,14 @@ class AgentLoop:
         if not retrieval_allowed:
             allowed_tools.discard("retrieve_kb")
 
+        if self.graph_working_set is not None and hasattr(self.graph_working_set, "to_controller_state"):
+            if not self.graph_working_set.budget.can_expand():
+                allowed_tools.discard("expand_graph_scope")
+                allowed_tools.discard("link_entities")
+        if status != "confirmed_entity" and not confirmed_entities:
+            allowed_tools.discard("expand_graph_scope")
+            allowed_tools.discard("link_entities")
+
         state = {
             "identity_status": status,
             "confirmed_entity": str(confirmed_entity or "") or None,
@@ -1283,6 +1312,11 @@ class AgentLoop:
             "topic_shift": bool(conv.topic_shift),
             "entity_transition": bool(conv.entity_transition),
             "evidence_state": self._current_evidence_state(),
+            "graph_state": (
+                self.graph_working_set.to_controller_state()
+                if self.graph_working_set is not None and hasattr(self.graph_working_set, "to_controller_state")
+                else None
+            ),
             "budget": self.budget.to_dict(),
             "retrieval_allowed": retrieval_allowed,
             "allowed_tools": sorted(allowed_tools),
@@ -1338,6 +1372,67 @@ class AgentLoop:
             ExecutionEventType.UNDERSTANDING,
             self._understanding_event_data(),
         )
+
+        orch_cfg = getattr(self._cfg, "agent_orchestration", None)
+        bootstrap_enabled = getattr(orch_cfg, "graph_bootstrap_enabled", True)
+        if self.graph_explorer is not None and bootstrap_enabled:
+            confirmed_roots = []
+            if self.conversation.confirmed_entity:
+                confirmed_roots.append(self.conversation.confirmed_entity)
+            for ent in getattr(self.conversation, "confirmed_entities", ()) or ():
+                if ent and ent not in confirmed_roots:
+                    confirmed_roots.append(ent)
+            if not confirmed_roots and self.conversation.head_entity:
+                confirmed_roots.append(self.conversation.head_entity)
+
+            if confirmed_roots:
+                await self._emit(
+                    on_event,
+                    ExecutionEventType.GRAPH_BOOTSTRAP_STARTED,
+                    {
+                        "roots": list(confirmed_roots),
+                        "max_hops": getattr(orch_cfg, "graph_bootstrap_hops", 1),
+                    },
+                )
+                ws, admitted, _ = self.graph_explorer.bootstrap_anchor_graph(
+                    confirmed_roots,
+                    question=self.conversation.user_question,
+                    semantic_task=self.conversation.semantic_task,
+                )
+                self.graph_working_set = ws
+                for rel in admitted:
+                    prov = [{
+                        "relation_id": rel.relation_id,
+                        "relation_type": rel.relation_type,
+                        "source_entity_id": rel.source_entity_id,
+                        "source_name": rel.source_name,
+                        "target_entity_id": rel.target_entity_id,
+                        "target_name": rel.target_name,
+                        "origin_root": rel.origin_root,
+                        "depth_from_root": rel.depth_from_root,
+                        "discovery_source": "bootstrap",
+                        "admission_verdict": "PASS",
+                        "admission_reason": rel.admission_reason,
+                        "graph_revision": rel.graph_revision,
+                        "tool": "bootstrap_anchor_graph",
+                    }]
+                    self.evidence.add_relation(
+                        relation_key=rel.relation_key,
+                        target_entity=rel.origin_root or rel.target_name or rel.source_name,
+                        provenance=prov,
+                    )
+                await self._emit(
+                    on_event,
+                    ExecutionEventType.GRAPH_BOOTSTRAP_COMPLETED,
+                    {
+                        "roots": list(ws.exploration_roots),
+                        "entity_count": len(ws.entities),
+                        "relation_count": len(ws.relations),
+                        "admitted_relation_count": len(admitted),
+                        "frontier_entities": list(ws.frontier_entity_ids),
+                    },
+                )
+
         while self.budget.can_step():
             self.budget.consume_step()
             step_index = self.budget.steps_used
@@ -1994,6 +2089,12 @@ class AgentLoop:
             tools=list(self.tools),
             fallbacks=list(dict.fromkeys(self.fallbacks)),
             budget=self.budget.to_dict(),
+            graph_working_set=self.graph_working_set,
+            graph_budget=(
+                self.graph_working_set.budget.to_dict()
+                if self.graph_working_set is not None and hasattr(self.graph_working_set, "budget")
+                else {}
+            ),
             retrieve_attempts=self.budget.retrieve_attempts,
             reuse=reuse,
             clarify=self._clarify_payload,

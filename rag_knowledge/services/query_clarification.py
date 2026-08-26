@@ -566,6 +566,9 @@ class QueryClarificationService:
             include_other=True,
             constraints=self._load_constraints(),
         )
+        meaningful_count = len([opt for opt in options if getattr(opt, "source", None) != "fixed_other"])
+        if meaningful_count < 2:
+            return None
         return ClarificationResult(
             needs_clarification=True,
             ask_question=ask_question,
