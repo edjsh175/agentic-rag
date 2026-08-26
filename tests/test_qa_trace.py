@@ -307,7 +307,7 @@ def test_stub_ragchain_stream_does_not_pollute_live_traces(monkeypatch):
     events = asyncio.run(collect())
     assert any(
         e.get("type") == "clarify"
-        or (e.get("type") == "token" and e.get("data") == NO_KNOWLEDGE_ANSWER)
+        or (e.get("type") in {"token", "final_answer"} and e.get("data") == NO_KNOWLEDGE_ANSWER)
         for e in events
     )
 

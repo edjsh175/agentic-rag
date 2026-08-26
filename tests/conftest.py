@@ -28,6 +28,7 @@ def _reset_singletons_between_tests():
 def _disable_qa_trace_by_default(monkeypatch):
     """Prevent unit-test RagChain stubs from writing into live data/qa_traces/."""
     monkeypatch.setenv("QA_TRACE_ENABLED", "false")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-api-key")
 
 
 @pytest.fixture

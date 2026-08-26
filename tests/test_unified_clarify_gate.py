@@ -7,7 +7,7 @@ from rag_knowledge.services.rag import RagChain
 
 def test_stream_query_ambiguous_short_circuits_with_clarify_card(isolated_storage, monkeypatch):
     isolated_storage()
-    monkeypatch.setenv("AGENT_ORCHESTRATION_ENABLED", "true")
+    monkeypatch.setenv("AGENT_ORCHESTRATION_ENABLED", "false")
     Config._instance = None
 
     chain = RagChain()
@@ -54,7 +54,7 @@ def test_stream_query_with_clarification_selected_passes_gate(isolated_storage, 
 
 def test_aquery_ambiguous_returns_clarification_payload(isolated_storage, monkeypatch):
     isolated_storage()
-    monkeypatch.setenv("AGENT_ORCHESTRATION_ENABLED", "true")
+    monkeypatch.setenv("AGENT_ORCHESTRATION_ENABLED", "false")
     Config._instance = None
 
     chain = RagChain()

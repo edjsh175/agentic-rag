@@ -20,6 +20,8 @@ class GraphEntityState:
     is_root: bool = False
     is_frontier: bool = True
     first_seen_via_relation_id: str = ""
+    source: str = "bootstrap"
+    admission_verdict: str = "PASS"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,19 +41,22 @@ class GraphRelationCandidate:
     """Graph edge candidate in the working set, pending or passed relation admission."""
 
     relation_id: str
-    source_entity_id: str
     source_name: str
-    source_type: str
-    relation_type: str
-    target_entity_id: str
     target_name: str
-    target_type: str
+    relation_type: str
+    source_entity_id: str = ""
+    source_type: str = "Product"
+    target_entity_id: str = ""
+    target_type: str = "Product"
     review_status: str = "approved"
     confidence: float = 1.0
+    graph_revision: str = "rev_v1"
     depth_from_root: int = 1
     origin_root: str = ""
     discovery_source: str = "bootstrap"  # bootstrap | depth_expansion | root_expansion
     discovery_path: tuple[str, ...] = ()
+    admission_verdict: str = "PASS"
+    admission_reason: str = ""
 
     @property
     def relation_key(self) -> str:
@@ -70,6 +75,7 @@ class GraphRelationCandidate:
             "target_type": self.target_type,
             "review_status": self.review_status,
             "confidence": self.confidence,
+            "graph_revision": self.graph_revision,
             "depth_from_root": self.depth_from_root,
             "origin_root": self.origin_root,
             "discovery_source": self.discovery_source,
@@ -105,25 +111,42 @@ class GraphBudget:
     expansion_calls: int = 0
     entities_seen: int = 0
     relations_seen: int = 0
+    max_hops_per_expansion: int = 2
     max_expansion_calls: int = 2
     max_entities_total: int = 24
     max_relations_total: int = 64
     max_total_depth: int = 3  # Per-root local depth cap
 
+    @property
+    def expansion_calls_used(self) -> int:
+        return self.expansion_calls
+
+    @property
+    def entities_discovered(self) -> int:
+        return self.entities_seen
+
+    @property
+    def relations_discovered(self) -> int:
+        return self.relations_seen
+
     def remaining_expansion_calls(self) -> int:
         return max(0, self.max_expansion_calls - self.expansion_calls)
 
-    def can_expand(self) -> bool:
+    def can_expand(self, hops: int = 1, target_depth: int = 1) -> bool:
         return (
-            self.expansion_calls < self.max_expansion_calls
+            hops <= self.max_hops_per_expansion
+            and target_depth <= self.max_total_depth
+            and self.expansion_calls < self.max_expansion_calls
             and self.entities_seen < self.max_entities_total
             and self.relations_seen < self.max_relations_total
         )
 
-    def consume_expansion(self) -> bool:
-        if not self.can_expand():
+    def consume_expansion(self, hops: int = 1, entities_discovered: int = 0, relations_discovered: int = 0) -> bool:
+        if not self.can_expand(hops=hops):
             return False
         self.expansion_calls += 1
+        self.entities_seen += entities_discovered
+        self.relations_seen += relations_discovered
         return True
 
     def to_dict(self) -> dict[str, Any]:
@@ -246,6 +269,7 @@ class GraphWorkingSet:
         self.frontier_entity_ids = tuple(sorted(set(frontier)))
         return self.frontier_entity_ids
 
+    compute_expansion_signature = None  # defined below
     def make_expansion_signature(
         self,
         start_entities: list[str] | tuple[str, ...],
@@ -271,6 +295,12 @@ class GraphWorkingSet:
 
     def record_expansion_signature(self, signature: str) -> None:
         self.expansion_signatures.add(signature)
+
+    def is_signature_attempted(self, signature: str) -> bool:
+        return self.is_duplicate_expansion(signature)
+
+    def record_attempted_signature(self, signature: str) -> None:
+        self.record_expansion_signature(signature)
 
     def mark_relation_admitted(self, relation_id: str) -> None:
         if relation_id:
@@ -314,3 +344,8 @@ class GraphWorkingSet:
             "last_graph_status": self.last_graph_status,
             "budget": self.budget.to_dict(),
         }
+
+
+GraphWorkingSet.compute_expansion_signature = GraphWorkingSet.make_expansion_signature
+GraphWorkingSet.is_signature_attempted = GraphWorkingSet.is_duplicate_expansion
+GraphWorkingSet.record_attempted_signature = GraphWorkingSet.record_expansion_signature

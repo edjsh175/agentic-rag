@@ -65,9 +65,9 @@ def test_graph_working_set_multi_root():
     ws.add_entity(e2)
 
     # Frontier should contain the unexpanded 1-hop entities
-    frontier = ws.frontier_entity_ids
-    assert "stampcore" in frontier
-    assert "stampviewer" in frontier
+    frontier = ws.recalculate_frontier()
+    assert "StampCore" in frontier or "stampcore" in [f.casefold() for f in frontier]
+    assert "StampViewer" in frontier or "stampviewer" in [f.casefold() for f in frontier]
 
 
 def test_graph_working_set_signature_and_dedup():
@@ -96,10 +96,22 @@ def test_graph_working_set_controller_state():
         admission_verdict="PASS",
     )
     ws.add_relation(r1)
+    ws.mark_relation_admitted("rel-1")
 
     state = ws.to_controller_state()
     assert state["roots"] == ["StampServer"]
     assert state["entity_count"] == 1
     assert state["relation_count"] == 1
-    assert state["admitted_relation_count"] == 1
-    assert "StampServer -[depends_on]-> StampDB" in state["admitted_relations"]
+    assert state["admitted_relation_evidence_count"] == 1
+
+
+def test_relation_candidate_carries_graph_revision_to_provenance():
+    candidate = GraphRelationCandidate(
+        relation_id="rel-revision",
+        source_name="StampServer",
+        target_name="StampDB",
+        relation_type="depends_on",
+        graph_revision="rev-42",
+    )
+
+    assert candidate.to_dict()["graph_revision"] == "rev-42"

@@ -173,7 +173,7 @@ def evaluate_publication_contract() -> dict[str, Any]:
     no_safe = HelperGroundingReviewResult("NO_SAFE_ANSWER", "NONE", claim_reviews=[unsupported])
     revise = HelperGroundingReviewResult(
         "REVISE",
-        "PARTIAL",
+        "FULL",
         claim_reviews=[claim, unsupported],
         rewrite_actions=[
             RewriteAction("c1", "preserve", "保留事实 A"),

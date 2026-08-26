@@ -495,15 +495,17 @@ class EvidencePool:
         head_entity: str | None = None,
         target_entity: str | None = None,
         grant: Any = None,
+        grant_id: str | None = None,
+        provenance: list[dict[str, Any]] | None = None,
     ) -> EvidenceGroup:
         before_keys = self._evidence_keys(active_only=True)
         self._retrieve_seq += 1
         cleaned = [d for d in (docs or []) if isinstance(d, dict)]
-        provenance = []
-        grant_id = None
+        prov_items = list(provenance or [])
+        eff_grant_id = grant_id
         if grant is not None:
-            grant_id = str(getattr(grant, "grant_id", "") or "") or None
-            provenance.append({
+            eff_grant_id = eff_grant_id or (str(getattr(grant, "grant_id", "") or "") or None)
+            prov_items.append({
                 "source_type": str(getattr(grant, "source_type", "") or ""),
                 "source_ref": str(getattr(grant, "source_ref", "") or ""),
                 "target_entities": list(getattr(grant, "target_entities", ()) or ()),
@@ -518,9 +520,9 @@ class EvidencePool:
             docs=list(cleaned),
             status="ACTIVE",
             head_entity=head_entity,
-            target_entity=target_entity or getattr(grant, "primary_root", None),
-            grant_id=grant_id,
-            provenance=provenance,
+            target_entity=target_entity or (getattr(grant, "primary_root", None) if grant else None),
+            grant_id=eff_grant_id,
+            provenance=prov_items,
             query=query,
             tool=tool,
         )
@@ -536,6 +538,19 @@ class EvidencePool:
         target_entity: str | None = None,
         grant: Any = None,
         provenance: list[dict[str, Any]] | None = None,
+        source_name: str | None = None,
+        target_name: str | None = None,
+        relation_type: str | None = None,
+        source_entity_id: str | None = None,
+        target_entity_id: str | None = None,
+        relation_id: str | None = None,
+        origin_root: str | None = None,
+        depth_from_root: int = 1,
+        discovery_source: str = "bootstrap",
+        admission_verdict: str = "PASS",
+        admission_reason: str = "",
+        graph_revision: str = "",
+        tool: str = "expand_graph_scope",
     ) -> EvidenceGroup:
         normalized_relation = str(relation_key or "").strip().casefold()
         for group in self.groups:
@@ -546,43 +561,43 @@ class EvidencePool:
                 return group
         before_keys = self._evidence_keys(active_only=True)
         provenance_items = list(provenance or [])
-        relation_id = None
-        relation_type = None
-        source_entity_id = None
-        source_name = None
-        target_entity_id = None
-        target_name = None
-        origin_root = None
-        depth_from_root = 0
-        discovery_source = None
-        admission_verdict = None
-        admission_reason = None
-        graph_revision = None
-        tool = None
+        rel_id = relation_id
+        rel_type = relation_type
+        s_entity_id = source_entity_id
+        s_name = source_name
+        t_entity_id = target_entity_id
+        t_name = target_name
+        o_root = origin_root
+        d_from_root = depth_from_root
+        d_source = discovery_source
+        adm_verdict = admission_verdict
+        adm_reason = admission_reason
+        g_revision = graph_revision
+        t_tool = tool
         source_ref = ""
         if provenance_items:
             item = provenance_items[0]
-            relation_id = item.get("relation_id") or item.get("id")
-            relation_type = item.get("relation_type") or item.get("type")
-            source_entity_id = item.get("source_entity_id") or item.get("source_id")
-            source_name = item.get("source_name")
-            target_entity_id = item.get("target_entity_id") or item.get("target_id")
-            target_name = item.get("target_name")
-            origin_root = item.get("origin_root")
-            depth_from_root = item.get("depth_from_root") or item.get("hop_depth") or 0
-            discovery_source = item.get("discovery_source")
-            admission_verdict = item.get("admission_verdict")
-            admission_reason = item.get("admission_reason")
-            graph_revision = item.get("graph_revision")
-            tool = item.get("tool")
+            rel_id = rel_id or item.get("relation_id") or item.get("id")
+            rel_type = rel_type or item.get("relation_type") or item.get("type")
+            s_entity_id = s_entity_id or item.get("source_entity_id") or item.get("source_id")
+            s_name = s_name or item.get("source_name")
+            t_entity_id = t_entity_id or item.get("target_entity_id") or item.get("target_id")
+            t_name = t_name or item.get("target_name")
+            o_root = o_root or item.get("origin_root")
+            d_from_root = item.get("depth_from_root") or item.get("hop_depth") or d_from_root
+            d_source = d_source or item.get("discovery_source")
+            adm_verdict = adm_verdict or item.get("admission_verdict")
+            adm_reason = adm_reason or item.get("admission_reason")
+            g_revision = g_revision or item.get("graph_revision")
+            t_tool = item.get("tool") or t_tool
             source_ref = str(item.get("source_ref") or "").strip()
         if not source_ref and grant is not None:
             source_ref = str(getattr(grant, "source_ref", "") or "").strip()
-        if not tool and grant is not None:
-            tool = getattr(grant, "tool", None)
-        if not relation_id and source_ref.startswith("relation:"):
-            relation_id = source_ref.split("relation:", 1)[1]
-        synthetic_chunk_id = f"graph-relation:{relation_id or uuid.uuid4().hex[:12]}"
+        if not t_tool and grant is not None:
+            t_tool = getattr(grant, "tool", None) or "expand_graph_scope"
+        if not rel_id and source_ref.startswith("relation:"):
+            rel_id = source_ref.split("relation:", 1)[1]
+        synthetic_chunk_id = f"graph-relation:{rel_id or uuid.uuid4().hex[:12]}"
         identity_scope_id = str(getattr(grant, "identity_scope_id", "") or "")
         grant_id = str(getattr(grant, "grant_id", "") or "") or None
         relation_doc = {
@@ -591,21 +606,21 @@ class EvidencePool:
                 "chunk_id": synthetic_chunk_id,
                 "source_type": "graph_relation",
                 "file_name": "知识图谱（已审核关系）",
-                "document_entity": target_entity or target_name or source_name or "",
-                "evidence_target_entity": target_entity or target_name or source_name or "",
+                "document_entity": target_entity or t_name or s_name or "",
+                "evidence_target_entity": target_entity or t_name or s_name or "",
                 "relation_key": relation_key,
-                "relation_id": relation_id,
-                "relation_type": relation_type,
-                "source_entity_id": source_entity_id,
-                "source_name": source_name,
-                "target_entity_id": target_entity_id,
-                "target_name": target_name,
-                "origin_root": origin_root,
-                "depth_from_root": depth_from_root,
-                "discovery_source": discovery_source,
-                "admission_verdict": admission_verdict,
-                "admission_reason": admission_reason,
-                "graph_revision": graph_revision,
+                "relation_id": rel_id or "",
+                "relation_type": rel_type or "",
+                "source_entity_id": s_entity_id or "",
+                "source_name": s_name or "",
+                "target_entity_id": t_entity_id or "",
+                "target_name": t_name or "",
+                "origin_root": o_root or "",
+                "depth_from_root": d_from_root,
+                "discovery_source": d_source or "bootstrap",
+                "admission_verdict": adm_verdict or "PASS",
+                "admission_reason": adm_reason or "",
+                "graph_revision": g_revision or "",
                 "grant_id": grant_id or "",
                 "grant_admitted": True,
                 "identity_scope_id": identity_scope_id,
@@ -621,7 +636,7 @@ class EvidencePool:
             chunk_ids=[synthetic_chunk_id],
             docs=[relation_doc],
             status="ACTIVE",
-            target_entity=target_entity or target_name or source_name,
+            target_entity=target_entity or t_name or s_name,
             relation_key=relation_key,
             grant_id=grant_id,
             provenance=provenance_items,

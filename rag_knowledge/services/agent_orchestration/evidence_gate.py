@@ -278,10 +278,17 @@ def evaluate_claim_alignment(
             seen_entities.add(target.casefold())
             entity_names.append(target)
         if group.kind == "relation":
+            if group.relation_key:
+                match = re.match(r"^(.*?)\s*-\[.*?\]->\s*(.*?)$", group.relation_key)
+                if match:
+                    for side in (match.group(1).strip(), match.group(2).strip()):
+                        if side and side.casefold() not in seen_entities:
+                            seen_entities.add(side.casefold())
+                            entity_names.append(side)
             for item in group.provenance:
                 if not isinstance(item, dict):
                     continue
-                for key in ("source_entity", "target_entity"):
+                for key in ("source_entity", "target_entity", "source_name", "target_name"):
                     value = str(item.get(key) or "").strip()
                     if value and value.casefold() not in seen_entities:
                         seen_entities.add(value.casefold())

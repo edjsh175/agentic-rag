@@ -1375,6 +1375,7 @@ class AgentLoop:
 
         orch_cfg = getattr(self._cfg, "agent_orchestration", None)
         bootstrap_enabled = getattr(orch_cfg, "graph_bootstrap_enabled", True)
+        candidate_pipeline_v2 = bool(getattr(orch_cfg, "candidate_pipeline_v2", False))
         if self.graph_explorer is not None and bootstrap_enabled:
             confirmed_roots = []
             if self.conversation.confirmed_entity:
@@ -1416,11 +1417,14 @@ class AgentLoop:
                         "graph_revision": rel.graph_revision,
                         "tool": "bootstrap_anchor_graph",
                     }]
-                    self.evidence.add_relation(
-                        relation_key=rel.relation_key,
-                        target_entity=rel.origin_root or rel.target_name or rel.source_name,
-                        provenance=prov,
-                    )
+                    # V2 keeps graph relations as candidate provenance only;
+                    # direct relation evidence would bypass Candidate Admission.
+                    if not candidate_pipeline_v2:
+                        self.evidence.add_relation(
+                            relation_key=rel.relation_key,
+                            target_entity=rel.origin_root or rel.target_name or rel.source_name,
+                            provenance=prov,
+                        )
                 await self._emit(
                     on_event,
                     ExecutionEventType.GRAPH_BOOTSTRAP_COMPLETED,

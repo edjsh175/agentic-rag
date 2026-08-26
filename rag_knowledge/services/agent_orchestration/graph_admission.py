@@ -56,6 +56,26 @@ class GraphRelationAdmissionResult:
 class GraphRelationAdmissionService:
     """Evaluates whether an approved graph relation candidate qualifies as query-level factual Evidence."""
 
+    def __init__(self, graph_db: Any = None):
+        self.graph_db = graph_db
+
+    def admit_relation(
+        self,
+        candidate: GraphRelationCandidate,
+        *,
+        question: str = "",
+        working_set: GraphWorkingSet | None = None,
+        target_entities: list[str] | tuple[str, ...] | None = None,
+        task_type: str | None = None,
+    ) -> GraphRelationAdmissionResult:
+        return self.admit(
+            question,
+            candidate,
+            working_set=working_set,
+            target_entities=target_entities,
+            task_type=task_type,
+        )
+
     @staticmethod
     def _validate_hard_conditions(
         candidate: GraphRelationCandidate,

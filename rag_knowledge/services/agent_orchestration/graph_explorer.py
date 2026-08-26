@@ -32,8 +32,10 @@ def _norm(name: Any) -> str:
 class GraphExplorer:
     """Manages Runtime 1-hop Bootstrap and Agent autonomous expand_graph_scope."""
 
-    def __init__(self, db: Any = None):
-        self.db = db
+    def __init__(self, db: Any = None, *, graph_db: Any = None, config: Any = None, admission_service: Any = None):
+        self.db = graph_db if graph_db is not None else db
+        self.config = config
+        self.admission_service = admission_service
 
     def _find_entity(self, name: str) -> dict[str, Any] | None:
         if self.db is None:
@@ -51,19 +53,22 @@ class GraphExplorer:
 
     def bootstrap_anchor_graph(
         self,
+        confirmed_roots: tuple[str, ...] | list[str] | None = None,
         *,
-        question: str,
-        question_id: str,
-        confirmed_entities: tuple[str, ...] | list[str],
+        question: str = "",
+        question_id: str = "",
+        confirmed_entities: tuple[str, ...] | list[str] | None = None,
         task_type: str | None = None,
         max_hops: int = 1,
         budget: GraphBudget | None = None,
+        semantic_task: Any = None,
     ) -> tuple[GraphWorkingSet, list[GraphRelationCandidate], dict[str, GraphRelationAdmissionResult]]:
+        roots = tuple(confirmed_roots or confirmed_entities or ())
         """Runtime-owned default 1-hop Bootstrap across all confirmed entities (Multi-root)."""
         working_set = GraphWorkingSet(
             question_id=question_id,
-            exploration_roots=tuple(confirmed_entities),
-            anchor_entities=tuple(confirmed_entities),
+            exploration_roots=roots,
+            anchor_entities=roots,
             budget=budget or GraphBudget(),
         )
         working_set.budget.bootstrap_calls += 1
@@ -72,14 +77,14 @@ class GraphExplorer:
             working_set.bootstrap_status = "UNAVAILABLE"
             return working_set, [], {}
 
-        if not confirmed_entities:
+        if not roots:
             working_set.bootstrap_status = "EMPTY"
             return working_set, [], {}
 
         working_set.bootstrap_status = "IN_PROGRESS"
         new_relations: list[GraphRelationCandidate] = []
 
-        for root_name in confirmed_entities:
+        for root_name in roots:
             root_entity = self._find_entity(root_name)
             eid = str(root_entity.get("id") or "") if root_entity else None
             etype = str(root_entity.get("entity_type") or "Product") if root_entity else "Product"
@@ -136,6 +141,7 @@ class GraphExplorer:
                     target_type=t_type,
                     review_status="approved",
                     confidence=conf,
+                    graph_revision=working_set.graph_revision,
                     depth_from_root=1,
                     origin_root=root_name,
                     discovery_source="bootstrap",
@@ -147,7 +153,7 @@ class GraphExplorer:
         # Multi-root priority sorting: direct A <-> B link > matching task > strong candidate > other
         def _sort_key(r: GraphRelationCandidate) -> tuple[int, str]:
             s_norm, t_norm = _norm(r.source_name), _norm(r.target_name)
-            roots_norm = {_norm(rt) for rt in confirmed_entities}
+            roots_norm = {_norm(rt) for rt in roots}
             if s_norm in roots_norm and t_norm in roots_norm:
                 return (0, r.relation_key)
             return (1, r.relation_key)
@@ -159,7 +165,7 @@ class GraphExplorer:
             question,
             new_relations,
             working_set=working_set,
-            target_entities=confirmed_entities,
+            target_entities=list(roots),
             task_type=task_type,
         )
         for r in new_relations:
@@ -174,20 +180,28 @@ class GraphExplorer:
 
     def expand_graph_scope(
         self,
+        working_set: GraphWorkingSet | None = None,
+        start_entities: list[str] | tuple[str, ...] | None = None,
         *,
-        working_set: GraphWorkingSet,
-        start_entities: list[str] | tuple[str, ...],
         relation_types: list[str] | tuple[str, ...] | None = None,
         direction: str = "both",
         additional_hops: int = 1,
         goal_entities: list[str] | tuple[str, ...] | None = None,
         admitted_text_entities: set[str] | tuple[str, ...] | None = None,
         stage1_confirmed_entities: set[str] | tuple[str, ...] | None = None,
-        user_mentioned_entities: set[str] | tuple[str, ...] | None = None,
+        user_mentioned_entities: set[str] | tuple[str, ...] | list[str] | None = None,
+        user_mentions: set[str] | tuple[str, ...] | list[str] | None = None,
         question: str = "",
         task_type: str | None = None,
+        conversation_context: Any = None,
+        admission_service: Any = None,
+        semantic_task: Any = None,
     ) -> ToolObservation:
         """Agent-directed graph scope expansion supporting Depth and Root Expansion with 4-source authorization."""
+        if working_set is None:
+            working_set = GraphWorkingSet()
+        if start_entities is None:
+            start_entities = []
         if not start_entities:
             return ToolObservation(
                 tool="expand_graph_scope",
@@ -211,7 +225,7 @@ class GraphExplorer:
         valid_stage1.update(_norm(e) for e in working_set.anchor_entities if _norm(e))
         valid_graph = {_norm(e) for e in working_set.entities.keys() if _norm(e)}
         valid_text = {_norm(e) for e in (admitted_text_entities or ()) if _norm(e)}
-        valid_user = {_norm(e) for e in (user_mentioned_entities or ()) if _norm(e)}
+        valid_user = {_norm(e) for e in (user_mentioned_entities or user_mentions or ()) if _norm(e)}
 
         all_authorized = valid_stage1 | valid_graph | valid_text | valid_user
 
@@ -346,6 +360,7 @@ class GraphExplorer:
                         target_type=t_type,
                         review_status="approved",
                         confidence=conf,
+                        graph_revision=working_set.graph_revision,
                         depth_from_root=next_depth,
                         origin_root=root_origin,
                         discovery_source=discovery_source,
