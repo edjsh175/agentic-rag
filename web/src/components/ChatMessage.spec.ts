@@ -140,4 +140,26 @@ describe('ChatMessage execution presentation', () => {
     expect(wrapper.get('[data-testid="pipeline-status"]').text()).toContain('正在检索知识库…')
     expect(wrapper.findComponent({ name: 'AgentStepStream' }).exists()).toBe(false)
   })
+
+  it('reveals streamed provider thinking in Linear mode', async () => {
+    const wrapper = mount(ChatMessage, {
+      props: {
+        role: 'assistant',
+        mode: 'linear',
+        content: '',
+        loading: true,
+        thinking: '先核对知识库证据。',
+      },
+      global: {
+        stubs: {
+          EvidencePanel: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.thinking-toggle').text()).toContain('正在思考')
+    expect(wrapper.get('.thinking-content').isVisible()).toBe(false)
+    await wrapper.get('.thinking-toggle').trigger('click')
+    expect(wrapper.get('.thinking-content').text()).toContain('先核对知识库证据。')
+  })
 })

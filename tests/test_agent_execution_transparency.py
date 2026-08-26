@@ -147,6 +147,7 @@ def test_tool_lifecycle_has_canonical_order_and_no_legacy_events():
 
     ordered = [
         _event_index(events, "decision"),
+        _event_index(events, "public_explanation"),
         _event_index(events, "guard", lambda data: data.get("allowed") is True),
         _event_index(events, "tool_start"),
         _event_index(events, "tool_result"),
@@ -328,10 +329,12 @@ def test_controller_raw_reasoning_streams_before_structured_decision():
     delta_index = _event_index(events, "llm_reasoning_delta")
     end_index = _event_index(events, "llm_reasoning_end")
     decision_index = _event_index(events, "decision")
-    assert start_index < delta_index < end_index < decision_index
+    explanation_index = _event_index(events, "public_explanation")
+    assert start_index < delta_index < end_index < decision_index < explanation_index
     assert events[delta_index]["data"]["delta"] == "当前还没有足够证据，先判断是否需要检索。"
     assert events[end_index]["data"]["reasoning_available"] is True
     assert events[decision_index]["data"]["reason"] == "结束本轮"
+    assert events[explanation_index]["data"]["source"] == "model_protocol"
 
 
 def test_helper_reviewer_streams_raw_reasoning_without_bypassing_protocol_validation():
@@ -428,13 +431,15 @@ def test_grounded_rewrite_streams_raw_reasoning_while_buffering_candidate_v2():
 
     assert candidate_v2 == "StampServer 的端口是 8080。[1]"
     assert [event["type"] for event in events] == [
+        "public_explanation",
         "llm_reasoning_start",
         "llm_reasoning_delta",
         "llm_reasoning_end",
     ]
-    assert events[1]["data"]["role"] == "main"
-    assert events[1]["data"]["stage"] == "grounded_retry"
-    assert events[1]["data"]["delta"] == "只保留 c1，删除 c2。"
+    assert events[0]["data"]["stage"] == "grounded_retry"
+    assert events[2]["data"]["role"] == "main"
+    assert events[2]["data"]["stage"] == "grounded_retry"
+    assert events[2]["data"]["delta"] == "只保留 c1，删除 c2。"
     assert events[-1]["data"]["num_predict"] == 8192
 
 
@@ -1067,8 +1072,8 @@ def test_strict_agent_stream_publishes_before_final_answer_without_token_alias()
     ]
 
 
-def test_linear_stream_emits_no_llm_reasoning_events():
-    """Linear / standard pipeline stream must NEVER emit llm_reasoning_* events."""
+def test_linear_stream_emits_provider_thinking_without_agent_reasoning_events():
+    """Linear streams provider thinking separately from Agent reasoning blocks."""
     chain = object.__new__(RagChain)
     chain._cfg = SimpleNamespace(
         grounding_strict_mode=True,
@@ -1126,6 +1131,7 @@ def test_linear_stream_emits_no_llm_reasoning_events():
     )
 
     async def fake_chat_stream(*args, **kwargs):
+        yield "<think>先核对证据。</think>"
         yield "StampServer 的端口是 8080。"
 
     async def collect() -> list[dict]:
@@ -1166,6 +1172,7 @@ def test_linear_stream_emits_no_llm_reasoning_events():
     event_types = [event.get("type") for event in events]
     assert "final_answer" in event_types
     assert "sources" in event_types
+    assert [event["data"] for event in events if event.get("type") == "thinking"] == ["先核对证据。"]
     assert "llm_reasoning_start" not in event_types
     assert "llm_reasoning_delta" not in event_types
     assert "llm_reasoning_end" not in event_types

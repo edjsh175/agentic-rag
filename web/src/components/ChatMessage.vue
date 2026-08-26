@@ -17,6 +17,7 @@ const props = defineProps<{
   imageUrl?: string
   loading?: boolean
   status?: string
+  thinking?: string
   blocks?: AssistantBlock[]
   sources?: SourceDoc[]
   clarification?: MessageClarification
@@ -39,6 +40,7 @@ const emit = defineEmits<{
 
 const otherInputVal = ref('')
 const showOtherInput = ref(false)
+const showThinking = ref(false)
 
 function isOtherOption(option: ClarificationOption) {
   return option.id === 'other' || option.source === 'fixed_other'
@@ -163,6 +165,16 @@ function handleOpenTrace() {
             <span class="status-dot"></span>
             <span>{{ status }}</span>
           </div>
+        </section>
+
+        <section v-if="!isUser && !isAgentMode && thinking" class="thinking-wrap">
+          <button type="button" class="thinking-toggle" @click="showThinking = !showThinking">
+            <svg :class="{ rotated: showThinking }" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ loading ? '正在思考' : '思考过程' }}
+          </button>
+          <div v-show="showThinking" class="thinking-content">{{ thinking }}</div>
         </section>
 
         <!-- 歧义反问卡片 -->

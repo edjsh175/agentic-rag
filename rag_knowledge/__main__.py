@@ -49,9 +49,11 @@ def _setup_logging(log_dir: Path):
     err_handler.setFormatter(fmt)
     root.addHandler(err_handler)
 
-    # 压制 ChromaDB 的烦人 telemetry 错误
-    logging.getLogger("chromadb.telemetry").setLevel(logging.ERROR)
-    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.ERROR)
+    # Chroma telemetry 与问答无关，依赖版本不兼容时不应污染业务错误日志。
+    logging.getLogger("chromadb.telemetry").setLevel(logging.CRITICAL)
+    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
+    # httpx 的 INFO 日志会包含完整请求 URL；部分供应商将 API key 放在 query string。
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     return logging.getLogger(__name__)
 

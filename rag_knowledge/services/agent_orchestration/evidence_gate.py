@@ -80,6 +80,8 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             if meta.get("source_type") == "external":
                 continue
+            if getattr(group, "grant_id", None) and meta.get("admission_verdict") not in {None, "PASS"}:
+                return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
             if str(meta.get("grant_id") or "") != str(group.grant_id or ""):
                 return {"allow_knowledge_answer": False, "reason": "grant_id_mismatch"}
             if meta.get("grant_admitted") is not True:

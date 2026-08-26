@@ -80,6 +80,10 @@ function isNetworkUnavailable(error: unknown): boolean {
   return !requestError.isAxiosError || !requestError.response
 }
 
+function isNotFound(error: unknown): boolean {
+  return (error as { response?: { status?: number } })?.response?.status === 404
+}
+
 function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void {
   try {
     const stored: StoredMsg[] = messages.map((m) => ({
@@ -228,6 +232,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         trace_id: s.trace_id,
         clarification: s.clarification,
         blocks: restoredBlocks.length > 0 ? restoredBlocks : undefined,
+        thinking: s.thinking,
       }
       if (s.hasImage) {
         msg.imageUrl = (await loadImageFromDB(s.id)) ?? undefined
@@ -272,7 +277,12 @@ export async function loadChatSessions(): Promise<{ activeSessionId: string | nu
  */
 export async function setActiveChatSession(sessionId: string): Promise<void> {
   const fingerprint = getFingerprint()
-  await setActiveServerSession(fingerprint, sessionId)
+  try {
+    await setActiveServerSession(fingerprint, sessionId)
+  } catch (error) {
+    if (isNotFound(error)) removeLocalSession(sessionId)
+    throw error
+  }
   const { sessions } = loadLocalSessionsMeta()
   saveLocalSessionsMeta(sessions, sessionId)
 }

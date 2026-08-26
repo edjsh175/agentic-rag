@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
+import uuid
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -140,15 +142,20 @@ class IngestionDecisionStore:
         decisions: list[IngestionDecision],
     ) -> None:
         entries = self._data.setdefault("decisions", {})
-        stale = [
-            key for key, item in entries.items()
-            if item.get("file_path") == file_path
-        ]
-        for key in stale:
-            entries.pop(key, None)
+        replacement = {}
         for decision in decisions:
             normalized = decision.with_source(file_path=file_path, file_hash=file_hash)
-            entries[self._decision_id(normalized)] = normalized.to_dict()
+            replacement[self._decision_id(normalized)] = normalized.to_dict()
+        existing = {
+            key: item
+            for key, item in entries.items()
+            if item.get("file_path") == file_path
+        }
+        if self._decisions_match(existing, replacement):
+            return
+        for key in existing:
+            entries.pop(key, None)
+        entries.update(replacement)
         self.save()
 
     def relocate(self, *, file_hash: str, file_path: str) -> None:
@@ -180,12 +187,22 @@ class IngestionDecisionStore:
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp = self.path.with_name(f".{self.path.name}.tmp")
+        temp = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.tmp")
         temp.write_text(
             json.dumps(self._data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        os.replace(temp, self.path)
+        try:
+            for attempt in range(3):
+                try:
+                    os.replace(temp, self.path)
+                    return
+                except PermissionError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(0.1 * (attempt + 1))
+        finally:
+            temp.unlink(missing_ok=True)
 
     def _load(self) -> dict:
         if not self.path.exists():
@@ -211,3 +228,13 @@ class IngestionDecisionStore:
             )
         )
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _decisions_match(existing: dict, replacement: dict) -> bool:
+        def without_timestamp(entries: dict) -> dict:
+            return {
+                key: {field: value for field, value in item.items() if field != "updated_at"}
+                for key, item in entries.items()
+            }
+
+        return without_timestamp(existing) == without_timestamp(replacement)

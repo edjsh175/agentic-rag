@@ -1437,6 +1437,29 @@ class AgentLoop:
                     "source": decision.source,
                 },
             )
+            from rag_knowledge.services.execution_explanation import (
+                public_explanation_event,
+            )
+            from rag_knowledge.services.model_routing import ModelRoutePolicy
+
+            endpoint_for = getattr(self._cfg, "endpoint_for", None)
+            controller_endpoint = (
+                endpoint_for(ModelRoutePolicy(self._cfg).agent_controller_role())
+                if callable(endpoint_for)
+                else None
+            )
+            explanation = public_explanation_event(
+                stage="agent_controller",
+                call_id=f"agent_controller_{step_index}",
+                endpoint=controller_endpoint,
+                text=self._decision_reason(decision),
+                source="model_protocol",
+            )
+            await self._emit(
+                on_event,
+                ExecutionEventType.PUBLIC_EXPLANATION,
+                explanation["data"],
+            )
 
             # === 分支 A：Finalize 动作 ===
             if decision.action in {"finish", "finalize"}:
@@ -1996,10 +2019,9 @@ class AgentLoop:
 
     @staticmethod
     def _controller_reasoning_enabled(endpoint: Any) -> bool:
-        return bool(
-            endpoint.normalized_provider() == "ollama"
-            and "qwen3" in str(endpoint.model or "").lower()
-        )
+        from rag_knowledge.llm_http import native_reasoning_capability
+
+        return native_reasoning_capability(endpoint).can_request
 
     def _decide_via_llm(self) -> AgentDecision:
         from rag_knowledge.llm_http import chat_role

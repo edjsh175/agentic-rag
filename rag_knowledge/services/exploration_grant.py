@@ -36,6 +36,9 @@ class ExplorationGrant:
     hop_depth: int = 0
     doc_category: str | None = None
     grant_version: str = "v1.6"
+    # Agent V2 marks the grant as identity/tool authorization only.  Legacy
+    # callers retain their old structural admission semantics during migration.
+    candidate_pipeline_v2: bool = False
 
     @property
     def fingerprint(self) -> str:
@@ -50,6 +53,7 @@ class ExplorationGrant:
             ",".join(sorted(self.materialized_chunk_ids)),
             self.doc_category or "",
             self.grant_version,
+            str(self.candidate_pipeline_v2),
         ))
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
@@ -64,7 +68,7 @@ class ExplorationGrant:
 
     @property
     def admissible_entities(self) -> frozenset[str]:
-        """Compatibility alias for legacy retrieval structural filters."""
+        """Legacy-only compatibility alias; V2 must never consume this as a filter."""
         return frozenset(self.target_entities)
 
     @property
@@ -112,6 +116,7 @@ class ExplorationGrant:
             "doc_category": self.doc_category,
             "fingerprint": self.fingerprint,
             "grant_version": self.grant_version,
+            "candidate_pipeline_v2": self.candidate_pipeline_v2,
         }
 
 

@@ -8,7 +8,13 @@ from types import SimpleNamespace
 import pytest
 
 from rag_knowledge.config import Config
-from rag_knowledge.llm_http import ModelEndpoint, achat_stream, achat_stream_parts, chat
+from rag_knowledge.llm_http import (
+    ModelEndpoint,
+    achat_stream,
+    achat_stream_parts,
+    chat,
+    native_reasoning_capability,
+)
 
 
 class _FakeResp:
@@ -70,8 +76,8 @@ class _FakeAsyncClient:
     async def __aexit__(self, *args):
         return False
 
-    def stream(self, method: str, url: str, json=None):
-        self._capture.append({"method": method, "url": url, "json": json})
+    def stream(self, method: str, url: str, json=None, headers=None):
+        self._capture.append({"method": method, "url": url, "json": json, "headers": headers or {}})
         return _FakeAsyncResponse(self._lines)
 
 
@@ -84,6 +90,18 @@ def test_model_endpoint_defaults():
 
     openai = ModelEndpoint(role="llm", provider="openai", model="gpt-4o-mini")
     assert openai.resolved_base_url("") == "https://api.openai.com/v1"
+
+
+def test_native_reasoning_capability_is_centralized_by_endpoint():
+    assert native_reasoning_capability(
+        ModelEndpoint(role="llm", provider="ollama", model="qwen3.5:9b")
+    ).can_request
+    assert native_reasoning_capability(
+        ModelEndpoint(role="llm", provider="openai", model="deepseek-chat", base_url="https://api.deepseek.com/v1")
+    ).can_request
+    assert not native_reasoning_capability(
+        ModelEndpoint(role="llm", provider="google", model="gemini")
+    ).can_request
 
 
 def test_chat_ollama_payload(monkeypatch):
@@ -209,6 +227,63 @@ def test_ollama_stream_parts_separate_reasoning_and_structured_content(monkeypat
     ]
     assert capture[0]["json"]["think"] is True
     assert capture[0]["json"]["format"] == schema
+
+
+def test_deepseek_stream_enables_low_cost_reasoning_and_separates_deltas(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.async_client",
+        lambda **kwargs: _FakeAsyncClient(
+            capture,
+            [
+                'data: {"choices":[{"delta":{"reasoning_content":"先核对证据"}}]}',
+                'data: {"choices":[{"delta":{"content":"答案"}}]}',
+                "data: [DONE]",
+            ],
+        ),
+    )
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    ep = ModelEndpoint(
+        role="llm",
+        provider="openai",
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        api_key_env="DEEPSEEK_API_KEY",
+    )
+
+    async def collect():
+        return [
+            (part.kind, part.delta)
+            async for part in achat_stream_parts(
+                ep,
+                [{"role": "user", "content": "hi"}],
+                think=True,
+            )
+        ]
+
+    assert asyncio.run(collect()) == [("reasoning", "先核对证据"), ("content", "答案")]
+    payload = capture[0]["json"]
+    assert payload["thinking"] == {"type": "enabled"}
+    assert payload["reasoning_effort"] == "low"
+
+
+def test_deepseek_non_streaming_chat_disables_thinking_by_default(monkeypatch):
+    capture: list = []
+    monkeypatch.setattr(
+        "rag_knowledge.llm_http.http_client",
+        lambda **kwargs: _FakeClient(capture, {"choices": [{"message": {"content": "答案"}}]}),
+    )
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    ep = ModelEndpoint(
+        role="helper_llm",
+        provider="openai",
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        api_key_env="DEEPSEEK_API_KEY",
+    )
+
+    assert chat(ep, [{"role": "user", "content": "hi"}]) == "答案"
+    assert capture[0]["json"]["thinking"] == {"type": "disabled"}
 
 
 def test_stream_parts_retries_before_first_output(monkeypatch):

@@ -152,6 +152,12 @@ def serialize_candidates(
             "grant_source_type": meta.get("grant_source_type") or "",
             "grant_source_ref": meta.get("grant_source_ref") or "",
             "evidence_target_entity": meta.get("evidence_target_entity") or "",
+            "candidate_sources": list(meta.get("candidate_sources") or []),
+            "candidate_provenance": list(meta.get("candidate_provenance") or []),
+            "candidate_fusion_score": meta.get("candidate_fusion_score"),
+            "structural_guard": list(meta.get("structural_guard") or []),
+            "admission": dict(meta.get("admission") or {}),
+            "admission_verdict": meta.get("admission_verdict") or "",
             "content_preview": content[:preview_chars],
         })
     return out

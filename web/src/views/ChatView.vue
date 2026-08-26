@@ -388,6 +388,23 @@ async function handleSwitchSession(sessionId: string) {
   try {
     await setActiveChatSession(sessionId)
   } catch (e: any) {
+    if (e.response?.status === 404) {
+      const meta = await loadChatSessions()
+      sessions.value = meta.sessions
+      const nextSessionId = meta.activeSessionId || meta.sessions[0]?.id
+      if (nextSessionId) {
+        activeSessionId.value = nextSessionId
+        messages.value = await loadSessionMessages(nextSessionId)
+      } else {
+        activeSessionId.value = ''
+        messages.value = []
+        currentSources.value = []
+        pinnedChunks.value = []
+        excludedChunks.value = []
+      }
+      showToast('该对话已不存在，已刷新会话列表')
+      return
+    }
     showToast('切换对话失败: ' + (e.message || '网络异常'))
     return
   }
@@ -667,6 +684,11 @@ function createStreamHandler(
       projector.handleReasoningEnd(data)
       scrollDown()
     },
+    onPublicExplanation: (data) => {
+      if (streamMode !== 'agent' || !projector) return
+      projector.handlePublicExplanation(data)
+      scrollDown()
+    },
     onDecision: (_data) => {
       // 内部调度决策仅记录在 trace，主界面不渲染
     },
@@ -685,8 +707,10 @@ function createStreamHandler(
     onCandidateStatus: (_data) => {
       // 内部候选草稿状态仅记录在 trace，主界面不渲染
     },
-    onGroundingReviewStarted: (_data) => {
-      // 内部审查开始仅记录在 trace，主界面不渲染
+    onGroundingReviewStarted: (data) => {
+      if (streamMode !== 'agent' || !projector) return
+      projector.handleGroundingReviewStarted(data)
+      scrollDown()
     },
     onReviewStatus: (data) => {
       if (streamMode !== 'agent' || !projector) return
@@ -738,8 +762,10 @@ function createStreamHandler(
       }
       scrollDown()
     },
-    onThinking: (_thought: string) => {
-      // Linear 的 provider thinking 不进入聊天消息状态；Linear 仅保留阶段状态 UX。
+    onThinking: (thought: string) => {
+      if (streamMode !== 'linear' || !thought) return
+      targetMsg.thinking = (targetMsg.thinking || '') + thought
+      scrollDown()
     },
     onToolStart: (data) => {
       if (streamMode !== 'agent' || !projector) return
@@ -1732,6 +1758,7 @@ function scrollDown(force = false) {
             :mode="msg.mode"
             :image-url="msg.imageUrl" :loading="msg.loading"
             :status="msg.status"
+            :thinking="msg.thinking"
             :blocks="msg.blocks"
             :sources="msg.sources"
             :clarification="msg.clarification"
@@ -1760,6 +1787,22 @@ function scrollDown(force = false) {
           <button type="button" title="移除该排除" @click="removeExcludedChunk(i)">✕</button>
         </span>
       </div>
+
+      <!-- 回到最新悬浮按钮 -->
+      <Transition name="fade-slide">
+        <button
+          v-if="!autoFollowBottom && messages.length > 0"
+          type="button"
+          class="jump-to-bottom-btn"
+          title="回到最新消息"
+          @click="scrollDown(true)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+          <span>回到最新</span>
+        </button>
+      </Transition>
 
       <ChatInput v-model:mode="workMode" :disabled="loading" @send="handleSend" @stop="handleStop" />
     </div>
@@ -3126,4 +3169,33 @@ function scrollDown(force = false) {
 .interact-tag button:hover {
   opacity: 1;
 }
+
+.jump-to-bottom-btn {
+  position: absolute;
+  bottom: 84px;
+  right: 24px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  user-select: none;
+  transition: all 150ms ease;
+}
+
+.jump-to-bottom-btn:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
 </style>

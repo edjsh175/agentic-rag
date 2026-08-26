@@ -132,6 +132,7 @@ class ExecutionEventType(str, Enum):
     LLM_REASONING_START = "llm_reasoning_start"
     LLM_REASONING_DELTA = "llm_reasoning_delta"
     LLM_REASONING_END = "llm_reasoning_end"
+    PUBLIC_EXPLANATION = "public_explanation"
     DECISION = "decision"
     GUARD = "guard"
     TOOL_START = "tool_start"

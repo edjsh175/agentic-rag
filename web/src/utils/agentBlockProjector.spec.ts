@@ -14,9 +14,7 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
     })
 
     let blocks = projector.getBlocks()
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0].kind).toBe('reasoning')
-    expect((blocks[0] as any).isStreaming).toBe(true)
+    expect(blocks).toHaveLength(0)
 
     projector.handleReasoningDelta({
       call_id: 'call_1',
@@ -89,6 +87,21 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
     expect(projector.getBlocks()).toHaveLength(0)
   })
 
+  it('projects public explanations and suppresses empty native reasoning cards', () => {
+    const projector = new AgentBlockProjector()
+    projector.handlePublicExplanation({
+      call_id: 'controller_1', role: 'main', stage: 'agent_controller',
+      text: '当前证据不足，先检索相关知识库内容。', source: 'model_protocol',
+    })
+    projector.handleReasoningStart({ call_id: 'native_1', role: 'main', stage: 'agent_controller' })
+    projector.handleReasoningEnd({ call_id: 'native_1', role: 'main', reasoning_available: false })
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as any).contentSource).toBe('public_explanation')
+    expect((blocks[0] as any).text).toContain('先检索')
+  })
+
   it('projects tool lifecycle from running to completed in-place (INV-UI-04)', () => {
     const projector = new AgentBlockProjector()
     projector.handleToolStart({
@@ -119,27 +132,81 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
     expect((blocks[0] as any).out).toMatchObject({ summary: '已命中 3 条已审核切片' })
   })
 
-  it('only emits system event on REVISE and suppresses PASS (INV-UI-07, INV-UI-08)', () => {
+  it('projects review activity lifecycle on PASS in-place', () => {
     const projector = new AgentBlockProjector()
+    projector.handleGroundingReviewStarted({
+      review_count: 1,
+      candidate_version: 1,
+      message: '正在核对 Candidate V1 与冻结证据快照。',
+    })
+    let blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].kind).toBe('activity')
+    expect((blocks[0] as any).status).toBe('running')
+    expect((blocks[0] as any).text).toBe('正在核对回答与证据…')
+
     projector.handleReviewStatus({
       review_count: 1,
       verdict: 'PASS',
       coverage: '1.0',
       message: '通过',
     })
-    expect(projector.getBlocks()).toHaveLength(0)
+    blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as any).status).toBe('completed')
+    expect((blocks[0] as any).text).toBe('证据核对通过')
+  })
 
+  it('projects review activity on REVISE in-place without generating system warning card', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleGroundingReviewStarted({
+      review_count: 1,
+      candidate_version: 1,
+      message: '正在核对 Candidate V1 与冻结证据快照。',
+    })
     projector.handleReviewStatus({
-      review_count: 2,
+      review_count: 1,
       verdict: 'REVISE',
       coverage: '0.5',
-      message: '证据不足',
+      message: '发现部分内容未被支持',
     })
+
     const blocks = projector.getBlocks()
     expect(blocks).toHaveLength(1)
-    expect(blocks[0].kind).toBe('system_event')
-    expect((blocks[0] as any).level).toBe('warning')
-    expect((blocks[0] as any).text).toContain('重新组织')
+    expect(blocks[0].kind).toBe('activity')
+    expect((blocks[0] as any).status).toBe('warning')
+    expect((blocks[0] as any).text).toBe('发现部分内容需要修正')
+    expect(blocks.some(b => b.kind === 'system_event')).toBe(false)
+  })
+
+  it('projects full REVISE and second-pass review activity progression', () => {
+    const projector = new AgentBlockProjector()
+    // Review #1
+    projector.handleGroundingReviewStarted({ review_count: 1, candidate_version: 1, message: '一审' })
+    projector.handleReviewStatus({ review_count: 1, verdict: 'REVISE', coverage: '0.5', message: '需修正' })
+
+    // Rewrite Explanation & Reasoning
+    projector.handlePublicExplanation({
+      call_id: 'retry_1', role: 'main', stage: 'grounded_retry', text: '将删除未支持断言。', source: 'model_generated',
+    })
+    projector.handleReasoningStart({ call_id: 'retry_1', role: 'main', stage: 'grounded_retry' })
+    projector.handleReasoningDelta({ call_id: 'retry_1', role: 'main', delta: '删除 c2' })
+    projector.handleReasoningEnd({ call_id: 'retry_1', role: 'main', elapsed_ms: 1200 })
+
+    // Review #2
+    projector.handleGroundingReviewStarted({ review_count: 2, candidate_version: 2, message: '二审' })
+    expect((projector.getBlocks()[3] as any).text).toBe('正在再次核对修正后的回答…')
+    expect((projector.getBlocks()[3] as any).status).toBe('running')
+
+    projector.handleReviewStatus({ review_count: 2, verdict: 'PASS', coverage: '1.0', message: '通过' })
+    expect((projector.getBlocks()[3] as any).text).toBe('二次核对通过')
+    expect((projector.getBlocks()[3] as any).status).toBe('completed')
+
+    // Final Answer
+    projector.handleFinalAnswer('最终通过的回答。')
+
+    const kinds = projector.getBlocks().map(b => b.kind)
+    expect(kinds).toEqual(['activity', 'reasoning', 'reasoning', 'activity', 'markdown'])
   })
 
   it('appends markdown final answer (INV-UI-10)', () => {
@@ -153,18 +220,21 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
 })
 
 describe('AgentBlockProjector - 架构断言 (Architecture Acceptance Suite)', () => {
-  it('INV-UI-01: 生产 Block 种类白名单严格为 4 类', () => {
+  it('INV-UI-01: 生产 Block 种类白名单严格为 5 类', () => {
     const projector = new AgentBlockProjector()
-    projector.handleReasoningStart({ call_id: 'r1', role: 'main', stage: 'agent_controller' })
-    projector.handleReasoningEnd({ call_id: 'r1', role: 'main' })
+    projector.handlePublicExplanation({
+      call_id: 'r1', role: 'main', stage: 'agent_controller', text: '准备检索。', source: 'model_protocol',
+    })
     projector.handleToolStart({ name: 'retrieve_kb', step: 1 })
     projector.handleToolResult({ name: 'retrieve_kb', step: 1, ok: true })
-    projector.handleReviewStatus({ review_count: 1, verdict: 'REVISE', message: '未通过' })
+    projector.handleGroundingReviewStarted({ review_count: 1, candidate_version: 1, message: '核对' })
+    projector.handleReviewStatus({ review_count: 1, verdict: 'PASS', message: '通过' })
+    projector.handleNotice('当前显存不足以加载所选模型，已自动降级为 qwen3.5:4b。')
     projector.handleFinalAnswer('完整答案')
 
-    const allowedKinds = new Set(['reasoning', 'tool', 'system_event', 'markdown'])
+    const allowedKinds = new Set(['reasoning', 'tool', 'activity', 'system_event', 'markdown'])
     const blocks = projector.getBlocks()
-    expect(blocks).toHaveLength(4)
+    expect(blocks).toHaveLength(5)
     for (const b of blocks) {
       expect(allowedKinds.has(b.kind)).toBe(true)
     }

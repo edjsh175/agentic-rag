@@ -91,4 +91,69 @@ describe('AgentStepStream Block Stream', () => {
     expect(wrapper.find('.disclosure-root[data-state="running"]').exists()).toBe(true)
     expect(wrapper.find('.state-dot.running').exists()).toBe(true)
   })
+  it('renders activity blocks across running, completed, warning, and failed states', () => {
+    const blocks: AssistantBlock[] = [
+      {
+        id: 'act-1',
+        kind: 'activity',
+        type: 'activity',
+        sequence: 1,
+        activity: 'grounding_review',
+        reviewCount: 1,
+        status: 'running',
+        text: '正在核对回答与证据…',
+        startedAt: Date.now() - 5000,
+      },
+      {
+        id: 'act-2',
+        kind: 'activity',
+        type: 'activity',
+        sequence: 2,
+        activity: 'grounding_review',
+        reviewCount: 1,
+        status: 'completed',
+        text: '证据核对通过',
+        elapsedMs: 12400,
+      },
+      {
+        id: 'act-3',
+        kind: 'activity',
+        type: 'activity',
+        sequence: 3,
+        activity: 'grounding_review',
+        reviewCount: 1,
+        status: 'warning',
+        text: '发现部分内容需要修正',
+        elapsedMs: 11800,
+      },
+      {
+        id: 'act-4',
+        kind: 'activity',
+        type: 'activity',
+        sequence: 4,
+        activity: 'grounding_review',
+        reviewCount: 2,
+        status: 'failed',
+        text: '证据核对失败',
+        elapsedMs: 5000,
+      },
+    ]
+
+    const wrapper = mount(AgentStepStream, { props: { blocks } })
+    const text = wrapper.text()
+
+    expect(text).toContain('正在核对回答与证据…')
+    expect(text).toContain('证据核对通过')
+    expect(text).toContain('12.4s')
+    expect(text).toContain('发现部分内容需要修正')
+    expect(text).toContain('11.8s')
+    expect(text).toContain('证据核对失败')
+    expect(text).toContain('5.0s')
+
+    const activityRoots = wrapper.findAll('.activity-root')
+    expect(activityRoots).toHaveLength(4)
+    expect(wrapper.find('.activity-icon.completed').text()).toBe('✓')
+    expect(wrapper.find('.activity-icon.warning').text()).toBe('!')
+    expect(wrapper.find('.activity-icon.failed').text()).toBe('✕')
+  })
 })

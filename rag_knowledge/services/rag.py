@@ -2694,7 +2694,13 @@ class RagChain:
             },
         ]
         if on_reasoning_event is not None:
-            from rag_knowledge.llm_http import achat_stream_parts
+            from rag_knowledge.llm_http import (
+                achat_stream_parts,
+                native_reasoning_capability,
+            )
+            from rag_knowledge.services.execution_explanation import (
+                generate_public_explanation,
+            )
 
             endpoint = self._resolve_llm_endpoint(model)
             call_id = "grounded_retry_v2"
@@ -2707,6 +2713,21 @@ class RagChain:
             # primary Answer Generator so thinking cannot consume the entire
             # budget before Candidate V2 content is emitted.
             reasoning_num_predict = 8192
+            explanation = asyncio.run(generate_public_explanation(
+                stage="grounded_retry",
+                call_id=call_id,
+                endpoint=endpoint,
+                context={
+                    "question": question,
+                    "review_summary": getattr(review_result, "summary", ""),
+                    "rewrite_actions": [
+                        action.to_dict() for action in rewrite_actions
+                    ],
+                },
+                default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                num_ctx=self._cfg.context_budget.context_window,
+            ))
+            on_reasoning_event(explanation)
             on_reasoning_event({
                 "type": "llm_reasoning_start",
                 "data": {
@@ -2727,7 +2748,10 @@ class RagChain:
                     temperature=0.0,
                     timeout=600.0,
                     num_predict=reasoning_num_predict,
-                    think=self._need_ollama_thinking(endpoint.model),
+                    think=native_reasoning_capability(
+                        endpoint,
+                        default_ollama=getattr(self, "_ollama_base", ""),
+                    ).can_request,
                     num_ctx=self._cfg.context_budget.context_window,
                 ):
                     if part.kind == "reasoning":
@@ -2791,7 +2815,11 @@ class RagChain:
         if cfg is None or not bool(getattr(cfg, "grounding_reviewer_enabled", True)):
             return None
 
-        from rag_knowledge.llm_http import achat_stream_parts, chat_role
+        from rag_knowledge.llm_http import (
+            achat_stream_parts,
+            chat_role,
+            native_reasoning_capability,
+        )
         from rag_knowledge.services.helper_grounding_reviewer import (
             HelperGroundingReviewer,
             review_response_json_schema,
@@ -2802,10 +2830,10 @@ class RagChain:
         endpoint = cfg.endpoint_for(role)
         timeout = float(getattr(cfg, "grounding_reviewer_timeout", 30.0) or 30.0)
         if reasoning_enabled is None:
-            reasoning_enabled = bool(
-                endpoint.normalized_provider() == "ollama"
-                and self._need_ollama_thinking(endpoint.model)
-            )
+            reasoning_enabled = native_reasoning_capability(
+                endpoint,
+                default_ollama=getattr(cfg, "ollama_base_url", ""),
+            ).can_request
         call_counter = 0
 
         def _caller(messages: list[dict[str, str]]):
@@ -2903,9 +2931,14 @@ class RagChain:
 
         return HelperGroundingReviewer(_caller)
 
-    @staticmethod
-    def _need_ollama_thinking(model: str) -> bool:
-        return "qwen3" in model.lower()
+    def _should_enable_main_model_thinking(self, endpoint, requested: bool | None) -> bool:
+        """Respect the UI switch through the shared provider capability."""
+        from rag_knowledge.llm_http import native_reasoning_capability
+
+        return bool(requested) and native_reasoning_capability(
+            endpoint,
+            default_ollama=getattr(self, "_ollama_base", ""),
+        ).can_request
 
     def _search_web(self, question: str, source_docs: list, context: str) -> tuple[list[dict], str]:
         results = WebSearch().search(question, max_results=5)
@@ -2951,6 +2984,10 @@ class RagChain:
         if not source_docs or scope is None:
             return source_docs
         norm_scope = getattr(scope, "evidence_scope", scope)
+        if getattr(norm_scope, "candidate_pipeline_v2", False):
+            # V2 candidates were structurally guarded and admitted before they
+            # reached this boundary.  Identity is not a document filter here.
+            return source_docs
         if not getattr(norm_scope, "is_identity_locked", False):
             return source_docs
 
@@ -3001,6 +3038,156 @@ class RagChain:
                 return (scope.canonical_entity,)
         return tuple(getattr(plan, "backbone_canonical", ()) or ())
 
+    async def _retrieve_agent_candidates_v2(
+        self,
+        question: str,
+        *,
+        plan: Any,
+        scope: Any,
+        kb_name: str | None,
+        doc_category: str | None,
+        pinned_chunk_ids: list[str] | None,
+        excluded_chunk_ids: list[str] | None,
+    ) -> tuple[list[dict], str]:
+        """Run Agent V2: candidates → structural guard → rerank → admission.
+
+        This is intentionally separate from the generic retrieval chain.  The
+        latter still supports legacy EvidenceScope consumers; the Agent path
+        must not let identity mutate into a common Retriever pre-filter.
+        """
+        from rag_knowledge.services.agent_candidate_pipeline import AgentCandidatePipeline
+
+        target = str(getattr(scope, "primary_root", None) or "").strip()
+        graph_db = getattr(getattr(self, "_graph_retriever", None), "db", None)
+        pipeline = AgentCandidatePipeline(
+            vector_store=self._store,
+            retrieval_strategy=self._strategy,
+            graph_db=graph_db,
+        )
+        started = time.perf_counter()
+        candidates = await asyncio.to_thread(
+            pipeline.generate,
+            question,
+            target_entity=target,
+            kb_name=kb_name,
+            review_status="approved",
+            doc_category=doc_category,
+        )
+        generated_at = time.perf_counter()
+        guarded = await asyncio.to_thread(
+            pipeline.structural_guard, candidates, target_entity=target,
+        )
+        guarded_at = time.perf_counter()
+        reranked_docs = await self._postprocess_docs(
+            question,
+            [candidate.document for candidate in guarded],
+            bool(getattr(plan, "enable_rerank", False)),
+            target_top_k=getattr(plan, "top_k", None),
+            # Cross-document evidence is intentionally judged by admission, not
+            # the old document_entity anchor filter.
+            backbone_canonical=(),
+            strict_explicit_target=False,
+        )
+        reranked_at = time.perf_counter()
+        by_chunk_id = {candidate.chunk_id: candidate for candidate in guarded}
+        reranked: list[Any] = []
+        for document in reranked_docs:
+            from rag_knowledge.services.agent_candidate_pipeline import _chunk_key
+            candidate = by_chunk_id.get(_chunk_key(document))
+            if candidate is not None:
+                candidate.document = document
+                reranked.append(candidate)
+        def semantic_admitter(query, candidate, deterministic):
+            return self._semantic_admit_agent_candidate(query, candidate, target, deterministic)
+
+        admissions = await asyncio.to_thread(
+            lambda: {
+                candidate.chunk_id: pipeline.admit(
+                    question,
+                    candidate,
+                    target_entity=target,
+                    semantic_admitter=semantic_admitter,
+                )
+                for candidate in reranked
+            }
+        )
+        admitted_at = time.perf_counter()
+        admitted_docs = pipeline.admitted_documents(reranked, admissions)
+        source_docs = [
+            self._normalize_source(doc.page_content, doc.metadata, index + 1)
+            for index, doc in enumerate(admitted_docs)
+        ]
+        source_docs = self._apply_pinned_excluded(
+            source_docs,
+            pinned_chunk_ids=pinned_chunk_ids,
+            excluded_chunk_ids=excluded_chunk_ids,
+        )
+        self._last_agent_candidate_trace = {
+            "target_entity": target,
+            "raw_candidates": [candidate.trace() for candidate in candidates],
+            "structural_candidates": [candidate.trace() for candidate in guarded],
+            "reranked_chunk_ids": [candidate.chunk_id for candidate in reranked],
+            "admissions": {
+                chunk_id: result.to_dict() for chunk_id, result in admissions.items()
+            },
+            "snapshot_candidate_chunk_ids": [
+                str((doc.get("metadata") or {}).get("chunk_id") or "") for doc in source_docs
+            ],
+            "stage_ms": {
+                "candidate_generation": round((generated_at - started) * 1000, 1),
+                "structural_guard": round((guarded_at - generated_at) * 1000, 1),
+                "rerank": round((reranked_at - guarded_at) * 1000, 1),
+                "admission": round((admitted_at - reranked_at) * 1000, 1),
+            },
+        }
+        self._record_chunk_hit_query(source_docs)
+        return source_docs, self._format_context(source_docs)
+
+    def _semantic_admit_agent_candidate(self, question, candidate, target_entity, deterministic):
+        """Ask the configured helper model only for a genuinely ambiguous candidate."""
+        from rag_knowledge.services.agent_candidate_pipeline import AdmissionResult
+        from rag_knowledge.llm_http import chat_role
+
+        payload = {
+            "target_entity": target_entity,
+            "question": question,
+            "document_entity": (candidate.document.metadata or {}).get("document_entity", ""),
+            "candidate_text": candidate.document.page_content[:1800],
+            "candidate_sources": candidate.source_generators,
+            "deterministic_result": deterministic.to_dict(),
+        }
+        prompt = (
+            "判断候选片段能否作为当前问题的证据。不得扩大检索范围或改写主体。"
+            "只返回 JSON：{verdict: PASS|REJECT, entity_relevance: HIGH|MEDIUM|LOW|CONFLICT, "
+            "intent_relevance: HIGH|MEDIUM|LOW|NONE, reason: string, admission_signals: string[]}。\n"
+            + json.dumps(payload, ensure_ascii=False)
+        )
+        try:
+            raw = chat_role(
+                self._cfg,
+                "helper_llm",
+                [{"role": "user", "content": prompt}],
+                temperature=0.0,
+                timeout=20.0,
+                num_predict=256,
+            )
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw or "").strip(), flags=re.IGNORECASE)
+            data = json.loads(cleaned)
+            verdict = str(data.get("verdict") or "").upper()
+            entity = str(data.get("entity_relevance") or "").upper()
+            intent = str(data.get("intent_relevance") or "").upper()
+            if verdict not in {"PASS", "REJECT"} or entity not in {"HIGH", "MEDIUM", "LOW", "CONFLICT"} or intent not in {"HIGH", "MEDIUM", "LOW", "NONE"}:
+                return None
+            signals = data.get("admission_signals") or []
+            return AdmissionResult(
+                verdict, entity, intent,
+                str(data.get("reason") or "semantic_admission"),
+                tuple(str(item) for item in signals if str(item).strip()),
+            )
+        except Exception as exc:  # Semantic admission must fail closed.
+            logger.warning("semantic candidate admission failed; using deterministic rejection: %s", exc)
+            return None
+
     async def _retrieve_kb_for_agent(
         self,
         question: str,
@@ -3049,6 +3236,17 @@ class RagChain:
             return self._plan_retrieval(q, queries, force_rerank=True)
 
         plan = await asyncio.to_thread(_plan)
+        if getattr(scope, "candidate_pipeline_v2", False):
+            source_docs, context = await self._retrieve_agent_candidates_v2(
+                q,
+                plan=plan,
+                scope=scope,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                pinned_chunk_ids=pinned_chunk_ids,
+                excluded_chunk_ids=excluded_chunk_ids,
+            )
+            return source_docs, context, plan
         plan, graph_context, graph_docs = await asyncio.to_thread(
             self._prepare_graph_plan,
             q,
@@ -3312,6 +3510,27 @@ class RagChain:
                     status=ToolProgressStatus.DENIED,
                 )
             target = args.get("target_entity") if args.get("target_entity") is not None else conv.head_entity
+            if bool(getattr(orch, "candidate_pipeline_v2", False)):
+                # A graph neighbour is a retrieval path, not a second subject
+                # that the controller may silently bind the question to.
+                identity_targets = tuple(
+                    getattr(conv.scope, "confirmed_entities", ()) or ()
+                ) or tuple(filter(None, (
+                    getattr(conv.scope, "primary_entity", None),
+                    conv.head_entity,
+                )))
+                target_value = str(target or "").strip()
+                if target_value and not any(
+                    str(item or "").strip().casefold() == target_value.casefold()
+                    for item in identity_targets
+                ):
+                    return ToolObservation(
+                        tool="retrieve_kb",
+                        ok=False,
+                        summary="V2 检索主体必须来自已确认 Identity；图谱邻居仅用于候选扩展",
+                        error="identity_target_required",
+                        status=ToolProgressStatus.DENIED,
+                    )
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
                 self._safe_add_trace_event(
@@ -3332,6 +3551,10 @@ class RagChain:
                     status=ToolProgressStatus.DENIED,
                 )
             grant = authorization.grant
+            if bool(getattr(orch, "candidate_pipeline_v2", False)):
+                # The grant remains an identity/tool authorization record.  V2
+                # never turns it into a global document_entity allowlist.
+                grant = replace(grant, candidate_pipeline_v2=True)
             materialize_grant_relation(grant)
             mode = str(args.get("mode") or "").strip().lower()
             intent = str(args.get("intent") or "").strip().lower()
@@ -3441,6 +3664,7 @@ class RagChain:
                     "intent": intent or "general_qa",
                     "retrieval_trace": retrieval_trace_snapshot,
                     "grant_authorization": authorization.to_dict(),
+                    "candidate_pipeline": getattr(self, "_last_agent_candidate_trace", None),
                 },
             )
 
@@ -4034,13 +4258,16 @@ class RagChain:
 
         guarded_model, downshifted = self._apply_vram_guard(llm_model)
         model = guarded_model
-        enable_model_thinking = self._need_ollama_thinking(model)
         if downshifted:
             yield {"type": "notice", "data": self._downshift_fields(True, guarded_model)["downshift_notice"]}
 
         from rag_knowledge.llm_http import achat_stream_parts
+        from rag_knowledge.services.execution_explanation import (
+            generate_public_explanation,
+        )
 
         ep = self._resolve_llm_endpoint(model)
+        enable_model_thinking = self._should_enable_main_model_thinking(ep, thinking)
         answer_parts: list[str] = []
         thinking_parts: list[str] = []
         reasoning_available = False
@@ -4048,6 +4275,21 @@ class RagChain:
         # Provider-native reasoning consumes the same output budget as the answer.
         # 4096 can exhaust on qwen3.5:9b before any candidate content is emitted.
         reasoning_num_predict = 8192
+        explanation_event = await generate_public_explanation(
+            stage="answer_generation",
+            call_id=reasoning_call_id,
+            endpoint=ep,
+            context={
+                "question": q,
+                "evidence_count": len(source_docs),
+                "allow_general_knowledge": bool(allow_general),
+                "answer_contract": getattr(answer_context, "answer_contract", None),
+            },
+            default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+            num_ctx=self._cfg.context_budget.context_window,
+        )
+        self._record_execution_event(trace, explanation_event)
+        yield explanation_event
         reasoning_started = time.perf_counter()
         reasoning_start_event = {
             "type": "llm_reasoning_start",
@@ -5806,13 +6048,13 @@ class RagChain:
 
             guarded_model, downshifted = self._apply_vram_guard(llm_model)
             model = guarded_model
-            enable_model_thinking = deep_mode and self._need_ollama_thinking(model)
             if downshifted:
                 yield {"type": "notice", "data": self._downshift_fields(True, guarded_model)["downshift_notice"]}
 
             from rag_knowledge.llm_http import achat_stream
 
             ep = self._resolve_llm_endpoint(model)
+            enable_model_thinking = self._should_enable_main_model_thinking(ep, deep_mode)
 
             answer_parts: list[str] = []
             thinking_parts: list[str] = []
@@ -5841,6 +6083,7 @@ class RagChain:
                         if "</think>" in rest:
                             t_parts = rest.split("</think>")
                             thinking_parts.append(t_parts[0])
+                            yield {"type": "thinking", "data": t_parts[0]}
                             in_thinking_tag = False
                             if t_parts[1]:
                                 answer_parts.append(t_parts[1])
@@ -5848,9 +6091,11 @@ class RagChain:
                                     yield {"type": "token", "data": t_parts[1]}
                         else:
                             thinking_parts.append(rest)
+                            yield {"type": "thinking", "data": rest}
                     elif "</think>" in content:
                         parts = content.split("</think>")
                         thinking_parts.append(parts[0])
+                        yield {"type": "thinking", "data": parts[0]}
                         in_thinking_tag = False
                         if parts[1]:
                             answer_parts.append(parts[1])
@@ -5858,6 +6103,7 @@ class RagChain:
                                 yield {"type": "token", "data": parts[1]}
                     elif in_thinking_tag:
                         thinking_parts.append(content)
+                        yield {"type": "thinking", "data": content}
                     else:
                         answer_parts.append(content)
                         if not strict_grounding:

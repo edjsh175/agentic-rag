@@ -205,6 +205,10 @@ class AgentOrchestrationConfig:
     heartbeat_interval: float = 5.0
     # Temporary rollout switch; the v2 finalization path is enabled by default.
     terminal_finalization_v2: bool = True
+    # Migration switch for the Identity / Candidate / Evidence split.  This is
+    # deliberately Agent-only: legacy linear retrieval keeps its existing
+    # compatibility contract until it is retired separately.
+    candidate_pipeline_v2: bool = True
 
 
 @dataclass
@@ -618,6 +622,9 @@ class Config:
             ),
             terminal_finalization_v2=_get(
                 "agent_orchestration", "terminal_finalization_v2", "true"
+            ).lower() == "true",
+            candidate_pipeline_v2=_get(
+                "agent_orchestration", "candidate_pipeline_v2", "true"
             ).lower() == "true",
         )
 

@@ -62,6 +62,8 @@ class RetrievalStrategy:
     def _requires_structural_admission(scope: Any) -> bool:
         if scope is None:
             return False
+        if getattr(scope, "candidate_pipeline_v2", False):
+            return False
         if getattr(scope, "target_entities", None) or getattr(scope, "materialized_chunk_ids", None):
             return True
         return bool(getattr(scope, "is_identity_locked", False) and hasattr(scope, "is_structurally_admissible"))

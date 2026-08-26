@@ -189,6 +189,40 @@ class ModelEndpoint:
         return (os.getenv(env_name) or "").strip()
 
 
+@dataclass(frozen=True)
+class NativeReasoningCapability:
+    """Provider capability for requesting and consuming a native reasoning channel."""
+
+    can_request: bool
+    can_stream: bool
+
+
+def native_reasoning_capability(
+    endpoint: ModelEndpoint,
+    *,
+    default_ollama: str = "",
+) -> NativeReasoningCapability:
+    """Return the single source of truth for native reasoning support.
+
+    Stream parsers always preserve provider reasoning fields when present.  The
+    request flag is deliberately narrower: it is only sent to endpoints whose
+    documented protocol accepts it.
+    """
+    provider = endpoint.normalized_provider()
+    if provider == "ollama":
+        return NativeReasoningCapability(
+            can_request="qwen3" in str(endpoint.model or "").lower(),
+            can_stream=True,
+        )
+    if provider == "openai":
+        base = endpoint.resolved_base_url(default_ollama).lower()
+        return NativeReasoningCapability(
+            can_request="api.deepseek.com" in base,
+            can_stream=True,
+        )
+    return NativeReasoningCapability(can_request=False, can_stream=False)
+
+
 def _strip_think(text: str) -> str:
     import re
 
@@ -247,6 +281,7 @@ def chat(
                 format_json=format_json,
                 timeout=timeout,
                 num_predict=num_predict,
+                think=False if think is None else think,
             )
         return _chat_google(
             endpoint,
@@ -307,6 +342,7 @@ async def achat_stream_parts(
                         temperature=temperature,
                         timeout=timeout,
                         num_predict=num_predict,
+                        think=think,
                         format_json=format_json,
                     )
                 else:
@@ -432,6 +468,16 @@ def _chat_ollama(
         return _strip_think(content)
 
 
+def _set_deepseek_thinking(payload: dict[str, Any], base: str, think: bool) -> None:
+    """Add DeepSeek's non-standard thinking fields only to its official API."""
+    if "api.deepseek.com" not in base.lower():
+        return
+    payload["thinking"] = {"type": "enabled" if think else "disabled"}
+    if think:
+        # Flash maps low effort to its lower-cost reasoning path.
+        payload["reasoning_effort"] = "low"
+
+
 def _chat_openai(
     endpoint: ModelEndpoint,
     messages: list[dict[str, Any]],
@@ -441,6 +487,7 @@ def _chat_openai(
     format_json: bool,
     timeout: float,
     num_predict: int | None,
+    think: bool = False,
 ) -> str:
     base = endpoint.resolved_base_url(default_ollama)
     api_key = endpoint.resolved_api_key()
@@ -460,6 +507,7 @@ def _chat_openai(
         payload["max_tokens"] = num_predict
     if format_json:
         payload["response_format"] = {"type": "json_object"}
+    _set_deepseek_thinking(payload, base, think)
     with http_client(timeout=timeout) as client:
         resp = client.post(f"{base}/chat/completions", headers=headers, json=payload)
         resp.raise_for_status()
@@ -608,6 +656,7 @@ async def _astream_openai(
     temperature: float,
     timeout: float,
     num_predict: int | None,
+    think: bool = False,
     format_json: bool = False,
 ) -> AsyncIterator[LLMStreamPart]:
     base = endpoint.resolved_base_url(default_ollama)
@@ -625,6 +674,7 @@ async def _astream_openai(
         payload["max_tokens"] = num_predict
     if format_json:
         payload["response_format"] = {"type": "json_object"}
+    _set_deepseek_thinking(payload, base, think)
     async with async_client(timeout=timeout) as client:
         async with client.stream(
             "POST", f"{base}/chat/completions", headers=headers, json=payload

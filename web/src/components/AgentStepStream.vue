@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { AssistantBlock, ToolBlock } from '../types'
+import { ref, computed, watchEffect, onUnmounted } from 'vue'
+import type { AssistantBlock, ToolBlock, ActivityBlock } from '../types'
 import { getReasoningStageTitle } from '../utils/agentBlockProjector'
 
 const props = defineProps<{
@@ -10,8 +10,48 @@ const props = defineProps<{
 // 用户展开状态记录
 const expandedMap = ref<Record<number, boolean>>({})
 
-// Block Stream 按真实到达顺序渲染全部四类用户可见 Block。
+// Block Stream 按真实到达顺序渲染全部用户可见 Block。
 const executionBlocks = computed<AssistantBlock[]>(() => props.blocks || [])
+
+const now = ref(Date.now())
+let timerId: ReturnType<typeof setInterval> | null = null
+
+const hasRunningActivity = computed(() =>
+  executionBlocks.value.some(b => b.kind === 'activity' && b.status === 'running')
+)
+
+watchEffect(() => {
+  if (hasRunningActivity.value) {
+    if (!timerId) {
+      timerId = setInterval(() => {
+        now.value = Date.now()
+      }, 100)
+    }
+  } else {
+    if (timerId) {
+      clearInterval(timerId)
+      timerId = null
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (timerId) {
+    clearInterval(timerId)
+    timerId = null
+  }
+})
+
+function getLiveElapsed(block: ActivityBlock): string {
+  if (block.elapsedMs !== undefined) {
+    return `${(block.elapsedMs / 1000).toFixed(1)}s`
+  }
+  if (block.startedAt) {
+    const ms = Math.max(0, now.value - block.startedAt)
+    return `${(ms / 1000).toFixed(1)}s`
+  }
+  return ''
+}
 
 function isExpanded(index: number): boolean {
   const override = expandedMap.value[index]
@@ -93,7 +133,33 @@ function closeInspect() {
         </div>
       </div>
 
-      <!-- 2. Reasoning 思考节点 (ReasoningBlock) -->
+      <!-- 2. Activity 运行行 (ActivityBlock) -->
+      <div
+        v-else-if="block.kind === 'activity'"
+        class="disclosure-root activity-root"
+        :data-activity="block.activity"
+        :data-state="block.status"
+      >
+        <div class="activity-row">
+          <div class="leading-slot">
+            <span v-if="block.status === 'running'" class="state-dot running"></span>
+            <span v-else-if="block.status === 'completed'" class="activity-icon completed">✓</span>
+            <span v-else-if="block.status === 'warning'" class="activity-icon warning">!</span>
+            <span v-else-if="block.status === 'failed'" class="activity-icon failed">✕</span>
+          </div>
+          <span class="row-summary activity-text" :class="`activity-text--${block.status}`">
+            {{ block.text }}
+          </span>
+          <span v-if="block.status === 'running' && getLiveElapsed(block)" class="activity-timer">
+            {{ getLiveElapsed(block) }}
+          </span>
+          <span v-else-if="block.elapsedMs !== undefined" class="activity-suffix">
+            · {{ (block.elapsedMs / 1000).toFixed(1) }}s
+          </span>
+        </div>
+      </div>
+
+      <!-- 3. Reasoning 思考节点 (ReasoningBlock) -->
       <div
         v-else-if="block.kind === 'reasoning'"
         class="disclosure-root"
@@ -124,7 +190,7 @@ function closeInspect() {
             </svg>
           </div>
 
-          <span class="row-title">{{ getReasoningStageTitle(block.stage) }}</span>
+          <span class="row-title">{{ getReasoningStageTitle(block.stage, block.contentSource) }}</span>
           <span class="dot-sep" aria-hidden="true"></span>
           <span class="row-summary" :data-follow-end="block.status === 'running' || undefined">
             {{ block.status === 'running' ? latestLine(block.text) : firstLine(block.text) }}
@@ -611,4 +677,96 @@ function closeInspect() {
   border-radius: 6px;
   font-family: 'JetBrains Mono', Consolas, monospace;
 }
+
+/* Activity Row */
+.activity-root {
+  margin: 2px 0;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  min-width: 0;
+  padding: 0 4px;
+  border-radius: 4px;
+  background-color: transparent;
+  transition: background-color 100ms ease;
+}
+
+.activity-root[data-state='running'] .activity-row {
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-root[data-state='running'] .activity-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 260px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(241, 245, 249, 0.8) 55%,
+    transparent 100%
+  );
+  animation: dsh-sweep 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+.activity-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.activity-icon.completed {
+  color: #16a34a;
+}
+
+.activity-icon.warning {
+  color: #d97706;
+}
+
+.activity-icon.failed {
+  color: #dc2626;
+}
+
+.activity-text {
+  font-size: 13px;
+  line-height: 24px;
+  color: #475569;
+}
+
+.activity-text--warning {
+  color: #b45309;
+}
+
+.activity-text--failed {
+  color: #b91c1c;
+}
+
+.activity-timer {
+  flex: none;
+  margin-left: 6px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.activity-suffix {
+  flex: none;
+  margin-left: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 </style>

@@ -55,6 +55,7 @@ import type {
   UnderstandingEventData,
   LLMReasoningEventData,
   DecisionEventData,
+  PublicExplanationEventData,
   GuardEventData,
   ToolStartEventData,
   ToolResultEventData,
@@ -258,6 +259,7 @@ export interface KnowledgeStreamCallbacks {
   onLLMReasoningStart?: (data: LLMReasoningEventData) => void
   onLLMReasoningDelta?: (data: LLMReasoningEventData) => void
   onLLMReasoningEnd?: (data: LLMReasoningEventData) => void
+  onPublicExplanation?: (data: PublicExplanationEventData) => void
   onDecision?: (data: DecisionEventData) => void
   onGuard?: (data: GuardEventData) => void
   onToolStart?: (data: ToolStartEventData) => void
@@ -378,6 +380,8 @@ export async function queryKnowledgeStream(
         callbacks.onLLMReasoningDelta?.(event.data)
       } else if (event.type === 'llm_reasoning_end') {
         callbacks.onLLMReasoningEnd?.(event.data)
+      } else if (event.type === 'public_explanation') {
+        callbacks.onPublicExplanation?.(event.data)
       } else if (event.type === 'decision') {
         callbacks.onDecision?.(event.data)
       } else if (event.type === 'guard') {

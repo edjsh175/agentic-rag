@@ -1,8 +1,11 @@
 import type {
+  ActivityBlock,
   AgentTimelineItem,
   AgentToolCall,
   AssistantBlock,
+  GroundingReviewStartedEventData,
   LLMReasoningEventData,
+  PublicExplanationEventData,
   MarkdownBlock,
   ReasoningBlock,
   ReviewStatusEventData,
@@ -40,7 +43,11 @@ export function getToolLabel(toolName: string): string {
 }
 
 /** 格式化 Reasoning 阶段标题 */
-export function getReasoningStageTitle(stage: string): string {
+export function getReasoningStageTitle(
+  stage: string,
+  contentSource: ReasoningBlock['contentSource'] = 'native_reasoning',
+): string {
+  const label = (() => {
   switch (stage) {
     case 'agent_controller':
       return 'Main · Controller'
@@ -53,6 +60,8 @@ export function getReasoningStageTitle(stage: string): string {
     default:
       return `Main · ${stage || 'Reasoning'}`
   }
+  })()
+  return `${label} · ${contentSource === 'public_explanation' ? '公开执行说明' : '模型原生推理'}`
 }
 
 /** 首版用户可见 notice 白名单：当前后端仅允许显存自动降级提示进入主聊天。 */
@@ -68,7 +77,9 @@ export class AgentBlockProjector {
   private sequenceCounter = 0
   private toolKeyIndexMap = new Map<string, number>()
   private reasoningCallIndexMap = new Map<string, number>()
+  private pendingReasoningStarts = new Map<string, LLMReasoningEventData>()
   private activeSystemEventMap = new Map<string, number>()
+  private activityIndexMap = new Map<string, number>()
 
   constructor(initialBlocks: AssistantBlock[] = []) {
     // 直接持有调用方提供的数组。ChatView 传入 Vue reactive blocks，
@@ -81,6 +92,8 @@ export class AgentBlockProjector {
         this.reasoningCallIndexMap.set(b.callId, idx)
       } else if (b.kind === 'tool') {
         this.toolKeyIndexMap.set(b.toolCallKey, idx)
+      } else if (b.kind === 'activity') {
+        this.activityIndexMap.set(`activity:${b.activity}:${b.reviewCount || 1}`, idx)
       } else if (b.kind === 'system_event' && b.correlationId) {
         this.activeSystemEventMap.set(b.correlationId, idx)
       }
@@ -112,6 +125,12 @@ export class AgentBlockProjector {
       return
     }
 
+    this.pendingReasoningStarts.set(callId, data)
+  }
+
+  private createNativeReasoningBlock(data: LLMReasoningEventData): void {
+    const callId = data.call_id
+    if (!callId || this.reasoningCallIndexMap.has(callId)) return
     const block: ReasoningBlock = {
       id: `reasoning-${callId}`,
       kind: 'reasoning',
@@ -122,6 +141,7 @@ export class AgentBlockProjector {
       role: 'main',
       model: data.model,
       provider: data.provider,
+      contentSource: 'native_reasoning',
       text: '',
       content: '',
       status: 'running',
@@ -140,7 +160,10 @@ export class AgentBlockProjector {
     if (!callId) return
 
     if (!this.reasoningCallIndexMap.has(callId)) {
-      this.handleReasoningStart(data)
+      this.createNativeReasoningBlock({
+        ...(this.pendingReasoningStarts.get(callId) || {}),
+        ...data,
+      })
     }
 
     const idx = this.reasoningCallIndexMap.get(callId)
@@ -160,11 +183,8 @@ export class AgentBlockProjector {
     const callId = data.call_id
     if (!callId) return
 
-    if (!this.reasoningCallIndexMap.has(callId)) {
-      this.handleReasoningStart(data)
-    }
-
     const idx = this.reasoningCallIndexMap.get(callId)
+    this.pendingReasoningStarts.delete(callId)
     if (idx === undefined) return
 
     const existing = this.blocks[idx] as ReasoningBlock
@@ -178,6 +198,33 @@ export class AgentBlockProjector {
       existing.elapsedMs = data.elapsed_ms
       existing.duration = `${(data.elapsed_ms / 1000).toFixed(1)}s`
     }
+  }
+
+  /** 处理所有 Main 阶段统一产生的公开执行说明。 */
+  public handlePublicExplanation(data: PublicExplanationEventData): void {
+    if (data.role !== 'main' || !data.call_id || !data.text) return
+    const callId = `public:${data.call_id}`
+    if (this.reasoningCallIndexMap.has(callId)) return
+    const block: ReasoningBlock = {
+      id: `reasoning-${callId}`,
+      kind: 'reasoning',
+      type: 'reasoning',
+      sequence: this.nextSequence(),
+      callId,
+      stage: data.stage || 'agent_controller',
+      role: 'main',
+      model: data.model || undefined,
+      provider: data.provider || undefined,
+      contentSource: 'public_explanation',
+      explanationSource: data.source,
+      text: data.text,
+      content: data.text,
+      status: 'completed',
+      isStreaming: false,
+    }
+    const newIdx = this.blocks.length
+    this.blocks.push(block)
+    this.reasoningCallIndexMap.set(callId, newIdx)
   }
 
   /** 处理真实 Tool 开始。ToolBlock 只能在这里创建。 */
@@ -269,27 +316,83 @@ export class AgentBlockProjector {
     if (data.expected_gain) existing.expectedGain = data.expected_gain
   }
 
-  /** 处理 Reviewer 审查结果 (仅 REVISE 产生 SystemEvent，PASS 默认静默) */
+  /** 处理 Reviewer 审查开始：创建或原位激活 ActivityBlock */
+  public handleGroundingReviewStarted(data: GroundingReviewStartedEventData): void {
+    const reviewCount = data.review_count || 1
+    const candidateVersion = data.candidate_version || reviewCount
+    const key = `activity:grounding_review:${reviewCount}`
+    const text = reviewCount === 2 ? '正在再次核对修正后的回答…' : '正在核对回答与证据…'
+
+    if (this.activityIndexMap.has(key)) {
+      const idx = this.activityIndexMap.get(key)!
+      const existing = this.blocks[idx] as ActivityBlock
+      existing.status = 'running'
+      existing.text = text
+      existing.startedAt = Date.now()
+      existing.elapsedMs = undefined
+      return
+    }
+
+    const sequence = this.nextSequence()
+    const block: ActivityBlock = {
+      id: `activity-review-${reviewCount}-${sequence}`,
+      kind: 'activity',
+      type: 'activity',
+      sequence,
+      activity: 'grounding_review',
+      reviewCount,
+      candidateVersion,
+      status: 'running',
+      text,
+      startedAt: Date.now(),
+    }
+
+    const newIdx = this.blocks.length
+    this.blocks.push(block)
+    this.activityIndexMap.set(key, newIdx)
+  }
+
+  /** 处理 Reviewer 审查结果：在对应的 ActivityBlock 上原位更新状态与文案，不生成 SystemEvent Warning */
   public handleReviewStatus(data: ReviewStatusEventData): void {
-    if (data.verdict === 'REVISE') {
-      const corrId = `review-revise-${data.review_count || 1}`
-      if (this.activeSystemEventMap.has(corrId)) {
-        return
+    const reviewCount = data.review_count || 1
+    const key = `activity:grounding_review:${reviewCount}`
+
+    let idx = this.activityIndexMap.get(key)
+    if (idx === undefined) {
+      const sequence = this.nextSequence()
+      const block: ActivityBlock = {
+        id: `activity-review-${reviewCount}-${sequence}`,
+        kind: 'activity',
+        type: 'activity',
+        sequence,
+        activity: 'grounding_review',
+        reviewCount,
+        candidateVersion: reviewCount,
+        status: 'running',
+        text: reviewCount === 2 ? '正在再次核对修正后的回答…' : '正在核对回答与证据…',
+        startedAt: Date.now(),
       }
-      const block: SystemEventBlock = {
-        id: `sys-${corrId}`,
-        kind: 'system_event',
-        type: 'system_event',
-        sequence: this.nextSequence(),
-        event: 'review_revise',
-        level: 'warning',
-        text: '候选回答未通过证据审查，正在重新组织…',
-        status: 'active',
-        correlationId: corrId,
-      }
-      const newIdx = this.blocks.length
+      idx = this.blocks.length
       this.blocks.push(block)
-      this.activeSystemEventMap.set(corrId, newIdx)
+      this.activityIndexMap.set(key, idx)
+    }
+
+    const existing = this.blocks[idx] as ActivityBlock
+    const elapsedMs = existing.startedAt ? Math.max(0, Date.now() - existing.startedAt) : undefined
+
+    if (data.verdict === 'PASS') {
+      existing.status = 'completed'
+      existing.text = reviewCount === 2 ? '二次核对通过' : '证据核对通过'
+    } else if (data.verdict === 'REVISE') {
+      existing.status = 'warning'
+      existing.text = reviewCount === 2 ? '二次核对仍存在证据问题' : '发现部分内容需要修正'
+    } else {
+      existing.status = 'failed'
+      existing.text = '证据核对失败'
+    }
+
+    if (elapsedMs !== undefined) {
+      existing.elapsedMs = elapsedMs
     }
   }
 
@@ -433,16 +536,24 @@ export function normalizeLegacyMessageToBlocks(msg: LegacyAgentMessageSnapshot):
           gap: item.gap,
           expectedGain: item.expected_gain,
         })
-      } else if (item.type === 'review_status' && item.verdict === 'REVISE') {
+      } else if (item.type === 'review_status') {
+        const reviewCount = item.review_count || 1
+        const isPass = item.verdict === 'PASS'
+        const isRevise = item.verdict === 'REVISE'
         result.push({
-          id: `sys-legacy-${++seq}`,
-          kind: 'system_event',
-          type: 'system_event',
+          id: `activity-legacy-${++seq}`,
+          kind: 'activity',
+          type: 'activity',
           sequence: ++seq,
-          event: 'review_revise',
-          level: 'warning',
-          text: '候选回答未通过证据审查，正在重新组织…',
-          status: 'completed',
+          activity: 'grounding_review',
+          reviewCount,
+          candidateVersion: reviewCount,
+          status: isPass ? 'completed' : isRevise ? 'warning' : 'failed',
+          text: isPass
+            ? (reviewCount === 2 ? '二次核对通过' : '证据核对通过')
+            : isRevise
+              ? (reviewCount === 2 ? '二次核对仍存在证据问题' : '发现部分内容需要修正')
+              : '证据核对失败',
         })
       } else if (item.type === 'notice' && item.content) {
         result.push({

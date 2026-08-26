@@ -29,6 +29,26 @@ afterEach(() => {
 })
 
 describe('queryKnowledgeStream', () => {
+  it('dispatches the unified public explanation event', async () => {
+    const callbacks = {
+      ...streamCallbacks(),
+      onPublicExplanation: vi.fn(),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      sseResponse(
+        'data: {"type":"public_explanation","data":{"call_id":"answer_1","role":"main","stage":"answer_generation","text":"将依据冻结证据组织回答。","source":"model_generated"}}\n\n' +
+        'data: {"type":"done"}',
+      ),
+    ))
+
+    await queryKnowledgeStream('pipeline', [], callbacks)
+
+    expect(callbacks.onPublicExplanation).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'answer_generation',
+      text: '将依据冻结证据组织回答。',
+    }))
+  })
+
   it('dispatches tool_result and tool_end exactly once each', async () => {
     const callbacks = {
       ...streamCallbacks(),

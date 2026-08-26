@@ -104,6 +104,22 @@ describe('storage.ts session management', () => {
     expect(localStorage.getItem('rag-knowledge-active-session-id')).toBe('previous_session')
   })
 
+  it('removes a locally cached session when the server reports it no longer exists', async () => {
+    localStorage.setItem(
+      'rag-knowledge-sessions',
+      JSON.stringify([{ id: 'deleted_session', title: '已删除会话' }]),
+    )
+    localStorage.setItem('rag-knowledge-active-session-id', 'deleted_session')
+    localStorage.setItem('rag-knowledge-msgs:deleted_session', JSON.stringify([{ id: 'stale' }]))
+    apiMocks.setActiveServerSession.mockRejectedValue({ response: { status: 404 } })
+
+    await expect(setActiveChatSession('deleted_session')).rejects.toMatchObject({ response: { status: 404 } })
+
+    expect(localStorage.getItem('rag-knowledge-active-session-id')).toBeNull()
+    expect(localStorage.getItem('rag-knowledge-msgs:deleted_session')).toBeNull()
+    expect(JSON.parse(localStorage.getItem('rag-knowledge-sessions') || '[]')).toEqual([])
+  })
+
   it('does not restore local messages when the server confirms a session was deleted', async () => {
     localStorage.setItem(
       'rag-knowledge-msgs:deleted_session',

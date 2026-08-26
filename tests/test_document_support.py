@@ -1,7 +1,9 @@
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from rag_knowledge.services.document_support import (
     classify_suffix,
@@ -127,3 +129,54 @@ class DocumentSupportTests(TestCase):
             store = IngestionDecisionStore(store_path)
             self.assertEqual(store.snapshot()["version"], 1)
             self.assertEqual(store.snapshot()["decisions"], {})
+
+    def test_unchanged_decisions_do_not_rewrite_store(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = IngestionDecisionStore(Path(tmpdir) / "ingestion_decisions.json")
+            decision = make_decision(
+                "watch_dir/image.png",
+                status="queued",
+                reason_code="MEDIA_PROCESSING_DEFERRED",
+                file_hash="hash1",
+            )
+            store.replace_for_file(
+                file_path="watch_dir/image.png", file_hash="hash1", decisions=[decision]
+            )
+
+            with patch.object(store, "save") as save:
+                store.replace_for_file(
+                    file_path="watch_dir/image.png",
+                    file_hash="hash1",
+                    decisions=[
+                        make_decision(
+                            "watch_dir/image.png",
+                            status="queued",
+                            reason_code="MEDIA_PROCESSING_DEFERRED",
+                            file_hash="hash1",
+                        )
+                    ],
+                )
+
+            save.assert_not_called()
+
+    def test_store_retries_replace_when_target_is_temporarily_locked(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = IngestionDecisionStore(Path(tmpdir) / "ingestion_decisions.json")
+            real_replace = os.replace
+            attempts = 0
+
+            def replace_after_transient_lock(source, target):
+                nonlocal attempts
+                attempts += 1
+                if attempts < 3:
+                    raise PermissionError("temporarily locked")
+                return real_replace(source, target)
+
+            with patch(
+                "rag_knowledge.services.document_support.os.replace",
+                side_effect=replace_after_transient_lock,
+            ):
+                store.save()
+
+            self.assertEqual(attempts, 3)
+            self.assertTrue(store.path.exists())

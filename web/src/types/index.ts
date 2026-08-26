@@ -24,6 +24,17 @@ export interface LLMReasoningEventData {
   error?: string
 }
 
+export interface PublicExplanationEventData {
+  call_id: string
+  role: 'main' | 'helper' | string
+  stage: string
+  model?: string | null
+  provider?: string | null
+  text: string
+  source: 'model_protocol' | 'model_generated' | 'system_fallback' | string
+  fallback_used?: boolean
+}
+
 export interface DecisionEventData {
   step?: number
   action: string
@@ -164,6 +175,21 @@ export interface ExecutionErrorEventData {
 export type KnowledgeStreamEvent =
   | { type: 'understanding'; data: UnderstandingEventData }
   | { type: 'llm_reasoning_start' | 'llm_reasoning_delta' | 'llm_reasoning_end'; data: LLMReasoningEventData }
+  | { type: 'public_explanation'; data: PublicExplanationEventData }
+  | { type: 'decision'; data: DecisionEventData }
+  | { type: 'guard'; data: GuardEventData }
+  | { type: 'tool_start'; data: ToolStartEventData }
+  | { type: 'tool_result' | 'tool_end'; data: ToolResultEventData }
+  | { type: 'evidence_update'; data: EvidenceUpdateEventData }
+  | { type: 'evidence_gap'; data: EvidenceGapEventData }
+  | { type: 'finalization_check'; data: FinalizationCheckEventData }
+  | { type: 'candidate_status'; data: CandidateStatusEventData }
+  | { type: 'helper_grounding_review_started'; data: GroundingReviewStartedEventData }
+  | { type: 'review_status'; data: ReviewStatusEventData }
+  | { type: 'rewrite_status'; data: RewriteStatusEventData }
+  | { type: 'publication'; data: PublicationEventData }
+  | { type: 'error'; data: ExecutionErrorEventData | string }
+  | { type: 'token' | 'status' | 'thinking' | 'final_answer' | 'notice'; data: string }
   | { type: 'decision'; data: DecisionEventData }
   | { type: 'guard'; data: GuardEventData }
   | { type: 'tool_start'; data: ToolStartEventData }
@@ -189,8 +215,8 @@ export type KnowledgeStreamEvent =
 /** Agent 用户可见 Block 流基础模型 */
 export interface BaseBlock {
   id: string
-  kind: 'reasoning' | 'tool' | 'system_event' | 'markdown'
-  type?: 'reasoning' | 'tool' | 'system_event' | 'markdown'
+  kind: 'reasoning' | 'tool' | 'activity' | 'system_event' | 'markdown'
+  type?: 'reasoning' | 'tool' | 'activity' | 'system_event' | 'markdown'
   sequence: number
 }
 
@@ -202,6 +228,8 @@ export interface ReasoningBlock extends BaseBlock {
   role: 'main'
   model?: string
   provider?: string
+  contentSource?: 'native_reasoning' | 'public_explanation'
+  explanationSource?: string
   text: string
   content?: string
   status: 'running' | 'completed' | 'unavailable' | 'error'
@@ -230,6 +258,18 @@ export interface ToolBlock extends BaseBlock {
   expectedGain?: string | null
 }
 
+export interface ActivityBlock extends BaseBlock {
+  kind: 'activity'
+  type?: 'activity'
+  activity: 'grounding_review'
+  reviewCount: number
+  candidateVersion?: number
+  status: 'running' | 'completed' | 'warning' | 'failed'
+  text: string
+  startedAt?: number
+  elapsedMs?: number
+}
+
 export interface SystemEventBlock extends BaseBlock {
   kind: 'system_event'
   type?: 'system_event'
@@ -251,6 +291,7 @@ export interface MarkdownBlock extends BaseBlock {
 export type AssistantBlock =
   | ReasoningBlock
   | ToolBlock
+  | ActivityBlock
   | SystemEventBlock
   | MarkdownBlock
 
@@ -353,6 +394,7 @@ export type AgentTimelineItem =
       missing_relations?: string[]
       reason?: string
     }
+
   | {
       type: 'finalization_check'
       eventKey?: string
@@ -444,6 +486,8 @@ export interface Message {
   loading?: boolean
   /** 仅用于当前流式请求，不持久化 */
   status?: string
+  /** Linear 模式下由模型返回的推理内容 */
+  thinking?: string
   /** Agent 用户可见 Block 流（Reasoning / Tool / System Event / Markdown 唯一来源） */
   blocks?: AssistantBlock[]
   /** 歧义反问卡片 */

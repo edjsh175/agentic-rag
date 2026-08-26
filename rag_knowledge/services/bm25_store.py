@@ -75,6 +75,7 @@ class BM25Store:
         norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
         structural_filter = bool(
             norm_scope
+            and not getattr(norm_scope, "candidate_pipeline_v2", False)
             and hasattr(norm_scope, "is_structurally_admissible")
             and (
                 getattr(norm_scope, "target_entities", None)
