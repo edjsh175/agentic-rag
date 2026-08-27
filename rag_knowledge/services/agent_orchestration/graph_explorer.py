@@ -181,6 +181,7 @@ class GraphExplorer:
         admissions = GraphRelationAdmissionService.admit_batch(
             question,
             new_relations,
+            semantic_task=semantic_task,
             working_set=working_set,
             target_entities=list(roots),
             task_type=task_type,
@@ -444,6 +445,7 @@ class GraphExplorer:
         admissions = GraphRelationAdmissionService.admit_batch(
             question,
             new_candidates,
+            semantic_task=semantic_task,
             working_set=working_set,
             target_entities=list(working_set.exploration_roots),
             task_type=task_type,

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
-EXACT_PARAMETER_TERMS = ("端口", "port", "参数", "密码", "密钥", "默认值", "路径", "命令", "ip", "url")
 OVERVIEW_TERMS = ("是什么", "介绍", "概览", "定位", "作用", "用途", "功能", "组件", "体系", "包含", "模块", "组成", "结构", "架构")
 RELATION_QUERY_TERMS: dict[str, tuple[str, ...]] = {
     "belongs_to": ("属于", "归属", "产品", "体系", "定位", "是什么", "介绍", "概览", "关系", "架构", "包含", "模块", "组成", "结构"),
@@ -208,11 +206,6 @@ def is_answer_evidence_relation(relation_type: str, intent: str | None = None) -
 def relation_query_terms(relation_type: str) -> tuple[str, ...]:
     """Return policy-owned lexical hints used only for query-level alignment."""
     return RELATION_QUERY_TERMS.get(str(relation_type or "").strip(), ())
-
-
-def is_exact_parameter_query(question: str) -> bool:
-    query = str(question or "").casefold()
-    return any(term.casefold() in query for term in EXACT_PARAMETER_TERMS)
 
 
 def is_overview_query(question: str) -> bool:

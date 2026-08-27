@@ -6,11 +6,16 @@ from unittest.mock import MagicMock
 import pytest
 
 from rag_knowledge.services.conversation_context import UnderstandingResult
-from rag_knowledge.services.dialogue_understanding import DialogueUnderstanding
+from rag_knowledge.services.dialogue_understanding import (
+    DialogueUnderstanding,
+    SemanticTaskContext,
+    collapse_clarification_selection,
+)
 from rag_knowledge.services.query_clarification import ClarificationResult, QueryClarificationService
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
 from rag_knowledge.services.query_surface import (
     contains_term,
+    is_exact_parameter_query,
     is_vague_surface_question,
     question_is_underspecified,
 )
@@ -25,6 +30,35 @@ def test_surface_underspecified_and_wide_terms():
     assert is_vague_surface_question("管线工具怎么用")
     # bare 管线 in a long question should not be treated as vague surface
     assert not is_vague_surface_question("管线点表字段有哪些")
+
+
+def test_exact_parameter_ascii_terms_require_token_boundaries():
+    assert not is_exact_parameter_query("pipeline")
+    assert not is_exact_parameter_query("PipelineWebRTC")
+    assert not is_exact_parameter_query("shipping")
+    assert is_exact_parameter_query("IP 地址")
+    assert is_exact_parameter_query("url地址")
+    assert is_exact_parameter_query("port 8080")
+
+
+def test_clarification_selection_freezes_general_qa_without_inventing_function_intent():
+    task = SemanticTaskContext("pipeline", None, (), "unbound", 1.0)
+    collapsed = collapse_clarification_selection("pipeline", task, "PipelineWebRTC")
+
+    assert collapsed.resolved_question == "PipelineWebRTC 的相关信息"
+    assert collapsed.task_type == "single_entity"
+    assert collapsed.answer_intent == "general_qa"
+    assert collapsed.requested_facets == ()
+    assert collapsed.intent_source == "clarification_default"
+
+
+def test_clarification_selection_preserves_explicit_deployment_intent():
+    task = SemanticTaskContext("pipeline 怎么部署", None, (), "unbound", 1.0)
+    collapsed = collapse_clarification_selection("pipeline 怎么部署", task, "PipelineWebRTC")
+
+    assert collapsed.resolved_question == "pipeline 怎么部署"
+    assert collapsed.answer_intent == "deployment"
+    assert collapsed.requested_facets == ("deployment",)
 
 
 def test_semantic_task_distinguishes_topic_from_required_entity_binding(isolated_storage):

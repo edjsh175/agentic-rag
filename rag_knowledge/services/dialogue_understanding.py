@@ -26,6 +26,9 @@ class SemanticTaskContext:
     mentioned_entities: tuple[str, ...]
     task_type: str
     confidence: float
+    answer_intent: str = "general_qa"
+    requested_facets: tuple[str, ...] = ()
+    intent_source: str = "fallback"
     entity_binding_required: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -44,6 +47,13 @@ class SemanticTaskContext:
             ),
             task_type=str(payload.get("task_type") or "unbound"),
             confidence=float(payload.get("confidence") or 0.0),
+            answer_intent=str(payload.get("answer_intent") or "general_qa"),
+            requested_facets=tuple(
+                str(item).strip()
+                for item in (payload.get("requested_facets") or ())
+                if str(item).strip()
+            ),
+            intent_source=str(payload.get("intent_source") or "fallback"),
             entity_binding_required=bool(
                 payload.get(
                     "entity_binding_required",
@@ -159,7 +169,12 @@ def build_semantic_task_context(
     else:
         task_type = "unbound"
 
-    from rag_knowledge.services.query_surface import question_is_underspecified
+    from rag_knowledge.services.query_surface import infer_answer_intent, question_is_underspecified
+
+    answer_intent, requested_facets, intent_source = infer_answer_intent(
+        question,
+        task_type=task_type,
+    )
 
     return SemanticTaskContext(
         resolved_question=resolved,
@@ -167,6 +182,9 @@ def build_semantic_task_context(
         mentioned_entities=tuple(mentioned),
         task_type=task_type,
         confidence=float(result.confidence),
+        answer_intent=answer_intent,
+        requested_facets=requested_facets,
+        intent_source=intent_source,
         entity_binding_required=(task_type != "unbound" or question_is_underspecified(question)),
     )
 
@@ -181,17 +199,26 @@ def collapse_clarification_selection(
     if not selected:
         return semantic_task
 
-    from rag_knowledge.services.query_surface import question_is_underspecified
+    from rag_knowledge.services.query_surface import infer_answer_intent, question_is_underspecified
 
     resolved_question = semantic_task.resolved_question
-    if question_is_underspecified(question):
+    clarification_only = question_is_underspecified(question)
+    if clarification_only:
         resolved_question = f"{selected} 的相关信息"
+        answer_intent, requested_facets, intent_source = (
+            "general_qa", (), "clarification_default"
+        )
+    else:
+        answer_intent, requested_facets, intent_source = infer_answer_intent(question)
     return replace(
         semantic_task,
         resolved_question=resolved_question,
         primary_entity=selected,
         mentioned_entities=(selected,),
         task_type="single_entity",
+        answer_intent=answer_intent,
+        requested_facets=requested_facets,
+        intent_source=intent_source,
     )
 
 

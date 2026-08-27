@@ -13,35 +13,12 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import (
 from rag_knowledge.services.relation_policy import (
     RELATION_RULES,
     is_answer_evidence_relation,
-    is_exact_parameter_query,
     is_overview_query,
     relation_query_terms,
-    relation_rule,
 )
 
 logger = logging.getLogger(__name__)
 
-
-def _normalized_evidence_intent(question: str, task_type: str | None) -> str:
-    """Map the current task to the policy vocabulary before query-level matching."""
-    declared = str(task_type or "").strip().lower()
-    if declared in {"definition", "comparison", "deployment", "procedure", "config", "troubleshooting", "general_qa", "multi_entity_relation"}:
-        return declared
-
-    query = str(question or "").casefold()
-    if declared == "multi_entity_relation" or any(term in query for term in ("关系", "区别", "对比", "比较", "差异")):
-        return "multi_entity_relation"
-    if is_exact_parameter_query(query):
-        return "config"
-    if any(term in query for term in ("部署", "安装", "上线", "发布")):
-        return "deployment"
-    if any(term in query for term in ("排错", "故障", "报错", "异常", "解决")):
-        return "troubleshooting"
-    if any(term in query for term in ("如何", "步骤", "启动", "需要")):
-        return "procedure"
-    if is_overview_query(query):
-        return "definition"
-    return "general_qa"
 
 @dataclass(frozen=True)
 class GraphRelationAdmissionResult:
@@ -53,6 +30,8 @@ class GraphRelationAdmissionResult:
     relation_relevance: str  # DIRECT | CONTEXTUAL | IRRELEVANT
     reason: str
     admission_signals: tuple[str, ...] = ()
+    canonical_question: str = ""
+    answer_intent: str = "general_qa"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +41,8 @@ class GraphRelationAdmissionResult:
             "relation_relevance": self.relation_relevance,
             "reason": self.reason,
             "admission_signals": list(self.admission_signals),
+            "canonical_question": self.canonical_question,
+            "answer_intent": self.answer_intent,
         }
 
 
@@ -75,6 +56,7 @@ class GraphRelationAdmissionService:
         self,
         candidate: GraphRelationCandidate,
         *,
+        semantic_task: Any = None,
         question: str = "",
         working_set: GraphWorkingSet | None = None,
         target_entities: list[str] | tuple[str, ...] | None = None,
@@ -83,6 +65,7 @@ class GraphRelationAdmissionService:
         return self.admit(
             question,
             candidate,
+            semantic_task=semantic_task,
             working_set=working_set,
             target_entities=target_entities,
             task_type=task_type,
@@ -112,14 +95,27 @@ class GraphRelationAdmissionService:
         question: str,
         candidate: GraphRelationCandidate,
         *,
+        semantic_task: Any = None,
         working_set: GraphWorkingSet | None = None,
         target_entities: list[str] | tuple[str, ...] | None = None,
         task_type: str | None = None,
         helper_admitter: Callable[[str, GraphRelationCandidate], GraphRelationAdmissionResult | None] | None = None,
     ) -> GraphRelationAdmissionResult:
         """Admit or reject a graph relation candidate."""
+        # Clarification has already resolved the question.  Search plans and
+        # raw utterances cannot reinterpret the admission intent after this point.
+        if semantic_task is None:
+            from rag_knowledge.services.query_surface import infer_answer_intent
+
+            normalized_intent, _facets, _source = infer_answer_intent(question, task_type=task_type)
+            canonical_question = str(question or "")
+            semantic_task_type = str(task_type or "")
+        else:
+            normalized_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
+            canonical_question = str(getattr(semantic_task, "resolved_question", "") or question or "")
+            semantic_task_type = str(getattr(semantic_task, "task_type", "") or task_type or "")
+
         # 1. Hard validations
-        normalized_intent = _normalized_evidence_intent(question, task_type)
         valid_hard, hard_reason = cls._validate_hard_conditions(candidate, working_set, normalized_intent)
         if not valid_hard:
             return GraphRelationAdmissionResult(
@@ -129,9 +125,11 @@ class GraphRelationAdmissionService:
                 relation_relevance="IRRELEVANT",
                 reason=hard_reason,
                 admission_signals=("hard_condition_failed",),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
             )
 
-        q_norm = (question or "").casefold()
+        q_norm = canonical_question.casefold()
         signals: list[str] = []
         signals.append(f"policy_intent:{normalized_intent}")
 
@@ -160,7 +158,7 @@ class GraphRelationAdmissionService:
             signals.append("indirect_entity_overlap")
 
         # 3. Intent & Task Relevance check
-        is_multi_relation_task = normalized_intent == "multi_entity_relation" and (source_in_q or target_in_q)
+        is_multi_relation_task = semantic_task_type == "multi_entity_relation" and (source_in_targets or target_in_targets or source_in_q or target_in_q)
         if is_multi_relation_task:
             intent_relevance = "HIGH"
             relation_relevance = "DIRECT"
@@ -172,18 +170,8 @@ class GraphRelationAdmissionService:
                 relation_relevance=relation_relevance,
                 reason="multi_entity_relation_direct_fact",
                 admission_signals=tuple(signals),
-            )
-
-        # Exact parameter questions shouldn't admit generic belongs_to relations as evidence
-        is_exact_parameter = is_exact_parameter_query(q_norm)
-        if is_exact_parameter and candidate.relation_type in {"belongs_to", "alias_of"}:
-            return GraphRelationAdmissionResult(
-                verdict="REJECT",
-                entity_relevance=entity_relevance,
-                intent_relevance="LOW",
-                relation_relevance="IRRELEVANT",
-                reason="belongs_to_irrelevant_for_exact_parameters",
-                admission_signals=("exact_parameter_mismatch",),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
             )
 
         # Keyword alignment
@@ -201,6 +189,22 @@ class GraphRelationAdmissionService:
                 relation_relevance=relation_relevance,
                 reason="intent_and_entity_direct_match",
                 admission_signals=tuple(signals),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
+            )
+
+        # An open entity-information task may publish a policy-authorized
+        # relation as one partial fact; Coverage decides that it is incomplete.
+        if normalized_intent == "general_qa" and entity_relevance == "HIGH":
+            return GraphRelationAdmissionResult(
+                verdict="PASS",
+                entity_relevance=entity_relevance,
+                intent_relevance="HIGH",
+                relation_relevance="DIRECT",
+                reason="general_qa_direct_relation_fact",
+                admission_signals=tuple([*signals, "general_qa_direct_fact"]),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
             )
 
         # Overview questions can admit belongs_to / requires / different_from for high entity relevance
@@ -216,6 +220,8 @@ class GraphRelationAdmissionService:
                 relation_relevance=relation_relevance,
                 reason="overview_structural_relation_support",
                 admission_signals=tuple(signals),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
             )
 
         # 4. Ambiguous cases: optional helper admitter
@@ -226,11 +232,13 @@ class GraphRelationAdmissionService:
             relation_relevance="CONTEXTUAL" if entity_relevance == "HIGH" else "IRRELEVANT",
             reason="insufficient_query_intent_alignment",
             admission_signals=tuple(signals),
+            canonical_question=canonical_question,
+            answer_intent=normalized_intent,
         )
 
         if helper_admitter is not None and entity_relevance == "HIGH":
             try:
-                res = helper_admitter(question, candidate)
+                res = helper_admitter(canonical_question, candidate)
                 if res is not None:
                     return res
             except Exception as exc:  # noqa: BLE001
@@ -244,6 +252,7 @@ class GraphRelationAdmissionService:
         question: str,
         candidates: list[GraphRelationCandidate],
         *,
+        semantic_task: Any = None,
         working_set: GraphWorkingSet | None = None,
         target_entities: list[str] | tuple[str, ...] | None = None,
         task_type: str | None = None,
@@ -254,6 +263,7 @@ class GraphRelationAdmissionService:
             res = cls.admit(
                 question,
                 candidate,
+                semantic_task=semantic_task,
                 working_set=working_set,
                 target_entities=target_entities,
                 task_type=task_type,

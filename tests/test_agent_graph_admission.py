@@ -7,6 +7,7 @@ from rag_knowledge.services.agent_orchestration.graph_admission import (
     GraphRelationAdmissionService,
 )
 from rag_knowledge.services.agent_orchestration.graph_working_set import GraphRelationCandidate
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 
 
 class MockGraphDB:
@@ -107,3 +108,27 @@ def test_admission_uses_relation_policy_intent_as_a_hard_authority():
 
     assert result.verdict == "REJECT"
     assert result.reason == "relation_type_not_answer_evidence:belongs_to"
+
+
+def test_admission_uses_canonical_semantic_task_after_clarification():
+    candidate = GraphRelationCandidate(
+        relation_id="rel-pipeline",
+        source_name="PipelineWebRTC",
+        target_name="WebRTC",
+        relation_type="belongs_to",
+        review_status="approved",
+    )
+    task = SemanticTaskContext(
+        "PipelineWebRTC 的相关信息", "PipelineWebRTC", ("PipelineWebRTC",),
+        "single_entity", 1.0, "general_qa", (), "clarification_default",
+    )
+    result = GraphRelationAdmissionService().admit_relation(
+        candidate,
+        question="pipeline",
+        semantic_task=task,
+        target_entities=["PipelineWebRTC"],
+    )
+
+    assert result.verdict == "PASS"
+    assert result.answer_intent == "general_qa"
+    assert result.canonical_question == "PipelineWebRTC 的相关信息"

@@ -101,6 +101,8 @@ class AdmissionResult:
     intent_relevance: str
     reason: str
     signals: tuple[str, ...] = ()
+    canonical_question: str = ""
+    answer_intent: str = "general_qa"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -109,6 +111,8 @@ class AdmissionResult:
             "intent_relevance": self.intent_relevance,
             "reason": self.reason,
             "admission_signals": list(self.signals),
+            "canonical_question": self.canonical_question,
+            "answer_intent": self.answer_intent,
         }
 
 
@@ -366,13 +370,27 @@ class AgentCandidatePipeline:
 
     @staticmethod
     def admit(
-        question: str,
+        retrieval_query: str,
         candidate: CandidateResult,
         *,
         target_entity: str,
+        semantic_task: Any = None,
         semantic_admitter: Callable[[str, CandidateResult, AdmissionResult], AdmissionResult | None] | None = None,
     ) -> AdmissionResult:
-        """Fast admission with an optional semantic arbiter for ambiguous cases."""
+        """Admit against the canonical task, never the retrieval search plan."""
+        if semantic_task is None:
+            from rag_knowledge.services.query_surface import infer_answer_intent
+
+            canonical_question = str(retrieval_query or "")
+            answer_intent, requested_facets, _source = infer_answer_intent(canonical_question)
+        else:
+            canonical_question = str(
+                getattr(semantic_task, "resolved_question", "") or retrieval_query or ""
+            )
+            answer_intent = str(
+                getattr(semantic_task, "answer_intent", "") or "general_qa"
+            ).strip().lower()
+            requested_facets = tuple(getattr(semantic_task, "requested_facets", ()) or ())
         target = str(target_entity or "").strip()
         meta = candidate.document.metadata or {}
         content = candidate.document.page_content
@@ -383,9 +401,10 @@ class AgentCandidatePipeline:
         if not target:
             deterministic = AdmissionResult(
                 "REJECT", "HIGH", "LOW", "unbound_query_requires_intent_admission", ("unbound_query",),
+                canonical_question, answer_intent,
             )
             if semantic_admitter is not None:
-                semantic = semantic_admitter(question, candidate, deterministic)
+                semantic = semantic_admitter(canonical_question, candidate, deterministic)
                 if semantic is not None:
                     return semantic
             return deterministic
@@ -400,7 +419,7 @@ class AgentCandidatePipeline:
         if any(item.entity_link for item in candidate.provenance):
             signals.append("entity_chunk_link")
         entity = "HIGH" if signals else ("MEDIUM" if any(item.graph_path for item in candidate.provenance) else "LOW")
-        overview_question = any(term in question.casefold() for term in _OVERVIEW_TERMS)
+        overview_question = answer_intent == "definition"
         # A merged manual chunk can contain an unrelated product overview after
         # the sentence mentioning the target.  For an overview question, only
         # the target's local context can establish intent support.
@@ -415,7 +434,13 @@ class AgentCandidatePipeline:
         target_context = " ".join(target_segments) or folded
         overview_evidence_near_target = any(term in target_context for term in _OVERVIEW_EVIDENCE_TERMS)
         deployment_only = any(term in target_context for term in _DEPLOYMENT_TERMS) and not overview_evidence_near_target
-        if overview_question:
+        if answer_intent == "general_qa" and not requested_facets:
+            # Direct, concrete target facts are valid partial evidence for an
+            # open question.  They do not claim that the full answer is covered.
+            intent = "HIGH" if entity == "HIGH" else "LOW"
+            if intent == "HIGH":
+                signals.append("general_qa_direct_fact")
+        elif overview_question:
             intent = "HIGH" if overview_evidence_near_target else "LOW"
             if intent == "LOW":
                 signals.append("overview_intent_mismatch" if deployment_only else "overview_evidence_missing")
@@ -424,16 +449,22 @@ class AgentCandidatePipeline:
                 "配置", "端口", "部署", "安装", "路径", "目录", "参数", "接口", "错误",
                 "排查", "流程", "步骤", "依赖", "区别", "比较", "功能", "用途",
             )
-            requested_terms = [term for term in intent_terms if term in question.casefold()]
+            requested_terms = [term for term in intent_terms if term in canonical_question.casefold()]
             if requested_terms:
                 intent = "HIGH" if any(term in folded for term in requested_terms) else "LOW"
             else:
-                residual = question.replace(target, "")
+                residual = canonical_question.replace(target, "")
                 tokens = re.findall(r"[A-Za-z0-9_]{2,}|[\u4e00-\u9fff]{2,}", residual)
                 intent = "HIGH" if tokens and any(token.casefold() in folded for token in tokens) else "LOW"
         if entity == "HIGH" and intent == "HIGH":
-            return AdmissionResult("PASS", entity, intent, "target_and_query_intent_supported", tuple(signals))
-        deterministic = AdmissionResult("REJECT", entity, intent, "insufficient_entity_or_intent_support", tuple(signals))
+            return AdmissionResult(
+                "PASS", entity, intent, "target_and_query_intent_supported", tuple(signals),
+                canonical_question, answer_intent,
+            )
+        deterministic = AdmissionResult(
+            "REJECT", entity, intent, "insufficient_entity_or_intent_support", tuple(signals),
+            canonical_question, answer_intent,
+        )
         # Graph provenance can make a text unit plausibly relevant without an
         # exact surface mention.  It is neither evidence nor a Python special
         # case: let the configured helper model decide this narrow ambiguity.
@@ -441,7 +472,7 @@ class AgentCandidatePipeline:
             (entity == "MEDIUM" and intent == "HIGH")
             or (entity == "HIGH" and intent == "LOW" and not overview_question)
         ):
-            semantic = semantic_admitter(question, candidate, deterministic)
+            semantic = semantic_admitter(canonical_question, candidate, deterministic)
             if semantic is not None:
                 return semantic
         return deterministic

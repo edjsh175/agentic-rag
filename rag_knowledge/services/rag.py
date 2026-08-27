@@ -3125,6 +3125,7 @@ class RagChain:
                     question,
                     candidate,
                     target_entity=target,
+                    semantic_task=semantic_task,
                     semantic_admitter=semantic_admitter,
                 )
                 for candidate in reranked
@@ -3268,7 +3269,8 @@ class RagChain:
         admissions = await asyncio.to_thread(
             lambda: {
                 candidate.chunk_id: pipeline.admit(
-                    question, candidate, target_entity=target, semantic_admitter=semantic_admitter,
+                    question, candidate, target_entity=target, semantic_task=semantic_task,
+                    semantic_admitter=semantic_admitter,
                 )
                 for candidate in guarded
             }
@@ -3610,10 +3612,9 @@ class RagChain:
                 working_set.add_relation(candidate)
             admission = graph_admission_service.admit_relation(
                 candidate,
-                question=conv.user_question,
+                semantic_task=conv.semantic_task,
                 working_set=working_set,
                 target_entities=list(getattr(grant, "target_entities", ()) or ()) or [getattr(grant, "primary_root", "")],
-                task_type=getattr(conv.semantic_task, "task_type", None),
             )
             if admission.verdict != "PASS" or evidence.has_relation(candidate.relation_key):
                 return
@@ -3986,6 +3987,7 @@ class RagChain:
                                 user_mentioned_entities=set(getattr(conv.semantic_task, "mentioned_entities", ()) or ()),
                                 question=conv.user_question,
                                 task_type=getattr(conv.semantic_task, "task_type", None),
+                                semantic_task=conv.semantic_task,
                                 conversation_context=conv,
                                 admission_service=graph_admission_service,
                             )
@@ -4000,10 +4002,9 @@ class RagChain:
                                     continue
                                 admission = graph_admission_service.admit_relation(
                                     candidate,
-                                    question=conv.user_question,
+                                    semantic_task=conv.semantic_task,
                                     working_set=working_set,
                                     target_entities=list(working_set.exploration_roots),
-                                    task_type=getattr(conv.semantic_task, "task_type", None),
                                 )
                                 evidence.add_admitted_relation(
                                     candidate,
@@ -4268,10 +4269,9 @@ class RagChain:
                         }]
                         admission = graph_admission_service.admit_relation(
                             rel,
-                            question=conv.user_question,
+                            semantic_task=conv.semantic_task,
                             working_set=working_set,
                             target_entities=list(working_set.exploration_roots),
-                            task_type=getattr(conv.semantic_task, "task_type", None),
                         )
                         evidence.add_admitted_relation(
                             rel,

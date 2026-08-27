@@ -20,6 +20,7 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import (
     GraphWorkingSet,
 )
 from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 
 
 class _Store:
@@ -140,6 +141,30 @@ def test_admission_rejects_correct_entity_with_wrong_intent():
     assert admission.entity_relevance == "HIGH"
     assert admission.intent_relevance == "LOW"
     assert admission.verdict == "REJECT"
+
+
+def test_general_qa_admits_deployment_fact_despite_overview_search_plan():
+    deployment = _doc("deploy-general", "PipelineWebRTC", "PipelineWebRTC 上传到 /data/html 目录。")
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([deployment]), retrieval_strategy=_Strategy([deployment], [deployment]), graph_db=_Graph(),
+    )
+    candidate = pipeline.generate(
+        "PipelineWebRTC 功能与用途概述", target_entity="PipelineWebRTC",
+        kb_name=None, review_status="approved", doc_category=None,
+    )[0]
+    task = SemanticTaskContext(
+        "PipelineWebRTC 的相关信息", "PipelineWebRTC", ("PipelineWebRTC",),
+        "single_entity", 1.0, "general_qa", (), "clarification_default",
+    )
+
+    admitted = pipeline.admit(
+        "PipelineWebRTC 功能与用途概述", candidate,
+        target_entity="PipelineWebRTC", semantic_task=task,
+    )
+
+    assert admitted.verdict == "PASS"
+    assert admitted.canonical_question == "PipelineWebRTC 的相关信息"
+    assert admitted.answer_intent == "general_qa"
 
 
 def test_admission_ignores_unrelated_overview_terms_in_merged_chunk():

@@ -15,6 +15,7 @@ from rag_knowledge.services.agent_orchestration.models import (
 )
 from rag_knowledge.services.agent_orchestration.evidence_gate import EvidenceGap
 from rag_knowledge.services.conversation_context import UnderstandingResult
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.agent_orchestration.runtime import (
     AgentLoop,
     FinalizationHandler,
@@ -393,14 +394,14 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
             tool="retrieve_kb",
             arguments={"query": "PipelineWebGL 产品关系 1"},
         ),
-        AgentDecision(
-            action="tool_call",
-            tool="retrieve_kb",
-            arguments={"query": "PipelineWebGL 产品关系 2"},
-            gap="未覆盖产品关系",
-            expected_gain="补充关系",
-        ),
-        AgentDecision(action="finalize"),
+            AgentDecision(
+                action="tool_call",
+                tool="retrieve_kb",
+                arguments={"query": "PipelineWebGL 产品关系 2"},
+                gap="未覆盖产品关系",
+                expected_gain="补充关系",
+            ),
+            AgentDecision(action="finalize", arguments={"answer_mode": "partial"}),
     ])
 
     async def retrieve(args):
@@ -679,6 +680,25 @@ def test_finalization_separates_admissibility_from_overview_coverage():
     assert "recovery_strategy" not in result
 
 
+def test_general_qa_partial_evidence_can_finalize_without_no_knowledge():
+    conv = ConversationContext.from_request("PipelineWebRTC", [])
+    conv.semantic_task = SemanticTaskContext(
+        "PipelineWebRTC 的相关信息", "PipelineWebRTC", ("PipelineWebRTC",),
+        "single_entity", 1.0, "general_qa", (), "clarification_default",
+    )
+    conv.resolved_question = conv.semantic_task.resolved_question
+    pool = EvidencePool(question_id="q")
+    doc = _doc("pipeline-deploy", "PipelineWebRTC 上传到 /data/html 目录。")
+    doc["metadata"]["document_entity"] = "PipelineWebRTC"
+    pool.add_retrieve([doc], query="PipelineWebRTC 功能与用途概述")
+
+    result = FinalizationHandler(conv, pool).evaluate(answer_mode="partial")
+
+    assert result["status"] == "accepted"
+    assert result["evidence_verdict"]["coverage"] == "PARTIAL"
+    assert result["evidence_verdict"]["can_answer"] is True
+
+
 def test_agent_snapshot_bypasses_generation_pack():
     from types import SimpleNamespace
 
@@ -707,7 +727,7 @@ def test_agent_evidence_snapshot_without_answer_context_still_bypasses_pack():
 
     pool = EvidencePool(question_id="q")
     pool.add_retrieve([_doc("c1", "完整事实")], query="q")
-    snapshot = pool.create_snapshot(verdict={"verdict": "SUFFICIENT"})
+    snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})
     chain = object.__new__(RagChain)
     chain._pack_for_generation = lambda *_args, **_kwargs: (_ for _ in ()).throw(
         AssertionError("frozen snapshot must not be repacked")
@@ -833,7 +853,7 @@ def test_grounded_retry_includes_candidate_v1_and_complete_review_payload():
 def test_evidence_snapshot_and_answer_context_are_immutable():
     pool = EvidencePool(question_id="q")
     pool.add_retrieve([_doc("c1")], query="q")
-    snapshot = pool.create_snapshot(verdict={"verdict": "SUFFICIENT"})
+    snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})
     context = AnswerGenerationContext.from_snapshot(
         original_question="q",
         resolved_question="q",
@@ -870,7 +890,7 @@ def test_understanding_result_deep_freezes_nested_payloads():
 def test_answer_prompt_excludes_tools_and_raw_agent_trace():
     pool = EvidencePool(question_id="q")
     pool.add_retrieve([_doc("c1")], query="q")
-    snapshot = pool.create_snapshot(verdict={"verdict": "SUFFICIENT"})
+    snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})
     context = AnswerGenerationContext.from_snapshot(
         original_question="q",
         resolved_question="q",
@@ -918,7 +938,7 @@ def test_answer_prompt_uses_snapshot_citations_and_excludes_history_facts():
         admission_verdict="PASS",
     )
     pool.add_retrieve([_doc("c1", "PipelineWebGL 支持三维管线查询")], query="pipeline")
-    snapshot = pool.create_snapshot(verdict={"verdict": "SUFFICIENT"})
+    snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})
     context = AnswerGenerationContext.from_snapshot(
         original_question="pipeline",
         resolved_question="PipelineWebGL pipeline",

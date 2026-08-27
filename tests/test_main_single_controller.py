@@ -98,7 +98,7 @@ def test_controller_evidence_summary_exposes_precise_partial_coverage():
     summary = loop._evidence_summary()
 
     assert 'current_evidence_state={"coverage":"PARTIAL"' in summary
-    assert '"missing_facts":["缺少实体定位或概览的充分证据"]' in summary
+    assert '"missing_facts":["缺少以下事实维度：function"]' in summary
     assert '"evidence_count":1' in summary
     assert '"evidence_version":1' in summary
 
@@ -459,7 +459,11 @@ def test_finalization_rejected_observation_loop_closure():
                 expected_gain="获取完整配置手册",
                 source="llm",
             )
-        return AgentDecision(action="finalize", source="llm")
+        return AgentDecision(
+            action="finalize",
+            arguments={"answer_mode": "partial"},
+            source="llm",
+        )
 
     loop = AgentLoop(
         conversation=conv,

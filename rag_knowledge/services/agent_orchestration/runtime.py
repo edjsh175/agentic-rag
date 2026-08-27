@@ -570,10 +570,6 @@ class FinalizationHandler:
 
         task = getattr(self.conversation, "semantic_task", None)
         task_type = str(getattr(task, "task_type", "") or "")
-        relation_docs = [
-            doc for doc in docs
-            if str((doc.get("metadata") or {}).get("relation_key") or "").strip()
-        ]
         if task_type == "multi_entity_relation":
             if missing_entities:
                 return (
@@ -581,28 +577,41 @@ class FinalizationHandler:
                     "missing_relation",
                     "缺少以下实体的独立证据：" + "、".join(missing_entities),
                 )
-            if not relation_docs:
-                return "PARTIAL", "missing_relation", "缺少已审核的实体关系证据"
-            return "SUFFICIENT", "ok", ""
-
-        question = (
-            self.conversation.resolved_question
-            or self.conversation.user_question
-        ).casefold()
-        overview_markers = ("是什么", "介绍", "概述", "概览", "定位", "相关信息")
-        if any(marker in question for marker in overview_markers):
-            has_overview = any(
-                any(marker in (
-                    f"{(doc.get('metadata') or {}).get('section_path') or ''} "
-                    f"{(doc.get('metadata') or {}).get('section_title') or ''} "
-                    f"{doc.get('content') or ''}"
-                ).casefold() for marker in ("概述", "概览", "介绍", "定位", "简介", "是什么"))
+            if not any(
+                str((doc.get("metadata") or {}).get("relation_key") or "").strip()
                 for doc in docs
-            )
-            non_relation_docs = len(docs) - len(relation_docs)
-            if not has_overview or non_relation_docs < 2:
-                return "PARTIAL", "missing_fact", "缺少实体定位或概览的充分证据"
-        return "SUFFICIENT", "ok", ""
+            ):
+                return "PARTIAL", "missing_relation", "缺少已审核的实体关系证据"
+            return "FULL", "ok", ""
+
+        answer_intent = str(getattr(task, "answer_intent", "") or "general_qa")
+        requested_facets = tuple(getattr(task, "requested_facets", ()) or ())
+        # An open entity-information request has no closed fact set. Any
+        # admitted fact is publishable, but never proves a complete overview.
+        if answer_intent == "general_qa" or not requested_facets:
+            return "PARTIAL", "missing_fact", "当前资料不足以覆盖完整信息"
+
+        surface = " ".join(
+            f"{(doc.get('metadata') or {}).get('section_path') or ''} "
+            f"{(doc.get('metadata') or {}).get('section_title') or ''} "
+            f"{doc.get('content') or ''}"
+            for doc in docs
+        ).casefold()
+        facet_terms = {
+            "function": ("用于", "功能", "作用", "提供", "实现", "能力"),
+            "deployment": ("部署", "安装", "上线", "发布", "上传"),
+            "config": ("配置", "参数", "端口", "ip", "url"),
+            "procedure": ("步骤", "流程", "如何", "启动"),
+            "troubleshooting": ("故障", "报错", "异常", "排查", "解决"),
+            "comparison": ("区别", "不同", "对比", "差异"),
+        }
+        missing_facets = [
+            facet for facet in requested_facets
+            if not any(term in surface for term in facet_terms.get(facet, (facet,)))
+        ]
+        if missing_facets:
+            return "PARTIAL", "missing_fact", "缺少以下事实维度：" + "、".join(missing_facets)
+        return "FULL", "ok", ""
 
     def evaluate(
         self,
@@ -657,7 +666,7 @@ class FinalizationHandler:
         verdict["coverage"] = coverage
         verdict["verdict"] = coverage
         permit_partial = requested_mode == "partial"
-        verdict["can_answer"] = admissible and (coverage == "SUFFICIENT" or permit_partial)
+        verdict["can_answer"] = admissible and (coverage == "FULL" or permit_partial)
         verdict["missing_facts"] = []
         verdict["missing_relations"] = []
         verdict["evidence_count"] = len(self.evidence.citable_docs())
@@ -669,7 +678,7 @@ class FinalizationHandler:
             verdict[missing_key] = [missing]
 
         # 当证据不合法，或证据不足且 Main 未显式选择 PARTIAL 时，拒绝 Finalize。
-        if not admissible or (coverage != "SUFFICIENT" and not permit_partial):
+        if not admissible or (coverage != "FULL" and not permit_partial):
             reason = str(verdict.get("reason") or "missing_evidence")
             missing = str(verdict.get("missing_fact") or "当前问题所需的关键事实")
             return {
@@ -1707,6 +1716,8 @@ class AgentLoop:
                         answer_contract={
                             **self._answer_contract,
                             "question": self.conversation.resolved_question,
+                            "answer_intent": str(getattr(self.conversation.semantic_task, "answer_intent", "") or "general_qa"),
+                            "requested_facets": list(getattr(self.conversation.semantic_task, "requested_facets", ()) or ()),
                         },
                         answer_policy=self._answer_policy,
                         execution_summary=(
