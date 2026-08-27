@@ -322,7 +322,7 @@ class ExplorationGrantResolver:
             return "clarification_confirmed"
         if reason in {"previous_confirmed_context", "conversation_confirmed_subject"}:
             return "previous_confirmed_context"
-        if reason in {"request_explicit_entity", "user_explicit_mention"}:
+        if reason in {"request_explicit_entity", "user_explicit_mention", "multi_entity_context"}:
             return "user_explicit_mention"
         return "stage1_resolved_entity"
 

@@ -1,4 +1,4 @@
-"""Tests for query clarification (反问) — backbone-driven full option list."""
+"""Tests for query clarification (反问) — EntityCandidateResolver-driven option list."""
 from __future__ import annotations
 
 import json
@@ -30,6 +30,8 @@ def _mini_backbone() -> dict:
         "管线发布工具": "PipelineBuilder",
         "pipelinewebgl": "PipelineWebGL",
         "Pipeline WebGL": "PipelineWebGL",
+        "管线 WebGL": "PipelineWebGL",
+        "管线 WebRTC": "PipelineWebRTC",
         "管线发布服务": "管线发布服务",
         "管线更新服务": "管线更新服务",
         "se_pipeline.so": "se_pipeline.so",
@@ -65,24 +67,22 @@ def backbone_svc(isolated_storage) -> QueryClarificationService:
     )
 
 
-def test_clarify_pipeline_lists_full_family(backbone_svc: QueryClarificationService):
+def test_clarify_pipeline_lists_verified_candidates(backbone_svc: QueryClarificationService):
     result = backbone_svc.analyze("pipeline")
     assert result.needs_clarification is True
-    entity_names = {opt.filter.entity_name for opt in result.options}
+    entity_names = {opt.filter.entity_name for opt in result.options if opt.filter.entity_name}
     assert "PipelineBuilder" in entity_names
     assert "PipelineWebGL" in entity_names
     assert "PipelineWebRTC" in entity_names
-    assert "管线发布服务" in entity_names
-    assert "管线更新服务" in entity_names
     assert "se_pipeline.so" not in entity_names
-    assert len(result.options) >= 5
+    assert result.options[-1].label == "以上都不是"
 
 
-def test_clarify_no_max_options_cap(backbone_svc: QueryClarificationService):
+def test_clarify_top_k_options_cap(backbone_svc: QueryClarificationService):
     result = backbone_svc.analyze("pipeline")
     assert result.needs_clarification is True
-    assert len(result.options) > 4
-    assert result.options[-1].id  # ids assigned beyond a-d
+    assert len(result.options) <= 6
+    assert result.options[-1].id == "other"
 
 
 def test_clarify_skips_when_entity_already_chosen(backbone_svc: QueryClarificationService):
@@ -103,7 +103,7 @@ def test_clarify_disabled_returns_false(backbone_svc: QueryClarificationService)
 def test_clarify_bare_guanxian_underspecified(backbone_svc: QueryClarificationService):
     result = backbone_svc.analyze("管线")
     assert result.needs_clarification is True
-    entity_names = {opt.filter.entity_name for opt in result.options}
+    entity_names = {opt.filter.entity_name for opt in result.options if opt.filter.entity_name}
     assert "PipelineWebGL" in entity_names
     assert "PipelineWebRTC" in entity_names
 
@@ -142,11 +142,11 @@ def test_clarify_llm_ignores_option_ids_subset(isolated_storage):
     asked = svc.analyze("pipeline")
     assert asked.needs_clarification is True
     assert asked.reason == "llm_ambiguity"
-    entity_names = {opt.filter.entity_name for opt in asked.options}
+    entity_names = {opt.filter.entity_name for opt in asked.options if opt.filter.entity_name}
     assert "PipelineBuilder" in entity_names
     assert "PipelineWebGL" in entity_names
     assert "PipelineWebRTC" in entity_names
-    assert len(asked.options) >= 5
+    assert asked.options[-1].label == "以上都不是"
 
 
 def test_clarify_llm_can_skip(isolated_storage):
@@ -184,7 +184,7 @@ def test_clarify_llm_failure_falls_back_to_backbone(isolated_storage):
     )
     result = svc.analyze("pipeline")
     assert result.needs_clarification is True
-    entity_names = {opt.filter.entity_name for opt in result.options}
+    entity_names = {opt.filter.entity_name for opt in result.options if opt.filter.entity_name}
     assert "PipelineWebRTC" in entity_names
 
 
@@ -288,44 +288,34 @@ def test_query_callback_resolves_option_id_and_preserves_legacy_label(monkeypatc
     app = FastAPI()
     app.include_router(routes.router)
     client = TestClient(app)
-    options = [
-        {
-            "id": "cand_01",
-            "label": "PipelineWebGL",
-            "filter": {"entity_name": "PipelineWebGL"},
-            "source": "backbone",
-            "canonical_name": "PipelineWebGL",
-            "entity_type": "Product",
-            "binding_status": "canonical",
-            "score": 0.93,
-        },
-        {
-            "id": "other",
-            "label": "以上都不是",
-            "filter": {},
-            "source": "fixed_other",
-            "binding_status": "unresolved",
-        },
-    ]
+    from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineWebGL")
+    )
 
     resp = client.post(
         "/query",
         json={
             "question": "pipelien",
             "clarification_selected": "被篡改的旧标签",
-            "clarification_option_id": "cand_01",
-            "clarification_options": options,
+            "clarification_option_id": "a",
+            "clarification_snapshot_id": snapshot.clarification_id,
+            "clarification_options": [{"id": "a", "label": "攻击者伪造", "filter": {}}],
             "clarification_selection_kind": "option",
         },
     )
 
     assert resp.status_code == 200
     assert captured["question"] == "pipelien"
-    assert captured["kwargs"]["clarification_selected"] == "PipelineWebGL"
-    assert captured["kwargs"]["clarification_option_id"] == "cand_01"
-    assert captured["kwargs"]["clarification_selected_candidate"]["source"] == "backbone"
+    assert captured["kwargs"]["clarification_selected"].startswith("PipelineWebGL")
+    assert captured["kwargs"]["clarification_option_id"] == "a"
+    assert captured["kwargs"]["clarification_snapshot_id"] == snapshot.clarification_id
+    assert captured["kwargs"]["clarification_selected_candidate"]["source"] != "backbone"
     assert captured["kwargs"]["clarification_selected_candidate"]["canonical_name"] == "PipelineWebGL"
-    assert captured["kwargs"]["clarification_options"] == options
+    assert captured["kwargs"]["clarification_selected_candidate"]["entity_id"] == snapshot.display_candidates[0].entity_id
+    assert captured["kwargs"]["clarification_options"][0]["label"].startswith("PipelineWebGL")
     assert captured["kwargs"]["clarification_selection_kind"] == "option"
     # Candidate metadata is never promoted directly to the legacy entity filter.
     assert captured["kwargs"]["entity_name"] is None
@@ -348,22 +338,19 @@ def test_query_callback_other_free_text_reenters_understanding(monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
     client = TestClient(app)
-    options = [
-        {
-            "id": "other",
-            "label": "以上都不是",
-            "filter": {},
-            "source": "fixed_other",
-            "binding_status": "unresolved",
-        },
-    ]
+    from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineWebGL")
+    )
 
     resp = client.post(
         "/query",
         json={
             "question": "pipelien",
             "clarification_option_id": "other",
-            "clarification_options": options,
+            "clarification_snapshot_id": snapshot.clarification_id,
             "clarification_selection_kind": "free_text",
             "clarification_free_text": "我想问部署流水线服务",
         },
@@ -373,6 +360,7 @@ def test_query_callback_other_free_text_reenters_understanding(monkeypatch):
     assert captured["question"] == "pipelien"
     assert captured["kwargs"]["clarification_selected"] is None
     assert captured["kwargs"]["clarification_option_id"] == "other"
+    assert captured["kwargs"]["clarification_snapshot_id"] == snapshot.clarification_id
     assert captured["kwargs"]["clarification_selected_candidate"]["source"] == "fixed_other"
     assert captured["kwargs"]["clarification_selection_kind"] == "free_text"
     assert captured["kwargs"]["clarification_free_text"] == "我想问部署流水线服务"
@@ -387,14 +375,18 @@ def test_query_callback_rejects_unknown_option_id(monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
     client = TestClient(app)
+    from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineWebGL")
+    )
     resp = client.post(
         "/query",
         json={
             "question": "pipeline",
             "clarification_option_id": "missing",
-            "clarification_options": [
-                {"id": "cand_01", "label": "PipelineWebGL", "filter": {}},
-            ],
+            "clarification_snapshot_id": snapshot.clarification_id,
         },
     )
 
@@ -422,7 +414,7 @@ def test_live_backbone_pipeline_includes_webgl_webrtc(isolated_storage):
     svc = QueryClarificationService(enabled=True, llm_enabled=False)
     res = svc.analyze("pipeline")
     assert res.needs_clarification is True
-    entity_names = {opt.filter.entity_name for opt in res.options}
+    entity_names = {opt.filter.entity_name for opt in res.options if opt.filter.entity_name}
     assert "PipelineBuilder" in entity_names
     assert "PipelineWebGL" in entity_names
     assert "PipelineWebRTC" in entity_names

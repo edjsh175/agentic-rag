@@ -294,6 +294,7 @@ class _ResolvedClarificationCallback:
     question: str
     selected_label: str | None
     option_id: str | None = None
+    snapshot_id: str | None = None
     selected_candidate: dict | None = None
     options: list[dict] | None = None
     selection_kind: str | None = None
@@ -303,6 +304,7 @@ class _ResolvedClarificationCallback:
         return {
             "clarification_selected": self.selected_label,
             "clarification_option_id": self.option_id,
+            "clarification_snapshot_id": self.snapshot_id,
             "clarification_selected_candidate": self.selected_candidate,
             "clarification_options": self.options,
             "clarification_selection_kind": self.selection_kind,
@@ -311,30 +313,38 @@ class _ResolvedClarificationCallback:
 
 
 def _resolve_clarification_callback(req: QueryRequest) -> _ResolvedClarificationCallback:
-    """Resolve an option-id callback without trusting candidate metadata as entity scope."""
+    """Resolve callbacks from the server-created snapshot, never client options."""
     question = req.question
     legacy_selected = (req.clarification_selected or "").strip() or None
     option_id = (req.clarification_option_id or "").strip()
-    if not option_id:
+    snapshot_id = (req.clarification_snapshot_id or "").strip() or None
+    if not option_id and not snapshot_id:
         return _ResolvedClarificationCallback(question=question, selected_label=legacy_selected)
 
-    options = list(req.clarification_options or [])
-    if not options:
-        raise HTTPException(400, detail="clarification_option_id requires clarification_options")
-    if len(options) > 100:
-        raise HTTPException(400, detail="too many clarification_options")
+    if not snapshot_id:
+        raise HTTPException(400, detail="clarification_option_id requires clarification_snapshot_id")
+    if not option_id:
+        raise HTTPException(400, detail="clarification_snapshot_id requires clarification_option_id")
 
-    option_ids = [str(option.id or "").strip() for option in options]
-    if len(option_ids) != len(set(option_ids)):
-        raise HTTPException(400, detail="clarification_options contains duplicate ids")
+    from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+    from rag_knowledge.services.query_clarification import candidate_to_option, merge_clarification_candidates
+
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.get_snapshot(snapshot_id)
+    if snapshot is None:
+        raise HTTPException(400, detail="clarification_snapshot_id is invalid or expired")
+    options = merge_clarification_candidates(
+        [candidate_to_option(candidate) for candidate in snapshot.display_candidates],
+        include_other=True,
+    )
     selected_option = next((option for option in options if option.id == option_id), None)
     if selected_option is None:
-        raise HTTPException(400, detail="clarification_option_id is not present in clarification_options")
+        raise HTTPException(400, detail="clarification_option_id is not present in clarification snapshot")
 
     free_text = (req.clarification_free_text or "").strip()
     is_other = (
         option_id.casefold() == "other"
-        or str(selected_option.source or "").casefold() == "fixed_other"
+        or (selected_option is not None and str(selected_option.source or "").casefold() == "fixed_other")
     )
     selection_kind = req.clarification_selection_kind
     if selection_kind is None:
@@ -352,15 +362,16 @@ def _resolve_clarification_callback(req: QueryRequest) -> _ResolvedClarification
         if selection_kind != "free_text":
             raise HTTPException(400, detail="clarification_free_text requires free_text selection")
 
-    serialized_options = [option.model_dump(exclude_none=True) for option in options]
-    selected_candidate = selected_option.model_dump(exclude_none=True)
+    serialized_options = [option.to_dict() for option in options]
+    selected_candidate = selected_option.to_dict()
     selected_label = None if selection_kind == "free_text" else (
         str(selected_option.label or "").strip() or legacy_selected
     )
     return _ResolvedClarificationCallback(
         question=question,
         selected_label=selected_label,
-        option_id=option_id,
+        option_id=option_id or None,
+        snapshot_id=snapshot_id,
         selected_candidate=selected_candidate,
         options=serialized_options,
         selection_kind=selection_kind,
@@ -433,6 +444,7 @@ async def query_clarify(req: ClarifyRequest):
         ask_question=clarify.get("ask_question"),
         trigger=clarify.get("trigger"),
         reason=clarify.get("reason") or understood.rationale,
+        clarification_snapshot_id=clarify.get("clarification_snapshot_id"),
         options=[
             ClarificationOption(**opt)
             for opt in (clarify.get("options") or [])

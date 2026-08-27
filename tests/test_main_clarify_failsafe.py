@@ -28,9 +28,10 @@ from rag_knowledge.services.query_clarification import (
     QueryClarificationService,
     merge_clarification_candidates,
 )
+from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
 
 
-def test_merge_clarification_candidates_dedup_and_unresolved():
+def test_merge_clarification_candidates_only_uses_verified_candidate_set():
     system_seeds = [
         ClarificationOption(
             id="opt_1",
@@ -54,27 +55,17 @@ def test_merge_clarification_candidates_dedup_and_unresolved():
         ),
     ]
 
-    model_suggestions = [
-        {"label": "PipelineWebGL", "rationale": "WebGL pipeline"},
-        {"label": "PipelineCloudRender", "rationale": "Cloud render pipeline"},
-    ]
-
     merged = merge_clarification_candidates(
         system_candidates=system_seeds,
-        model_suggested_options=model_suggestions,
         include_other=True,
     )
 
     labels = [m.label for m in merged]
     assert "PipelineWebGL" in labels
     assert "PipelineBuilder" in labels
-    assert "PipelineCloudRender" in labels
+    # The merger has no model-option input, so a hallucination cannot be admitted.
+    assert "PipelineCloudRender" not in labels
     assert any("以上都不是" in m.label for m in merged)
-
-    cloud_opt = next(m for m in merged if m.label == "PipelineCloudRender")
-    assert cloud_opt.binding_status == "unresolved"
-    assert cloud_opt.source == "model_suggested"
-    assert cloud_opt.filter.entity_name is None
 
 
 def test_identity_scope_resolution_confirmed_entity_and_topic():
@@ -123,7 +114,7 @@ def test_identity_scope_resolution_confirmed_entity_and_topic():
 
 def test_callback_metadata_cannot_spoof_a_canonical_entity():
     constraints = {
-        "entity_type_by_name": {"PipelineWebGL": "module"},
+        "entity_type_by_name": {"PipelineWebGL": "Module"},
         "canonical_by_alias": {},
     }
     scope = IdentityScopeResolver.resolve(
@@ -158,57 +149,47 @@ def _unbound_understanding(question: str) -> UnderstandingResult:
     )
 
 
-def test_conversation_callback_binds_system_and_resolved_model_candidates():
+def test_conversation_callback_binds_snapshot_entity_id():
     constraints = {
-        "entity_type_by_name": {"PipelineWebGL": "module"},
+        "entity_type_by_name": {"PipelineWebGL": "Module"},
         "canonical_by_alias": {"webgl pipeline": "PipelineWebGL"},
     }
     with patch(
         "rag_knowledge.services.identity_scope.load_backbone_constraints",
         return_value=constraints,
     ):
+        resolver = get_entity_candidate_resolver(constraints=constraints)
+        snapshot = resolver.create_clarification_snapshot(
+            resolver.resolve_identity("PipelineWebGL")
+        )
+        selected = snapshot.display_candidates[0]
         system = ConversationContext.from_request(
             "pipelien 是什么？",
             [],
-            clarification_selected="PipelineWebGL",
-            clarification_option_id="cand_01",
+            clarification_selected=selected.canonical_name,
+            clarification_option_id="a",
+            clarification_snapshot_id=snapshot.clarification_id,
             clarification_selected_candidate={
-                "id": "cand_01",
-                "label": "PipelineWebGL",
-                "canonical_name": "PipelineWebGL",
-                "source": "backbone",
+                "entity_id": selected.entity_id,
+                "label": selected.canonical_name,
+                "canonical_name": selected.canonical_name,
+                "source": "verified",
                 "binding_status": "canonical",
             },
             clarification_selection_kind="option",
             understanding=_unbound_understanding("pipelien 是什么？"),
         )
-        model = ConversationContext.from_request(
-            "pipelien 是什么？",
-            [],
-            clarification_selected="webgl pipeline",
-            clarification_option_id="model_01",
-            clarification_selected_candidate={
-                "id": "model_01",
-                "label": "webgl pipeline",
-                "canonical_name": "PipelineWebGL",
-                "source": "model_suggested",
-                "binding_status": "unresolved",
-            },
-            clarification_selection_kind="option",
-            understanding=_unbound_understanding("pipelien 是什么？"),
-        )
-
-    for conversation in (system, model):
-        assert conversation.clarification_callback is True
-        assert conversation.identity_status == "confirmed_entity"
-        assert conversation.confirmed_entity == "PipelineWebGL"
-        assert conversation.head_entity == "PipelineWebGL"
-        assert conversation.selected_entity == "PipelineWebGL"
+    assert system.clarification_callback is True
+    assert system.identity_status == "confirmed_entity"
+    assert system.confirmed_entity == "PipelineWebGL"
+    assert system.confirmed_entity_id == selected.entity_id
+    assert system.head_entity == "PipelineWebGL"
+    assert system.selected_entity == "PipelineWebGL"
 
 
 def test_clarification_callback_replaces_stale_ambiguous_retrieval_query():
     constraints = {
-        "entity_type_by_name": {"三维管线管理": "module"},
+        "entity_type_by_name": {"三维管线管理": "Module"},
         "canonical_by_alias": {},
     }
     understanding = UnderstandingResult(
@@ -229,16 +210,22 @@ def test_clarification_callback_replaces_stale_ambiguous_retrieval_query():
         "rag_knowledge.services.identity_scope.load_backbone_constraints",
         return_value=constraints,
     ):
+        resolver = get_entity_candidate_resolver(constraints=constraints)
+        snapshot = resolver.create_clarification_snapshot(
+            resolver.resolve_identity("三维管线管理")
+        )
+        selected = snapshot.display_candidates[0]
         conversation = ConversationContext.from_request(
             "pipeline",
             [],
-            clarification_selected="三维管线管理",
-            clarification_option_id="module_01",
+            clarification_selected=selected.canonical_name,
+            clarification_option_id="a",
+            clarification_snapshot_id=snapshot.clarification_id,
             clarification_selected_candidate={
-                "id": "module_01",
-                "label": "三维管线管理（Module）",
-                "canonical_name": "三维管线管理",
-                "source": "backbone",
+                "entity_id": selected.entity_id,
+                "label": selected.canonical_name,
+                "canonical_name": selected.canonical_name,
+                "source": "verified",
                 "binding_status": "canonical",
             },
             clarification_selection_kind="option",
@@ -256,7 +243,7 @@ def test_clarification_callback_replaces_stale_ambiguous_retrieval_query():
     )
 
 
-def test_conversation_callback_keeps_unknown_model_candidate_as_topic():
+def test_conversation_callback_rejects_option_without_snapshot():
     constraints = {
         "entity_type_by_name": {"PipelineWebGL": "module"},
         "canonical_by_alias": {},
@@ -280,7 +267,8 @@ def test_conversation_callback_keeps_unknown_model_candidate_as_topic():
             understanding=_unbound_understanding("pipelien 是什么？"),
         )
 
-    assert conversation.identity_status == "confirmed_topic"
+    assert conversation.identity_status == "unresolved"
+    assert conversation.scope.scope_reason == "clarification_snapshot_required"
     assert conversation.confirmed_topic == "PipelineMagicServer"
     assert conversation.confirmed_entity is None
     assert conversation.head_entity is None

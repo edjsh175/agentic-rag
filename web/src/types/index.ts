@@ -547,7 +547,8 @@ export interface ClarificationOption {
   id: string
   label: string
   filter: ClarifyOptionFilter
-  /** backbone | model_suggested | fixed_other | task_exit | rollback_static */
+  entity_id?: string
+  /** verified registry match or the fixed Other UI action */
   source?: string
   canonical_name?: string
   entity_type?: string
@@ -565,7 +566,7 @@ export interface ClarificationSelection {
 
 export interface ClarificationCallbackRequest {
   optionId: string
-  options: ClarificationOption[]
+  snapshotId: string
   selectionKind: ClarificationSelectionKind
   freeText?: string
 }
@@ -576,6 +577,7 @@ export interface ClarifyResult {
   ask_question?: string
   trigger?: string
   reason?: string
+  clarification_snapshot_id?: string
   options: ClarificationOption[]
 }
 
@@ -584,6 +586,7 @@ export interface MessageClarification {
   ask_question: string
   trigger?: string
   reason?: string
+  clarification_snapshot_id?: string
   options: ClarificationOption[]
   selectedId?: string
   otherText?: string

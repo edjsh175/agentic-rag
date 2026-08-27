@@ -1250,7 +1250,7 @@ def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
 
     state = json.loads(loop._controller_state_for_prompt())
 
-    assert state["identity_status"] == "unresolved"
+    assert state["identity_status"] in {"unresolved", "ambiguous_entity"}
     assert "link_entities" not in state["allowed_tools"]
     assert "clarify" in state["allowed_tools"]
 
@@ -1266,7 +1266,6 @@ def test_unbound_topic_vetoes_clarify_and_keeps_corpus_retrieval_available():
             tool="clarify",
             arguments={
                 "question": "您想了解哪个产品？",
-                "model_suggested_options": ["StampServer", "StampWebRTC"],
             },
             reason="泛化问题，先澄清",
             source="llm",

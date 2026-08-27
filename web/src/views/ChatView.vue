@@ -1084,7 +1084,7 @@ async function handleSelectClarificationOption(aiMsg: Message, selection: Clarif
   const clarificationSelected = selectedText
   const clarificationCallback: ClarificationCallbackRequest = {
     optionId: option.id,
-    options: aiMsg.clarification.options,
+    snapshotId: aiMsg.clarification.clarification_snapshot_id || '',
     selectionKind: kind,
     freeText: kind === 'free_text' ? selectedText : undefined,
   }

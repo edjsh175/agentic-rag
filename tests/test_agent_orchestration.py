@@ -1074,7 +1074,7 @@ def test_v14_tool_registry_and_react_flow():
 
 
 def test_v14_link_entities_is_retired():
-    conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
+    conv = ConversationContext.from_request("我啥时候给你说是这个了？", [])
     assert not conv.head_entity
 
     # link_entities 已由 expand_graph_scope 替代，不能作为 Main 工具复活。
@@ -1296,7 +1296,7 @@ def test_stream_react_events_order_and_payload():
 
 
 def test_v14_link_entities_is_not_registered():
-    conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
+    conv = ConversationContext.from_request("我啥时候给你说是这个了？", [])
     assert not conv.head_entity
 
     # link_entities 已退休，Main Registry 不保留兼容入口。

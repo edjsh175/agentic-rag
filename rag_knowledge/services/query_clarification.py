@@ -1,18 +1,22 @@
 """Clarification candidate discovery and legacy linear-mode card support.
 
-The Agent Main Controller decides whether to clarify.  This module discovers
-and merges candidates; ``analyze`` remains only for the explicit legacy linear
-clarification path.
+The Agent Main Controller decides whether to clarify based on IdentityResolution.
+Candidate discovery, ranking, and identity status are resolved via EntityCandidateResolver.
 """
 from __future__ import annotations
 
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from rag_knowledge.config import Config
+from rag_knowledge.services.entity_candidate_resolver import (
+    EntityCandidate,
+    EntityCandidateResolver,
+    get_entity_candidate_resolver,
+)
 from rag_knowledge.services.query_surface import (
     WIDE_SURFACE_TERMS,
     contains_term,
@@ -42,9 +46,9 @@ _OWNER_TO_DOC_CATEGORY = {
     "stampwebgl": "StampWebGL",
 }
 
-# Backward-compatible aliases (prefer query_surface public names for new code).
+# Backward-compatible exports
 _WIDE_SURFACE_TERMS = WIDE_SURFACE_TERMS
-_PIPELINE_FAMILY_TOKENS = frozenset({"pipeline", "管线"})
+MAX_CLARIFICATION_OPTIONS = 5
 
 
 def _normalize_blob(text: str) -> str:
@@ -110,6 +114,7 @@ class ClarificationOption:
     id: str
     label: str
     filter: ClarificationFilter
+    entity_id: str | None = None
     source: str | None = None
     canonical_name: str | None = None
     entity_type: str | None = None
@@ -119,7 +124,9 @@ class ClarificationOption:
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "id": self.id,
-            "candidate_id": self.id,
+            "option_id": self.id,
+            "entity_id": self.entity_id,
+            "candidate_id": self.entity_id or self.id,
             "label": self.label,
             "filter": self.filter.to_dict(),
         }
@@ -137,7 +144,7 @@ class ClarificationOption:
 
     def to_candidate_dto(self) -> CandidateDTO:
         return CandidateDTO(
-            candidate_id=self.id,
+            candidate_id=self.entity_id or self.id,
             label=self.label,
             canonical_name=self.canonical_name or self.filter.entity_name,
             entity_type=self.entity_type,
@@ -154,6 +161,7 @@ class ClarificationResult:
     ask_question: str | None = None
     trigger: str | None = None
     reason: str | None = None
+    clarification_snapshot_id: str | None = None
     options: list[ClarificationOption] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -162,18 +170,9 @@ class ClarificationResult:
             "ask_question": self.ask_question,
             "trigger": self.trigger,
             "reason": self.reason,
+            "clarification_snapshot_id": self.clarification_snapshot_id,
             "options": [opt.to_dict() for opt in self.options],
         }
-
-
-def _fold_key(value: str) -> str:
-    return re.sub(r"[\s_\-]+", "", str(value or "")).casefold()
-
-
-def _is_eligible_backbone_entity(name: str, entity_type: str | None) -> bool:
-    if not name or name.endswith(".so"):
-        return False
-    return (entity_type or "") in _ALLOWED_ENTITY_TYPES
 
 
 def _option_id_at(index: int) -> str:
@@ -207,6 +206,7 @@ def _assign_option_ids(options: list[ClarificationOption]) -> list[Clarification
                 id=opt_id,
                 label=raw.label,
                 filter=raw.filter,
+                entity_id=raw.entity_id,
                 source=raw.source,
                 canonical_name=raw.canonical_name,
                 entity_type=raw.entity_type,
@@ -217,20 +217,44 @@ def _assign_option_ids(options: list[ClarificationOption]) -> list[Clarification
     return out
 
 
+def candidate_to_option(cand: EntityCandidate) -> ClarificationOption:
+    """Map verified EntityCandidate to ClarificationOption."""
+    doc_category = cand.doc_category
+    canonical = cand.canonical_name
+    entity_type = cand.entity_type
+    if doc_category:
+        label = f"{canonical}（{doc_category}）"
+    elif entity_type:
+        label = f"{canonical}（{entity_type}）"
+    else:
+        label = canonical
+
+    valid_filter_category = doc_category if (doc_category and doc_category in _RETRIEVAL_DOC_CATEGORIES) else None
+
+    return ClarificationOption(
+        id="",
+        label=label,
+        filter=ClarificationFilter(doc_category=valid_filter_category, entity_name=canonical),
+        entity_id=cand.entity_id,
+        source=cand.match_sources[0] if cand.match_sources else "backbone",
+        canonical_name=canonical,
+        entity_type=entity_type,
+        binding_status="canonical",
+        score=cand.final_score,
+    )
+
+
 def merge_clarification_candidates(
     system_candidates: list[ClarificationOption],
-    model_suggested_options: list[dict[str, Any] | str] | None = None,
     *,
     include_other: bool = True,
-    constraints: dict | None = None,
+    max_options: int = MAX_CLARIFICATION_OPTIONS,
 ) -> list[ClarificationOption]:
-    """Merge system candidates with model suggestions and fixed other option.
+    """Cap verified candidates and append the one fixed Other UI action.
 
-    Deduplication priority: canonical exact > alias > graph/catalog > fuzzy > model_suggested.
-    Main suggested options cannot overwrite canonical metadata of existing system candidates.
+    Callers must pass only the current ranked CandidateSet.  This function never
+    discovers entities or accepts model-generated additions.
     """
-    from rag_knowledge.services.backbone_guard import resolve_canonical
-
     merged: list[ClarificationOption] = []
     seen_canonical: set[str] = set()
     seen_labels: set[str] = set()
@@ -238,48 +262,17 @@ def merge_clarification_candidates(
     for opt in system_candidates:
         can = (opt.canonical_name or opt.filter.entity_name or "").strip().casefold()
         lbl = opt.label.strip().casefold()
+        if can and can in seen_canonical:
+            continue
+        if lbl and lbl in seen_labels:
+            continue
         if can:
             seen_canonical.add(can)
         if lbl:
             seen_labels.add(lbl)
         merged.append(opt)
-
-    if model_suggested_options:
-        c_dict = constraints or {}
-        for item in model_suggested_options:
-            if isinstance(item, str):
-                raw_label = item.strip()
-            elif isinstance(item, dict):
-                raw_label = str(item.get("label") or item.get("entity_name") or "").strip()
-            else:
-                continue
-            if not raw_label:
-                continue
-
-            lbl_folded = raw_label.casefold()
-            can_resolved = resolve_canonical(raw_label, c_dict) if c_dict else raw_label
-            can_folded = (can_resolved or "").casefold()
-
-            if lbl_folded in seen_labels or (can_folded and can_folded in seen_canonical):
-                continue
-
-            seen_labels.add(lbl_folded)
-            if can_folded:
-                seen_canonical.add(can_folded)
-
-            # Model suggested options default to binding_status="unresolved" and empty filter
-            # until user selection + canonical resolver confirms it.
-            merged.append(
-                ClarificationOption(
-                    id="",
-                    label=raw_label,
-                    filter=ClarificationFilter(),
-                    source="model_suggested",
-                    canonical_name=None,
-                    entity_type=None,
-                    binding_status="unresolved",
-                )
-            )
+        if len(merged) >= max_options:
+            break
 
     if include_other:
         other_key = "以上都不是".casefold()
@@ -289,6 +282,7 @@ def merge_clarification_candidates(
                     id="other",
                     label="以上都不是",
                     filter=ClarificationFilter(),
+                    entity_id=None,
                     source="fixed_other",
                     canonical_name=None,
                     entity_type=None,
@@ -297,172 +291,6 @@ def merge_clarification_candidates(
             )
 
     return _assign_option_ids(merged)
-
-
-def _latin_family_prefix(name: str) -> str | None:
-    """Leading CamelCase token, e.g. PipelineBuilder → Pipeline."""
-    parts = re.findall(r"[A-Z][a-z]+|[A-Z]+(?![a-z])|[a-z]+", name or "")
-    if not parts:
-        return None
-    stem = parts[0]
-    if len(stem) < 4 or not stem.isalpha():
-        return None
-    return stem
-
-
-def _family_tokens_for_names(names: list[str], triggers: list[str]) -> set[str]:
-    tokens: set[str] = set()
-    for raw in [*names, *triggers]:
-        text = str(raw or "").strip()
-        if not text:
-            continue
-        folded = _fold_key(text)
-        if any(tok in folded or tok in text for tok in _PIPELINE_FAMILY_TOKENS):
-            tokens.update(_PIPELINE_FAMILY_TOKENS)
-        prefix = _latin_family_prefix(text)
-        if prefix:
-            tokens.add(_fold_key(prefix))
-        # Short latin trigger itself (e.g. pipeline).
-        if re.fullmatch(r"[a-z][a-z0-9]{2,}", folded):
-            tokens.add(folded)
-    return tokens
-
-
-def _entity_matches_tokens(name: str, aliases_for: dict[str, list[str]], tokens: set[str]) -> bool:
-    candidates = [name, *(aliases_for.get(name) or [])]
-    for cand in candidates:
-        folded = _fold_key(cand)
-        text = cand or ""
-        for tok in tokens:
-            if not tok:
-                continue
-            if tok in folded or tok in text:
-                return True
-    return False
-
-
-def _aliases_by_canonical(constraints: dict) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = {}
-    for alias, canonical in (constraints.get("canonical_by_alias") or {}).items():
-        can = str(canonical or "").strip()
-        al = str(alias or "").strip()
-        if not can or not al or al == can:
-            continue
-        out.setdefault(can, []).append(al)
-    return out
-
-
-def _doc_category_for_entity(canonical: str, constraints: dict) -> str | None:
-    raw = (constraints.get("doc_category_by_name") or {}).get(canonical)
-    if isinstance(raw, str) and raw.strip() in _RETRIEVAL_DOC_CATEGORIES:
-        return raw.strip()
-    # Enrichment only: map via domain_catalog ownership when available.
-    try:
-        from rag_knowledge.services.domain_catalog import DomainCatalogLoader
-
-        catalog = DomainCatalogLoader()
-        owner = catalog.owner_for(canonical)
-        if owner:
-            mapped = _OWNER_TO_DOC_CATEGORY.get(owner.casefold())
-            if mapped:
-                return mapped
-        for cat, product_name in catalog._categories.items():  # noqa: SLF001
-            if product_name == canonical:
-                return cat
-    except Exception:
-        pass
-    return None
-
-
-def _option_for_backbone_entity(canonical: str, constraints: dict) -> ClarificationOption | None:
-    types = constraints.get("entity_type_by_name") or {}
-    entity_type = types.get(canonical)
-    if not _is_eligible_backbone_entity(canonical, entity_type):
-        return None
-    doc_category = _doc_category_for_entity(canonical, constraints)
-    if doc_category:
-        label = f"{canonical}（{doc_category}）"
-    elif entity_type:
-        label = f"{canonical}（{entity_type}）"
-    else:
-        label = canonical
-    return ClarificationOption(
-        id="",
-        label=label,
-        filter=ClarificationFilter(doc_category=doc_category, entity_name=canonical),
-        source="backbone",
-        canonical_name=canonical,
-        entity_type=entity_type,
-        binding_status="canonical",
-    )
-
-
-def _collect_backbone_seed_names(
-    question: str,
-    constraints: dict,
-    *,
-    triggers: list[str] | None = None,
-) -> tuple[list[str], str | None]:
-    """Gather all eligible backbone entities for a vague / ambiguous question."""
-    from rag_knowledge.services.backbone_guard import (
-        avoid_names_for_anchors,
-        soft_match_backbone_entities,
-    )
-
-    types = constraints.get("entity_type_by_name") or {}
-    aliases_for = _aliases_by_canonical(constraints)
-    trigger = None
-    hit_triggers = list(triggers or [])
-
-    soft_hits = soft_match_backbone_entities(question, constraints, max_hits=50)
-    soft_hits = [
-        name for name in soft_hits
-        if _is_eligible_backbone_entity(name, types.get(name))
-    ]
-    if soft_hits and trigger is None:
-        trigger = soft_hits[0]
-
-    for term in _WIDE_SURFACE_TERMS:
-        if not _contains_term(question, term):
-            continue
-        if term == "管线" and not _question_is_underspecified(question):
-            continue
-        hit_triggers.append(term)
-        if trigger is None:
-            trigger = term
-
-    tokens = _family_tokens_for_names(soft_hits, hit_triggers)
-    # Soft-hit Latin stems even without wide-term trigger.
-    for name in soft_hits:
-        prefix = _latin_family_prefix(name)
-        if prefix:
-            tokens.add(_fold_key(prefix))
-
-    names: list[str] = []
-    seen: set[str] = set()
-
-    def _add(name: str) -> None:
-        key = name.casefold()
-        if key in seen:
-            return
-        if not _is_eligible_backbone_entity(name, types.get(name)):
-            return
-        seen.add(key)
-        names.append(name)
-
-    for name in soft_hits:
-        _add(name)
-
-    if tokens:
-        for name in sorted(types.keys()):
-            if _entity_matches_tokens(name, aliases_for, tokens):
-                _add(name)
-
-    # Backbone different_from siblings of current seeds.
-    for sibling in avoid_names_for_anchors(names, constraints):
-        _add(sibling)
-
-    return names, trigger
 
 
 _CLARIFY_LLM_PROMPT = """你是 RAG 知识库的歧义预检助手。根据用户问题与候选实体，判断是否必须先反问用户再检索。
@@ -530,6 +358,9 @@ class QueryClarificationService:
 
         return load_backbone_constraints()
 
+    def _resolver(self) -> EntityCandidateResolver:
+        return get_entity_candidate_resolver(constraints=self._load_constraints())
+
     def _narrow_options(
         self,
         options: list[ClarificationOption],
@@ -559,12 +390,12 @@ class QueryClarificationService:
         options: list[ClarificationOption],
         doc_category: str | None,
         kb_name: str | None,
+        clarification_snapshot_id: str | None = None,
     ) -> ClarificationResult | None:
         options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
         options = merge_clarification_candidates(
             options,
             include_other=True,
-            constraints=self._load_constraints(),
         )
         meaningful_count = len([opt for opt in options if getattr(opt, "source", None) != "fixed_other"])
         if meaningful_count < 2:
@@ -574,71 +405,8 @@ class QueryClarificationService:
             ask_question=ask_question,
             trigger=trigger,
             reason=reason,
+            clarification_snapshot_id=clarification_snapshot_id,
             options=options,
-        )
-
-    def _options_for_names(
-        self,
-        names: list[str],
-        constraints: dict,
-    ) -> list[ClarificationOption]:
-        opts: list[ClarificationOption] = []
-        seen: set[str] = set()
-        for name in names:
-            key = (name or "").casefold()
-            if not key or key in seen:
-                continue
-            opt = _option_for_backbone_entity(name, constraints)
-            if not opt:
-                continue
-            seen.add(key)
-            opts.append(opt)
-        return opts
-
-    def _collect_seed_options(
-        self,
-        question: str,
-        *,
-        doc_category: str | None,
-        kb_name: str | None,
-    ) -> tuple[list[ClarificationOption], str | None]:
-        constraints = self._load_constraints()
-        names, trigger = _collect_backbone_seed_names(question, constraints)
-        options = self._options_for_names(names, constraints)
-        options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
-        options = _assign_option_ids(options)
-        return options, trigger
-
-    def _analyze_backbone_fallback(
-        self,
-        question: str,
-        seeds: list[ClarificationOption],
-        *,
-        default_trigger: str | None,
-        doc_category: str | None,
-        kb_name: str | None,
-    ) -> ClarificationResult | None:
-        names = [opt.filter.entity_name or opt.label for opt in seeds]
-        if _is_explicit_comparison(question, names):
-            return None
-
-        trigger = default_trigger or (seeds[0].filter.entity_name if seeds else "backbone")
-        if default_trigger and default_trigger in _WIDE_SURFACE_TERMS:
-            ask = f"您提到的「{default_trigger}」可能对应不同产品/模块，请选择要查询的方向："
-            reason = "vague_surface_term"
-        elif len(seeds) >= 2:
-            ask = "问题可能对应多个产品/模块，请选择您要查询的方向："
-            reason = "multi_entity_match"
-        else:
-            return None
-
-        return self._result_from_options(
-            ask_question=ask,
-            trigger=str(trigger),
-            reason=reason,
-            options=list(seeds),
-            doc_category=doc_category,
-            kb_name=kb_name,
         )
 
     def _call_clarify_llm(self, prompt: str) -> dict[str, Any]:
@@ -674,6 +442,7 @@ class QueryClarificationService:
         seeds: list[ClarificationOption],
         *,
         default_trigger: str | None,
+        clarification_snapshot_id: str | None = None,
     ) -> ClarificationResult | None:
         candidates = [
             {
@@ -698,7 +467,6 @@ class QueryClarificationService:
 
         ask = str(payload.get("ask_question") or "").strip() or "请选择您要查询的具体模块或方向："
         trigger = str(payload.get("trigger") or default_trigger or "").strip() or (default_trigger or "llm")
-        # Intentionally ignore option_ids — always return the full seed list.
         return self._result_from_options(
             ask_question=ask,
             trigger=trigger,
@@ -706,10 +474,11 @@ class QueryClarificationService:
             options=list(seeds),
             doc_category=None,
             kb_name=None,
+            clarification_snapshot_id=clarification_snapshot_id,
         )
 
     def _j3_clarify_result(self, question: str) -> ClarificationResult | None:
-        """FR-0b: J3 options from secondary-dev subgraph (rollback → static menu)."""
+        """FR-0b: J3 options from secondary-dev subgraph."""
         from rag_knowledge.services.sdk_code_job import (
             build_j3_clarify_options,
             j3_clarify_options,
@@ -775,30 +544,64 @@ class QueryClarificationService:
         if binding.skip_generic_clarify:
             return ClarificationResult(needs_clarification=False, reason=binding.reason)
 
-        seeds, seed_trigger = self._collect_seed_options(
-            q, doc_category=doc_category, kb_name=kb_name,
+        resolver = self._resolver()
+        resolution = resolver.resolve_identity(
+            q,
+            doc_category=doc_category,
         )
 
+        if resolution.status == "confirmed":
+            return ClarificationResult(needs_clarification=False, reason="exact_or_high_confidence")
+        if resolution.status in {"not_required", "unresolved"}:
+            return ClarificationResult(needs_clarification=False, reason=resolution.reason)
+
+        # Apply presentation filters before freezing the snapshot so option ids
+        # retain their exact display order during the callback.
+        filtered_options = self._narrow_options(
+            [candidate_to_option(candidate) for candidate in resolution.candidates],
+            doc_category=doc_category,
+            kb_name=kb_name,
+        )
+        displayed_ids = {option.entity_id for option in filtered_options if option.entity_id}
+        displayed_resolution = replace(
+            resolution,
+            candidates=tuple(
+                candidate
+                for candidate in resolution.candidates
+                if candidate.entity_id in displayed_ids
+            ),
+        )
+        snapshot = resolver.create_clarification_snapshot(displayed_resolution)
+        seeds = [candidate_to_option(c) for c in snapshot.display_candidates]
         names = [opt.filter.entity_name or opt.label for opt in seeds]
         if _is_explicit_comparison(q, names):
             return ClarificationResult(needs_clarification=False)
 
+        seed_trigger = resolution.surface or "backbone"
+
         if self.llm_enabled:
             try:
-                decided = self._analyze_via_llm(q, seeds, default_trigger=seed_trigger)
+                decided = self._analyze_via_llm(
+                    q,
+                    seeds,
+                    default_trigger=seed_trigger,
+                    clarification_snapshot_id=snapshot.clarification_id,
+                )
                 if decided is not None:
                     return decided
             except Exception as exc:
-                logger.warning("clarify LLM failed, falling back to backbone seeds: %s", exc)
+                logger.warning("clarify LLM failed, falling back to resolver seeds: %s", exc)
 
-        fallback = self._analyze_backbone_fallback(
-            q,
-            seeds,
-            default_trigger=seed_trigger,
-            doc_category=doc_category,
-            kb_name=kb_name,
-        )
-        return fallback or ClarificationResult(needs_clarification=False)
+        ask = "问题可能对应多个产品/模块，请选择您要查询的方向："
+        return self._result_from_options(
+            ask_question=ask,
+            trigger=seed_trigger,
+            reason="ambiguous_candidates",
+            options=seeds,
+            doc_category=None,
+            kb_name=None,
+            clarification_snapshot_id=snapshot.clarification_id,
+        ) or ClarificationResult(needs_clarification=False)
 
     def discover_candidates(
         self,
@@ -811,7 +614,8 @@ class QueryClarificationService:
         q = (question or "").strip()
         if not q:
             return []
-        seeds, _trigger = self._collect_seed_options(
-            q, doc_category=doc_category, kb_name=kb_name,
-        )
-        return seeds
+        resolver = self._resolver()
+        candidates = resolver.discover_candidates(q, doc_category=doc_category)
+        options = [candidate_to_option(c) for c in candidates]
+        options = self._narrow_options(options, doc_category=doc_category, kb_name=kb_name)
+        return _assign_option_ids(options)

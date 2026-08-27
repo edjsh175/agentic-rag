@@ -370,6 +370,7 @@ class RagChain:
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
         clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
         clarification_options: list[dict[str, Any]] | None = None,
         clarification_selection_kind: str | None = None,
@@ -389,6 +390,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_options=clarification_options,
             clarification_selection_kind=clarification_selection_kind,
@@ -3377,6 +3379,7 @@ class RagChain:
         clarification_question: str | None,
         clarification_selected: str | None,
         clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
         clarification_options: list[dict[str, Any]] | None = None,
         clarification_selection_kind: str | None = None,
@@ -3436,6 +3439,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_selection_kind=clarification_selection_kind,
             clarification_free_text=clarification_free_text,
@@ -3457,7 +3461,7 @@ class RagChain:
                     "selection_kind": clarification_selection_kind,
                     "free_text": free_text or None,
                     "selected_candidate": dict(clarification_selected_candidate or {}),
-                    "candidate_count": len(clarification_options or []),
+                    "clarification_snapshot_id": clarification_snapshot_id,
                 },
             )
             self._safe_add_trace_event(
@@ -3466,6 +3470,7 @@ class RagChain:
                 {
                     "status": conv.identity_status,
                     "confirmed_entity": conv.confirmed_entity,
+                    "confirmed_entity_id": conv.confirmed_entity_id,
                     "confirmed_topic": conv.confirmed_topic,
                 },
             )
@@ -3476,6 +3481,7 @@ class RagChain:
                     "raw_mention": conv.raw_entity_mention,
                     "status": conv.identity_status,
                     "confirmed_entity": conv.confirmed_entity,
+                    "confirmed_entity_id": conv.confirmed_entity_id,
                     "confirmed_topic": conv.confirmed_topic,
                     "binding_source": "user_clarification_selection",
                 },
@@ -3998,11 +4004,11 @@ class RagChain:
 
         async def handle_clarify(_args: dict) -> ToolObservation:
             from rag_knowledge.services.query_clarification import (
-                QueryClarificationService,
+                candidate_to_option,
                 merge_clarification_candidates,
             )
+            from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
 
-            svc = QueryClarificationService()
             self._safe_add_trace_event(
                 trace,
                 "controller_clarification_decided",
@@ -4012,43 +4018,30 @@ class RagChain:
                     "reason": str(_args.get("reason") or "subject_not_clear"),
                 },
             )
-            self._safe_add_trace_event(
-                trace,
-                "clarification_candidate_discovery_started",
-                {"query": conv.user_question},
-            )
-            system_seeds = await asyncio.to_thread(
-                lambda: svc.discover_candidates(
-                    conv.user_question,
-                    doc_category=doc_category,
-                    kb_name=kb_name,
+            resolution = conv.identity_resolution
+            if resolution is None or getattr(resolution, "status", None) != "ambiguous":
+                return ToolObservation(
+                    tool="clarify",
+                    ok=False,
+                    summary="当前身份状态没有可展示的歧义实体候选。",
+                    status=ToolProgressStatus.DENIED,
+                    error="identity_resolution_not_ambiguous",
                 )
-            )
-            self._safe_add_trace_event(
-                trace,
-                "clarification_candidates_discovered",
-                {
-                    "count": len(system_seeds),
-                    "candidates": [seed.to_dict() for seed in system_seeds],
-                },
-            )
-            model_opts = _args.get("model_suggested_options") or _args.get("options")
-            if isinstance(model_opts, str):
-                model_opts = [s.strip() for s in re.split(r"[,，;；\n]+", model_opts) if s.strip()]
 
+            resolver = get_entity_candidate_resolver()
+            snapshot = resolver.create_clarification_snapshot(resolution)
+            system_seeds = [candidate_to_option(candidate) for candidate in snapshot.display_candidates]
             merged = merge_clarification_candidates(
                 system_candidates=system_seeds,
-                model_suggested_options=model_opts if isinstance(model_opts, list) else None,
                 include_other=True,
-                constraints=svc._load_constraints(),
             )
-            model_count = len(model_opts) if isinstance(model_opts, list) else 0
             self._safe_add_trace_event(
                 trace,
-                "clarification_candidates_merged",
+                "clarification_snapshot_created",
                 {
-                    "system": len(system_seeds),
-                    "model_suggested": model_count,
+                    "clarification_snapshot_id": snapshot.clarification_id,
+                    "surface": snapshot.surface,
+                    "candidate_entity_ids": list(snapshot.candidate_entity_ids),
                     "final": len(merged),
                     "candidates": [option.to_dict() for option in merged],
                 },
@@ -4076,6 +4069,7 @@ class RagChain:
             payload = {
                 "needs_clarification": True,
                 "ask_question": ask_q,
+                "clarification_snapshot_id": snapshot.clarification_id,
                 "options": [opt.to_dict() for opt in merged],
             }
             self._safe_add_trace_event(
@@ -4083,6 +4077,7 @@ class RagChain:
                 "clarification_card_published",
                 {
                     "ask_question": ask_q,
+                    "clarification_snapshot_id": snapshot.clarification_id,
                     "option_ids": [opt.id for opt in merged],
                     "option_count": len(merged),
                 },
@@ -4342,6 +4337,7 @@ class RagChain:
         clarification_question: str | None,
         clarification_selected: str | None,
         clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
         clarification_options: list[dict[str, Any]] | None = None,
         clarification_selection_kind: str | None = None,
@@ -4373,6 +4369,7 @@ class RagChain:
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
                     clarification_option_id=clarification_option_id,
+                    clarification_snapshot_id=clarification_snapshot_id,
                     clarification_selected_candidate=clarification_selected_candidate,
                     clarification_options=clarification_options,
                     clarification_selection_kind=clarification_selection_kind,
@@ -4855,6 +4852,7 @@ class RagChain:
         clarification_question: str | None,
         clarification_selected: str | None,
         clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
         clarification_options: list[dict[str, Any]] | None = None,
         clarification_selection_kind: str | None = None,
@@ -4874,6 +4872,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_options=clarification_options,
             clarification_selection_kind=clarification_selection_kind,
@@ -5313,6 +5312,7 @@ class RagChain:
                      clarification_question: str | None = None,
                      clarification_selected: str | None = None,
                      clarification_option_id: str | None = None,
+                     clarification_snapshot_id: str | None = None,
                      clarification_selected_candidate: dict[str, Any] | None = None,
                      clarification_options: list[dict[str, Any]] | None = None,
                      clarification_selection_kind: str | None = None,
@@ -5328,6 +5328,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_options=clarification_options,
             clarification_selection_kind=clarification_selection_kind,
@@ -5429,6 +5430,7 @@ class RagChain:
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
                     clarification_option_id=clarification_option_id,
+                    clarification_snapshot_id=clarification_snapshot_id,
                     clarification_selected_candidate=clarification_selected_candidate,
                     clarification_options=clarification_options,
                     clarification_selection_kind=clarification_selection_kind,
@@ -6040,6 +6042,7 @@ class RagChain:
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
                     clarification_option_id=clarification_option_id,
+                    clarification_snapshot_id=clarification_snapshot_id,
                     clarification_selected_candidate=clarification_selected_candidate,
                     clarification_options=clarification_options,
                     clarification_selection_kind=clarification_selection_kind,

@@ -545,6 +545,7 @@ def test_qa_trace_callback_keeps_option_id_and_candidate_metadata(isolated_stora
         question="pipelien",
         cfg=cfg,
         clarification_option_id="model_01",
+        clarification_snapshot_id="clar_test_snapshot",
         clarification_selected_candidate=options[0],
         clarification_options=options,
         clarification_selection_kind="option",
@@ -560,6 +561,7 @@ def test_qa_trace_callback_keeps_option_id_and_candidate_metadata(isolated_stora
     detail = QaTraceStore(cfg).get(builder.finish(answer=""))
 
     assert detail["request"]["clarification_option_id"] == "model_01"
+    assert detail["request"]["clarification_snapshot_id"] == "clar_test_snapshot"
     assert detail["request"]["clarification_options"] == options
     assert detail["request"]["clarification_selected_candidate"]["source"] == "model_suggested"
     assert [event["type"] for event in detail["events"]] == [

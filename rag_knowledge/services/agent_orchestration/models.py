@@ -1022,6 +1022,7 @@ class ConversationContext:
     clarification_free_text: str | None = None
     clarification_history: list[dict[str, Any]] = field(default_factory=list)
     clarification_callback: bool = False
+    clarification_snapshot_id: str | None = None
     head_entity: str | None = None
     previous_head_entity: str | None = None
     resolved_question: str = ""
@@ -1031,10 +1032,13 @@ class ConversationContext:
     scope: Any = None
     identity_status: str = "unresolved"
     confirmed_entity: str | None = None
+    confirmed_entity_id: str | None = None
     confirmed_topic: str | None = None
     raw_entity_mention: str | None = None
     confirmed_entities: tuple[str, ...] = ()
     raw_entity_mentions: tuple[str, ...] = ()
+    candidate_entities: tuple[Any, ...] = ()
+    identity_resolution: Any = None
     version: str = "v3"
 
     @classmethod
@@ -1048,6 +1052,7 @@ class ConversationContext:
         clarification_question: str | None = None,
         clarification_selected: str | None = None,
         clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
         clarification_selection_kind: str | None = None,
         clarification_free_text: str | None = None,
@@ -1062,6 +1067,7 @@ class ConversationContext:
 
         selected = (clarification_selected or "").strip() or None
         option_id = (clarification_option_id or "").strip() or None
+        snapshot_id = (clarification_snapshot_id or "").strip() or None
         selection_kind = (clarification_selection_kind or "").strip().casefold() or None
         free_text = (clarification_free_text or "").strip() or None
         selected_candidate = (
@@ -1072,7 +1078,7 @@ class ConversationContext:
         effective_question = (question or "").strip()
         if free_text and free_text not in effective_question:
             effective_question = f"{effective_question}\n用户在澄清卡片中补充：{free_text}".strip()
-        is_callback = bool(selected or option_id or selection_kind or free_text)
+        is_callback = bool(selected or option_id or selection_kind or free_text or snapshot_id)
         session = session_from_history(
             history,
             entity_name=entity_name,
@@ -1116,8 +1122,11 @@ class ConversationContext:
 
         identity_scope = IdentityScopeResolver.resolve(
             semantic_task,
+            question=effective_question,
             entity_name=entity_name,
             clarification_selected=selected,
+            clarification_option_id=option_id,
+            clarification_snapshot_id=snapshot_id,
             selected_candidate=selected_candidate,
             previous_confirmed_entity=previous,
             doc_category=doc_category,
@@ -1155,6 +1164,7 @@ class ConversationContext:
                 "question": clarification_question or "",
                 "selected": selected or "",
                 "option_id": option_id,
+                "snapshot_id": snapshot_id,
                 "selection_kind": selection_kind,
                 "free_text": free_text,
                 "selected_candidate": selected_candidate or {},
@@ -1175,16 +1185,20 @@ class ConversationContext:
             clarification_free_text=free_text,
             clarification_history=clar_hist,
             clarification_callback=is_callback,
+            clarification_snapshot_id=snapshot_id,
             head_entity=head,
             previous_head_entity=previous,
             resolved_question=semantic_task.resolved_question or (question or "").strip(),
             scope=identity_scope,
             identity_status=getattr(identity_scope, "identity_status", "unresolved"),
             confirmed_entity=getattr(identity_scope, "confirmed_entity", None) or head,
+            confirmed_entity_id=getattr(identity_scope, "confirmed_entity_id", None),
             confirmed_topic=getattr(identity_scope, "confirmed_topic", None),
             raw_entity_mention=getattr(identity_scope, "raw_entity_mention", None),
             confirmed_entities=tuple(getattr(identity_scope, "confirmed_entities", ()) or ()),
             raw_entity_mentions=tuple(getattr(identity_scope, "raw_entity_mentions", ()) or ()),
+            candidate_entities=tuple(getattr(identity_scope, "candidate_entities", ()) or ()),
+            identity_resolution=getattr(identity_scope, "identity_resolution", None),
         )
 
     def to_prompt(self, *, history_summary: str | None = None) -> str:
@@ -1201,9 +1215,14 @@ class ConversationContext:
         elif self.confirmed_entities and len(self.confirmed_entities) > 1:
             lines.append(f"- 当前确认多实体范围: {', '.join(self.confirmed_entities)}")
         elif self.confirmed_entity:
-            lines.append(f"- 当前主体身份: {self.confirmed_entity}")
+            lines.append(f"- 当前主体身份: {self.confirmed_entity}（已确认）")
         elif self.head_entity:
-            lines.append(f"- 当前主体身份: {self.head_entity}")
+            lines.append(f"- 当前主体身份: {self.head_entity}（已确认）")
+        elif self.identity_status == "ambiguous_entity" or (self.identity_resolution and getattr(self.identity_resolution, "status", None) == "ambiguous"):
+            if self.identity_resolution and self.identity_resolution.candidates:
+                c_desc = ", ".join(f"{c.canonical_name} ({round(c.final_score, 2)})" for c in self.identity_resolution.candidates[:5])
+                lines.append(f"- 当前主体候选（存在歧义）: [{c_desc}]")
+            lines.append("- 当前主体身份: ambiguous（主体不明确/存在多个分支，建议调用 clarify 工具出示反问卡片）")
         elif self.identity_status == "unresolved":
             lines.append("- 当前主体身份: 未确认（需澄清或仅做常规文本问答）")
         if self.semantic_task is not None:
@@ -1255,12 +1274,14 @@ class ConversationContext:
             "head_entity": self.head_entity,
             "identity_status": self.identity_status,
             "confirmed_entity": self.confirmed_entity,
+            "confirmed_entity_id": self.confirmed_entity_id,
             "confirmed_entities": list(self.confirmed_entities),
             "confirmed_topic": self.confirmed_topic,
             "raw_entity_mention": self.raw_entity_mention,
             "raw_entity_mentions": list(self.raw_entity_mentions),
             "selected_entity": self.selected_entity,
             "clarification_option_id": self.clarification_option_id,
+            "clarification_snapshot_id": self.clarification_snapshot_id,
             "clarification_selected_candidate": dict(self.clarification_selected_candidate or {}),
             "clarification_selection_kind": self.clarification_selection_kind,
             "clarification_free_text": self.clarification_free_text,
@@ -1274,6 +1295,11 @@ class ConversationContext:
                 self.scope.to_dict()
                 if self.scope is not None and hasattr(self.scope, "to_dict")
                 else {}
+            ),
+            "identity_resolution": (
+                self.identity_resolution.to_dict()
+                if self.identity_resolution is not None and hasattr(self.identity_resolution, "to_dict")
+                else None
             ),
             "clarification_callback": self.clarification_callback,
             "linked_count": len(self.linked_entities),

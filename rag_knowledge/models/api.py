@@ -31,6 +31,7 @@ class ClarificationOption(BaseModel):
     id: str
     label: str
     filter: ClarificationOptionFilter = Field(default_factory=ClarificationOptionFilter)
+    entity_id: Optional[str] = None
     source: Optional[str] = None
     canonical_name: Optional[str] = None
     entity_type: Optional[str] = None
@@ -57,6 +58,7 @@ class QueryRequest(BaseModel):
     clarification_question: Optional[str] = None
     clarification_selected: Optional[str] = None
     clarification_option_id: Optional[str] = None
+    clarification_snapshot_id: Optional[str] = None
     clarification_options: Optional[list[ClarificationOption]] = None
     clarification_selection_kind: Optional[Literal["option", "other", "free_text"]] = None
     clarification_free_text: Optional[str] = None
@@ -76,6 +78,7 @@ class ClarifyResponse(BaseModel):
     ask_question: Optional[str] = None
     trigger: Optional[str] = None
     reason: Optional[str] = None
+    clarification_snapshot_id: Optional[str] = None
     options: list[ClarificationOption] = Field(default_factory=list)
 
 

@@ -99,20 +99,10 @@ describe('queryKnowledgeStream', () => {
     expect(callbacks.onError).not.toHaveBeenCalled()
   })
 
-  it('posts option id, full candidate metadata, and free-text selection kind', async () => {
+  it('posts snapshot id, option id, and free-text selection kind', async () => {
     const callbacks = streamCallbacks()
     const fetchMock = vi.fn().mockResolvedValue(sseResponse('data: {"type":"done"}'))
     vi.stubGlobal('fetch', fetchMock)
-    const options = [
-      {
-        id: 'other',
-        label: '以上都不是',
-        filter: {},
-        source: 'fixed_other',
-        binding_status: 'unresolved',
-      },
-    ]
-
     await queryKnowledgeStream(
       'pipelien',
       [],
@@ -133,7 +123,7 @@ describe('queryKnowledgeStream', () => {
       'agent',
       {
         optionId: 'other',
-        options,
+        snapshotId: 'clar_123',
         selectionKind: 'free_text',
         freeText: '部署流水线服务',
       },
@@ -142,7 +132,8 @@ describe('queryKnowledgeStream', () => {
     const request = fetchMock.mock.calls[0][1]
     const body = JSON.parse(String(request.body))
     expect(body.clarification_option_id).toBe('other')
-    expect(body.clarification_options).toEqual(options)
+    expect(body.clarification_snapshot_id).toBe('clar_123')
+    expect(body.clarification_options).toBeUndefined()
     expect(body.clarification_selection_kind).toBe('free_text')
     expect(body.clarification_free_text).toBe('部署流水线服务')
   })
