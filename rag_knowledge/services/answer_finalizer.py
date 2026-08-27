@@ -203,7 +203,7 @@ class AnswerFinalizer:
             },
         })
         review1 = self._invoke_reviewer(reviewer, question, context_docs, text)
-        _emit(self._review_status_event(review1, review_count=1))
+        _emit(self._review_status_event(review1, review_count=1, context_docs=context_docs))
         if review1.error or review1.verdict == "ERROR":
             _emit({
                 "type": "error",
@@ -385,7 +385,7 @@ class AnswerFinalizer:
                 review2 = self._freeze_review_coverage(review2, review1.coverage)
                 last_review = review2
                 review_count = 2
-                _emit(self._review_status_event(review2, review_count=2))
+                _emit(self._review_status_event(review2, review_count=2, context_docs=context_docs))
                 if review2.error or review2.verdict == "ERROR":
                     attempts.append({
                         "attempt": 2,
@@ -580,8 +580,16 @@ class AnswerFinalizer:
         result: HelperGroundingReviewResult,
         *,
         review_count: int,
+        context_docs: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         claims = list(getattr(result, "claim_reviews", []) or [])
+        scope_by_evidence_id = {
+            int((doc.get("metadata") or {}).get("citation_id") or index): str(
+                (doc.get("metadata") or {}).get("support_scope") or "UNKNOWN"
+            ).strip().upper()
+            for index, doc in enumerate(context_docs or [], start=1)
+            if isinstance(doc, dict)
+        }
         return {
             "type": "review_status",
             "data": {
@@ -600,6 +608,10 @@ class AnswerFinalizer:
                         "claim_type": claim.claim_type,
                         "status": claim.status,
                         "evidence_ids": list(claim.evidence_ids),
+                        "evidence_support_scopes": [
+                            scope_by_evidence_id.get(evidence_id, "UNKNOWN")
+                            for evidence_id in claim.evidence_ids
+                        ],
                     }
                     for claim in claims
                 ],
@@ -636,7 +648,7 @@ class AnswerFinalizer:
                 })
             result = self._invoke_reviewer(reviewer, question, context_docs, candidate_text)
             if emit is not None:
-                emit(self._review_status_event(result, review_count=1))
+                emit(self._review_status_event(result, review_count=1, context_docs=context_docs))
                 if result.error or result.verdict == "ERROR":
                     emit({
                         "type": "error",

@@ -11,9 +11,11 @@ import os
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.documents import Document
 
 from rag_knowledge.config import Config
-from rag_knowledge.services.answer_finalizer import FinalizedAnswer
+from rag_knowledge.services.answer_finalizer import AnswerFinalizer, FinalizedAnswer
+from rag_knowledge.services.agent_candidate_pipeline import CandidateProvenance, CandidateResult
 from rag_knowledge.services.agent_orchestration.models import (
     AgentBudget,
     AgentDecision,
@@ -26,7 +28,14 @@ from rag_knowledge.services.agent_orchestration.runtime import (
     AgentLoop,
     build_agent_registry,
 )
+from rag_knowledge.services.agent_orchestration.graph_working_set import (
+    GraphEntityState,
+    GraphRelationCandidate,
+    GraphWorkingSet,
+)
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.rag import RagChain
+from rag_knowledge.services.text_evidence_admission import TextEvidenceAdmissionService
 
 
 def _doc(chunk_id: str = "c1", content: str = "StampServer 的端口默认是 8080。") -> dict:
@@ -146,6 +155,46 @@ def test_real_reviewer_micro_chain():
     assert end_data["reasoning_chars"] > 0
     assert end_data["content_chars"] > 0
     assert end_data["num_predict"] == 12288
+
+
+@pytest.mark.integration
+def test_real_reviewer_rejects_context_only_target_attribution():
+    """Live Reviewer must not upgrade CONTEXT_ONLY evidence into a target attribute claim."""
+    cfg = _live_cfg()
+    chain = RagChain()
+    reviewer = chain._helper_grounding_reviewer()
+    assert reviewer is not None
+
+    context_doc = {
+        "content": "管线系统支持碰撞分析和智能排管。",
+        "metadata": {
+            "chunk_id": "scope-context-1",
+            "citation_id": 1,
+            "document_entity": "管线系统",
+            "file_name": "pipe.md",
+            "page_label": "无页码",
+            "source_type": "knowledge_base",
+            "support_scope": "CONTEXT_ONLY",
+            "text_evidence_class": "RELATED_CONTEXT",
+        },
+    }
+    result = reviewer.review(
+        question="三维管线管理支持智能排管吗？",
+        context_docs=[context_doc],
+        candidate="三维管线管理支持智能排管功能 [1]。",
+    )
+
+    assert result.verdict == "REVISE"
+    assert result.coverage in {"FULL", "PARTIAL"}
+    assert any(
+        claim.status == "unsupported" and 1 in claim.evidence_ids
+        for claim in result.claim_reviews
+    )
+    assert any(
+        action.claim_id == "c1"
+        and action.action in {"rewrite_to_supported_scope_or_remove", "add_limitation_statement"}
+        for action in result.rewrite_actions
+    )
 
 
 @pytest.mark.integration
@@ -463,3 +512,220 @@ def test_real_revise_rewrite_review2_closed_loop():
     assert finalized.grounding.get("review_verdict") == "PASS"
     assert finalized.answer.strip()
     assert "8080" in finalized.answer
+
+
+def _pipe_management_live_context_doc() -> tuple[dict, object]:
+    candidate = CandidateResult(
+        document=Document(
+            page_content="管线系统支持碰撞分析和智能排管。",
+            metadata={
+                "chunk_id": "pipe-context-live",
+                "document_entity": "管线系统",
+                "review_status": "approved",
+            },
+        ),
+        target_entity="三维管线管理",
+    )
+    candidate.provenance.append(CandidateProvenance("bm25", 1, exact_lexical=True))
+    task = SemanticTaskContext(
+        resolved_question="三维管线管理的相关信息",
+        primary_entity="三维管线管理",
+        mentioned_entities=("三维管线管理",),
+        task_type="entity_query",
+        confidence=1.0,
+        answer_intent="general_qa",
+    )
+    qualification = TextEvidenceAdmissionService(cfg=_live_cfg()).qualify(
+        candidate,
+        semantic_task=task,
+        target_entity="三维管线管理",
+    )
+    assert qualification.verdict == "PASS"
+    assert qualification.evidence_class == "RELATED_CONTEXT"
+    assert qualification.support_scope == "CONTEXT_ONLY"
+    return {
+        "content": candidate.document.page_content,
+        "metadata": {
+            "chunk_id": "pipe-context-live",
+            "citation_id": 1,
+            "document_entity": "管线系统",
+            "file_name": "pipe.md",
+            "source_type": "knowledge_base",
+            "support_scope": qualification.support_scope,
+            "text_evidence_class": qualification.evidence_class,
+        },
+    }, qualification
+
+
+@pytest.mark.integration
+def test_real_prd_pipe_management_scope_rejects_target_attribution():
+    """One live Reviewer call must preserve CONTEXT_ONLY instead of upgrading target attribution."""
+    _live_cfg()
+    reviewer = RagChain()._helper_grounding_reviewer()
+    assert reviewer is not None
+    doc, _qualification = _pipe_management_live_context_doc()
+
+    result = reviewer.review(
+        question="三维管线管理支持智能排管吗？",
+        context_docs=[doc],
+        candidate="三维管线管理支持智能排管功能 [1]。",
+    )
+    assert result.verdict == "REVISE"
+    assert any(claim.status == "unsupported" for claim in result.claim_reviews)
+
+
+@pytest.mark.integration
+def test_real_prd_pipe_management_contextual_publication():
+    """A scope-safe contextual answer must reach grounded_partial publication with the live Reviewer."""
+    _live_cfg()
+    reviewer = RagChain()._helper_grounding_reviewer()
+    assert reviewer is not None
+    doc, _qualification = _pipe_management_live_context_doc()
+    lifecycle: list[dict] = []
+
+    finalized = AnswerFinalizer().finalize(
+        "相关管线系统资料涉及碰撞分析和智能排管 [1]；现有证据未确认这些能力直接属于三维管线管理。",
+        "三维管线管理的相关信息",
+        [doc],
+        helper_reviewer=reviewer,
+        allow_general_knowledge=False,
+        is_direct_chat=False,
+        on_lifecycle_event=lifecycle.append,
+    )
+    assert finalized.grounding.get("review_verdict") == "PASS"
+    assert finalized.grounding.get("coverage") == "PARTIAL"
+    assert finalized.grounding.get("final_mode") == "grounded_partial"
+    assert any(event.get("type") == "publication" for event in lifecycle)
+
+
+@pytest.mark.integration
+def test_prd_pipeline_webgl_conflict_guard_is_stable_without_model_override():
+    """Explicit different_from conflicts are deterministic and never delegated to an LLM."""
+    ws = GraphWorkingSet()
+    ws.add_root("PipelineWebGL", entity_id="webgl")
+    ws.add_entity(GraphEntityState("builder", "PipelineBuilder", depth_from_root=1, origin_root="PipelineWebGL"))
+    ws.add_relation(GraphRelationCandidate("rel-diff-live", "PipelineWebGL", "PipelineBuilder", "different_from"))
+    task = SemanticTaskContext(
+        resolved_question="PipelineWebGL 的主要功能是什么？",
+        primary_entity="PipelineWebGL",
+        mentioned_entities=("PipelineWebGL",),
+        task_type="entity_query",
+        confidence=1.0,
+        answer_intent="function",
+        requested_facets=("function",),
+    )
+    service = TextEvidenceAdmissionService()
+
+    for run in range(3):
+        candidate = CandidateResult(
+            document=Document(
+                page_content="PipelineBuilder 用于自动化构建与发布。",
+                metadata={
+                    "chunk_id": f"builder-conflict-{run}",
+                    "document_entity": "PipelineBuilder",
+                    "review_status": "approved",
+                },
+            ),
+            target_entity="PipelineWebGL",
+        )
+        candidate.provenance.append(
+            CandidateProvenance(
+                "graph_expansion",
+                1,
+                graph_path=("PipelineWebGL -> PipelineBuilder",),
+            )
+        )
+        qualification = service.qualify(
+            candidate,
+            semantic_task=task,
+            target_entity="PipelineWebGL",
+            graph_working_set=ws,
+        )
+        assert qualification.verdict == "REJECT"
+        assert qualification.evidence_class == "CONFLICT"
+        assert qualification.support_scope == "NONE"
+        assert service.admitted_documents([candidate], {candidate.chunk_id: qualification}) == []
+
+
+def _pipeline_webrtc_live_cross_document_doc() -> tuple[dict, object]:
+    candidate = CandidateResult(
+        document=Document(
+            page_content="在 StampServer 部署章节中，PipelineWebRTC 用于建立低延迟实时音视频通信通道，提供实时流推流功能。",
+            metadata={
+                "chunk_id": "webrtc-cross-live",
+                "document_entity": "StampServer",
+                "review_status": "approved",
+            },
+        ),
+        target_entity="PipelineWebRTC",
+    )
+    candidate.provenance.append(CandidateProvenance("bm25", 1, exact_lexical=True))
+    task = SemanticTaskContext(
+        resolved_question="PipelineWebRTC 的主要功能是什么？",
+        primary_entity="PipelineWebRTC",
+        mentioned_entities=("PipelineWebRTC",),
+        task_type="entity_query",
+        confidence=1.0,
+        answer_intent="function",
+        requested_facets=("function",),
+    )
+    qualification = TextEvidenceAdmissionService(cfg=_live_cfg()).qualify(
+        candidate,
+        semantic_task=task,
+        target_entity="PipelineWebRTC",
+    )
+    assert qualification.verdict == "PASS"
+    assert qualification.evidence_class == "TARGET_DIRECT"
+    assert qualification.support_scope == "TARGET_SPECIFIC"
+    return {
+        "content": candidate.document.page_content,
+        "metadata": {
+            "chunk_id": "webrtc-cross-live",
+            "citation_id": 1,
+            "document_entity": "StampServer",
+            "file_name": "stampserver.md",
+            "source_type": "knowledge_base",
+            "support_scope": qualification.support_scope,
+            "text_evidence_class": qualification.evidence_class,
+        },
+    }, qualification
+
+
+@pytest.mark.integration
+def test_real_prd_pipeline_webrtc_cross_document_review_passes():
+    """One live Reviewer call must accept cross-document TARGET_SPECIFIC evidence."""
+    _live_cfg()
+    reviewer = RagChain()._helper_grounding_reviewer()
+    assert reviewer is not None
+    doc, _qualification = _pipeline_webrtc_live_cross_document_doc()
+
+    review = reviewer.review(
+        question="PipelineWebRTC 的主要功能是什么？",
+        context_docs=[doc],
+        candidate="PipelineWebRTC 用于建立低延迟实时音视频通信通道 [1]。",
+    )
+    assert review.verdict == "PASS"
+    assert all(claim.status == "supported" for claim in review.claim_reviews)
+
+
+@pytest.mark.integration
+def test_real_prd_pipeline_webrtc_cross_document_publication():
+    """Cross-document TARGET_SPECIFIC evidence must reach grounded publication with the live Reviewer."""
+    _live_cfg()
+    reviewer = RagChain()._helper_grounding_reviewer()
+    assert reviewer is not None
+    doc, _qualification = _pipeline_webrtc_live_cross_document_doc()
+    lifecycle: list[dict] = []
+
+    finalized = AnswerFinalizer().finalize(
+        "PipelineWebRTC 用于建立低延迟实时音视频通信通道 [1]。",
+        "PipelineWebRTC 的主要功能是什么？",
+        [doc],
+        helper_reviewer=reviewer,
+        allow_general_knowledge=False,
+        is_direct_chat=False,
+        on_lifecycle_event=lifecycle.append,
+    )
+    assert finalized.grounding.get("review_verdict") == "PASS"
+    assert finalized.grounding.get("final_mode") in {"generated", "grounded_partial"}
+    assert any(event.get("type") == "publication" for event in lifecycle)

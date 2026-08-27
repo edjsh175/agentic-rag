@@ -98,7 +98,8 @@ def test_controller_evidence_summary_exposes_precise_partial_coverage():
     summary = loop._evidence_summary()
 
     assert 'current_evidence_state={"coverage":"PARTIAL"' in summary
-    assert '"missing_facts":["缺少以下事实维度：function"]' in summary
+    assert '"missing_facts":[' in summary
+    assert '"missing_facts":[]' not in summary
     assert '"evidence_count":1' in summary
     assert '"evidence_version":1' in summary
 

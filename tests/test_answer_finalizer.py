@@ -64,6 +64,36 @@ def _error_reviewer():
     return HelperGroundingReviewer(_raise)
 
 
+def test_review_status_event_projects_evidence_support_scopes():
+    result = HelperGroundingReviewResult(
+        verdict="PASS",
+        coverage="PARTIAL",
+        summary="ok",
+        claim_reviews=[
+            ClaimReview(
+                claim_id="c1",
+                claim="相关系统资料涉及碰撞分析。",
+                claim_type="knowledge_claim",
+                status="supported",
+                evidence_ids=(1,),
+                reason="supported",
+            )
+        ],
+    )
+    event = AnswerFinalizer._review_status_event(
+        result,
+        review_count=1,
+        context_docs=[{
+            "content": "管线系统支持碰撞分析。",
+            "metadata": {"citation_id": 1, "support_scope": "CONTEXT_ONLY"},
+        }],
+    )
+
+    claim = event["data"]["claim_reviews"][0]
+    assert claim["evidence_ids"] == [1]
+    assert claim["evidence_support_scopes"] == ["CONTEXT_ONLY"]
+
+
 def test_direct_chat_passes_through():
     finalizer = AnswerFinalizer()
     res = finalizer.finalize(

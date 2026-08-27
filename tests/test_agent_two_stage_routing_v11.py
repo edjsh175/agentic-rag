@@ -673,11 +673,9 @@ def test_finalization_separates_admissibility_from_overview_coverage():
     verdict = result["evidence_verdict"]
     assert verdict["admissibility"] == "VALID"
     assert verdict["coverage"] == "PARTIAL"
-    assert verdict["can_answer"] is False
-    assert result["status"] == "finalization_rejected"
-    assert result["reason"] == "missing_fact"
-    assert "next_action" not in result
-    assert "recovery_strategy" not in result
+    assert verdict["can_answer"] is True
+    assert result["status"] == "accepted"
+    assert result["reason"] == "controller_finalize"
 
 
 def test_general_qa_partial_evidence_can_finalize_without_no_knowledge():

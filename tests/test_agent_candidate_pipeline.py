@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from langchain_core.documents import Document
 
-from rag_knowledge.services.agent_candidate_pipeline import (
-    AdmissionResult,
-    AgentCandidatePipeline,
-    valid_admission_protocol,
+from rag_knowledge.services.agent_candidate_pipeline import AgentCandidatePipeline
+from rag_knowledge.services.text_evidence_admission import (
+    TextEvidenceAdmissionService,
+    TextEvidenceQualification,
+    valid_text_qualification_protocol,
 )
 from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.exploration_grant import ExplorationGrant
@@ -111,15 +112,28 @@ def test_cross_document_candidate_is_admitted_without_identity_prefilter():
 
     ws = _working_set()
     candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
-    guarded = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws)
-    admission = pipeline.admit("PipelineWebRTC 的主要功能是什么？", guarded[0], target_entity="PipelineWebRTC")
+    admission = TextEvidenceAdmissionService().qualify(
+        candidates[0],
+        retrieval_query="PipelineWebRTC 的主要功能是什么？",
+        target_entity="PipelineWebRTC",
+        semantic_admitter=lambda query, _candidate, pending: TextEvidenceQualification(
+            verdict="PASS",
+            evidence_class="TARGET_DIRECT",
+            support_scope="TARGET_SPECIFIC",
+            intent_relevance="HIGH",
+            reason_code="semantic_direct_attribution",
+            reason="Candidate directly attributes the described capability to PipelineWebRTC.",
+            signals=pending.signals,
+            canonical_question=query,
+        ),
+    )
 
-    assert guarded[0].document.metadata["document_entity"] == "WebRTC"
-    assert {"graph_expansion", "exact_lexical", "bm25", "vector"} <= set(guarded[0].source_generators)
+    assert candidates[0].document.metadata["document_entity"] == "WebRTC"
+    assert {"graph_expansion", "exact_lexical", "bm25", "vector"} <= set(candidates[0].source_generators)
     assert admission.verdict == "PASS"
 
 
-def test_structural_guard_rejects_explicit_sibling_without_target_signal():
+def test_admission_rejects_explicit_sibling_conflict():
     wrong = _doc("builder", "PipelineBuilder", "Pipeline 的构建与发布说明。")
     pipeline = AgentCandidatePipeline(
         vector_store=_Store([wrong]), retrieval_strategy=_Strategy([], [wrong]), graph_db=_Graph(),
@@ -127,7 +141,14 @@ def test_structural_guard_rejects_explicit_sibling_without_target_signal():
 
     ws = _working_set()
     candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
-    assert pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws) == []
+    admission = TextEvidenceAdmissionService().qualify(
+        candidates[0],
+        retrieval_query="PipelineWebRTC 的主要功能是什么？",
+        target_entity="PipelineWebRTC",
+        graph_working_set=ws,
+    )
+    assert admission.verdict == "REJECT"
+    assert admission.evidence_class == "CONFLICT"
 
 
 def test_admission_rejects_correct_entity_with_wrong_intent():
@@ -137,8 +158,10 @@ def test_admission_rejects_correct_entity_with_wrong_intent():
     )
     candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
 
-    admission = pipeline.admit("PipelineWebRTC 的主要功能是什么？", candidates[0], target_entity="PipelineWebRTC")
-    assert admission.entity_relevance == "HIGH"
+    admission = TextEvidenceAdmissionService().qualify(
+        candidates[0], retrieval_query="PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC"
+    )
+    assert "target_text_mention" in admission.signals
     assert admission.intent_relevance == "LOW"
     assert admission.verdict == "REJECT"
 
@@ -157,9 +180,21 @@ def test_general_qa_admits_deployment_fact_despite_overview_search_plan():
         "single_entity", 1.0, "general_qa", (), "clarification_default",
     )
 
-    admitted = pipeline.admit(
-        "PipelineWebRTC 功能与用途概述", candidate,
-        target_entity="PipelineWebRTC", semantic_task=task,
+    admitted = TextEvidenceAdmissionService().qualify(
+        candidate,
+        retrieval_query="PipelineWebRTC 功能与用途概述",
+        target_entity="PipelineWebRTC",
+        semantic_task=task,
+        semantic_admitter=lambda query, _candidate, pending: TextEvidenceQualification(
+            verdict="PASS",
+            evidence_class="TARGET_DIRECT",
+            support_scope="TARGET_SPECIFIC",
+            intent_relevance="HIGH",
+            reason_code="semantic_direct_attribution",
+            reason="The canonical general question allows this directly attributed deployment fact.",
+            signals=pending.signals,
+            canonical_question=query,
+        ),
     )
 
     assert admitted.verdict == "PASS"
@@ -185,17 +220,26 @@ def test_admission_ignores_unrelated_overview_terms_in_merged_chunk():
         doc_category=None,
     )[0]
 
-    admission = pipeline.admit(
-        "PipelineWebRTC 的主要功能是什么？",
+    admission = TextEvidenceAdmissionService().qualify(
         candidate,
+        retrieval_query="PipelineWebRTC 的主要功能是什么？",
         target_entity="PipelineWebRTC",
-        semantic_admitter=lambda *_: AdmissionResult("PASS", "HIGH", "HIGH", "must_not_override"),
+        semantic_admitter=lambda query, _candidate, pending: TextEvidenceQualification(
+            verdict="REJECT",
+            evidence_class="IRRELEVANT",
+            support_scope="NONE",
+            intent_relevance="LOW",
+            reason_code="semantic_intent_mismatch",
+            reason="The PipelineWebRTC sentence is about deployment, not its primary function.",
+            signals=pending.signals,
+            canonical_question=query,
+        ),
     )
 
-    assert admission.entity_relevance == "HIGH"
+    assert "target_text_mention" in admission.signals
     assert admission.intent_relevance == "LOW"
     assert admission.verdict == "REJECT"
-    assert "overview_intent_mismatch" in admission.signals
+    assert admission.reason_code == "semantic_intent_mismatch"
 
 
 def test_unlisted_intent_does_not_auto_pass_without_semantic_admission():
@@ -205,8 +249,10 @@ def test_unlisted_intent_does_not_auto_pass_without_semantic_admission():
     )
     candidate = pipeline.generate("PipelineWebRTC 有哪些限制？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)[0]
 
-    admission = pipeline.admit("PipelineWebRTC 有哪些限制？", candidate, target_entity="PipelineWebRTC")
-    assert admission.entity_relevance == "HIGH"
+    admission = TextEvidenceAdmissionService().qualify(
+        candidate, retrieval_query="PipelineWebRTC 有哪些限制？", target_entity="PipelineWebRTC"
+    )
+    assert "target_text_mention" in admission.signals
     assert admission.intent_relevance == "LOW"
     assert admission.verdict == "REJECT"
 
@@ -218,13 +264,22 @@ def test_ambiguous_graph_candidate_uses_semantic_admission_protocol():
     )
     ws = _working_set()
     candidates = pipeline.generate("PipelineWebRTC 的功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
-    candidate = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws)[0]
+    candidate = candidates[0]
 
-    admission = pipeline.admit(
-        "PipelineWebRTC 的功能是什么？",
+    admission = TextEvidenceAdmissionService().qualify(
         candidate,
+        retrieval_query="PipelineWebRTC 的功能是什么？",
         target_entity="PipelineWebRTC",
-        semantic_admitter=lambda *_: AdmissionResult("PASS", "MEDIUM", "HIGH", "semantic_relation_context", ("graph_path",)),
+        semantic_admitter=lambda query, _candidate, _det: TextEvidenceQualification(
+            verdict="PASS",
+            evidence_class="RELATED_CONTEXT",
+            support_scope="CONTEXT_ONLY",
+            intent_relevance="HIGH",
+            reason_code="semantic_relation_context",
+            reason="semantic_relation_context",
+            signals=("graph_path",),
+            canonical_question=query,
+        ),
     )
 
     assert admission.verdict == "PASS"
@@ -264,10 +319,23 @@ def test_unbound_pipeline_generates_candidates_and_requires_intent_admission():
     assert candidates
     assert {"bm25", "vector"} <= set(candidates[0].source_generators)
     assert "exact_lexical" not in candidates[0].source_generators
-    rejected = pipeline.admit("如何配置实时媒体组件？", candidates[0], target_entity="")
-    admitted = pipeline.admit(
-        "如何配置实时媒体组件？", candidates[0], target_entity="",
-        semantic_admitter=lambda *_: AdmissionResult("PASS", "HIGH", "HIGH", "topic_intent_match", ("semantic_task",)),
+    rejected = TextEvidenceAdmissionService().qualify(
+        candidates[0], retrieval_query="如何配置实时媒体组件？", target_entity=""
+    )
+    admitted = TextEvidenceAdmissionService().qualify(
+        candidates[0],
+        retrieval_query="如何配置实时媒体组件？",
+        target_entity="",
+        semantic_admitter=lambda query, _candidate, _det: TextEvidenceQualification(
+            verdict="PASS",
+            evidence_class="TARGET_DIRECT",
+            support_scope="TARGET_SPECIFIC",
+            intent_relevance="HIGH",
+            reason_code="topic_intent_match",
+            reason="topic_intent_match",
+            signals=("semantic_task",),
+            canonical_question=query,
+        ),
     )
     assert rejected.verdict == "REJECT"
     assert admitted.verdict == "PASS"
@@ -417,15 +485,18 @@ def test_v2_reuse_respects_current_kb_and_category_boundary():
 
 
 def test_semantic_admission_pass_protocol_is_fail_closed():
-    assert valid_admission_protocol(
-        AdmissionResult("PASS", "CONFLICT", "HIGH", "bad"), target_entity="PipelineWebRTC",
-    ) is False
-    assert valid_admission_protocol(
-        AdmissionResult("PASS", "HIGH", "LOW", "bad"), target_entity="PipelineWebRTC",
-    ) is False
-    assert valid_admission_protocol(
-        AdmissionResult("PASS", "LOW", "HIGH", "bad"), target_entity="",
-    ) is True
+    assert valid_text_qualification_protocol(TextEvidenceQualification(
+        verdict="PASS", evidence_class="CONFLICT", support_scope="NONE",
+        intent_relevance="HIGH", reason_code="bad", reason="bad",
+    ), target_entity="PipelineWebRTC") is False
+    assert valid_text_qualification_protocol(TextEvidenceQualification(
+        verdict="PASS", evidence_class="TARGET_DIRECT", support_scope="TARGET_SPECIFIC",
+        intent_relevance="LOW", reason_code="bad", reason="bad",
+    ), target_entity="PipelineWebRTC") is False
+    assert valid_text_qualification_protocol(TextEvidenceQualification(
+        verdict="PASS", evidence_class="RELATED_CONTEXT", support_scope="CONTEXT_ONLY",
+        intent_relevance="HIGH", reason_code="ok", reason="ok",
+    ), target_entity="") is True
 
 
 def test_multi_path_trace_reports_actual_generator_contributions():
@@ -456,15 +527,31 @@ def test_v2_agent_entrypoint_retrieves_unbound_topic_instead_of_returning_empty(
     chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
     chain._apply_pinned_excluded = RagChain._apply_pinned_excluded.__get__(chain, RagChain)
     chain._record_chunk_hit_query = lambda _docs: None
-    chain._semantic_admit_agent_candidate = lambda *_args, **_kwargs: AdmissionResult("PASS", "HIGH", "HIGH", "topic_match", ("semantic_task",))
+    chain._cfg = SimpleNamespace()
     grant = ExplorationGrant(
         grant_id="topic", identity_scope_id="i", target_entities=(),
         source_type="confirmed_topic", source_ref="topic:media", candidate_pipeline_v2=True,
     )
 
-    docs, _, _ = asyncio.run(chain._retrieve_kb_for_agent(
-        "实时媒体组件如何配置？", history=None, kb_name=None, doc_category=None,
-        entity_name=None, web_search=False, pinned_chunk_ids=None, excluded_chunk_ids=None,
-        retrieval_scope=grant,
-    ))
+    semantic_pass = TextEvidenceQualification(
+        verdict="PASS",
+        evidence_class="TARGET_DIRECT",
+        support_scope="TARGET_SPECIFIC",
+        intent_relevance="HIGH",
+        reason_code="topic_match",
+        reason="topic_match",
+        signals=("semantic_task",),
+        canonical_question="实时媒体组件如何配置？",
+        answer_intent="config",
+    )
+    with patch.object(
+        TextEvidenceAdmissionService,
+        "_semantic_qualify_via_llm",
+        return_value=semantic_pass,
+    ):
+        docs, _, _ = asyncio.run(chain._retrieve_kb_for_agent(
+            "实时媒体组件如何配置？", history=None, kb_name=None, doc_category=None,
+            entity_name=None, web_search=False, pinned_chunk_ids=None, excluded_chunk_ids=None,
+            retrieval_scope=grant,
+        ))
     assert [doc["metadata"]["chunk_id"] for doc in docs] == ["topic-main"]

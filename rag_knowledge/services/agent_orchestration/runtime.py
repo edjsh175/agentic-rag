@@ -456,8 +456,9 @@ def build_answer_generation_messages(
         citation_id = index
         source = meta.get("file_name") or meta.get("source") or "未知来源"
         page = meta.get("page_label") or meta.get("page") or "无页码"
+        support_scope = str(meta.get("support_scope") or "UNKNOWN").strip().upper()
         content = str(doc.get("content") or doc.get("page_content") or "").strip()
-        evidence_lines.append(f"[{citation_id}] 来源: {source} | 页码: {page}\n{content}")
+        evidence_lines.append(f"[{citation_id}] 来源: {source} | 范围: {support_scope} | 页码: {page}\n{content}")
         if str(meta.get("source_type") or "").strip() == "graph_relation":
             relation_key = str(meta.get("relation_key") or content).strip()
             if relation_key:
@@ -481,6 +482,11 @@ def build_answer_generation_messages(
         "你没有工具，也不得调用工具；不要输出 Thought、Action 或 Observation。\n"
         "只能依据 <evidence_snapshot> 中的证据陈述知识事实，每个关键事实都要紧跟合法引用编号。\n"
         f"本轮合法引用编号只有：{valid_citation_ids or '无'}；严禁使用其他编号或沿用历史回答中的编号。\n"
+        "证据支持范围（Support Scope）约束规则：\n"
+        "- TARGET_SPECIFIC：明确属于目标实体，可直接归属于目标实体本身的功能或属性。\n"
+        "- RELATION_SPECIFIC：明确为已审核图谱关系证据，仅用于陈述实体间的直接图谱关系；严禁推断为目标实体的功能或技术参数。\n"
+        "- CONTEXT_ONLY：仅作为相关上下文资料，只允许表述为“相关系统资料涉及...”；严禁直接断言为目标实体自身具备该功能或属性。\n"
+        "- UNKNOWN：缺失或非法 Support Scope，不得作为目标实体直接事实依据。V2 正常证据不应出现 UNKNOWN。\n"
         "对话上下文只用于理解指代，不能作为知识事实来源；证据不足时明确说明缺口。\n"
         "先给出针对问题的归纳，再列出少量有代表性的事实；不要把证据片段逐条原样转储。\n"
         "若回答契约 answer_mode=partial，禁止把部署步骤、配置项、模块名、目录结构等相邻事实推断成证据未明确支持的产品用途、整体定位、核心角色、业务价值或实现目的；只能陈述证据直接支持的事实，并明确未覆盖的部分。\n"
@@ -588,30 +594,25 @@ class FinalizationHandler:
         requested_facets = tuple(getattr(task, "requested_facets", ()) or ())
         # An open entity-information request has no closed fact set. Any
         # admitted fact is publishable, but never proves a complete overview.
+        target_specific_docs = [
+            doc for doc in docs
+            if str((doc.get("metadata") or {}).get("support_scope") or "UNKNOWN").strip().upper()
+            in {"TARGET_SPECIFIC", "RELATION_SPECIFIC"}
+        ]
+        if not target_specific_docs:
+            return "PARTIAL", "missing_fact", "当前仅有领域相关上下文资料，缺少目标实体的直接属性证据"
+
         if answer_intent == "general_qa" or not requested_facets:
             return "PARTIAL", "missing_fact", "当前资料不足以覆盖完整信息"
 
-        surface = " ".join(
-            f"{(doc.get('metadata') or {}).get('section_path') or ''} "
-            f"{(doc.get('metadata') or {}).get('section_title') or ''} "
-            f"{doc.get('content') or ''}"
-            for doc in docs
-        ).casefold()
-        facet_terms = {
-            "function": ("用于", "功能", "作用", "提供", "实现", "能力"),
-            "deployment": ("部署", "安装", "上线", "发布", "上传"),
-            "config": ("配置", "参数", "端口", "ip", "url"),
-            "procedure": ("步骤", "流程", "如何", "启动"),
-            "troubleshooting": ("故障", "报错", "异常", "排查", "解决"),
-            "comparison": ("区别", "不同", "对比", "差异"),
-        }
-        missing_facets = [
-            facet for facet in requested_facets
-            if not any(term in surface for term in facet_terms.get(facet, (facet,)))
-        ]
-        if missing_facets:
-            return "PARTIAL", "missing_fact", "缺少以下事实维度：" + "、".join(missing_facets)
-        return "FULL", "ok", ""
+        # Pre-answer gate only establishes structural publishability. Whether the
+        # frozen evidence semantically covers each requested facet is a Reviewer
+        # responsibility; keyword presence is not evidence completeness.
+        return (
+            "PARTIAL",
+            "missing_fact",
+            "显式事实维度的完整覆盖需要由 Grounding Reviewer 基于冻结证据做语义判断",
+        )
 
     def evaluate(
         self,
@@ -666,7 +667,12 @@ class FinalizationHandler:
         verdict["coverage"] = coverage
         verdict["verdict"] = coverage
         permit_partial = requested_mode == "partial"
-        verdict["can_answer"] = admissible and (coverage == "FULL" or permit_partial)
+        # Finalization is a structural publication gate, not the semantic
+        # completeness judge. Once admissible evidence exists, PARTIAL may enter
+        # Answer + Reviewer; the Reviewer owns final semantic coverage. Hard
+        # structural gaps (NONE / missing relation) still block finalization.
+        structural_gap = coverage == "NONE" or coverage_reason == "missing_relation"
+        verdict["can_answer"] = admissible and not structural_gap
         verdict["missing_facts"] = []
         verdict["missing_relations"] = []
         verdict["evidence_count"] = len(self.evidence.citable_docs())
@@ -677,8 +683,9 @@ class FinalizationHandler:
             missing_key = "missing_relations" if coverage_reason == "missing_relation" else "missing_facts"
             verdict[missing_key] = [missing]
 
-        # 当证据不合法，或证据不足且 Main 未显式选择 PARTIAL 时，拒绝 Finalize。
-        if not admissible or (coverage != "FULL" and not permit_partial):
+        # Reject only structural invalidity. Semantic PARTIAL is intentionally
+        # allowed into Answer + Grounding Reviewer and may be downgraded there.
+        if not admissible or structural_gap:
             reason = str(verdict.get("reason") or "missing_evidence")
             missing = str(verdict.get("missing_fact") or "当前问题所需的关键事实")
             return {
@@ -860,12 +867,13 @@ class ToolRegistry:
         return None
 
 
-def _entities_conflict(current: str | None, previous: str | None) -> bool:
-    left = (current or "").strip()
-    right = (previous or "").strip()
-    if not left or not right:
-        return False
-    return not _labels_overlap(left, right)
+def _entity_changed(current: str | None, previous: str | None) -> bool:
+    """Detect an identity transition without pretending that different names conflict."""
+    from rag_knowledge.models.graph_schema import normalize_entity_name
+
+    left = normalize_entity_name(str(current or "")).casefold()
+    right = normalize_entity_name(str(previous or "")).casefold()
+    return bool(left and right and left != right)
 
 
 class AgentLoop:
@@ -1161,7 +1169,7 @@ class AgentLoop:
             self.fallbacks.append("clarify_callback_freeze")
         prev = conv.previous_head_entity
         cur = conv.head_entity
-        if prev and cur and _entities_conflict(cur, prev):
+        if prev and cur and _entity_changed(cur, prev):
             conv.entity_transition = True
             self.evidence.freeze_active()
 
@@ -1174,10 +1182,8 @@ class AgentLoop:
         source = self.evidence.previous_cited_group()
         if source is None:
             return "no_previous_cited"
-        if conv.entity_transition and _entities_conflict(conv.head_entity, source.head_entity):
-            return "entity_conflict_no_reuse"
-        if _entities_conflict(conv.head_entity, source.head_entity):
-            return "entity_conflict_no_reuse"
+        # Previous evidence is only a candidate source. Entity transitions are
+        # handled by current-query admission instead of name-based pre-rejection.
         return None
 
     def _anchor_binding(self) -> Any:

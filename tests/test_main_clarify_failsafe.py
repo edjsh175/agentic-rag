@@ -206,6 +206,56 @@ def test_conversation_callback_binds_system_and_resolved_model_candidates():
         assert conversation.selected_entity == "PipelineWebGL"
 
 
+def test_clarification_callback_replaces_stale_ambiguous_retrieval_query():
+    constraints = {
+        "entity_type_by_name": {"三维管线管理": "module"},
+        "canonical_by_alias": {},
+    }
+    understanding = UnderstandingResult(
+        mode="retrieve",
+        user_utterance="pipeline",
+        resolved_question="pipeline",
+        retrieval_queries=[{"text": "pipeline", "kind": "original", "weight": 1.0}],
+        semantic_task_context={
+            "resolved_question": "pipeline",
+            "primary_entity": None,
+            "mentioned_entities": [],
+            "task_type": "unbound",
+            "confidence": 1.0,
+        },
+    )
+
+    with patch(
+        "rag_knowledge.services.identity_scope.load_backbone_constraints",
+        return_value=constraints,
+    ):
+        conversation = ConversationContext.from_request(
+            "pipeline",
+            [],
+            clarification_selected="三维管线管理",
+            clarification_option_id="module_01",
+            clarification_selected_candidate={
+                "id": "module_01",
+                "label": "三维管线管理（Module）",
+                "canonical_name": "三维管线管理",
+                "source": "backbone",
+                "binding_status": "canonical",
+            },
+            clarification_selection_kind="option",
+            understanding=understanding,
+        )
+
+    assert conversation.resolved_question == "三维管线管理 的相关信息"
+    assert conversation.understanding is not None
+    assert [item["text"] for item in conversation.understanding.retrieval_queries] == [
+        "三维管线管理 的相关信息"
+    ]
+    assert all(
+        item["text"].casefold() != "pipeline"
+        for item in conversation.understanding.retrieval_queries
+    )
+
+
 def test_conversation_callback_keeps_unknown_model_candidate_as_topic():
     constraints = {
         "entity_type_by_name": {"PipelineWebGL": "module"},

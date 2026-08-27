@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from rag_knowledge.services.agent_orchestration.evidence_gate import (
-    evaluate_claim_alignment,
-    evaluate_rules,
-)
+from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
 from rag_knowledge.services.agent_orchestration.models import (
     ConversationContext,
     EvidencePool,
@@ -54,10 +51,9 @@ def test_graph_relation_first_class_evidence_and_citation():
     assert citable[1]["metadata"]["relation_key"] == "StampServer -[depends_on]-> StampDB"
 
 
-def test_claim_guard_with_graph_evidence():
+def test_graph_relation_passes_structural_evidence_gate_after_admission():
     conv = ConversationContext.from_request("StampServer 依赖什么？", history=[])
     evidence = EvidencePool(question_id="q-101")
-
     evidence.add_relation(
         relation_key="StampServer -[depends_on]-> StampDB",
         target_entity="StampServer",
@@ -70,17 +66,5 @@ def test_claim_guard_with_graph_evidence():
         admission_verdict="PASS",
     )
 
-    # Gate evaluation
     verdict = evaluate_rules(conv, evidence)
     assert verdict["allow_knowledge_answer"] is True
-
-    # Claim alignment:
-    # 1. Supported relation claim citing [1]
-    ans_supported = "StampServer 启动时需要依赖 StampDB 组件 [1]。"
-    claim_check = evaluate_claim_alignment(ans_supported, evidence, evidence.citable_docs_renumbered())
-    assert claim_check["allow_claims"] is True
-
-    # 2. Unsupported relation type (claims belongs_to / 属于, but evidence is depends_on)
-    ans_unsupported = "StampServer 属于 StampDB 的子模块 [1]。"
-    claim_check_unsupp = evaluate_claim_alignment(ans_unsupported, evidence, evidence.citable_docs_renumbered())
-    assert claim_check_unsupp["allow_claims"] is False

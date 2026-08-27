@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -10,12 +9,8 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import (
     GraphRelationCandidate,
     GraphWorkingSet,
 )
-from rag_knowledge.services.relation_policy import (
-    RELATION_RULES,
-    is_answer_evidence_relation,
-    is_overview_query,
-    relation_query_terms,
-)
+from rag_knowledge.models.graph_schema import normalize_entity_name
+from rag_knowledge.services.relation_policy import RELATION_RULES, is_answer_evidence_relation
 
 logger = logging.getLogger(__name__)
 
@@ -129,122 +124,67 @@ class GraphRelationAdmissionService:
                 answer_intent=normalized_intent,
             )
 
-        q_norm = canonical_question.casefold()
-        signals: list[str] = []
-        signals.append(f"policy_intent:{normalized_intent}")
+        signals: list[str] = [f"policy_intent:{normalized_intent}"]
 
-        # 2. Entity Relevance check
-        active_targets = {
-            str(t).strip().casefold()
-            for t in (target_entities or (working_set.exploration_roots if working_set else ()))
-            if str(t).strip()
-        }
-        s_norm = candidate.source_name.casefold()
-        t_norm = candidate.target_name.casefold()
-
-        source_in_targets = s_norm in active_targets or any(target in s_norm or s_norm in target for target in active_targets)
-        target_in_targets = t_norm in active_targets or any(target in t_norm or t_norm in target for target in active_targets)
-        source_in_q = s_norm in q_norm
-        target_in_q = t_norm in q_norm
-
-        if (source_in_targets and target_in_targets) or (source_in_q and target_in_q):
-            entity_relevance = "HIGH"
-            signals.append("both_endpoints_matched")
-        elif source_in_targets or target_in_targets or source_in_q or target_in_q:
-            entity_relevance = "HIGH"
-            signals.append("primary_endpoint_matched")
+        # 2. Entity relevance comes only from the frozen semantic task (or the
+        # explicit legacy target list when no SemanticTaskContext is available).
+        # Raw-question substrings are not evidence authorization.
+        if semantic_task is not None:
+            semantic_entities = [
+                getattr(semantic_task, "primary_entity", None),
+                *(getattr(semantic_task, "mentioned_entities", ()) or ()),
+            ]
         else:
-            entity_relevance = "MEDIUM" if candidate.depth_from_root <= 1 else "LOW"
-            signals.append("indirect_entity_overlap")
+            semantic_entities = list(target_entities or (working_set.exploration_roots if working_set else ()))
 
-        # 3. Intent & Task Relevance check
-        is_multi_relation_task = semantic_task_type == "multi_entity_relation" and (source_in_targets or target_in_targets or source_in_q or target_in_q)
-        if is_multi_relation_task:
-            intent_relevance = "HIGH"
+        def _entity_key(value: Any) -> str:
+            return normalize_entity_name(str(value or "")).casefold()
+
+        active_targets = {_entity_key(item) for item in semantic_entities if _entity_key(item)}
+        source_in_targets = _entity_key(candidate.source_name) in active_targets
+        target_in_targets = _entity_key(candidate.target_name) in active_targets
+
+        if source_in_targets and target_in_targets:
+            entity_relevance = "HIGH"
+            signals.append("both_endpoints_in_semantic_task")
+        elif source_in_targets or target_in_targets:
+            entity_relevance = "HIGH"
+            signals.append("endpoint_in_semantic_task")
+        else:
+            entity_relevance = "LOW"
+            signals.append("no_endpoint_in_semantic_task")
+
+        if entity_relevance == "HIGH":
             relation_relevance = "DIRECT"
-            signals.append("multi_entity_relation_matched")
-            return GraphRelationAdmissionResult(
-                verdict="PASS",
-                entity_relevance=entity_relevance,
-                intent_relevance=intent_relevance,
-                relation_relevance=relation_relevance,
-                reason="multi_entity_relation_direct_fact",
-                admission_signals=tuple(signals),
-                canonical_question=canonical_question,
-                answer_intent=normalized_intent,
+            reason = (
+                "multi_entity_relation_direct_fact"
+                if semantic_task_type == "multi_entity_relation" and source_in_targets and target_in_targets
+                else "policy_authorized_relation_fact"
             )
-
-        # Keyword alignment
-        matching_terms = relation_query_terms(candidate.relation_type)
-        has_intent_term = any(term in q_norm for term in matching_terms)
-
-        if has_intent_term and entity_relevance == "HIGH":
-            intent_relevance = "HIGH"
-            relation_relevance = "DIRECT"
-            signals.append("intent_term_and_entity_matched")
             return GraphRelationAdmissionResult(
                 verdict="PASS",
-                entity_relevance=entity_relevance,
-                intent_relevance=intent_relevance,
-                relation_relevance=relation_relevance,
-                reason="intent_and_entity_direct_match",
-                admission_signals=tuple(signals),
-                canonical_question=canonical_question,
-                answer_intent=normalized_intent,
-            )
-
-        # An open entity-information task may publish a policy-authorized
-        # relation as one partial fact; Coverage decides that it is incomplete.
-        if normalized_intent == "general_qa" and entity_relevance == "HIGH":
-            return GraphRelationAdmissionResult(
-                verdict="PASS",
-                entity_relevance=entity_relevance,
+                entity_relevance="HIGH",
                 intent_relevance="HIGH",
-                relation_relevance="DIRECT",
-                reason="general_qa_direct_relation_fact",
-                admission_signals=tuple([*signals, "general_qa_direct_fact"]),
-                canonical_question=canonical_question,
-                answer_intent=normalized_intent,
-            )
-
-        # Overview questions can admit belongs_to / requires / different_from for high entity relevance
-        is_overview = is_overview_query(q_norm)
-        if is_overview and entity_relevance == "HIGH" and candidate.relation_type in {"belongs_to", "requires", "different_from", "has_service", "has_module"}:
-            intent_relevance = "HIGH"
-            relation_relevance = "DIRECT" if candidate.relation_type in {"belongs_to", "has_service", "has_module"} else "CONTEXTUAL"
-            signals.append("overview_structural_relation")
-            return GraphRelationAdmissionResult(
-                verdict="PASS",
-                entity_relevance=entity_relevance,
-                intent_relevance=intent_relevance,
                 relation_relevance=relation_relevance,
-                reason="overview_structural_relation_support",
+                reason=reason,
                 admission_signals=tuple(signals),
                 canonical_question=canonical_question,
                 answer_intent=normalized_intent,
             )
 
-        # 4. Ambiguous cases: optional helper admitter
-        deterministic = GraphRelationAdmissionResult(
+        # Identity scope is a hard boundary. Helper semantics may judge a
+        # relation's meaning, but cannot repair an endpoint that is absent from
+        # the frozen SemanticTaskContext.
+        return GraphRelationAdmissionResult(
             verdict="REJECT",
-            entity_relevance=entity_relevance,
-            intent_relevance="LOW",
-            relation_relevance="CONTEXTUAL" if entity_relevance == "HIGH" else "IRRELEVANT",
-            reason="insufficient_query_intent_alignment",
+            entity_relevance="LOW",
+            intent_relevance="NONE",
+            relation_relevance="IRRELEVANT",
+            reason="relation_endpoints_outside_semantic_task",
             admission_signals=tuple(signals),
             canonical_question=canonical_question,
             answer_intent=normalized_intent,
         )
-
-        if helper_admitter is not None and entity_relevance == "HIGH":
-            try:
-                res = helper_admitter(canonical_question, candidate)
-                if res is not None:
-                    return res
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("helper relation admission failed: %s", exc)
-
-        return deterministic
 
     @classmethod
     def admit_batch(

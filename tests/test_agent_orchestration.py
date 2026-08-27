@@ -1975,3 +1975,68 @@ def test_attempted_gap_registry_isolates_target_scope():
     )
     assert unscoped.is_exhausted("端口清单", None) is True
     assert unscoped.is_exhausted("端口清单", "StampServer") is False
+
+
+def test_agent_turn_trace_includes_snapshot_support_scope():
+    conv = ConversationContext.from_request("三维管线管理的相关信息", [], entity_name="三维管线管理")
+    pool = EvidencePool(question_id="q-trace-scope")
+    pool.add_retrieve(
+        [{
+            "content": "管线系统支持碰撞分析。",
+            "metadata": {
+                "chunk_id": "ctx-1",
+                "citation_id": 1,
+                "support_scope": "CONTEXT_ONLY",
+                "text_evidence_class": "RELATED_CONTEXT",
+            },
+        }],
+        query="三维管线管理",
+        target_entity="三维管线管理",
+    )
+    snapshot = pool.create_snapshot(verdict={"coverage": "PARTIAL"})
+    result = AgentTurnResult(conversation=conv, evidence=pool, evidence_snapshot=snapshot)
+
+    trace = result.to_trace()
+
+    assert trace["evidence_snapshot_id"] == snapshot.snapshot_id
+    assert trace["evidence_snapshot"]["evidence_items"][0]["metadata"]["support_scope"] == "CONTEXT_ONLY"
+    assert trace["evidence_snapshot"]["evidence_items"][0]["metadata"]["text_evidence_class"] == "RELATED_CONTEXT"
+
+
+def test_explicit_function_query_keeps_related_context_partial():
+    from rag_knowledge.services.agent_orchestration.runtime import FinalizationHandler
+    from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
+
+    conv = ConversationContext.from_request("三维管线管理的主要功能是什么？", [], entity_name="三维管线管理")
+    conv.semantic_task = SemanticTaskContext(
+        resolved_question="三维管线管理的主要功能是什么？",
+        primary_entity="三维管线管理",
+        mentioned_entities=("三维管线管理",),
+        task_type="entity_query",
+        confidence=1.0,
+        answer_intent="function",
+        requested_facets=("function",),
+    )
+    pool = EvidencePool(question_id="q-test")
+    # All 5 admitted docs are RELATED_CONTEXT (CONTEXT_ONLY)
+    for i in range(1, 6):
+        pool.add_retrieve(
+            [{
+                "content": f"管线系统功能 {i}：支持碰撞分析与排管。",
+                "metadata": {
+                    "chunk_id": f"chunk-{i}",
+                    "citation_id": i,
+                    "support_scope": "CONTEXT_ONLY",
+                    "text_evidence_class": "RELATED_CONTEXT",
+                },
+            }],
+            query="三维管线管理",
+            target_entity="三维管线管理",
+        )
+
+    handler = FinalizationHandler(conv, pool)
+    coverage, reason, missing = handler._coverage_verdict([])
+    # Must NOT be FULL! Must be PARTIAL because there are no TARGET_SPECIFIC function facts for 三维管线管理
+    assert coverage == "PARTIAL"
+    assert reason == "missing_fact"
+    assert "目标实体" in missing or "缺少" in missing

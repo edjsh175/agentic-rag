@@ -62,6 +62,13 @@ Claim 类型说明：
 - Candidate 复述 Question 中的限定词（例如协议名、部署场景、产品名）本身不是新增 knowledge_claim。只有 Candidate 对这些词新增了属性、数值、关系、因果或技术解释时，才需要 Evidence 支持。
 - 当 Candidate 同时给出一个 Evidence 明确支持的相关事实，并明确说明用户追问的更具体范围当前 Evidence 未覆盖时，这通常是合法的 PARTIAL 回答，不应仅因为“无法完整回答问题”而判 REVISE 或 NO_SAFE_ANSWER。
 - 不得使用自身常识把 Evidence 中的事实扩展成相关技术属性。例如 Evidence 只给出一个 URL/端口时，不得自行推断其传输层协议、默认用途或其他端口要求。
+- 证据支持范围（Support Scope）与 Claim 归属边界规则：
+  - TARGET_SPECIFIC 证据：明确属于目标实体，可支持对目标实体功能/属性的直接断言（如“目标支持 X”）。
+  - RELATION_SPECIFIC 证据：明确为图谱关系证据，仅支持实体间直接图谱关系的断言（如“A 属于 B”）；严禁用于证明实体自身功能或技术属性。
+  - CONTEXT_ONLY 证据：仅为相关上下文/系统资料，未直接证明属于目标实体。仅支持上下文断言（如“相关系统资料涉及 X”）；若 Candidate 直接断言目标实体自身具备该功能（如“目标支持 X”），必须判为 unsupported 并提供 rewrite_action 要求改写为上下文表达或删除。
+  - UNKNOWN / 缺失 Support Scope：不得当作 TARGET_SPECIFIC 使用；任何需要直接归属权限的 Claim 都必须判 unsupported。V2 正常路径不应产生 UNKNOWN。
+  - 图谱关系证据（如 belongs_to）与 CONTEXT_ONLY 拼接时，禁止产生自动属性继承（例如不得因为“A 属于 B 且相关资料提及 B 具备 X”就认定“A 具备 X”）。
+  - 审查模型禁止自行将 CONTEXT_ONLY 证据升级为 TARGET_SPECIFIC。
 
 Claim 状态说明（针对 knowledge_claim）：
 - supported：Evidence 直接支持或可以在不增加新事实的前提下合理归纳。
@@ -355,13 +362,18 @@ def format_evidence_snapshot(
         source = str(meta.get("source") or meta.get("title") or "unknown_source").strip()
         section = str(meta.get("section_path") or meta.get("section") or meta.get("category") or "").strip()
         content = str(doc.get("content") or "")
+        support_scope = str(meta.get("support_scope") or "UNKNOWN").strip().upper()
 
-        snapshot.append({
+        item: dict[str, Any] = {
             "evidence_id": cid,
             "source": source,
             "section": section,
             "content": content,
-        })
+            "support_scope": support_scope,
+        }
+        if meta.get("text_evidence_class"):
+            item["evidence_class"] = str(meta.get("text_evidence_class")).strip().upper()
+        snapshot.append(item)
     return snapshot
 
 

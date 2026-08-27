@@ -632,6 +632,7 @@ class EvidencePool:
                 "grant_id": grant_id or "",
                 "grant_admitted": True,
                 "identity_scope_id": identity_scope_id,
+                "support_scope": "RELATION_SPECIFIC",
                 "provenance_source_type": "graph_relation",
                 "provenance_path": provenance_items[0] if provenance_items else {},
             },
@@ -858,6 +859,15 @@ class EvidencePool:
     ) -> "EvidenceSnapshot":
         """Freeze the current citable evidence into an answer-only snapshot."""
         docs = self.citable_docs_renumbered()
+        valid_support_scopes = {"TARGET_SPECIFIC", "CONTEXT_ONLY", "RELATION_SPECIFIC"}
+        for doc in docs:
+            meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+            is_v2 = bool(meta.get("candidate_pipeline_v2")) or meta.get("source_type") == "graph_relation"
+            if not is_v2:
+                continue
+            support_scope = str(meta.get("support_scope") or "").strip().upper()
+            if support_scope not in valid_support_scopes:
+                raise ValueError("invalid_v2_evidence_support_scope")
         wanted = {str(item).strip() for item in (focus_evidence_ids or ()) if str(item).strip()}
         if wanted:
             focused: list[dict[str, Any]] = []
@@ -1121,6 +1131,15 @@ class ConversationContext:
             stage1 = replace(
                 stage1,
                 resolved_question=semantic_task.resolved_question,
+                retrieval_queries=(
+                    [{
+                        "text": semantic_task.resolved_question,
+                        "kind": "clarification_resolved",
+                        "weight": 1.0,
+                    }]
+                    if semantic_task.intent_source == "clarification_default"
+                    else stage1.retrieval_queries
+                ),
                 semantic_task_context=semantic_task.to_dict(),
             )
         elif selected and getattr(identity_scope, "confirmed_topic", None):
@@ -1336,6 +1355,11 @@ class AgentTurnResult:
             ),
             "evidence_snapshot_version": (
                 self.evidence_snapshot.evidence_version
+                if self.evidence_snapshot is not None
+                else None
+            ),
+            "evidence_snapshot": (
+                self.evidence_snapshot.to_dict()
                 if self.evidence_snapshot is not None
                 else None
             ),

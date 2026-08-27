@@ -1,0 +1,3472 @@
+# Text Evidence 相关性分层、Entity Conflict 防漂移与 Claim Support 解耦执行 PRD
+
+## 0. 文档信息
+
+**文档类型**：执行 PRD
+**状态**：实施中（核心架构修复完成，待真实模型与全量验收）
+**日期**：2026-08-27
+**实施性质**：Text Evidence Admission 根因级重构 + 实体漂移防护收口 + Claim Support 解耦
+**实施优先级**：P0 / P1 架构收敛
+**核心事故样本**：
+
+```text
+A. PipelineWebGL → PipelineBuilder
+   防止错误实体资料污染回答
+
+B. 三维管线管理
+   检索已经找到大量“管线系统 / 三维管线 / 碰撞分析 / 智能排管”等文本，
+   但因为缺少“三维管线管理 → Chunk”直接归属证明而全部被拒绝
+
+C. PipelineWebRTC
+   文档主实体可能是 StampServer / WebRTC，
+   但正文明确描述 PipelineWebRTC，本身应当能够成为合法 Evidence
+```
+
+---
+
+# 1. PRD 核心目标
+
+本轮不是简单“放宽 Evidence Admission”。
+
+真正要解决的是当前架构中的错误等式：
+
+```text
+无法证明 Chunk 直接属于 Target Entity
+=
+Chunk 与 Target Entity 无关
+=
+REJECT
+```
+
+这个等式是错误的。
+
+正确关系应该是：
+
+```text
+没有直接归属证明
+≠
+明确属于错误实体
+```
+
+因此本轮将 Text Candidate 正式划分成：
+
+```text
+TARGET_DIRECT
+RELATED_CONTEXT
+CONFLICT
+IRRELEVANT
+```
+
+并建立第二个关键边界：
+
+```text
+Evidence 可以进入 EvidencePool
+≠
+Evidence 可以支撑关于目标实体的任意 Claim
+```
+
+最终目标是同时满足：
+
+```text
+PipelineWebGL
+不会漂移到 PipelineBuilder
+
+同时
+
+三维管线管理
+不会把真正相关的管线系统资料全部误杀
+```
+
+---
+
+# 2. 本 PRD 的权威边界
+
+## 2.1 继续有效的架构原则
+
+以下原则继续有效：
+
+```text
+Identity
+≠
+Candidate
+≠
+Admitted Evidence
+≠
+Claim Support
+```
+
+同时：
+
+```text
+GraphWorkingSet
+≠
+EvidencePool
+```
+
+以及：
+
+```text
+Retrieval Query
+≠
+Canonical Semantic Task
+```
+
+`SemanticTaskContext` 继续作为当前用户 Turn 的唯一语义权威：
+
+```text
+resolved_question
+primary_entity
+mentioned_entities
+task_type
+answer_intent
+requested_facets
+intent_source
+```
+
+---
+
+## 2.2 与现有 PRD 的关系
+
+本 PRD 不推翻：
+
+```text
+2026-08-26-Identity-Candidate-Evidence-Grounding
+分层与检索召回解耦重构执行PRD
+
+2026-08-26-Agent锚点图谱Bootstrap
+与自主范围扩展及GraphEvidence执行PRD
+
+2026-08-27-CanonicalSemanticTask
+与Admission语义权威及PartialEvidence收敛执行PRD
+```
+
+以下内容继续有效：
+
+```text
+Multi-path Candidate Generation
+Identity 不进入全局 document_entity pre-filter
+GraphWorkingSet
+GraphRelationEvidence
+RelationRule.evidence_intents
+Canonical Semantic Task
+FULL / PARTIAL / NONE
+Query-scoped EvidencePool
+Immutable Snapshot
+Claim-level Grounding
+```
+
+---
+
+## 2.3 本 PRD 修正的旧语义
+
+旧 Text Admission 中以下语义废止：
+
+```text
+没有 target mention
++
+没有 entity_chunk_link
++
+没有 graph provenance
+→ entity LOW
+→ REJECT
+```
+
+以及：
+
+```text
+Text Admission PASS
+≈
+这个 Text 可以直接证明 Target Entity 的属性
+```
+
+以后以本 PRD 为准：
+
+```text
+Text Admission
+负责判断 Evidence 资格与 Support Scope
+
+Grounding
+负责判断具体 Claim 是否得到这些 Evidence 支撑
+```
+
+---
+
+# 3. 第一性原则
+
+如果今天从零设计这个系统，必须遵守以下规则。
+
+## 3.1 Identity 只回答“用户在问谁”
+
+例如：
+
+```text
+pipeline
+↓ 澄清
+三维管线管理
+```
+
+之后：
+
+```text
+primary_entity = 三维管线管理
+```
+
+Identity 不负责决定：
+
+```text
+哪些文档一定属于三维管线管理
+```
+
+更不能产生：
+
+```text
+document_entity must equal 三维管线管理
+```
+
+这种全局硬过滤。
+
+---
+
+## 3.2 Retrieval 负责高召回，不负责 Evidence 授权
+
+Retrieval 可以从：
+
+```text
+Exact lexical
+BM25
+Vector
+Graph expansion
+Entity links
+Document entity
+Section
+```
+
+寻找 Candidate。
+
+Candidate 的目标是：
+
+> 值得进一步检查。
+
+不是：
+
+> 已经是答案证据。
+
+---
+
+## 3.3 Entity Guard 应该防“明确错误”，不是要求“完整证明”
+
+防实体漂移应该靠：
+
+```text
+明确 different_from
+明确 sibling conflict
+明确另一个实体的局部文本锚点
+目标与 Candidate 主体互斥
+```
+
+而不是：
+
+```text
+我没证明它属于 Target
+→ 当成错误
+```
+
+所以：
+
+```text
+unknown attribution
+≠
+entity conflict
+```
+
+---
+
+## 3.4 Graph 是增强器，不是 Text Evidence 许可证
+
+Graph 可以负责：
+
+```text
+实体消歧
+候选扩展
+关联信号
+冲突信号
+Graph Relation Evidence
+```
+
+但：
+
+```text
+Graph 没有 Entity → Chunk 边
+```
+
+绝不能单独成为：
+
+```text
+Text Candidate REJECT
+```
+
+的原因。
+
+---
+
+## 3.5 Evidence Qualification 与 Claim Authorization 必须分开
+
+核心公式：
+
+```text
+EvidencePool 中存在 Evidence
+≠
+模型可以用它说任何话
+```
+
+例如：
+
+```text
+Evidence:
+“管线系统支持碰撞分析、智能排管。”
+```
+
+对于 Target：
+
+```text
+三维管线管理
+```
+
+它可以支撑：
+
+```text
+相关管线系统资料涉及碰撞分析和智能排管。
+```
+
+但不能单独支撑：
+
+```text
+三维管线管理支持碰撞分析和智能排管。
+```
+
+这必须成为正式系统协议，而不是依赖 Prompt “尽量谨慎”。
+
+---
+
+# 4. 当前真实事故：三维管线管理
+
+用户经过澄清：
+
+```text
+pipeline
+→ 三维管线管理
+```
+
+Canonical Task：
+
+```text
+resolved_question = 三维管线管理 的相关信息
+primary_entity = 三维管线管理
+answer_intent = general_qa
+requested_facets = []
+```
+
+当前 Graph 能确认：
+
+```text
+三维管线管理
+-[belongs_to]->
+PipelineWebGL
+
+三维管线管理
+-[belongs_to]->
+业务应用层
+```
+
+因此 Graph Evidence 可以进入 EvidencePool。
+
+但 Text Retrieval 实际召回过：
+
+```text
+三维管线模型
+Pipeline 图层
+管线查询 / 统计
+覆土分析
+水平净距分析
+垂直净距分析
+碰撞分析
+智能排管
+重点管线
+管理范围
+保护范围
+管理区监测
+保护区监测
+```
+
+这些 Candidate 目前被全部拒绝。
+
+---
+
+# 5. 为什么当前拦截出现误杀
+
+现有逻辑核心上接近：
+
+```text
+exact target mention
+document_entity == target
+mentioned_entities target
+entity_chunk_link
+graph path
+```
+
+这些有：
+
+```text
+entity relevance HIGH / MEDIUM
+```
+
+否则容易：
+
+```text
+LOW
+```
+
+而：
+
+```text
+general_qa
+```
+
+当前又倾向要求：
+
+```text
+entity HIGH
+→ intent HIGH
+```
+
+因此：
+
+```text
+三维管线管理
+↓
+Chunk 只写“管线系统 / 三维管线 / Pipeline”
+↓
+没有明确“三维管线管理”字样
+↓
+entity LOW
+↓
+intent LOW
+↓
+REJECT
+```
+
+这里把两个问题混在了一起：
+
+```text
+A. 这个文本直接描述三维管线管理吗？
+
+B. 这个文本对理解三维管线管理是否有价值？
+```
+
+A 可能是：
+
+```text
+不知道
+```
+
+但 B 完全可以是：
+
+```text
+高度相关
+```
+
+当前协议表达不了。
+
+---
+
+# 6. 新 Text Evidence Qualification 模型
+
+新增唯一协议：
+
+```text
+TextEvidenceQualification
+```
+
+建议结构：
+
+```python
+@dataclass(frozen=True)
+class TextEvidenceQualification:
+    verdict: Literal["PASS", "REJECT"]
+
+    evidence_class: Literal[
+        "TARGET_DIRECT",
+        "RELATED_CONTEXT",
+        "CONFLICT",
+        "IRRELEVANT",
+    ]
+
+    support_scope: Literal[
+        "TARGET_SPECIFIC",
+        "CONTEXT_ONLY",
+        "NONE",
+    ]
+
+    intent_relevance: Literal[
+        "HIGH",
+        "MEDIUM",
+        "LOW",
+        "NONE",
+    ]
+
+    reason_code: str
+    reason: str
+    signals: tuple[str, ...]
+
+    canonical_question: str
+    answer_intent: str
+```
+
+禁止继续额外发明：
+
+```text
+EvidencePermission
+EntityPermission
+EvidenceAuthority
+SupportStrength
+ContextPermission
+```
+
+等重复概念。
+
+---
+
+# 7. 四类 Text Evidence
+
+## 7.1 TARGET_DIRECT
+
+含义：
+
+> 当前 Candidate 中存在经过语义判定、可直接归属于 Target Entity 的局部事实。
+
+必须区分两类信号：
+
+```text
+HARD_DIRECT_ATTRIBUTION
+= 只有数据结构本身明确表达“该事实属于目标实体”的 typed attribution fact
+
+AMBIGUOUS_ATTRIBUTION_SIGNAL
+= exact target mention
+= canonical alias mention
+= document_entity == target
+= section_title / heading ancestry 指向 target
+= mentioned_entities 包含 target
+= generic entity_chunk_link
+```
+
+第二类信号只能说明：
+
+```text
+这个 Candidate 值得检查
+```
+
+不能直接推出：
+
+```text
+TARGET_DIRECT / TARGET_SPECIFIC
+```
+
+自然语言 Chunk 的局部事实归属由 Semantic Qualification 判断；Code 不得用字符串、metadata 关联或通用 link 自动升级证据权限。
+
+例如：
+
+```text
+目标：
+PipelineWebRTC
+
+Chunk：
+“PipelineWebRTC 等 WebRTC 应用需要上传至 /data/html。”
+```
+
+即使：
+
+```text
+document_entity = StampServer
+```
+
+仍然属于：
+
+```text
+TARGET_DIRECT
+```
+
+因为正文直接锚定 PipelineWebRTC。
+
+结果：
+
+```text
+verdict = PASS
+support_scope = TARGET_SPECIFIC
+```
+
+---
+
+# 8. RELATED_CONTEXT
+
+含义：
+
+> Candidate 与当前目标实体及当前问题明显相关，但当前证据不足以把 Candidate 中的全部事实直接归属于 Target。
+
+例如：
+
+```text
+Target:
+三维管线管理
+```
+
+Candidate：
+
+```text
+三维管线
+管线系统
+碰撞分析
+智能排管
+管理区监测
+保护区监测
+```
+
+但没有：
+
+```text
+“三维管线管理模块包含碰撞分析”
+```
+
+这种明确归属。
+
+那么：
+
+```text
+evidence_class = RELATED_CONTEXT
+verdict = PASS
+support_scope = CONTEXT_ONLY
+```
+
+注意：
+
+```text
+RELATED_CONTEXT
+```
+
+不是“弱一点的 TARGET_DIRECT”。
+
+两者是不同证据语义。
+
+---
+
+# 9. CONFLICT
+
+含义：
+
+> Candidate 明确属于与 Target 冲突的另一个实体，使用它可能造成实体漂移。
+
+例如：
+
+```text
+Target:
+PipelineWebGL
+
+Candidate:
+document_entity = PipelineBuilder
+
+Graph:
+PipelineBuilder different_from PipelineWebGL
+```
+
+同时 Candidate 中没有：
+
+```text
+PipelineWebGL
+```
+
+直接事实。
+
+则：
+
+```text
+evidence_class = CONFLICT
+verdict = REJECT
+support_scope = NONE
+```
+
+这类仍然必须硬拦。
+
+---
+
+# 10. IRRELEVANT
+
+含义：
+
+> Candidate 对当前 Target 与当前 Answer Intent 均没有可用证据价值。
+
+例如：
+
+```text
+Target:
+三维管线管理
+
+Candidate:
+WebRTC 外网 IP 配置
+```
+
+没有管线实体关系，也没有问题主题关系。
+
+则：
+
+```text
+IRRELEVANT
+REJECT
+```
+
+---
+
+# 11. 协议合法组合
+
+| Evidence Class  | Verdict | Support Scope   |
+| --------------- | ------- | --------------- |
+| TARGET_DIRECT   | PASS    | TARGET_SPECIFIC |
+| RELATED_CONTEXT | PASS    | CONTEXT_ONLY    |
+| CONFLICT        | REJECT  | NONE            |
+| IRRELEVANT      | REJECT  | NONE            |
+
+以下协议必须直接判 invalid：
+
+```text
+CONFLICT + PASS
+
+IRRELEVANT + PASS
+
+RELATED_CONTEXT + TARGET_SPECIFIC
+
+TARGET_DIRECT + NONE
+```
+
+---
+
+# 12. Intent Admission 继续独立存在
+
+本 PRD 不取消 Intent 判断。
+
+例如：
+
+```text
+Question:
+PipelineWebRTC 的主要功能是什么？
+```
+
+Candidate：
+
+```text
+PipelineWebRTC 上传至 /data/html
+```
+
+实体归属：
+
+```text
+TARGET_DIRECT
+```
+
+但：
+
+```text
+intent_relevance = LOW
+```
+
+因此：
+
+```text
+REJECT
+```
+
+不能因为实体正确就允许。
+
+反过来：
+
+```text
+Question:
+PipelineWebRTC 的相关信息
+```
+
+同一部署 Candidate：
+
+```text
+TARGET_DIRECT
+intent_relevance = HIGH
+PASS
+```
+
+所以：
+
+```text
+Entity Attribution
+≠
+Intent Relevance
+```
+
+继续保持。
+
+---
+
+# 13. Explicit Entity Conflict Guard
+
+现有：
+
+```text
+structural_guard()
+```
+
+职责应进一步收敛。
+
+它以后不负责判断：
+
+```text
+Candidate 是否足够相关
+```
+
+只负责：
+
+```text
+Candidate 是否存在明确实体冲突
+```
+
+建议命名语义：
+
+```text
+ExplicitEntityConflictGuard
+```
+
+---
+
+# 14. Hard Reject 的条件
+
+Hard Reject 应要求具有**明确负向证据**。
+
+例如：
+
+```text
+known different_from
+known exclusive sibling
+Candidate 局部文本明确以另一个实体为主语
+当前目标无任何 direct mention / counter-signal
+```
+
+可以：
+
+```text
+CONFLICT
+```
+
+---
+
+# 15. 不允许的 Hard Reject
+
+禁止：
+
+```text
+document_entity != target
+→ REJECT
+```
+
+禁止：
+
+```text
+没有 entity_chunk_link
+→ REJECT
+```
+
+禁止：
+
+```text
+没有 graph_path
+→ REJECT
+```
+
+禁止：
+
+```text
+没有 target exact mention
+→ REJECT
+```
+
+这些最多只能代表：
+
+```text
+缺少 TARGET_DIRECT 强信号
+```
+
+不能代表：
+
+```text
+Candidate 是错的
+```
+
+---
+
+# 16. document_entity 的正确语义
+
+`document_entity` 表示：
+
+> 这份文档主要属于哪个产品 / 工具 / 服务。
+
+它不表示：
+
+> 文档里的每一段只能证明这个实体。
+
+真实例子已经证明：
+
+```text
+StampServer 用户手册
+```
+
+可以合法包含：
+
+```text
+PipelineWebRTC
+WebRTC
+Pipeline
+其他应用部署信息
+```
+
+因此：
+
+```text
+document_entity
+```
+
+是：
+
+```text
+strong attribution signal
+```
+
+而不是：
+
+```text
+hard evidence boundary
+```
+
+---
+
+# 17. different_from 的正确价值
+
+相反：
+
+```text
+different_from
+```
+
+是高价值负向关系。
+
+例如：
+
+```text
+PipelineBuilder
+different_from
+PipelineWebGL
+```
+
+它可以很好解决：
+
+```text
+名称相似
+语义相似
+Embedding 相似
+```
+
+导致的错误召回。
+
+所以 Graph 的维护重点不应该是：
+
+```text
+维护所有 Entity → Chunk
+```
+
+而应该优先维护少量：
+
+```text
+高价值稳定实体
++
+关键 belongs_to
++
+关键 different_from
++
+必要 requires / dependency
+```
+
+这类关系数量远小于所有 Chunk 链接。
+
+---
+
+# 18. TextEvidenceAdmissionService
+
+新增：
+
+```text
+rag_knowledge/services/text_evidence_admission.py
+```
+
+职责：
+
+```text
+CandidateResult
++
+SemanticTaskContext
++
+Target Entity
++
+Graph conflict / relatedness signals
+↓
+TextEvidenceQualification
+```
+
+它必须成为 Agent V2 唯一 Text Admission 权威。
+
+---
+
+# 19. 旧职责迁出
+
+从：
+
+```text
+agent_candidate_pipeline.py
+```
+
+逐步迁出：
+
+```text
+AdmissionResult
+valid_admission_protocol()
+admit()
+```
+
+最终该模块只保留：
+
+```text
+Candidate Generation
+Candidate Provenance
+Candidate Merge
+Fusion
+```
+
+不要让 Candidate Pipeline 同时负责：
+
+```text
+召回
++
+Evidence 语义授权
+```
+
+---
+
+# 20. rag.py 不得继续拥有 Admission 业务规则
+
+当前：
+
+```text
+rag.py::_semantic_admit_agent_candidate()
+```
+
+存在 Text Admission Prompt 与 JSON 解析。
+
+本轮必须迁移到：
+
+```text
+TextEvidenceAdmissionService
+```
+
+`rag.py` 只负责 orchestration：
+
+```text
+candidates
+↓
+conflict guard
+↓
+rerank
+↓
+text_admission.qualify(...)
+↓
+admitted documents
+```
+
+禁止：
+
+```text
+rag.py
+```
+
+成为第三套 Admission 规则来源。
+
+---
+
+# 21. Text Admission 两阶段结构
+
+## Stage A：Deterministic Qualification
+
+目标：
+
+```text
+只有真正的 Hard Fact 才由 Code 裁决
+```
+
+包括：
+
+### HARD_DIRECT_ATTRIBUTION
+
+仅限数据结构本身已明确编码事实归属的 typed attribution fact。普通自然语言 Chunk 的：
+
+```text
+exact mention
+alias mention
+document_entity
+section / heading
+mentioned_entities
+generic entity_chunk_link
+```
+
+全部只是 `AMBIGUOUS_ATTRIBUTION_SIGNAL`，不得直接授予 TARGET_SPECIFIC。
+
+### CONFLICT Hard Fact
+
+```text
+approved different_from
+explicit typed exclusive conflict
+```
+
+一旦候选的 owning entity 命中此类冲突，正文中“顺带提到 target”不能抵消冲突。
+
+### IRRELEVANT
+
+“缺少正向信号”本身不构成 Hard Fact。没有明确冲突、但语义价值无法由结构事实确定的 Candidate，应进入：
+
+```text
+AMBIGUOUS → Semantic Qualification
+```
+
+Helper 不可用或协议异常时 fail-closed。
+
+---
+
+# 22. Stage B：Semantic Qualification
+
+只处理：
+
+```text
+AMBIGUOUS
+```
+
+Helper LLM 不负责重新判断用户是谁。
+
+Prompt 必须明确：
+
+```text
+target_entity 已被冻结。
+canonical_question 已被冻结。
+你不得修改 target。
+你不得扩大检索范围。
+你不得创建图谱关系。
+你只判断当前 Candidate 的证据类别。
+```
+
+---
+
+# 23. Semantic Qualification 输入
+
+最小输入：
+
+```json
+{
+  "canonical_question": "...",
+  "target_entity": "...",
+  "answer_intent": "...",
+  "requested_facets": [],
+  "candidate_text": "...",
+  "section_path": "...",
+  "document_entity": "...",
+  "mentioned_entities": [],
+  "candidate_sources": [],
+  "graph_conflicts": [],
+  "graph_relatedness": [],
+  "deterministic_signals": []
+}
+```
+
+不要把完整 Conversation History 塞进去。
+
+否则 Helper 又可能自己重新解释用户身份。
+
+---
+
+# 24. Semantic Qualification 输出
+
+严格结构：
+
+```json
+{
+  "verdict": "PASS",
+  "evidence_class": "RELATED_CONTEXT",
+  "support_scope": "CONTEXT_ONLY",
+  "intent_relevance": "HIGH",
+  "reason_code": "semantic_related_without_direct_attribution",
+  "reason": "候选描述当前目标所属领域中的高度相关管线能力，但没有直接证明这些能力属于目标模块。",
+  "signals": [
+    "pipeline_domain_match",
+    "high_semantic_relevance",
+    "no_direct_target_attribution",
+    "no_entity_conflict"
+  ]
+}
+```
+
+Structured Output / JSON Schema 必须使用。
+
+协议异常：
+
+```text
+fail closed
+```
+
+即：
+
+```text
+REJECT
+```
+
+不得 fallback 到“默认 RELATED”。
+
+---
+
+# 25. Helper 不得将 RELATED_CONTEXT 提升为 TARGET_DIRECT 的条件
+
+如果 Candidate 不包含任何：
+
+```text
+target mention
+canonical alias
+section target
+entity link
+document entity target
+明确实体归属语句
+```
+
+Helper 原则上不得凭：
+
+```text
+语义看起来很像
+```
+
+输出：
+
+```text
+TARGET_DIRECT
+```
+
+最多：
+
+```text
+RELATED_CONTEXT
+```
+
+这条需要写入协议 validator。
+
+---
+
+# 26. EvidencePool 元数据必须保留 Support Scope
+
+当前 `admitted_documents()` 进入 EvidencePool 后，需要加入：
+
+```json
+{
+  "text_evidence_class": "RELATED_CONTEXT",
+  "support_scope": "CONTEXT_ONLY",
+  "intent_relevance": "HIGH",
+  "admission_reason_code": "...",
+  "admission_signals": []
+}
+```
+
+对于：
+
+```text
+TARGET_DIRECT
+```
+
+记录：
+
+```text
+support_scope = TARGET_SPECIFIC
+```
+
+---
+
+# 27. EvidencePool 本身不需要拆成两个池
+
+不要设计：
+
+```text
+DirectEvidencePool
+RelatedEvidencePool
+GraphEvidencePool
+```
+
+保持一个：
+
+```text
+EvidencePool
+```
+
+每个 Evidence 自己携带：
+
+```text
+source_type
+evidence_class
+support_scope
+```
+
+即可。
+
+这是更简单的模型。
+
+---
+
+# 28. Snapshot 必须冻结 Support Scope
+
+Immutable Snapshot 不只冻结：
+
+```text
+content
+citation id
+source
+```
+
+还必须冻结：
+
+```text
+support_scope
+evidence_class
+admission provenance
+```
+
+防止 Answer / Reviewer 后面重新解释：
+
+```text
+RELATED_CONTEXT
+```
+
+为：
+
+```text
+TARGET_SPECIFIC
+```
+
+---
+
+# 29. Answer Generator Prompt 必须知道 Support Scope
+
+当前 Answer Generator 不能只看到：
+
+```text
+Evidence #1
+Evidence #2
+Evidence #3
+```
+
+它必须知道：
+
+```text
+Evidence #1
+support_scope = TARGET_SPECIFIC
+
+Evidence #2
+support_scope = CONTEXT_ONLY
+```
+
+Prompt 规则：
+
+```text
+TARGET_SPECIFIC:
+可直接归属于当前目标实体。
+
+CONTEXT_ONLY:
+只允许描述为相关上下文资料；
+不得直接将其中属性、功能、能力归属于目标实体。
+```
+
+---
+
+# 30. Answer Generator 示例
+
+有：
+
+```text
+Evidence #1 Graph:
+三维管线管理 belongs_to PipelineWebGL
+TARGET_SPECIFIC
+
+Evidence #2 Text:
+管线系统支持碰撞分析、智能排管
+CONTEXT_ONLY
+```
+
+允许回答：
+
+```text
+三维管线管理属于 PipelineWebGL。
+
+另外，当前检索到的相关管线系统资料涉及碰撞分析、
+智能排管等能力，但现有证据尚不能确认这些能力是否都直接属于
+“三维管线管理”模块。
+```
+
+禁止：
+
+```text
+三维管线管理属于 PipelineWebGL，
+并支持碰撞分析和智能排管。
+```
+
+---
+
+# 31. Grounding Reviewer 必须正式校验 Support Scope
+
+Reviewer 不只是检查：
+
+```text
+claim 有 citation 吗？
+citation 文本看起来支持吗？
+```
+
+还必须检查：
+
+```text
+Evidence 的 support_scope
+是否允许支撑这种 Claim Attribution
+```
+
+---
+
+# 32. Claim 类型至少区分两类
+
+无需构建复杂 Claim ontology。
+
+至少区分：
+
+```text
+TARGET_ATTRIBUTION
+CONTEXTUAL_FACT
+```
+
+例如：
+
+```text
+“三维管线管理支持碰撞分析”
+→ TARGET_ATTRIBUTION
+
+“相关管线系统资料涉及碰撞分析”
+→ CONTEXTUAL_FACT
+```
+
+---
+
+# 33. Claim Support Matrix
+
+| Evidence                      | Claim               | 合法 |
+| ----------------------------- | ------------------- | -: |
+| TARGET_SPECIFIC               | Target 属性/功能 Claim  |  是 |
+| TARGET_SPECIFIC               | 对应文本直接事实            |  是 |
+| CONTEXT_ONLY                  | Contextual Claim    |  是 |
+| CONTEXT_ONLY                  | Target 属性/功能 Claim  |  否 |
+| Graph Relation Evidence       | 对应 relation Claim   |  是 |
+| Graph Relation Evidence       | 非 relation 属性 Claim |  否 |
+| Graph relation + CONTEXT_ONLY | 自动属性继承              |  否 |
+| CONFLICT                      | 任意当前 Target Claim   |  否 |
+| IRRELEVANT                    | 任意 Claim            |  否 |
+
+---
+
+# 34. Reviewer 对非法归属的处理
+
+例如 Candidate Answer：
+
+```text
+三维管线管理支持碰撞分析。
+```
+
+Evidence：
+
+```text
+CONTEXT_ONLY:
+“管线系统与碰撞分析相关”
+```
+
+Reviewer 必须：
+
+```text
+status = unsupported
+```
+
+或：
+
+```text
+REVISE
+```
+
+rewrite_action：
+
+```text
+将直接归属表达改为“相关管线系统资料涉及碰撞分析，
+但当前证据不足以确认其直接属于三维管线管理模块。”
+```
+
+---
+
+# 35. 不允许 Reviewer 自己升级 Evidence
+
+Reviewer 禁止：
+
+```text
+这个资料看起来很像三维管线管理
+→ 我认为就是
+→ supported
+```
+
+Reviewer 必须尊重冻结的：
+
+```text
+support_scope
+```
+
+它不是新的 Admission 层。
+
+---
+
+# 36. Graph Relation Evidence 不变
+
+Graph 关系仍独立：
+
+```text
+GraphRelationCandidate
+→ GraphAdmission
+→ GraphRelationEvidence
+```
+
+例如：
+
+```text
+三维管线管理 belongs_to PipelineWebGL
+```
+
+可以直接支撑这个 relation claim。
+
+但不能和 RELATED_CONTEXT 拼接成：
+
+```text
+三维管线管理 belongs_to PipelineWebGL
++
+PipelineWebGL/管线系统具有 X
+→ 三维管线管理具有 X
+```
+
+禁止属性继承。
+
+---
+
+# 37. 不需要人工补完整 Graph
+
+这是本 PRD 的明确非目标：
+
+```text
+不给每个 Module 人工补 Function
+不给每个 Function 人工补 Chunk
+不给每个 Chunk 人工补 derived_from
+```
+
+系统必须在：
+
+```text
+不存在完整 Entity→Chunk Graph
+```
+
+时仍保持合理 Recall。
+
+---
+
+# 38. Graph 的长期维护目标
+
+人工/审核重点只放在：
+
+```text
+稳定实体 Backbone
+关键 belongs_to
+关键 different_from
+关键 requires
+关键强关系
+```
+
+这些关系：
+
+```text
+数量低
+稳定
+价值高
+```
+
+而：
+
+```text
+Entity ↔ Chunk
+Section ↔ Entity
+Mention
+Semantic Relatedness
+```
+
+应主要自动产生。
+
+---
+
+# 39. 自动 Entity↔Chunk 增强
+
+未来 ingestion 可以自动形成：
+
+```text
+exact entity mention
+alias mention
+section entity
+heading entity
+mentioned_entities
+NER entity link
+LLM extraction link
+```
+
+但这些是：
+
+```text
+Ranking / Attribution signal
+```
+
+不是：
+
+```text
+系统正常回答的必要条件
+```
+
+---
+
+# 40. 不要求本轮知识库重建
+
+本轮核心架构修复必须能够：
+
+```text
+在当前知识库
+当前 Graph
+当前 Chunk
+```
+
+上直接验证。
+
+否则就无法证明：
+
+> 是代码架构修复了 Recall。
+
+不能通过：
+
+```text
+先人工补三维管线管理 → Chunk
+```
+
+把事故掩盖掉。
+
+---
+
+# 41. Coverage 的处理
+
+`RELATED_CONTEXT` 属于合法 Evidence。
+
+所以：
+
+```text
+TARGET_SPECIFIC Graph Evidence
++
+RELATED_CONTEXT Text Evidence
+```
+
+可以使开放式：
+
+```text
+general_qa
+```
+
+达到：
+
+```text
+PARTIAL
+```
+
+甚至增加回答信息量。
+
+但不得因为 CONTEXT_ONLY 很多就：
+
+```text
+FULL
+```
+
+---
+
+# 42. Coverage 应考虑 Support Scope
+
+Coverage 的 Code Gate 只判断结构可发布性，不得使用“功能/端口/部署/配置”等关键词判断某个 facet 是否已被语义覆盖。显式 facet 的完整覆盖属于冻结 Evidence Snapshot 上的语义判断，应交给 Grounding Reviewer；Code 只保证 `support_scope` 合法、存在直接证据时才允许目标属性 Claim 进入后续审查。
+
+
+例如：
+
+```text
+用户：
+三维管线管理有哪些功能？
+```
+
+Evidence：
+
+```text
+Graph belongs_to
++
+5 个 RELATED_CONTEXT 管线功能 Chunk
+```
+
+应该：
+
+```text
+Coverage = PARTIAL
+```
+
+不能：
+
+```text
+FULL
+```
+
+因为目标 Function Attribution 没得到 TARGET_SPECIFIC Evidence。
+
+---
+
+# 43. explicit facet 问题
+
+例如：
+
+```text
+三维管线管理是否支持碰撞分析？
+```
+
+只有：
+
+```text
+RELATED_CONTEXT:
+管线系统支持碰撞分析
+```
+
+结果必须：
+
+```text
+PARTIAL / unresolved
+```
+
+不能回答：
+
+```text
+是
+```
+
+可以回答：
+
+```text
+相关管线系统资料中存在碰撞分析功能，
+但当前证据不足以确认该功能是否直接属于“三维管线管理”模块。
+```
+
+---
+
+# 44. general_qa 问题
+
+例如：
+
+```text
+三维管线管理的相关信息
+```
+
+允许：
+
+```text
+Graph TARGET_SPECIFIC
++
+多个 RELATED_CONTEXT
+```
+
+共同形成丰富但保守的回答。
+
+这正是本轮需要恢复的能力。
+
+---
+
+# 45. Reuse Evidence 路径必须同步
+
+当前存在：
+
+```text
+_admit_existing_agent_docs_v2()
+```
+
+Previous-turn reused docs 也必须重新经过：
+
+```text
+TextEvidenceAdmissionService
+```
+
+并且必须携带当前 Query 的：
+
+```text
+SemanticTaskContext
+GraphWorkingSet
+```
+
+Fresh / Reuse / Pinned / Retry 不得使用不同的冲突事实世界。
+
+并重新获得当前 Query 的：
+
+```text
+evidence_class
+support_scope
+```
+
+禁止复用上一轮：
+
+```text
+TARGET_SPECIFIC
+```
+
+身份。
+
+因为：
+
+```text
+Evidence qualification 是 Query-scoped
+```
+
+---
+
+# 46. Pinned Chunk 同样不是自动 Evidence
+
+Pinned：
+
+```text
+只是强 Candidate Signal
+```
+
+仍需：
+
+```text
+Conflict Guard
+Text Qualification
+Intent Qualification
+```
+
+不能绕过新协议。
+
+---
+
+# 47. Agent Candidate Pipeline 修改
+
+最终：
+
+```text
+AgentCandidatePipeline
+```
+
+只负责：
+
+```text
+generate()
+merge
+dedup
+fusion
+provenance
+```
+
+可以保留轻量：
+
+```text
+candidate trace
+```
+
+但不应继续拥有业务 Admission 权威。
+
+---
+
+# 48. 推荐代码结构
+
+```text
+rag_knowledge/services/
+
+dialogue_understanding.py
+    Canonical Semantic Task
+
+identity_scope.py
+    Identity
+
+agent_candidate_pipeline.py
+    Candidate Generation
+
+text_evidence_admission.py
+    Text Evidence Qualification
+
+relation_policy.py
+graph_admission.py
+    Graph Relation Evidence
+
+agent_orchestration/models.py
+    EvidencePool / Snapshot
+
+evidence_gate.py
+    Structural publishability / protocol validation
+
+helper_grounding_reviewer.py
+    Semantic Coverage + Claim Support
+
+answer_finalizer.py
+    Publication
+```
+
+---
+
+# 49. TextEvidenceAdmissionService API
+
+建议：
+
+```python
+class TextEvidenceAdmissionService:
+
+    def qualify(
+        self,
+        candidate: CandidateResult,
+        *,
+        semantic_task: SemanticTaskContext,
+        target_entity: str,
+        graph_working_set: GraphWorkingSet | None,
+    ) -> TextEvidenceQualification:
+        ...
+```
+
+禁止：
+
+```text
+question: raw string
+```
+
+成为 V2 Admission 的主语义输入。
+
+V2 必须以：
+
+```text
+semantic_task
+```
+
+作为唯一语义 authority。若外部传入 `target_entity` 与 `semantic_task.primary_entity` 冲突，必须按协议错误 fail-closed，不能由调用方覆盖冻结语义。
+
+---
+
+# 50. Conflict Resolver
+
+可以在 Admission Service 内部集中实现：
+
+```python
+resolve_entity_conflict(...)
+```
+
+输出：
+
+```text
+NO_CONFLICT
+EXPLICIT_CONFLICT
+```
+
+不要建立：
+
+```text
+MaybeConflict
+ProbablyConflict
+WeakConflict
+```
+
+等复杂状态。
+
+模糊情况交给 Semantic Qualification。
+
+---
+
+# 51. Positive Signal 不等于直接归属
+
+例如：
+
+```text
+graph neighbor
+semantic similarity
+pipeline terminology
+same parent product
+same domain
+```
+
+只能提升：
+
+```text
+RELATED_CONTEXT likelihood
+```
+
+不能单独提升：
+
+```text
+TARGET_DIRECT
+```
+
+这是非常重要的防漂移边界。
+
+---
+
+# 52. Parent / Child 关系不能自动继承
+
+禁止：
+
+```text
+Child belongs_to Parent
+Parent chunk
+→ Child TARGET_DIRECT
+```
+
+Parent Chunk 最多：
+
+```text
+RELATED_CONTEXT
+```
+
+除非文本本身明确提到 Child。
+
+---
+
+# 53. Sibling 关系
+
+如果：
+
+```text
+A
+B
+```
+
+是明确不同 sibling：
+
+```text
+A different_from B
+```
+
+则：
+
+```text
+B-only Candidate
+```
+
+针对 A：
+
+```text
+CONFLICT
+```
+
+这是防：
+
+```text
+PipelineWebGL → PipelineBuilder
+```
+
+的核心。
+
+---
+
+# 54. Mixed Chunk
+
+现实中一个 Chunk 可能同时包含：
+
+```text
+PipelineBuilder
+PipelineWebGL
+PipelineWebRTC
+```
+
+不能因为：
+
+```text
+document_entity = PipelineBuilder
+```
+
+就整个拒绝。
+
+应该看目标实体的：
+
+```text
+local target segment
+```
+
+如果目标实体附近存在直接事实：
+
+```text
+TARGET_DIRECT
+```
+
+否则才根据整体冲突判断。
+
+现有：
+
+```text
+target_segments
+```
+
+思路可以保留并迁入 Admission Service。
+
+---
+
+# 55. 局部 Attribution 优先于 Document Attribution
+
+优先级建议：
+
+```text
+local explicit target statement
+>
+section target
+>
+entity_chunk_link
+>
+document_entity
+>
+graph relatedness
+>
+semantic relatedness
+```
+
+负向：
+
+```text
+local explicit foreign entity
++
+different_from
+```
+
+具有最高冲突优先级。
+
+---
+
+# 56. Trace 必须升级
+
+每个 Text Candidate 至少记录：
+
+```json
+{
+  "chunk_id": "...",
+  "document_entity": "...",
+
+  "candidate_sources": [],
+  "fusion_score": 0.0,
+  "rerank_score": 0.0,
+
+  "conflict": {
+    "status": "NO_CONFLICT",
+    "signals": []
+  },
+
+  "qualification": {
+    "verdict": "PASS",
+    "evidence_class": "RELATED_CONTEXT",
+    "support_scope": "CONTEXT_ONLY",
+    "intent_relevance": "HIGH",
+    "reason_code": "...",
+    "signals": []
+  }
+}
+```
+
+---
+
+# 57. Trace 必须可以回答的问题
+
+单条真实 Trace 必须回答：
+
+```text
+为什么这个 Candidate 被召回？
+为什么没有被 Entity Conflict Guard 拦？
+为什么它是 TARGET_DIRECT？
+为什么它只是 RELATED_CONTEXT？
+为什么这个 PipelineBuilder Chunk 被判 CONFLICT？
+为什么它进入了 EvidencePool？
+为什么最终 Claim 不能直接归属于 Target？
+```
+
+如果只能看到：
+
+```text
+PASS / REJECT
+```
+
+不通过可观测性验收。
+
+---
+
+# 58. Evidence Snapshot Trace
+
+Snapshot 中每条 Evidence 必须记录：
+
+```text
+evidence_id
+source_type
+evidence_class
+support_scope
+target_entity
+canonical_question
+admission_reason
+```
+
+Graph relation：
+
+```text
+source_type = graph_relation
+support_scope = RELATION_SPECIFIC
+```
+
+如果不想新增 `RELATION_SPECIFIC` 到 Text 协议，可保持 Graph 自身独立 metadata。
+
+不要把 Graph 强行塞进 Text Enum。
+
+---
+
+# 59. Answer Trace
+
+生成 Candidate Answer 后建议记录：
+
+```text
+Claim
+→ cited evidence ids
+→ cited evidence support_scope
+```
+
+Reviewer 后：
+
+```text
+claim status
+reason
+```
+
+这样才能排查：
+
+```text
+到底是 Admission 放错了
+还是 Answer Generator 用错了
+还是 Reviewer 放错了
+```
+
+---
+
+# 60. Phase 0：事故基线冻结
+
+实施前保存三组 Gold Trace。
+
+## Case A：PipelineWebGL / PipelineBuilder
+
+确保存在噪声：
+
+```text
+PipelineBuilder Candidate
+```
+
+并记录当前是否 REJECT。
+
+目标：
+
+```text
+新架构不得使其污染 EvidencePool
+```
+
+---
+
+## Case B：PipelineWebRTC
+
+记录跨 document_entity 的直接 Target Text。
+
+目标：
+
+```text
+必须继续 TARGET_DIRECT
+```
+
+不能因为本轮改造退化。
+
+---
+
+## Case C：三维管线管理
+
+保存当前：
+
+```text
+Graph Evidence = 2
+Text Evidence = 0
+```
+
+以及真实高相关 Chunk IDs。
+
+这是本 PRD 的核心 Recall Gold。
+
+---
+
+# 61. Phase 1：建立新协议
+
+新增：
+
+```text
+TextEvidenceQualification
+```
+
+以及：
+
+```text
+protocol validator
+```
+
+测试合法 / 非法组合。
+
+此阶段不改变生产行为。
+
+---
+
+# 62. Phase 2：建立 TextEvidenceAdmissionService
+
+迁入：
+
+```text
+entity attribution
+intent relevance
+semantic admission
+protocol validation
+```
+
+先保证旧测试行为等价。
+
+即：
+
+```text
+架构先收权
+行为暂不放宽
+```
+
+避免重构和策略修改同时发生，难以定位回归。
+
+---
+
+# 63. Phase 3：收敛 Explicit Conflict Guard
+
+将旧：
+
+```text
+structural_guard
+```
+
+收敛到：
+
+```text
+明确冲突才 reject
+```
+
+必须测试：
+
+```text
+different_from → reject
+document_entity mismatch only → keep
+no graph link → keep
+```
+
+---
+
+# 64. Phase 4：引入 RELATED_CONTEXT
+
+Semantic Qualification 正式支持：
+
+```text
+RELATED_CONTEXT
+```
+
+首先只作用于：
+
+```text
+general_qa
+```
+
+与明确可上下文表达的问题。
+
+但不要靠 feature flag 做永久分叉。
+
+Phase 完成后应成为统一规则。
+
+---
+
+# 65. Phase 5：EvidencePool 保存 Support Scope
+
+所有 admitted Text 写入：
+
+```text
+text_evidence_class
+support_scope
+```
+
+旧字段：
+
+```text
+admission
+admission_verdict
+```
+
+如无继续用途，迁移完成后删除或收敛。
+
+不要长期双协议。
+
+---
+
+# 66. Phase 6：Answer Generator 支持 Scope
+
+Answer Prompt 加入明确证据约束。
+
+确保：
+
+```text
+CONTEXT_ONLY
+```
+
+不会直接生成：
+
+```text
+Target has X
+```
+
+---
+
+# 67. Phase 7：Reviewer Enforcement
+
+Grounding Reviewer 加入：
+
+```text
+Claim Attribution
+vs
+Evidence Support Scope
+```
+
+检查。
+
+这是 RELATED_CONTEXT 能安全进入 EvidencePool 的最后保险。
+
+没有这个阶段，本 PRD 不允许上线。
+
+---
+
+# 68. Phase 8：Coverage 调整
+
+Coverage 不只统计：
+
+```text
+Evidence 数量
+```
+
+还需考虑：
+
+```text
+Requested Facet
+是否存在 TARGET_SPECIFIC Evidence
+```
+
+特别是：
+
+```text
+function / config / deployment / exact parameter
+```
+
+这类明确 facet。
+
+---
+
+# 69. Phase 9：清理旧 Admission
+
+删除：
+
+```text
+AgentCandidatePipeline.admit()
+旧 AdmissionResult
+旧 valid_admission_protocol()
+rag.py 内重复 Text Admission Prompt
+```
+
+只保留必要兼容转换直到测试完成。
+
+最终：
+
+```text
+一个 Text Admission Authority
+```
+
+---
+
+# 70. Gold Set 设计
+
+至少建立四类 Gold。
+
+## Gold A：Direct Target Evidence
+
+例如：
+
+```text
+PipelineWebRTC
+正文直接出现 PipelineWebRTC
+```
+
+期望：
+
+```text
+TARGET_DIRECT
+TARGET_SPECIFIC
+PASS
+```
+
+---
+
+## Gold B：Related Context
+
+例如：
+
+```text
+Target = 三维管线管理
+
+Chunk =
+管线系统
+碰撞分析
+智能排管
+管理区监测
+```
+
+且无直接 Module attribution。
+
+期望：
+
+```text
+RELATED_CONTEXT
+CONTEXT_ONLY
+PASS
+```
+
+---
+
+## Gold C：Entity Conflict
+
+```text
+Target = PipelineWebGL
+
+Candidate =
+PipelineBuilder-only
+
+Graph =
+different_from
+```
+
+期望：
+
+```text
+CONFLICT
+REJECT
+```
+
+---
+
+## Gold D：Irrelevant
+
+例如：
+
+```text
+Target = 三维管线管理
+
+Candidate =
+WebRTC 部署
+```
+
+期望：
+
+```text
+IRRELEVANT
+REJECT
+```
+
+---
+
+# 71. 必须有“难例”
+
+例如：
+
+```text
+document_entity = PipelineBuilder
+
+正文同时明确写：
+PipelineWebGL 部署到某目录
+```
+
+不能因为 Document Entity 直接拒绝。
+
+目标局部事实应：
+
+```text
+TARGET_DIRECT
+```
+
+---
+
+# 72. 必须有父实体文本
+
+例如：
+
+```text
+三维管线管理 belongs_to PipelineWebGL
+```
+
+候选：
+
+```text
+PipelineWebGL 支持某能力
+```
+
+但不提：
+
+```text
+三维管线管理
+```
+
+期望：
+
+```text
+RELATED_CONTEXT 或 IRRELEVANT
+```
+
+绝不能：
+
+```text
+TARGET_DIRECT
+```
+
+---
+
+# 73. 必须有“无 Graph Link 但高度相关”样本
+
+目标：
+
+```text
+证明 Graph 不是许可证
+```
+
+Candidate：
+
+```text
+无 entity_chunk_link
+无 graph_path
+```
+
+但语义高度相关、无冲突。
+
+期望：
+
+```text
+可以 RELATED_CONTEXT
+```
+
+---
+
+# 74. 必须有“有 Graph Path 但其实错误”样本
+
+Graph Candidate Expansion 只代表：
+
+```text
+值得搜
+```
+
+不代表：
+
+```text
+Evidence 自动合法
+```
+
+因此需要：
+
+```text
+graph_path exists
++
+content irrelevant
+```
+
+期望：
+
+```text
+IRRELEVANT
+```
+
+---
+
+# 75. 单元测试
+
+至少新增：
+
+```text
+test_no_entity_link_does_not_mean_conflict
+
+test_document_entity_mismatch_is_not_hard_reject
+
+test_different_from_is_explicit_conflict
+
+test_target_direct_from_exact_local_mention
+
+test_target_direct_cross_document_entity
+
+test_related_context_without_direct_attribution
+
+test_related_context_cannot_gain_target_specific_scope
+
+test_irrelevant_candidate_rejected
+
+test_conflict_candidate_cannot_pass_protocol
+
+test_general_qa_accepts_related_context
+
+test_explicit_function_query_keeps_related_context_partial
+
+test_parent_fact_does_not_transfer_to_child
+
+test_graph_path_does_not_authorize_text_evidence
+
+test_reused_evidence_is_requalified_per_query
+
+test_snapshot_freezes_support_scope
+```
+
+---
+
+# 76. Reviewer 测试
+
+至少：
+
+```text
+test_context_only_supports_contextual_claim
+
+test_context_only_rejects_target_attribute_claim
+
+test_target_specific_supports_target_claim
+
+test_graph_relation_supports_relation_claim_only
+
+test_graph_relation_plus_context_does_not_create_attribute_inheritance
+
+test_reviewer_cannot_upgrade_support_scope
+```
+
+---
+
+# 77. 集成测试
+
+完整链：
+
+```text
+Candidate Generation
+→ Conflict Guard
+→ Rerank
+→ Text Qualification
+→ EvidencePool
+→ Snapshot
+→ Answer
+→ Reviewer
+→ Publication
+```
+
+禁止只 mock Admission Service。
+
+至少一组测试使用真实存储中的事故 Chunk。
+
+---
+
+# 78. 真实 Micro-chain A：三维管线管理
+
+输入：
+
+```text
+pipeline
+→ 三维管线管理
+```
+
+预期：
+
+```text
+Canonical Identity 正确
+
+PipelineBuilder
+→ CONFLICT / REJECT
+
+三维管线 / 管线系统 Chunk
+→ 至少部分 RELATED_CONTEXT
+
+Graph belongs_to
+→ Relation Evidence
+
+EvidencePool
+→ Graph + Text
+
+Coverage
+→ PARTIAL
+
+Answer
+→ 不直接把管线系统功能全部归属于 Module
+
+Reviewer
+→ PASS
+```
+
+---
+
+# 79. 真实 Micro-chain B：PipelineWebGL
+
+输入：
+
+```text
+PipelineWebGL 的相关信息
+```
+
+即使 Candidate 中出现：
+
+```text
+PipelineBuilder
+```
+
+最终：
+
+```text
+Wrong Entity Contamination = 0
+```
+
+---
+
+# 80. 真实 Micro-chain C：PipelineWebRTC
+
+必须确保之前已经修好的合法跨文档 Text：
+
+```text
+仍为 TARGET_DIRECT
+```
+
+不能因为本轮重构让 Recall 再次下降。
+
+---
+
+# 81. 完整浏览器 E2E
+
+必须至少验证：
+
+```text
+pipeline
+→ 澄清卡
+→ 选择 三维管线管理
+→ 不重复澄清
+→ Retrieval
+→ Graph + Text Evidence
+→ grounded_partial
+```
+
+浏览器最终回答必须体现：
+
+```text
+“确认事实”
+与
+“相关但归属未完全证明的信息”
+```
+
+之间的区别。
+
+---
+
+# 82. 核心指标
+
+## Evidence Recall
+
+重点测：
+
+```text
+RELATED_CONTEXT Gold Recall@K
+```
+
+三维管线相关 Gold 必须显著高于当前：
+
+```text
+0
+```
+
+---
+
+## Wrong Entity Contamination
+
+定义：
+
+```text
+最终 EvidencePool 中
+CONFLICT Entity Text
+的比例
+```
+
+要求：
+
+```text
+0
+```
+
+特别是：
+
+```text
+PipelineWebGL / PipelineBuilder
+```
+
+---
+
+## Text Qualification Precision
+
+分别统计：
+
+```text
+TARGET_DIRECT precision
+RELATED_CONTEXT precision
+CONFLICT precision
+IRRELEVANT precision
+```
+
+不能只算：
+
+```text
+PASS / REJECT accuracy
+```
+
+---
+
+# 83. Claim Attribution Accuracy
+
+新建指标：
+
+```text
+Target Attribution Claim Error Rate
+```
+
+重点测：
+
+```text
+RELATED_CONTEXT
+被错误提升成 Target Attribute Claim
+```
+
+要求：
+
+```text
+不得高于当前严格 Grounding 安全基线
+```
+
+最好为：
+
+```text
+0
+```
+
+在核心 Gold 中必须为 0。
+
+---
+
+# 84. NO_SAFE_ANSWER / PARTIAL 安全性
+
+需要测试：
+
+```text
+大量 RELATED_CONTEXT
+但没有任何 TARGET_SPECIFIC
+```
+
+如果用户问非常明确的：
+
+```text
+“X 的端口是多少？”
+```
+
+不能靠上下文猜。
+
+仍然：
+
+```text
+PARTIAL / NO_SAFE_ANSWER
+```
+
+视 Evidence 情况而定。
+
+---
+
+# 85. 性能预算
+
+新架构不能让所有 Candidate 都调用 Helper。
+
+必须：
+
+```text
+Deterministic clear cases
+直接完成
+
+只有 AMBIGUOUS
+调用 Semantic Qualification
+```
+
+目标：
+
+```text
+Semantic Admission LLM calls
+<= reranked ambiguous candidates
+```
+
+而不是：
+
+```text
+每个 raw candidate 都调用一次
+```
+
+---
+
+# 86. 批处理优先
+
+如果当前 Helper 接口允许，优先：
+
+```text
+一次结构化请求
+判断 N 个 ambiguous Candidate
+```
+
+而不是：
+
+```text
+N 个 Candidate
+→ N 次 HTTP LLM 调用
+```
+
+但不要为了批处理引入复杂异步架构。
+
+先以稳定为主。
+
+---
+
+# 87. Latency Trace
+
+记录：
+
+```text
+candidate_generation_ms
+conflict_guard_ms
+rerank_ms
+deterministic_qualification_ms
+semantic_qualification_ms
+evidence_materialization_ms
+answer_ms
+review_ms
+```
+
+避免后续只看到：
+
+```text
+总耗时 120 秒
+```
+
+却不知道慢在哪里。
+
+---
+
+# 88. 不要做的性能优化
+
+禁止：
+
+```text
+为了省 Semantic Admission
+重新把 document_entity 做成硬 filter
+```
+
+也禁止：
+
+```text
+为了减少 Candidate
+恢复 Identity Allowlist
+```
+
+这会重新制造旧问题。
+
+---
+
+# 89. 回滚策略
+
+实施期间可保留：
+
+```text
+agent_candidate_pipeline_v2
+```
+
+已有迁移开关。
+
+但不要再新增：
+
+```text
+related_context_v1
+related_context_v2
+soft_admission_v3
+```
+
+这种长期 Feature Flag 堆积。
+
+本轮新协议验证完成后应成为 V2 唯一行为。
+
+---
+
+# 90. Legacy 清理
+
+DoD 前搜索：
+
+```text
+AdmissionResult
+valid_admission_protocol
+entity_relevance
+semantic_admitter
+admitted_documents
+```
+
+确认不存在：
+
+```text
+旧 Admission
+新 Admission
+```
+
+同时作为生产权威。
+
+---
+
+# 91. 数据库与知识图谱非目标
+
+本轮不要求：
+
+```text
+修改 graph.db schema
+人工补 Entity→Chunk
+重建整个 Graph
+重做全部文档 Chunk
+```
+
+除非实施过程中发现现有 metadata 本身损坏。
+
+否则不能把架构问题转化为数据补录任务。
+
+---
+
+# 92. 第一性原则验收
+
+实施完成后必须能清楚回答：
+
+```text
+为什么 PipelineBuilder 被拒？
+```
+
+答案应该是：
+
+```text
+因为它与当前 Entity 存在明确冲突。
+```
+
+而不是：
+
+```text
+因为它不是当前 document_entity。
+```
+
+同时：
+
+```text
+为什么“管线系统碰撞分析”能进入 EvidencePool？
+```
+
+答案应该是：
+
+```text
+因为它与当前问题高度相关且不存在实体冲突，
+但它只获得 CONTEXT_ONLY scope。
+```
+
+而不是：
+
+```text
+因为我们给三维管线管理补了一条 Graph link。
+```
+
+---
+
+# 93. 关键事故预期变化
+
+改造前：
+
+```text
+三维管线管理
+
+Graph = 2
+Text = 0
+
+→ 回答信息非常少
+```
+
+改造后：
+
+```text
+Graph Relation Evidence
+= 2
+
+TARGET_DIRECT Text
+= 视真实文档而定
+
+RELATED_CONTEXT Text
+= 若干管线系统 / 三维管线高相关片段
+
+CONFLICT
+= PipelineBuilder 等明确错误主体
+
+IRRELEVANT
+= 无关 Candidate
+```
+
+最终：
+
+```text
+更丰富
+但不越权
+```
+
+---
+
+# 94. 最终回答预期示例
+
+在当前已知 Evidence 下，比较合理的回答应接近：
+
+> “三维管线管理”在知识图谱中归属于 PipelineWebGL，同时属于业务应用层。当前检索到的相关三维管线资料还涉及管线模型、查询统计、碰撞分析、智能排管、管理区监测和保护区监测等内容。需要注意的是，现有资料没有明确证明这些能力全部直接归属于“三维管线管理”这一模块，因此这里只能作为相关管线系统信息说明，而不能全部认定为该模块的确定功能。
+
+这里：
+
+```text
+belongs_to
+```
+
+是：
+
+```text
+TARGET_SPECIFIC
+```
+
+而：
+
+```text
+碰撞分析等
+```
+
+是：
+
+```text
+CONTEXT_ONLY
+```
+
+这是本轮的目标行为。
+
+---
+
+# 95. Definition of Done
+
+以下全部完成才可标记本 PRD 为“已完成”。
+
+### 架构 DoD
+
+* [ ] `SemanticTaskContext` 仍为唯一语义权威。
+* [ ] Candidate Generation 与 Text Evidence Qualification 完全分离。
+* [ ] 新增唯一 `TextEvidenceAdmissionService`。
+* [ ] `AgentCandidatePipeline` 不再拥有生产 Text Admission 权威。
+* [ ] `rag.py` 不再维护独立 Text Admission 业务规则。
+* [ ] Graph 不再作为 Text Evidence 必选许可证。
+* [ ] `absence_of_entity_link != conflict` 成为正式协议。
+* [ ] Explicit Entity Conflict Guard 只处理明确冲突。
+
+### Evidence DoD
+
+* [ ] 正式支持 `TARGET_DIRECT`。
+* [ ] 正式支持 `RELATED_CONTEXT`。
+* [ ] 正式支持 `CONFLICT`。
+* [ ] 正式支持 `IRRELEVANT`。
+* [ ] `TARGET_DIRECT → TARGET_SPECIFIC`。
+* [ ] `RELATED_CONTEXT → CONTEXT_ONLY`。
+* [ ] `CONFLICT / IRRELEVANT → NONE`。
+* [ ] EvidencePool 保存 `evidence_class` 与 `support_scope`。
+* [ ] Snapshot 冻结 `support_scope`。
+* [ ] Reuse Evidence 必须针对新 Query 重新 Qualification。
+
+### Grounding DoD
+
+* [ ] Answer Generator 明确感知 Support Scope。
+* [ ] CONTEXT_ONLY 不得直接生成 Target Attribute Claim。
+* [ ] Reviewer 检查 Claim Attribution 与 Support Scope。
+* [ ] Reviewer 不得升级 Evidence Scope。
+* [ ] `belongs_to + RELATED_CONTEXT` 不得产生自动属性继承。
+* [ ] Graph Relation Evidence 只支撑对应 Relation Claim。
+
+### Recall / Precision DoD
+
+* [ ] 三维管线管理真实事故中至少部分高相关管线 Chunk 成为 `RELATED_CONTEXT`。
+* [ ] PipelineBuilder 相关明确冲突 Chunk 不进入 EvidencePool。
+* [ ] PipelineWebRTC 合法跨文档 TARGET_DIRECT 不退化。
+* [ ] `document_entity != target` 不再自动拒绝。
+* [ ] 无 Graph Link 的高相关 Candidate 可以成为 RELATED_CONTEXT。
+* [ ] Graph Path 本身不能让无关 Text PASS。
+* [ ] Wrong Entity Contamination 核心 Gold = 0。
+* [ ] RELATED_CONTEXT Gold Recall 明显高于当前事故基线。
+
+### Coverage DoD
+
+* [ ] general_qa 可以利用 RELATED_CONTEXT 形成合法 PARTIAL。
+* [ ] explicit facet 不因 RELATED_CONTEXT 数量多而错误 FULL。
+* [ ] Target-specific facet 缺 TARGET_SPECIFIC 时不会虚假 FULL。
+* [ ] FULL / PARTIAL / NONE 协议不新增第二套状态词。
+
+### 测试 DoD
+
+* [ ] 新协议单元测试全部通过。
+* [ ] Conflict Guard 测试全部通过。
+* [ ] RELATED_CONTEXT 测试全部通过。
+* [ ] Claim Support Matrix 测试全部通过。
+* [ ] Reuse Evidence 测试通过。
+* [ ] Snapshot 测试通过。
+* [ ] Agent Candidate V2 回归全部通过。
+* [ ] Graph Evidence 回归全部通过。
+* [ ] PipelineWebRTC 事故回归通过。
+* [ ] PipelineWebGL / PipelineBuilder 事故回归通过。
+* [ ] 三维管线管理事故回归通过。
+* [ ] 全量非集成测试通过。
+
+### 真实模型 DoD
+
+* [ ] 三维管线管理真实 Micro-chain 通过。
+* [ ] PipelineWebGL 防漂移 Micro-chain 通过。
+* [ ] PipelineWebRTC 跨文档 Evidence Micro-chain 通过。
+* [ ] 每个关键场景至少多次运行结果稳定。
+* [ ] Reviewer 不将 CONTEXT_ONLY 错误提升。
+* [ ] 最终 Publication 为 grounded。
+
+### 可观测性 DoD
+
+* [ ] Trace 能看到 Conflict 判断。
+* [ ] Trace 能看到 Evidence Class。
+* [ ] Trace 能看到 Support Scope。
+* [ ] Trace 能看到 Admission Reason Code。
+* [ ] Snapshot Trace 保留 Support Scope。
+* [ ] Claim Review 能追到 Evidence ID + Support Scope。
+* [ ] 同一请求不存在互相矛盾的 Admission 状态。
+
+### 工程卫生 DoD
+
+* [ ] 不新增 `pipeline`、`三维管线管理` 等实体名特判。
+* [ ] 不通过人工补 Graph 掩盖 Recall 问题。
+* [ ] 不保留双 Admission Authority。
+* [ ] 不新增长期无意义 Feature Flag。
+* [ ] 不保留废弃 `AdmissionResult` 旁路。
+* [ ] `git diff --check` / 对应 SVN 检查通过。
+* [ ] 无临时脚本、备份代码或无关修改。
+* [ ] 文档只有全部 DoD 通过后才能移动至“已完成”。
+
+---
+
+# 96. 最终验收判据
+
+这次重构最终只看两个方向。
+
+### 正向
+
+```text
+该使用的相关资料能够留下。
+```
+
+特别是：
+
+```text
+三维管线管理
+→ 三维管线 / 管线系统高相关 Text
+→ RELATED_CONTEXT
+→ EvidencePool
+```
+
+而不要求先人工构建：
+
+```text
+三维管线管理 → Chunk
+```
+
+---
+
+### 反向
+
+```text
+错误实体仍然不能污染回答。
+```
+
+特别是：
+
+```text
+PipelineWebGL
+→ PipelineBuilder
+```
+
+必须：
+
+```text
+CONFLICT
+→ REJECT
+```
+
+---
+
+最终架构应达到：
+
+```text
+高 Recall Candidate
++
+明确 Entity Conflict 防漂移
++
+Evidence Support Scope
++
+Claim-level Grounding
+```
+
+而不是两个极端：
+
+```text
+完全放开
+→ 实体漂移
+```
+
+或：
+
+```text
+必须有完整 Graph Attribution
+→ 大量合法相关资料被误杀
+```
+
+真正的最终原则是：
+
+> **对“明确错误”严格，对“尚未证明直接归属但高度相关”的信息保留；真正决定一句话能不能说出口的，不是 Chunk 有没有图谱身份证，而是最终 Claim 是否被具有正确 Support Scope 的 Evidence 支撑。**
+
+这份 PRD 可以直接作为下一轮 Gemini 3.7 的实施输入；实施完成后再由独立审查按第 95 节 DoD 逐项验收，不应以“代码已改完”作为完成标准。

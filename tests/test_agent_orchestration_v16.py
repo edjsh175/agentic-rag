@@ -5,10 +5,7 @@ from unittest.mock import MagicMock
 
 from langchain_core.documents import Document
 
-from rag_knowledge.services.agent_orchestration.evidence_gate import (
-    evaluate_claim_alignment,
-    evaluate_rules,
-)
+from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
 from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
 from rag_knowledge.services.agent_orchestration.runtime import build_agent_registry
 from rag_knowledge.services.bm25_store import BM25Store
@@ -410,81 +407,6 @@ def test_v16_structural_gate_rejects_cross_grant_chunk():
 
     assert verdict["allow_knowledge_answer"] is False
     assert verdict["reason"] == "grant_id_mismatch"
-
-
-def test_v16_claim_guard_rejects_b_claim_backed_only_by_a_evidence():
-    semantic = _semantic("EntityA", "EntityB", primary="EntityA")
-    _, resolver = _resolver(semantic, _FakeGraphDB())
-    grant_a = resolver.authorize("EntityA").grant
-    grant_b = resolver.authorize("EntityB").grant
-    assert grant_a is not None and grant_b is not None
-
-    pool = EvidencePool(question_id="q")
-    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
-    pool.add_retrieve([_grant_doc(grant_b, "EntityB", "b", "B fact")], target_entity="EntityB", grant=grant_b)
-    docs = pool.citable_docs_renumbered()
-
-    verdict = evaluate_claim_alignment("EntityB 的端口是 8080。[1]", pool, docs)
-
-    assert verdict["allow_claims"] is False
-    assert verdict["reason"] == "entity_claim_misaligned"
-
-
-def test_v16_claim_guard_requires_relation_evidence_for_cross_entity_relation():
-    semantic = _semantic("EntityA", "ServiceX", primary="EntityA")
-    _, resolver = _resolver(semantic, _FakeGraphDB())
-    grant_a = resolver.authorize("EntityA").grant
-    grant_s = resolver.authorize("ServiceX").grant
-    assert grant_a is not None and grant_s is not None
-
-    pool = EvidencePool(question_id="q")
-    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
-    pool.add_retrieve([_grant_doc(grant_s, "ServiceX", "s", "Service fact")], target_entity="ServiceX", grant=grant_s)
-    docs = pool.citable_docs_renumbered()
-
-    verdict = evaluate_claim_alignment("EntityA 依赖 ServiceX。[1][2]", pool, docs)
-
-    assert verdict["allow_claims"] is False
-    assert verdict["reason"] == "relation_claim_without_relation_evidence"
-
-
-def test_v16_claim_guard_accepts_matching_approved_relation_evidence():
-    semantic = _semantic("EntityA", primary="EntityA")
-    _, resolver = _resolver(semantic, _FakeGraphDB())
-    grant_a = resolver.authorize("EntityA").grant
-    grant_s = resolver.authorize("ServiceX").grant
-    assert grant_a is not None and grant_s is not None
-
-    pool = EvidencePool(question_id="q")
-    pool.add_retrieve([_grant_doc(grant_a, "EntityA", "a", "A fact")], target_entity="EntityA", grant=grant_a)
-    pool.add_retrieve([_grant_doc(grant_s, "ServiceX", "s", "Service fact")], target_entity="ServiceX", grant=grant_s)
-    pool.add_relation(
-        relation_key="EntityA -[depends_on]-> ServiceX",
-        target_entity="ServiceX",
-        grant=grant_s,
-        admission_verdict="PASS",
-        provenance=[{
-            "source_type": "graph_relation",
-            "source_ref": "relation:dep",
-            "relation_type": "depends_on",
-            "source_entity": "EntityA",
-            "target_entity": "ServiceX",
-        }],
-    )
-    docs = pool.citable_docs_renumbered()
-    relation_citation = next(
-        int(doc["metadata"]["citation_id"])
-        for doc in docs
-        if doc["metadata"].get("relation_type") == "depends_on"
-    )
-
-    verdict = evaluate_claim_alignment(
-        f"EntityA 依赖 ServiceX。[{relation_citation}]",
-        pool,
-        docs,
-    )
-
-    assert verdict["allow_claims"] is True
 
 
 def test_v16_tool_schema_exposes_target_entity_for_retrieve_and_retired_link():

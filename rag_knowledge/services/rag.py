@@ -3088,16 +3088,9 @@ class RagChain:
             graph_working_set=graph_working_set,
         )
         generated_at = time.perf_counter()
-        guarded = await asyncio.to_thread(
-            pipeline.structural_guard,
-            candidates,
-            target_entity=target,
-            graph_working_set=graph_working_set,
-        )
-        guarded_at = time.perf_counter()
         reranked_docs = await self._postprocess_docs(
             question,
-            [candidate.document for candidate in guarded],
+            [candidate.document for candidate in candidates],
             bool(getattr(plan, "enable_rerank", False)),
             target_top_k=getattr(plan, "top_k", None),
             # Cross-document evidence is intentionally judged by admission, not
@@ -3106,7 +3099,7 @@ class RagChain:
             strict_explicit_target=False,
         )
         reranked_at = time.perf_counter()
-        by_chunk_id = {candidate.chunk_id: candidate for candidate in guarded}
+        by_chunk_id = {candidate.chunk_id: candidate for candidate in candidates}
         reranked: list[Any] = []
         for document in reranked_docs:
             from rag_knowledge.services.agent_candidate_pipeline import _chunk_key
@@ -3114,25 +3107,25 @@ class RagChain:
             if candidate is not None:
                 candidate.document = document
                 reranked.append(candidate)
-        def semantic_admitter(query, candidate, deterministic):
-            return self._semantic_admit_agent_candidate(
-                query, candidate, target, deterministic, semantic_task=semantic_task,
-            )
+        from rag_knowledge.services.text_evidence_admission import TextEvidenceAdmissionService
+
+        cfg = getattr(self, "_cfg", None)
+        admission_service = TextEvidenceAdmissionService(cfg=cfg)
 
         admissions = await asyncio.to_thread(
             lambda: {
-                candidate.chunk_id: pipeline.admit(
-                    question,
+                candidate.chunk_id: admission_service.qualify(
                     candidate,
-                    target_entity=target,
                     semantic_task=semantic_task,
-                    semantic_admitter=semantic_admitter,
+                    target_entity=target,
+                    graph_working_set=graph_working_set,
+                    retrieval_query=question,
                 )
                 for candidate in reranked
             }
         )
         admitted_at = time.perf_counter()
-        admitted_docs = pipeline.admitted_documents(reranked, admissions)
+        admitted_docs = admission_service.admitted_documents(reranked, admissions)
         source_docs = [
             self._normalize_source(doc.page_content, doc.metadata, index + 1)
             for index, doc in enumerate(admitted_docs)
@@ -3148,7 +3141,6 @@ class RagChain:
             "target_entity": target,
             "generators": pipeline.generator_trace(candidates),
             "raw_candidates": [candidate.trace() for candidate in candidates],
-            "structural_candidates": [candidate.trace() for candidate in guarded],
             "reranked_chunk_ids": [candidate.chunk_id for candidate in reranked],
             "admissions": {
                 chunk_id: result.to_dict() for chunk_id, result in admissions.items()
@@ -3158,63 +3150,12 @@ class RagChain:
             ],
             "stage_ms": {
                 "candidate_generation": round((generated_at - started) * 1000, 1),
-                "structural_guard": round((guarded_at - generated_at) * 1000, 1),
-                "rerank": round((reranked_at - guarded_at) * 1000, 1),
+                "rerank": round((reranked_at - generated_at) * 1000, 1),
                 "admission": round((admitted_at - reranked_at) * 1000, 1),
             },
         }
         self._record_chunk_hit_query(source_docs)
         return source_docs, self._format_context(source_docs)
-
-    def _semantic_admit_agent_candidate(self, question, candidate, target_entity, deterministic, *, semantic_task=None):
-        """Ask the configured helper model only for a genuinely ambiguous candidate."""
-        from rag_knowledge.services.agent_candidate_pipeline import (
-            AdmissionResult,
-            valid_admission_protocol,
-        )
-        from rag_knowledge.llm_http import chat_role
-
-        payload = {
-            "target_entity": target_entity,
-            "question": question,
-            "document_entity": (candidate.document.metadata or {}).get("document_entity", ""),
-            "candidate_text": candidate.document.page_content[:1800],
-            "candidate_sources": candidate.source_generators,
-            "semantic_task": self._serialize_semantic_task_for_admission(semantic_task),
-            "deterministic_result": deterministic.to_dict(),
-        }
-        prompt = (
-            "判断候选片段能否作为当前问题的证据。不得扩大检索范围或改写主体。"
-            "只返回 JSON：{verdict: PASS|REJECT, entity_relevance: HIGH|MEDIUM|LOW|CONFLICT, "
-            "intent_relevance: HIGH|MEDIUM|LOW|NONE, reason: string, admission_signals: string[]}。\n"
-            + json.dumps(payload, ensure_ascii=False)
-        )
-        try:
-            raw = chat_role(
-                self._cfg,
-                "helper_llm",
-                [{"role": "user", "content": prompt}],
-                temperature=0.0,
-                timeout=20.0,
-                num_predict=256,
-            )
-            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw or "").strip(), flags=re.IGNORECASE)
-            data = json.loads(cleaned)
-            verdict = str(data.get("verdict") or "").upper()
-            entity = str(data.get("entity_relevance") or "").upper()
-            intent = str(data.get("intent_relevance") or "").upper()
-            if verdict not in {"PASS", "REJECT"} or entity not in {"HIGH", "MEDIUM", "LOW", "CONFLICT"} or intent not in {"HIGH", "MEDIUM", "LOW", "NONE"}:
-                return None
-            signals = data.get("admission_signals") or []
-            result = AdmissionResult(
-                verdict, entity, intent,
-                str(data.get("reason") or "semantic_admission"),
-                tuple(str(item) for item in signals if str(item).strip()),
-            )
-            return result if valid_admission_protocol(result, target_entity=target_entity) else None
-        except Exception as exc:  # Semantic admission must fail closed.
-            logger.warning("semantic candidate admission failed; using deterministic rejection: %s", exc)
-            return None
 
     async def _admit_existing_agent_docs_v2(
         self,
@@ -3225,6 +3166,7 @@ class RagChain:
         semantic_task: Any = None,
         kb_name: str | None = None,
         doc_category: str | None = None,
+        graph_working_set: Any = None,
     ) -> list[dict[str, Any]]:
         """Treat reused content as fresh candidates for the current query."""
         from rag_knowledge.services.agent_candidate_pipeline import (
@@ -3232,6 +3174,7 @@ class RagChain:
             CandidateProvenance,
             CandidateResult,
         )
+        from rag_knowledge.services.text_evidence_admission import TextEvidenceAdmissionService
 
         target = str(getattr(grant, "primary_root", None) or "").strip()
         pipeline = AgentCandidatePipeline(
@@ -3259,25 +3202,23 @@ class RagChain:
                 target_entity=target,
                 provenance=[CandidateProvenance("previous_turn_reuse", rank)],
             ))
-        guarded = pipeline.structural_guard(candidates, target_entity=target)
-
-        def semantic_admitter(query, candidate, deterministic):
-            return self._semantic_admit_agent_candidate(
-                query, candidate, target, deterministic, semantic_task=semantic_task,
-            )
-
+        cfg = getattr(self, "_cfg", None)
+        admission_service = TextEvidenceAdmissionService(cfg=cfg)
         admissions = await asyncio.to_thread(
             lambda: {
-                candidate.chunk_id: pipeline.admit(
-                    question, candidate, target_entity=target, semantic_task=semantic_task,
-                    semantic_admitter=semantic_admitter,
+                candidate.chunk_id: admission_service.qualify(
+                    candidate,
+                    semantic_task=semantic_task,
+                    target_entity=target,
+                    graph_working_set=graph_working_set,
+                    retrieval_query=question,
                 )
-                for candidate in guarded
+                for candidate in candidates
             }
         )
         return [
             self._normalize_source(doc.page_content, doc.metadata, index + 1)
-            for index, doc in enumerate(pipeline.admitted_documents(guarded, admissions))
+            for index, doc in enumerate(admission_service.admitted_documents(candidates, admissions))
         ]
 
     @staticmethod
@@ -3691,6 +3632,7 @@ class RagChain:
                 # The grant remains an identity/tool authorization record.  V2
                 # never turns it into a global document_entity allowlist.
                 grant = replace(grant, candidate_pipeline_v2=True)
+                authorization = replace(authorization, grant=grant)
             materialize_grant_relation(grant)
             mode = str(args.get("mode") or "").strip().lower()
             intent = str(args.get("intent") or "").strip().lower()
@@ -3849,6 +3791,7 @@ class RagChain:
                     semantic_task=conv.semantic_task,
                     kb_name=kb_name,
                     doc_category=doc_category,
+                    graph_working_set=getattr(loop, "graph_working_set", None),
                 )
                 for doc in admitted_docs:
                     meta = dict(doc.get("metadata") or {})

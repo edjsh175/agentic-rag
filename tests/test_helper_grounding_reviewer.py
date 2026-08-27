@@ -593,3 +593,236 @@ def test_structured_output_schema_has_single_semantic_source():
     assert "verdict" not in schema["required"]
     action_enum = schema["properties"]["rewrite_actions"]["items"]["properties"]["action"]["enum"]
     assert "preserve" not in action_enum
+
+
+def test_evidence_snapshot_includes_support_scope():
+    doc1 = {
+        "content": "管线系统支持碰撞分析。",
+        "metadata": {
+            "citation_id": 1,
+            "source": "pipe.md",
+            "section_path": "第1章",
+            "support_scope": "CONTEXT_ONLY",
+            "text_evidence_class": "RELATED_CONTEXT",
+        },
+    }
+    snapshot = format_evidence_snapshot([doc1])
+    assert snapshot[0]["support_scope"] == "CONTEXT_ONLY"
+    assert snapshot[0]["evidence_class"] == "RELATED_CONTEXT"
+
+
+def test_context_only_supports_contextual_claim():
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "相关管线系统上下文陈述受支持",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "相关管线系统资料涉及碰撞分析与智能排管。",
+                "claim_type": "knowledge_claim",
+                "status": "supported",
+                "evidence_ids": [1],
+                "reason": "证据 1 (CONTEXT_ONLY) 支持相关系统资料的陈述",
+            },
+            {
+                "claim_id": "c2",
+                "claim": "现有证据尚未确认这些功能直接归属于三维管线管理模块。",
+                "claim_type": "limitation_statement",
+                "status": "supported",
+                "evidence_ids": [],
+                "reason": "快照未提供直接归属",
+            },
+        ],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "管线系统支持碰撞分析和智能排管。",
+        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "CONTEXT_ONLY"},
+    }
+    result = reviewer.review(
+        "三维管线管理的相关信息",
+        [doc],
+        "相关管线系统资料涉及碰撞分析与智能排管 [1]。现有证据尚未确认这些功能直接归属于三维管线管理模块。",
+    )
+    assert result.verdict == "PASS"
+    assert result.coverage == "PARTIAL"
+    assert result.is_partial is True
+
+
+def test_context_only_rejects_target_attribute_claim():
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "直接将 CONTEXT_ONLY 资料归属于目标实体不被支持",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "三维管线管理支持碰撞分析。",
+                "claim_type": "knowledge_claim",
+                "status": "unsupported",
+                "evidence_ids": [1],
+                "reason": "证据 1 仅为 CONTEXT_ONLY 上下文资料，不能支持三维管线管理模块的直接功能归属",
+            }
+        ],
+        "rewrite_actions": [
+            {
+                "claim_id": "c1",
+                "action": "rewrite_to_supported_scope_or_remove",
+                "instruction": "修改为'相关管线系统资料涉及碰撞分析，但现有资料未确认直接属于三维管线管理模块'",
+            }
+        ],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "管线系统支持碰撞分析。",
+        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "CONTEXT_ONLY"},
+    }
+    result = reviewer.review("三维管线管理支持碰撞分析吗？", [doc], "三维管线管理支持碰撞分析。[1]")
+    assert result.verdict == "REVISE"
+    assert len(result.unsupported_claims) == 1
+    assert result.rewrite_actions[0].claim_id == "c1"
+
+
+def test_target_specific_supports_target_claim():
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "目标直接断言受 TARGET_SPECIFIC 证据支持",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "PipelineWebRTC 用于建立实时音视频处理通道。",
+                "claim_type": "knowledge_claim",
+                "status": "supported",
+                "evidence_ids": [1],
+                "reason": "证据 1 (TARGET_SPECIFIC) 明确支持目标功能",
+            }
+        ],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "PipelineWebRTC 用于建立实时音视频处理通道。",
+        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "TARGET_SPECIFIC"},
+    }
+    result = reviewer.review("PipelineWebRTC 的功能是什么？", [doc], "PipelineWebRTC 用于建立实时音视频处理通道。[1]")
+    assert result.verdict == "PASS"
+    assert result.coverage == "FULL"
+
+
+def test_graph_relation_supports_relation_claim_only():
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "图谱关系证据支持关系断言，但不支持额外属性",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "三维管线管理在知识图谱中归属于 PipelineWebGL。",
+                "claim_type": "knowledge_claim",
+                "status": "supported",
+                "evidence_ids": [1],
+                "reason": "证据 1 明确为 belongs_to 关系证据",
+            }
+        ],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {
+            "citation_id": 1,
+            "source_type": "graph_relation",
+            "relation_key": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+            "support_scope": "RELATION_SPECIFIC",
+        },
+    }
+    result = reviewer.review("三维管线管理属于哪个系统？", [doc], "三维管线管理在知识图谱中归属于 PipelineWebGL。[1]")
+    assert result.verdict == "PASS"
+
+
+def test_graph_relation_plus_context_does_not_create_attribute_inheritance():
+    # If doc1 is belongs_to relation and doc2 is CONTEXT_ONLY (PipelineWebGL feature),
+    # Candidate asserts target entity (三维管线管理) itself has that feature -> Must be rejected (REVISE)!
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "属于关系不能与上下文资料组合成目标实体的自身属性",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "三维管线管理归属于 PipelineWebGL。",
+                "claim_type": "knowledge_claim",
+                "status": "supported",
+                "evidence_ids": [1],
+                "reason": "证据 1 支持 belongs_to 关系",
+            },
+            {
+                "claim_id": "c2",
+                "claim": "三维管线管理具备 PipelineWebGL 的高并发渲染能力。",
+                "claim_type": "knowledge_claim",
+                "status": "unsupported",
+                "evidence_ids": [2],
+                "reason": "证据 2 仅为 CONTEXT_ONLY 上下文资料，不能通过 belongs_to 自动继承属性",
+            },
+        ],
+        "rewrite_actions": [
+            {
+                "claim_id": "c2",
+                "action": "rewrite_to_supported_scope_or_remove",
+                "instruction": "删除三维管线管理继承高并发渲染能力的断言，改为说明其归属于具备该能力的 PipelineWebGL",
+            }
+        ],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc1 = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {"citation_id": 1, "source_type": "graph_relation", "support_scope": "RELATION_SPECIFIC"},
+    }
+    doc2 = {
+        "content": "PipelineWebGL 具备高并发渲染能力。",
+        "metadata": {"citation_id": 2, "source": "webgl.md", "support_scope": "CONTEXT_ONLY"},
+    }
+    result = reviewer.review(
+        "三维管线管理具备什么渲染能力？",
+        [doc1, doc2],
+        "三维管线管理归属于 PipelineWebGL [1]，并具备 PipelineWebGL 的高并发渲染能力 [2]。",
+    )
+    assert result.verdict == "REVISE"
+    assert len(result.unsupported_claims) == 1
+    assert result.unsupported_claims[0].claim_id == "c2"
+
+
+def test_reviewer_cannot_upgrade_support_scope():
+    # If Candidate asserts target attribution on a CONTEXT_ONLY doc,
+    # Reviewer prompt forbids upgrading CONTEXT_ONLY to TARGET_SPECIFIC.
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "CONTEXT_ONLY 证据不能被当成 TARGET_SPECIFIC 支撑目标功能",
+        "claim_reviews": [
+            {
+                "claim_id": "c1",
+                "claim": "三维管线管理支持智能排管功能。",
+                "claim_type": "knowledge_claim",
+                "status": "unsupported",
+                "evidence_ids": [1],
+                "reason": "证据 1 为 CONTEXT_ONLY，无法升级支持目标实体的直接属性",
+            }
+        ],
+        "rewrite_actions": [
+            {
+                "claim_id": "c1",
+                "action": "rewrite_to_supported_scope_or_remove",
+                "instruction": "修改为'相关管线系统资料涉及智能排管功能'",
+            }
+        ],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "管线系统支持智能排管功能。",
+        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "CONTEXT_ONLY"},
+    }
+    result = reviewer.review(
+        "三维管线管理支持智能排管吗？",
+        [doc],
+        "三维管线管理支持智能排管功能。[1]",
+    )
+    assert result.verdict == "REVISE"
+    assert len(result.unsupported_claims) == 1

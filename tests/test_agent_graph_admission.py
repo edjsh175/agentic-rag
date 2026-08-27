@@ -66,8 +66,11 @@ def test_admission_deterministic_depends_on():
         relation_type="depends_on",
         review_status="approved",
     )
-    # Question asking for dependency
-    result = service.admit_relation(candidate, question="StampServer 启动需要依赖哪些组件？")
+    task = SemanticTaskContext(
+        "StampServer 启动需要依赖哪些组件？", "StampServer", ("StampServer",),
+        "single_entity", 1.0, "procedure", ("procedure",), "stage1",
+    )
+    result = service.admit_relation(candidate, question="ignored raw query", semantic_task=task)
     assert result.verdict == "PASS"
     assert result.intent_relevance == "HIGH"
 
@@ -81,8 +84,12 @@ def test_admission_deterministic_belongs_to():
         relation_type="belongs_to",
         review_status="approved",
     )
-    # Overview / attribution question -> PASS
-    res1 = service.admit_relation(candidate, question="StampServer 是什么产品？")
+    # Overview / attribution task -> PASS
+    overview_task = SemanticTaskContext(
+        "StampServer 是什么产品？", "StampServer", ("StampServer",),
+        "single_entity", 1.0, "definition", (), "stage1",
+    )
+    res1 = service.admit_relation(candidate, question="ignored raw query", semantic_task=overview_task)
     assert res1.verdict == "PASS"
 
     # Exact parameter question -> REJECT

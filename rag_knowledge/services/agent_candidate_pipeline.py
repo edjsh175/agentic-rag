@@ -1,24 +1,20 @@
-"""Agent-only candidate generation and query-scoped evidence admission.
+"""Agent-only bounded candidate generation.
 
-Identity names the subject of a question.  It is intentionally not a Chroma
-filter in this module: each generator contributes bounded candidates and the
-admission stage decides whether a candidate can support this *specific* query.
+Identity names the subject of a question. It is intentionally not a global
+retrieval filter here: each generator contributes candidates, while evidence
+admission remains a separate downstream authority.
 """
 
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
 
 from langchain_core.documents import Document
 
 from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.services.relation_policy import is_candidate_expansion_relation
-_OVERVIEW_TERMS = ("主要功能", "功能", "用途", "作用", "是什么", "概览", "能力")
-_OVERVIEW_EVIDENCE_TERMS = ("用于", "功能", "支持", "作用", "提供", "实现", "能力")
-_DEPLOYMENT_TERMS = ("部署", "安装", "上传", "目录", "路径", "配置位置")
 
 
 def _norm(value: Any) -> str:
@@ -42,6 +38,7 @@ class CandidateProvenance:
     rank: int
     graph_path: tuple[str, ...] = ()
     entity_link: bool = False
+    linked_entity: str | None = None
     exact_lexical: bool = False
     weight: float = 1.0
 
@@ -51,6 +48,7 @@ class CandidateProvenance:
             "rank": self.rank,
             "graph_path": list(self.graph_path),
             "entity_link": self.entity_link,
+            "linked_entity": self.linked_entity,
             "exact_lexical": self.exact_lexical,
             "weight": self.weight,
         }
@@ -92,39 +90,6 @@ class CandidateResult:
             "vector_score": source_scores.get("vector"),
             "structural_flags": list(self.structural_flags),
         }
-
-
-@dataclass(frozen=True)
-class AdmissionResult:
-    verdict: str
-    entity_relevance: str
-    intent_relevance: str
-    reason: str
-    signals: tuple[str, ...] = ()
-    canonical_question: str = ""
-    answer_intent: str = "general_qa"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "verdict": self.verdict,
-            "entity_relevance": self.entity_relevance,
-            "intent_relevance": self.intent_relevance,
-            "reason": self.reason,
-            "admission_signals": list(self.signals),
-            "canonical_question": self.canonical_question,
-            "answer_intent": self.answer_intent,
-        }
-
-
-def valid_admission_protocol(result: AdmissionResult, *, target_entity: str) -> bool:
-    """Validate semantic output before it can create query-scoped evidence."""
-    if result.verdict != "PASS":
-        return True
-    if result.intent_relevance != "HIGH":
-        return False
-    if target_entity and result.entity_relevance not in {"HIGH", "MEDIUM"}:
-        return False
-    return True
 
 
 @dataclass(frozen=True)
@@ -188,8 +153,8 @@ class AgentCandidatePipeline:
     ) -> list[CandidateResult]:
         """Generate independent candidate lists, then deduplicate and RRF-fuse."""
         target = str(target_entity or "").strip()
-        lists: list[tuple[str, Iterable[Document], tuple[str, ...], bool, bool]] = []
-        graph_docs: list[tuple[Document, tuple[str, ...], float, str, bool]] = []
+        lists: list[tuple[str, Iterable[Document], tuple[str, ...], bool, str | None, bool]] = []
+        graph_docs: list[tuple[Document, tuple[str, ...], float, str, bool, str | None]] = []
         neighbors: list[tuple[str, tuple[str, ...], float]] = []
         if target:
             lists.append((
@@ -201,7 +166,7 @@ class AgentCandidatePipeline:
                     ),
                     budgets.direct_entity,
                 ),
-                (), False, False,
+                (), False, target, False,
             ))
             if graph_working_set is not None and hasattr(graph_working_set, "entity_chunk_links"):
                 linked_ids = graph_working_set.entity_chunk_links.get(target.casefold(), ())
@@ -214,7 +179,7 @@ class AgentCandidatePipeline:
                         ),
                         budgets.entity_chunk,
                     ),
-                    (), True, False,
+                    (), True, target, False,
                 ))
             if graph_working_set is not None and hasattr(graph_working_set, "entities"):
                 for ent_state in getattr(graph_working_set, "entities", {}).values():
@@ -254,7 +219,7 @@ class AgentCandidatePipeline:
                     ),
                     link_budget,
                 ) if linked_ids else ():
-                    graph_docs.append((doc, path, strength, "graph_entity_chunk_link", True))
+                    graph_docs.append((doc, path, strength, "graph_entity_chunk_link", True, neighbor))
                 document_budget = max(1, neighbor_budget - link_budget)
                 for doc in self._chunks(
                     self._generator_filter(
@@ -263,7 +228,7 @@ class AgentCandidatePipeline:
                     ),
                     document_budget,
                 ):
-                    graph_docs.append((doc, path, strength, "graph_expansion", False))
+                    graph_docs.append((doc, path, strength, "graph_expansion", False, neighbor))
                     if len(graph_docs) >= budgets.graph_expansion:
                         break
                 if len(graph_docs) >= budgets.graph_expansion:
@@ -271,22 +236,35 @@ class AgentCandidatePipeline:
         # Keep graph paths; generator inputs normally use Document lists.
         candidates: dict[str, CandidateResult] = {}
 
-        def add(generator: str, docs: Iterable[Document], *, graph_path: tuple[str, ...] = (), entity_link: bool = False, exact: bool = False, weight: float = 1.0) -> None:
+        def add(
+            generator: str,
+            docs: Iterable[Document],
+            *,
+            graph_path: tuple[str, ...] = (),
+            entity_link: bool = False,
+            linked_entity: str | None = None,
+            exact: bool = False,
+            weight: float = 1.0,
+        ) -> None:
             for rank, doc in enumerate(docs, start=1):
                 if not self._hard_boundary(doc, kb_name=kb_name, review_status=review_status, doc_category=doc_category):
                     continue
                 key = _chunk_key(doc)
                 result = candidates.setdefault(key, CandidateResult(document=doc, target_entity=target))
-                result.provenance.append(CandidateProvenance(generator, rank, graph_path, entity_link, exact, weight))
+                result.provenance.append(
+                    CandidateProvenance(generator, rank, graph_path, entity_link, linked_entity, exact, weight)
+                )
 
-        for generator, docs, path, link, exact in lists:
-            add(generator, docs, graph_path=path, entity_link=link, exact=exact)
-        for rank, (doc, path, strength, generator, entity_link) in enumerate(graph_docs, start=1):
+        for generator, docs, path, link, linked_ent, exact in lists:
+            add(generator, docs, graph_path=path, entity_link=link, linked_entity=linked_ent, exact=exact)
+        for rank, (doc, path, strength, generator, entity_link, linked_ent) in enumerate(graph_docs, start=1):
             if not self._hard_boundary(doc, kb_name=kb_name, review_status=review_status, doc_category=doc_category):
                 continue
             key = _chunk_key(doc)
             result = candidates.setdefault(key, CandidateResult(document=doc, target_entity=target))
-            result.provenance.append(CandidateProvenance(generator, rank, path, entity_link, False, strength))
+            result.provenance.append(
+                CandidateProvenance(generator, rank, path, entity_link, linked_ent, False, strength)
+            )
 
         for generator, docs in (extra_sources or {}).items():
             add(generator, docs)
@@ -328,168 +306,3 @@ class AgentCandidatePipeline:
                     float(item["rrf_contribution"]) + provenance.weight / (60 + provenance.rank), 6,
                 )
         return summary
-
-    def structural_guard(
-        self,
-        candidates: list[CandidateResult],
-        *,
-        target_entity: str,
-        graph_working_set: Any = None,
-    ) -> list[CandidateResult]:
-        """Reject only an explicit sibling conflict with no target evidence signal."""
-        target = str(target_entity or "").strip()
-        if not target:
-            for candidate in candidates:
-                candidate.structural_flags.append("PASS:unbound_no_entity_guard")
-            return candidates
-        sibling_names: set[str] = set()
-        for relation in getattr(graph_working_set, "relations", {}).values():
-            if str(getattr(relation, "relation_type", "")) != "different_from":
-                continue
-            source_name = getattr(relation, "source_name", "")
-            target_name = getattr(relation, "target_name", "")
-            if _same(source_name, target):
-                sibling_names.add(str(target_name))
-            elif _same(target_name, target):
-                sibling_names.add(str(source_name))
-        kept: list[CandidateResult] = []
-        for candidate in candidates:
-            meta = candidate.document.metadata or {}
-            content = candidate.document.page_content.casefold()
-            document_entity = str(meta.get("document_entity") or meta.get("entity_name") or "")
-            mentioned = meta.get("mentioned_entities") or []
-            has_target = target.casefold() in content or any(_same(item, target) for item in mentioned)
-            has_link = any(item.entity_link for item in candidate.provenance)
-            has_graph = any(item.graph_path for item in candidate.provenance)
-            if any(_same(document_entity, sibling) for sibling in sibling_names) and not (has_target or has_link or has_graph):
-                candidate.structural_flags.append("REJECT:explicit_sibling_without_target_signal")
-                continue
-            candidate.structural_flags.append("PASS")
-            kept.append(candidate)
-        return kept
-
-    @staticmethod
-    def admit(
-        retrieval_query: str,
-        candidate: CandidateResult,
-        *,
-        target_entity: str,
-        semantic_task: Any = None,
-        semantic_admitter: Callable[[str, CandidateResult, AdmissionResult], AdmissionResult | None] | None = None,
-    ) -> AdmissionResult:
-        """Admit against the canonical task, never the retrieval search plan."""
-        if semantic_task is None:
-            from rag_knowledge.services.query_surface import infer_answer_intent
-
-            canonical_question = str(retrieval_query or "")
-            answer_intent, requested_facets, _source = infer_answer_intent(canonical_question)
-        else:
-            canonical_question = str(
-                getattr(semantic_task, "resolved_question", "") or retrieval_query or ""
-            )
-            answer_intent = str(
-                getattr(semantic_task, "answer_intent", "") or "general_qa"
-            ).strip().lower()
-            requested_facets = tuple(getattr(semantic_task, "requested_facets", ()) or ())
-        target = str(target_entity or "").strip()
-        meta = candidate.document.metadata or {}
-        content = candidate.document.page_content
-        folded = content.casefold()
-        doc_entity = str(meta.get("document_entity") or meta.get("entity_name") or "")
-        mentioned = meta.get("mentioned_entities") or []
-        signals: list[str] = []
-        if not target:
-            deterministic = AdmissionResult(
-                "REJECT", "HIGH", "LOW", "unbound_query_requires_intent_admission", ("unbound_query",),
-                canonical_question, answer_intent,
-            )
-            if semantic_admitter is not None:
-                semantic = semantic_admitter(canonical_question, candidate, deterministic)
-                if semantic is not None:
-                    return semantic
-            return deterministic
-
-        exact_target = target.casefold() in folded
-        if exact_target:
-            signals.append("exact_target_mention")
-        if _same(doc_entity, target):
-            signals.append("document_entity_match")
-        if any(_same(item, target) for item in mentioned):
-            signals.append("mentioned_entity_match")
-        if any(item.entity_link for item in candidate.provenance):
-            signals.append("entity_chunk_link")
-        entity = "HIGH" if signals else ("MEDIUM" if any(item.graph_path for item in candidate.provenance) else "LOW")
-        overview_question = answer_intent == "definition"
-        # A merged manual chunk can contain an unrelated product overview after
-        # the sentence mentioning the target.  For an overview question, only
-        # the target's local context can establish intent support.
-        target_segments = [
-            segment
-            for segment in re.split(r"[\r\n。！？!?]+", folded)
-            if target.casefold() in segment
-        ]
-        # Graph/entity-link candidates may be relevant without a literal
-        # target mention, so their helper-admission path retains the complete
-        # short text as context.
-        target_context = " ".join(target_segments) or folded
-        overview_evidence_near_target = any(term in target_context for term in _OVERVIEW_EVIDENCE_TERMS)
-        deployment_only = any(term in target_context for term in _DEPLOYMENT_TERMS) and not overview_evidence_near_target
-        if answer_intent == "general_qa" and not requested_facets:
-            # Direct, concrete target facts are valid partial evidence for an
-            # open question.  They do not claim that the full answer is covered.
-            intent = "HIGH" if entity == "HIGH" else "LOW"
-            if intent == "HIGH":
-                signals.append("general_qa_direct_fact")
-        elif overview_question:
-            intent = "HIGH" if overview_evidence_near_target else "LOW"
-            if intent == "LOW":
-                signals.append("overview_intent_mismatch" if deployment_only else "overview_evidence_missing")
-        else:
-            intent_terms = (
-                "配置", "端口", "部署", "安装", "路径", "目录", "参数", "接口", "错误",
-                "排查", "流程", "步骤", "依赖", "区别", "比较", "功能", "用途",
-            )
-            requested_terms = [term for term in intent_terms if term in canonical_question.casefold()]
-            if requested_terms:
-                intent = "HIGH" if any(term in folded for term in requested_terms) else "LOW"
-            else:
-                residual = canonical_question.replace(target, "")
-                tokens = re.findall(r"[A-Za-z0-9_]{2,}|[\u4e00-\u9fff]{2,}", residual)
-                intent = "HIGH" if tokens and any(token.casefold() in folded for token in tokens) else "LOW"
-        if entity == "HIGH" and intent == "HIGH":
-            return AdmissionResult(
-                "PASS", entity, intent, "target_and_query_intent_supported", tuple(signals),
-                canonical_question, answer_intent,
-            )
-        deterministic = AdmissionResult(
-            "REJECT", entity, intent, "insufficient_entity_or_intent_support", tuple(signals),
-            canonical_question, answer_intent,
-        )
-        # Graph provenance can make a text unit plausibly relevant without an
-        # exact surface mention.  It is neither evidence nor a Python special
-        # case: let the configured helper model decide this narrow ambiguity.
-        if semantic_admitter is not None and (
-            (entity == "MEDIUM" and intent == "HIGH")
-            or (entity == "HIGH" and intent == "LOW" and not overview_question)
-        ):
-            semantic = semantic_admitter(canonical_question, candidate, deterministic)
-            if semantic is not None:
-                return semantic
-        return deterministic
-
-    @staticmethod
-    def admitted_documents(candidates: list[CandidateResult], admissions: dict[str, AdmissionResult]) -> list[Document]:
-        docs: list[Document] = []
-        for candidate in candidates:
-            admission = admissions.get(candidate.chunk_id)
-            if admission is None or admission.verdict != "PASS":
-                continue
-            meta = dict(candidate.document.metadata or {})
-            meta["candidate_sources"] = candidate.source_generators
-            meta["candidate_provenance"] = [item.to_dict() for item in candidate.provenance]
-            meta["candidate_fusion_score"] = candidate.fusion_score
-            meta["structural_guard"] = list(candidate.structural_flags)
-            meta["admission"] = admission.to_dict()
-            meta["admission_verdict"] = admission.verdict
-            docs.append(Document(page_content=candidate.document.page_content, metadata=meta))
-        return docs

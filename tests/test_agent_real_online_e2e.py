@@ -19,7 +19,7 @@ def test_real_agent_stream_matches_persisted_trace(monkeypatch):
     """Read the live KB, call the configured Ollama models, and reconcile SSE with QA Trace."""
     monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
     monkeypatch.setenv("QA_TRACE_ENABLED", "true")
-    monkeypatch.setenv("RAG_CONFIG", "config-local.ini")
+    monkeypatch.setenv("RAG_CONFIG", os.environ.get("RAG_CONFIG") or "config-local.ini")
 
     Config._instance = None
     RelationalDB._instance = None
@@ -136,7 +136,7 @@ def test_real_http_agent_sse_matches_trace(monkeypatch):
 
     monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
     monkeypatch.setenv("QA_TRACE_ENABLED", "true")
-    monkeypatch.setenv("RAG_CONFIG", "config-local.ini")
+    monkeypatch.setenv("RAG_CONFIG", os.environ.get("RAG_CONFIG") or "config-local.ini")
 
     Config._instance = None
     RelationalDB._instance = None
@@ -219,7 +219,7 @@ def test_real_pipeline_clarification_locks_pipelinewebgl(monkeypatch):
     """Run the original `pipeline` clarification incident through live KB + Ollama."""
     monkeypatch.setenv("ALLOW_LIVE_STORAGE_IN_TESTS", "1")
     monkeypatch.setenv("QA_TRACE_ENABLED", "true")
-    monkeypatch.setenv("RAG_CONFIG", "config-local.ini")
+    monkeypatch.setenv("RAG_CONFIG", os.environ.get("RAG_CONFIG") or "config-local.ini")
 
     Config._instance = None
     RelationalDB._instance = None
