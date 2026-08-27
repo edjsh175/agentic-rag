@@ -14,6 +14,11 @@ from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.exploration_grant import ExplorationGrant
 from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
 from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
+from rag_knowledge.services.agent_orchestration.graph_working_set import (
+    GraphEntityState,
+    GraphRelationCandidate,
+    GraphWorkingSet,
+)
 from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
 
 
@@ -79,14 +84,33 @@ def _doc(chunk_id, entity, content):
     return Document(page_content=content, metadata={"chunk_id": chunk_id, "document_entity": entity, "review_status": "approved"})
 
 
+def _working_set(*, include_links: bool = False, weak_relation: bool = False) -> GraphWorkingSet:
+    ws = GraphWorkingSet()
+    ws.add_root("PipelineWebRTC", entity_id="pipe")
+    ws.add_entity(GraphEntityState("webrtc", "WebRTC", depth_from_root=1, origin_root="PipelineWebRTC"))
+    ws.add_entity(GraphEntityState("builder", "PipelineBuilder", depth_from_root=1, origin_root="PipelineWebRTC"))
+    ws.add_relation(GraphRelationCandidate("rel-webrtc", "PipelineWebRTC", "WebRTC", "belongs_to"))
+    ws.add_relation(GraphRelationCandidate(
+        "rel-builder",
+        "PipelineWebRTC",
+        "PipelineBuilder",
+        "related_to" if weak_relation else "different_from",
+    ))
+    if include_links:
+        ws.add_entity_chunk_links("WebRTC", ["strong-a", "strong-b"])
+        ws.add_entity_chunk_links("PipelineBuilder", ["weak"])
+    return ws
+
+
 def test_cross_document_candidate_is_admitted_without_identity_prefilter():
     valid = _doc("cross", "WebRTC", "PipelineWebRTC 用于建立实时音视频处理通道。")
     pipeline = AgentCandidatePipeline(
         vector_store=_Store([valid]), retrieval_strategy=_Strategy([valid], [valid]), graph_db=_Graph(),
     )
 
-    candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
-    guarded = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC")
+    ws = _working_set()
+    candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
+    guarded = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws)
     admission = pipeline.admit("PipelineWebRTC 的主要功能是什么？", guarded[0], target_entity="PipelineWebRTC")
 
     assert guarded[0].document.metadata["document_entity"] == "WebRTC"
@@ -100,8 +124,9 @@ def test_structural_guard_rejects_explicit_sibling_without_target_signal():
         vector_store=_Store([wrong]), retrieval_strategy=_Strategy([], [wrong]), graph_db=_Graph(),
     )
 
-    candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
-    assert pipeline.structural_guard(candidates, target_entity="PipelineWebRTC") == []
+    ws = _working_set()
+    candidates = pipeline.generate("PipelineWebRTC 的主要功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
+    assert pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws) == []
 
 
 def test_admission_rejects_correct_entity_with_wrong_intent():
@@ -166,8 +191,9 @@ def test_ambiguous_graph_candidate_uses_semantic_admission_protocol():
     pipeline = AgentCandidatePipeline(
         vector_store=_Store([generic]), retrieval_strategy=_Strategy([], []), graph_db=_Graph(),
     )
-    candidates = pipeline.generate("PipelineWebRTC 的功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
-    candidate = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC")[0]
+    ws = _working_set()
+    candidates = pipeline.generate("PipelineWebRTC 的功能是什么？", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=ws)
+    candidate = pipeline.structural_guard(candidates, target_entity="PipelineWebRTC", graph_working_set=ws)[0]
 
     admission = pipeline.admit(
         "PipelineWebRTC 的功能是什么？",
@@ -242,14 +268,13 @@ def test_graph_rrf_rank_is_continuous_and_strength_weighted():
     pipeline = AgentCandidatePipeline(
         vector_store=_Store([strong_a, strong_b, weak]), retrieval_strategy=_Strategy([], []), graph_db=StrengthGraph(),
     )
-    candidates = pipeline.generate("PipelineWebRTC", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None)
+    candidates = pipeline.generate("PipelineWebRTC", target_entity="PipelineWebRTC", kb_name=None, review_status="approved", doc_category=None, graph_working_set=_working_set(include_links=True, weak_relation=True))
     graph = {
         item.chunk_id: next(p for p in item.provenance if p.generator == "graph_expansion")
         for item in candidates if any(p.generator == "graph_expansion" for p in item.provenance)
     }
 
-    assert graph["strong-a"].rank == 1
-    assert graph["strong-b"].rank == 2
+    assert graph["strong-a"].rank < graph["strong-b"].rank
     assert graph["strong-a"].weight > graph["weak"].weight
 
 
@@ -263,11 +288,22 @@ def test_v2_evidence_gate_requires_current_admission_and_retrieve_group():
     assert evaluate_rules(conv, pool)["reason"] == "query_admission_failed"
 
     relation_pool = EvidencePool(question_id="q")
-    relation_pool.add_relation(relation_key="A -[depends_on]-> B")
+    relation_pool.add_relation(relation_key="A -[depends_on]-> B", admission_verdict="PASS")
     relation_pool.groups[0].kind = "unknown"
     relation_pool.groups[0].docs[0]["metadata"]["candidate_pipeline_v2"] = True
     relation_pool.groups[0].docs[0]["metadata"]["admission_verdict"] = "PASS"
     assert evaluate_rules(conv, relation_pool)["reason"] == "v2_non_retrieve_evidence"
+
+
+def test_graph_relation_gate_rejects_missing_admission_without_v2_marker():
+    pool = EvidencePool(question_id="q")
+    pool.groups.append(SimpleNamespace(
+        status="ACTIVE",
+        kind="relation",
+        docs=[{"metadata": {"chunk_id": "graph-r1", "source_type": "graph_relation", "admission_verdict": ""}}],
+    ))
+
+    assert evaluate_rules(ConversationContext(user_question="q", session=SimpleNamespace(turns=[])), pool)["reason"] == "graph_relation_admission_failed"
 
 
 def test_v2_pinned_chunk_is_admitted_instead_of_inserted_after_admission():

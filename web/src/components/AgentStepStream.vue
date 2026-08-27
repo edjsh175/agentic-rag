@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 // 用户展开状态记录
-const expandedMap = ref<Record<number, boolean>>({})
+const expandedMap = ref<Record<string | number, boolean>>({})
 
 // Block Stream 按真实到达顺序渲染全部用户可见 Block。
 const executionBlocks = computed<AssistantBlock[]>(() => props.blocks || [])
@@ -53,14 +53,34 @@ function getLiveElapsed(block: ActivityBlock): string {
   return ''
 }
 
+function getBlockKey(block: AssistantBlock | undefined, index: number): string | number {
+  return block?.id || index
+}
+
+function isDefaultExpanded(block: AssistantBlock | undefined): boolean {
+  if (!block) return false
+  if (block.kind === 'reasoning') {
+    // Main Controller 等思考过程框默认展开
+    return true
+  }
+  if (block.kind === 'tool') {
+    // 工具调用框默认收起
+    return false
+  }
+  return false
+}
+
 function isExpanded(index: number): boolean {
-  const override = expandedMap.value[index]
-  // 默认最新一项展开，其余折叠
-  return override === undefined ? index === executionBlocks.value.length - 1 : override
+  const block = executionBlocks.value[index]
+  const key = getBlockKey(block, index)
+  const override = expandedMap.value[key]
+  return override === undefined ? isDefaultExpanded(block) : override
 }
 
 function toggleExpand(index: number) {
-  expandedMap.value[index] = !isExpanded(index)
+  const block = executionBlocks.value[index]
+  const key = getBlockKey(block, index)
+  expandedMap.value[key] = !isExpanded(index)
 }
 
 function firstLine(text: string): string {
@@ -162,7 +182,7 @@ function closeInspect() {
       <!-- 3. Reasoning 思考节点 (ReasoningBlock) -->
       <div
         v-else-if="block.kind === 'reasoning'"
-        class="disclosure-root"
+        class="disclosure-root disclosure-root--reasoning"
         data-variant="think"
         :data-state="block.status === 'running' ? 'running' : 'ok'"
       >
@@ -209,7 +229,7 @@ function closeInspect() {
       <!-- 3. Tool Call 节点 (ToolBlock) -->
       <div
         v-else-if="block.kind === 'tool'"
-        class="disclosure-root"
+        class="disclosure-root disclosure-root--tool"
         :data-variant="block.tool"
         :data-state="block.status === 'running' ? 'running' : (block.status === 'failed' || block.error ? 'error' : 'ok')"
       >
@@ -619,6 +639,84 @@ function closeInspect() {
 .inspect-button:hover {
   background: #f1f5f9;
   color: #0f172a;
+}
+
+/* Reasoning (黑色/深色系，主阅读字号 13px) 与 Tool (浅色系，辅助字号 12px/11px) 样式与字号区分 */
+.disclosure-root--reasoning .leading-slot {
+  color: #0f172a;
+}
+
+.disclosure-root--reasoning .row-title {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.disclosure-root--reasoning .row-summary {
+  font-size: 13px;
+  color: #334155;
+}
+
+.disclosure-root--reasoning .disclosure-row:hover {
+  background-color: #f1f5f9;
+}
+
+.disclosure-root--reasoning .think-body {
+  font-size: 13px;
+  line-height: 1.6;
+  border-left-color: #0f172a;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.disclosure-root--reasoning .cursor-blink {
+  background-color: #0f172a;
+}
+
+.disclosure-root--tool .leading-slot {
+  color: #94a3b8;
+}
+
+.disclosure-root--tool .row-title {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.disclosure-root--tool .row-summary {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.disclosure-root--tool .disclosure-row:hover {
+  background-color: #f8fafc;
+}
+
+.disclosure-root--tool .io-card {
+  border-color: #f1f5f9;
+  background: #ffffff;
+}
+
+.disclosure-root--tool .io-label {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.disclosure-root--tool .io-text {
+  font-size: 11px;
+  color: #475569;
+}
+
+.disclosure-root--tool .inspect-button {
+  font-size: 11px;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.disclosure-root--tool .inspect-button:hover {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
 }
 
 /* Modal */

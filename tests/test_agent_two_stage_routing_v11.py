@@ -460,19 +460,20 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
         AgentDecision(action="finalize"),
         AgentDecision(
             action="tool_call",
-            tool="link_entities",
-            arguments={"query": "ModelBuilder 和 UEModelBuilder 区别", "target_entity": "ModelBuilder"},
-            thought="缺少实体关系证据，调用 link_entities 探索图谱",
+            tool="expand_graph_scope",
+            arguments={"start_entities": ["ModelBuilder"], "additional_hops": 1, "direction": "both"},
+            thought="缺少实体关系证据，调用 expand_graph_scope 探索图谱",
         ),
         AgentDecision(action="finalize"),
     ])
 
-    async def link(_args):
+    async def expand_graph_scope(_args):
         pool.add_relation(
             relation_key="ModelBuilder -[different_from]-> UEModelBuilder",
             target_entity="ModelBuilder",
+            admission_verdict="PASS",
         )
-        return ToolObservation(tool="link_entities", ok=True, summary="relation=1")
+        return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation=1")
 
     result = asyncio.run(
         AgentLoop(
@@ -480,7 +481,7 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
             evidence=pool,
             budget=AgentBudget(max_steps=4),
             registry=build_agent_registry(),
-            handlers={"link_entities": link},
+            handlers={"expand_graph_scope": expand_graph_scope},
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
@@ -490,8 +491,8 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
     )
 
     assert result.terminal_action == "controller_finalize"
-    assert any(tool["name"] == "link_entities" for tool in result.tools)
-    graph_call = next(tool for tool in result.tools if tool["name"] == "link_entities")
+    assert any(tool["name"] == "expand_graph_scope" for tool in result.tools)
+    graph_call = next(tool for tool in result.tools if tool["name"] == "expand_graph_scope")
     assert graph_call["data"] == {}
 
 
@@ -914,6 +915,7 @@ def test_answer_prompt_uses_snapshot_citations_and_excludes_history_facts():
             "source_ref": "relation:r1",
             "relation_type": "belongs_to",
         }],
+        admission_verdict="PASS",
     )
     pool.add_retrieve([_doc("c1", "PipelineWebGL 支持三维管线查询")], query="pipeline")
     snapshot = pool.create_snapshot(verdict={"verdict": "SUFFICIENT"})

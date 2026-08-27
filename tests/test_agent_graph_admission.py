@@ -87,4 +87,23 @@ def test_admission_deterministic_belongs_to():
     # Exact parameter question -> REJECT
     res2 = service.admit_relation(candidate, question="StampServer 的默认端口是多少？")
     assert res2.verdict == "REJECT"
-    assert "belongs_to_irrelevant_for_exact_parameters" in res2.reason
+    assert res2.reason == "relation_type_not_answer_evidence:belongs_to"
+
+
+def test_admission_uses_relation_policy_intent_as_a_hard_authority():
+    candidate = GraphRelationCandidate(
+        relation_id="rel-3",
+        source_name="StampServer",
+        target_name="StampPlatform",
+        relation_type="belongs_to",
+        review_status="approved",
+    )
+
+    result = GraphRelationAdmissionService().admit_relation(
+        candidate,
+        question="StampServer 默认端口是多少？",
+        task_type="config",
+    )
+
+    assert result.verdict == "REJECT"
+    assert result.reason == "relation_type_not_answer_evidence:belongs_to"

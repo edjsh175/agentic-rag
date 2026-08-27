@@ -528,12 +528,12 @@ def _card_observation() -> ToolObservation:
     )
 
 
-def test_phase2_registry_allows_clarify_and_link_not_answer():
+def test_phase2_registry_allows_clarify_and_retires_link_entities():
     registry = build_agent_registry()
     assert PHASE2_TOOL_NAMES <= registry.names()
     assert registry.validate_call("clarify", {}) is None
-    assert registry.validate_call("link_entities", {}) == "tool_missing_arg:query"
-    assert registry.validate_call("link_entities", {"query": "StampServer"}) is None
+    assert registry.validate_call("link_entities", {}) == "tool_unknown:link_entities"
+    assert registry.validate_call("link_entities", {"query": "StampServer"}) == "tool_unknown:link_entities"
     assert registry.validate_call("answer", {}) == "tool_forbidden:answer"
     assert registry.validate_call("web_search", {}) == "tool_forbidden:web_search"
 
@@ -582,7 +582,7 @@ def test_harness_allows_clarify_when_model_decides():
     assert result.clarify is not None
 
 
-def test_link_entities_does_not_write_evidence_pool():
+def test_retired_link_entities_is_not_executed_or_written_to_evidence_pool():
     conv = ConversationContext.from_request(
         "StampServer 是什么", [], entity_name="StampServer",
     )
@@ -621,8 +621,8 @@ def test_link_entities_does_not_write_evidence_pool():
     result = asyncio.run(loop.run())
     assert pool.citable_docs() == []
     assert pool.groups == []
-    assert result.entity_link["candidate_count"] == 1
-    assert result.entity_link["names"] == ["StampServer"]
+    assert result.entity_link is None
+    assert "tool_unknown:link_entities" in result.fallbacks
 
 
 def test_callback_blocks_reclarify():
@@ -969,11 +969,8 @@ def test_link_entities_and_retrieve_kb_mode_execution():
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
-    assert len(result.tools) == 2
-    assert result.tools[0]["name"] == "link_entities"
-    assert result.tools[1]["name"] == "retrieve_kb"
-    assert "PipelineBuilder" in conv.head_entity
-    assert "StampTools" in conv.domain_context
+    assert len(result.tools) == 1
+    assert result.tools[0]["name"] == "retrieve_kb"
     assert len(result.evidence.citable_docs()) == 1
 
 
@@ -1052,7 +1049,7 @@ def test_agent_react_event_stream_interleaved_sequence():
     assert "tool_result" in event_types
     assert "evidence_update" in event_types
     assert any(e["type"] == "decision" and "首先识别到产品关键词" in e["data"]["reason"] for e in events)
-    assert any(e["type"] == "tool_start" and e["data"]["name"] == "link_entities" for e in events)
+    assert not any(e["type"] == "tool_start" and e["data"]["name"] == "link_entities" for e in events)
     assert any(e["type"] == "decision" and "已获取候选实体" in e["data"]["reason"] for e in events)
     assert any(e["type"] == "tool_start" and e["data"]["name"] == "retrieve_kb" for e in events)
     assert any(e["type"] == "decision" and "证据充足" in e["data"]["reason"] for e in events)
@@ -1072,19 +1069,18 @@ def test_v14_tool_registry_and_react_flow():
     agent_reg = build_agent_registry()
     assert "understand" not in agent_reg.names()
     assert "rewrite" not in agent_reg.names()
-    assert "link_entities" in agent_reg.names()
+    assert "link_entities" not in agent_reg.names()
     assert "clarify" in agent_reg.names()
 
 
-def test_v14_link_entities_is_read_only():
+def test_v14_link_entities_is_retired():
     conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
     assert not conv.head_entity
 
-    # 测试 link_entities 工具纯只读性（通过 mock 检验）
+    # link_entities 已由 expand_graph_scope 替代，不能作为 Main 工具复活。
     reg = build_agent_registry()
     spec = reg.get("link_entities")
-    assert spec is not None
-    assert spec.side_effect == "read"
+    assert spec is None
 
 
 def test_v14_llm_http_default_num_ctx_injection():
@@ -1299,15 +1295,14 @@ def test_stream_react_events_order_and_payload():
     assert tool_result_ev["data"]["summary"] == "召回 3 个文档片段"
 
 
-def test_v14_link_entities_is_read_only():
+def test_v14_link_entities_is_not_registered():
     conv = ConversationContext.from_request("我啥时候给你说是pipelinebuilder了？", [])
     assert not conv.head_entity
 
-    # 测试 link_entities 工具纯只读性（通过 mock 检验）
+    # link_entities 已退休，Main Registry 不保留兼容入口。
     reg = build_agent_registry()
     spec = reg.get("link_entities")
-    assert spec is not None
-    assert spec.side_effect == "read"
+    assert spec is None
 
 
 def test_v14_llm_http_default_num_ctx_injection():
@@ -1925,8 +1920,8 @@ def test_universal_cycle_detection_on_link_entities():
     )
 
     result = asyncio.run(loop.run())
-    assert link_exec_count == 1
-    assert "tool_cycle_detected" in result.fallbacks
+    assert link_exec_count == 0
+    assert "tool_unknown:link_entities" in result.fallbacks
 
 
 def test_cycle_detection_requires_immediate_previous_call():

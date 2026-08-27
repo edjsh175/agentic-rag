@@ -57,18 +57,30 @@ describe('AgentStepStream Block Stream', () => {
     expect(text).toContain('知识库检索')
     expect(text).toContain('候选回答未通过证据审查，正在重新组织…')
 
+    // 验证专属样式类名区分
+    expect(wrapper.find('.disclosure-root--reasoning').exists()).toBe(true)
+    expect(wrapper.find('.disclosure-root--tool').exists()).toBe(true)
+
     // 找到所有可展开行
     const rows = wrapper.findAll('.disclosure-row')
     expect(rows).toHaveLength(2)
 
-    // 点击第一行展开 reasoning
-    await rows[0].trigger('click')
-    expect(wrapper.find('.think-body').exists()).toBe(true)
+    // 验证默认状态：Main Controller 思考框默认展开，工具框默认收起
+    expect(rows[0].attributes('aria-expanded')).toBe('true')
+    expect(rows[1].attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.think-body').isVisible()).toBe(true)
     expect(wrapper.find('.think-body').text()).toContain('第一行思考')
+    expect(wrapper.find('.tool-body-wrap').isVisible()).toBe(false)
+
+    // 点击第一行折叠 reasoning
+    await rows[0].trigger('click')
+    expect(rows[0].attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.think-body').attributes('style')).toContain('display: none')
 
     // 点击第二行展开 tool IN/OUT 详情
     await rows[1].trigger('click')
-    expect(wrapper.find('.tool-body-wrap').exists()).toBe(true)
+    expect(rows[1].attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('.tool-body-wrap').attributes('style') || '').not.toContain('display: none')
     expect(wrapper.find('.tool-body-wrap').text()).toContain('流水线部署')
   })
 

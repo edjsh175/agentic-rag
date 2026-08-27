@@ -3089,7 +3089,10 @@ class RagChain:
         )
         generated_at = time.perf_counter()
         guarded = await asyncio.to_thread(
-            pipeline.structural_guard, candidates, target_entity=target,
+            pipeline.structural_guard,
+            candidates,
+            target_entity=target,
+            graph_working_set=graph_working_set,
         )
         guarded_at = time.perf_counter()
         reranked_docs = await self._postprocess_docs(
@@ -3889,7 +3892,9 @@ class RagChain:
                 data={"chunk_ids": group.chunk_ids},
             )
 
-        async def handle_link(_args: dict) -> ToolObservation:
+        # Legacy-only compatibility bridge. It is intentionally absent from the
+        # Main registry and handler map; V2 uses expand_graph_scope exclusively.
+        async def _handle_legacy_link_entities(_args: dict) -> ToolObservation:
             linked_payload: list[dict] = []
             graph_on = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
             retriever = getattr(self, "_graph_retriever", None)
@@ -4281,7 +4286,6 @@ class RagChain:
         handlers: dict[str, Any] = {
             "retrieve_kb": handle_retrieve,
             "reuse_evidence": handle_reuse,
-            "link_entities": handle_link,
             "expand_graph_scope": handle_expand_graph_scope,
             "clarify": handle_clarify,
             "environment.read_status": handle_env_status,

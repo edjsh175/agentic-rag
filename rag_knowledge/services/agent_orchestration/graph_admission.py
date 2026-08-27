@@ -12,6 +12,7 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import (
 )
 from rag_knowledge.services.relation_policy import (
     RELATION_RULES,
+    is_answer_evidence_relation,
     is_exact_parameter_query,
     is_overview_query,
     relation_query_terms,
@@ -19,6 +20,28 @@ from rag_knowledge.services.relation_policy import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalized_evidence_intent(question: str, task_type: str | None) -> str:
+    """Map the current task to the policy vocabulary before query-level matching."""
+    declared = str(task_type or "").strip().lower()
+    if declared in {"definition", "comparison", "deployment", "procedure", "config", "troubleshooting", "general_qa", "multi_entity_relation"}:
+        return declared
+
+    query = str(question or "").casefold()
+    if declared == "multi_entity_relation" or any(term in query for term in ("关系", "区别", "对比", "比较", "差异")):
+        return "multi_entity_relation"
+    if is_exact_parameter_query(query):
+        return "config"
+    if any(term in query for term in ("部署", "安装", "上线", "发布")):
+        return "deployment"
+    if any(term in query for term in ("排错", "故障", "报错", "异常", "解决")):
+        return "troubleshooting"
+    if any(term in query for term in ("如何", "步骤", "启动", "需要")):
+        return "procedure"
+    if is_overview_query(query):
+        return "definition"
+    return "general_qa"
 
 @dataclass(frozen=True)
 class GraphRelationAdmissionResult:
@@ -69,6 +92,7 @@ class GraphRelationAdmissionService:
     def _validate_hard_conditions(
         candidate: GraphRelationCandidate,
         working_set: GraphWorkingSet | None,
+        intent: str,
     ) -> tuple[bool, str]:
         if str(candidate.review_status or "").strip().lower() != "approved":
             return False, f"unapproved_review_status:{candidate.review_status}"
@@ -78,8 +102,7 @@ class GraphRelationAdmissionService:
             return False, "missing_endpoints"
         if candidate.relation_type not in RELATION_RULES:
             return False, f"unregistered_relation_type:{candidate.relation_type}"
-        rule = relation_rule(candidate.relation_type)
-        if not rule or not rule.answer_evidence or not rule.evidence_intents:
+        if not is_answer_evidence_relation(candidate.relation_type, intent):
             return False, f"relation_type_not_answer_evidence:{candidate.relation_type}"
         return True, "ok"
 
@@ -96,7 +119,8 @@ class GraphRelationAdmissionService:
     ) -> GraphRelationAdmissionResult:
         """Admit or reject a graph relation candidate."""
         # 1. Hard validations
-        valid_hard, hard_reason = cls._validate_hard_conditions(candidate, working_set)
+        normalized_intent = _normalized_evidence_intent(question, task_type)
+        valid_hard, hard_reason = cls._validate_hard_conditions(candidate, working_set, normalized_intent)
         if not valid_hard:
             return GraphRelationAdmissionResult(
                 verdict="REJECT",
@@ -109,7 +133,7 @@ class GraphRelationAdmissionService:
 
         q_norm = (question or "").casefold()
         signals: list[str] = []
-        rule = relation_rule(candidate.relation_type)
+        signals.append(f"policy_intent:{normalized_intent}")
 
         # 2. Entity Relevance check
         active_targets = {
@@ -136,9 +160,7 @@ class GraphRelationAdmissionService:
             signals.append("indirect_entity_overlap")
 
         # 3. Intent & Task Relevance check
-        is_multi_relation_task = str(task_type or "").strip() == "multi_entity_relation" or (
-            ("关系" in q_norm or "区别" in q_norm or "对比" in q_norm) and (source_in_q or target_in_q)
-        )
+        is_multi_relation_task = normalized_intent == "multi_entity_relation" and (source_in_q or target_in_q)
         if is_multi_relation_task:
             intent_relevance = "HIGH"
             relation_relevance = "DIRECT"

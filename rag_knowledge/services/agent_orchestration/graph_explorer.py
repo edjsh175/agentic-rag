@@ -63,6 +63,7 @@ class GraphExplorer:
         semantic_task: Any = None,
     ) -> tuple[GraphWorkingSet, list[GraphRelationCandidate], dict[str, GraphRelationAdmissionResult]]:
         roots = tuple(confirmed_roots or confirmed_entities or ())
+        task_type = task_type or getattr(semantic_task, "task_type", None)
         """Runtime-owned default 1-hop Bootstrap across all confirmed entities (Multi-root)."""
         working_set = GraphWorkingSet(
             question_id=question_id,
@@ -186,8 +187,8 @@ class GraphExplorer:
         )
         for r in new_relations:
             adm = admissions.get(str(r.relation_id or r.relation_key))
-            if adm and adm.verdict == "PASS":
-                working_set.mark_relation_admitted(r.relation_id)
+            if adm:
+                working_set.record_relation_admission(r.relation_id, adm.verdict, adm.reason)
 
         working_set.bootstrap_status = "COMPLETE" if working_set.entities else "EMPTY"
         working_set.recalculate_frontier()
@@ -218,6 +219,7 @@ class GraphExplorer:
         semantic_task: Any = None,
     ) -> ToolObservation:
         """Agent-directed graph scope expansion supporting Depth and Root Expansion with 4-source authorization."""
+        task_type = task_type or getattr(semantic_task, "task_type", None)
         if working_set is None:
             working_set = GraphWorkingSet()
         if start_entities is None:
@@ -450,8 +452,9 @@ class GraphExplorer:
         admitted_keys: list[str] = []
         for r in new_candidates:
             adm = admissions.get(str(r.relation_id or r.relation_key))
+            if adm:
+                working_set.record_relation_admission(r.relation_id, adm.verdict, adm.reason)
             if adm and adm.verdict == "PASS":
-                working_set.mark_relation_admitted(r.relation_id)
                 new_evidence_count += 1
                 admitted_keys.append(r.relation_key)
 

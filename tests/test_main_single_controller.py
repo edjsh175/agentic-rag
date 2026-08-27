@@ -302,24 +302,25 @@ def test_duplicate_graph_relation_is_no_progress_not_a_new_chunk():
     )
     pool = EvidencePool(question_id="q")
 
-    async def link(_args):
+    async def expand_graph_scope(_args):
         pool.add_relation(
             relation_key="StampServer -[depends_on]-> Redis",
             target_entity="StampServer",
+            admission_verdict="PASS",
         )
-        return ToolObservation(tool="link_entities", ok=True, summary="relation")
+        return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation")
 
     decisions = iter([
         AgentDecision(
             action="tool_call",
-            tool="link_entities",
-            arguments={"query": "StampServer 依赖", "target_entity": "StampServer"},
+            tool="expand_graph_scope",
+            arguments={"start_entities": ["StampServer"], "additional_hops": 1, "direction": "both"},
             source="llm",
         ),
         AgentDecision(
             action="tool_call",
-            tool="link_entities",
-            arguments={"query": "StampServer 服务关系", "target_entity": "StampServer"},
+            tool="expand_graph_scope",
+            arguments={"start_entities": ["StampServer"], "additional_hops": 1, "direction": "both"},
             source="llm",
         ),
     ])
@@ -328,7 +329,7 @@ def test_duplicate_graph_relation_is_no_progress_not_a_new_chunk():
         evidence=pool,
         budget=AgentBudget(max_steps=2),
         registry=build_agent_registry(),
-        handlers={"link_entities": link},
+        handlers={"expand_graph_scope": expand_graph_scope},
         cfg=SimpleNamespace(
             agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
         ),
@@ -338,9 +339,8 @@ def test_duplicate_graph_relation_is_no_progress_not_a_new_chunk():
 
     assert result.tools[0]["evidence_delta"]["new_relations"] == 1
     assert result.tools[0]["evidence_delta"]["new_chunks"] == 0
-    assert result.tools[1]["status"] == ToolProgressStatus.NO_PROGRESS
-    assert result.tools[1]["evidence_delta"]["new_chunks"] == 0
-    assert result.tools[1]["evidence_delta"]["new_relations"] == 0
+    assert len(result.tools) == 1
+    assert "tool_cycle_detected" in result.fallbacks
 
 
 def test_budget_exhaustion_never_creates_partial_snapshot():

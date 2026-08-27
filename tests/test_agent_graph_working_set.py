@@ -115,3 +115,21 @@ def test_relation_candidate_carries_graph_revision_to_provenance():
     )
 
     assert candidate.to_dict()["graph_revision"] == "rev-42"
+
+
+def test_relation_candidate_admission_is_pending_until_recorded_and_traced():
+    ws = GraphWorkingSet()
+    candidate = GraphRelationCandidate(
+        relation_id="rel-admission",
+        source_name="StampServer",
+        target_name="StampDB",
+        relation_type="depends_on",
+    )
+    ws.add_relation(candidate)
+
+    assert candidate.admission_verdict == "PENDING"
+    ws.record_relation_admission(candidate.relation_id, "REJECT", "wrong_intent")
+
+    assert candidate.to_dict()["admission_verdict"] == "REJECT"
+    assert candidate.to_dict()["admission_reason"] == "wrong_intent"
+    assert candidate.relation_id not in ws.admitted_relation_ids

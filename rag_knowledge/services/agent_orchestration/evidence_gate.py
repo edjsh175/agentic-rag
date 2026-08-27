@@ -76,6 +76,8 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
             continue
         for doc in group.docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+            if meta.get("source_type") == "graph_relation" and meta.get("admission_verdict") != "PASS":
+                return {"allow_knowledge_answer": False, "reason": "graph_relation_admission_failed"}
             if not meta.get("candidate_pipeline_v2"):
                 continue
             if group.kind not in {"retrieve", "relation", "reuse", "previous_turn_cited"}:

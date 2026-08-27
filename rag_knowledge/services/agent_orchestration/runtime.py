@@ -1124,14 +1124,6 @@ class AgentLoop:
 
         if self._entity_scope_rejected and not has_target:
             return "broadening_after_target_rejection"
-        if tool == "link_entities":
-            if status == "confirmed_topic":
-                return "confirmed_topic_cannot_grant_entity"
-            if status != "confirmed_entity":
-                return "identity_not_confirmed"
-            if not has_target:
-                return "target_entity_required"
-            return None
         if has_target:
             return None if status == "confirmed_entity" else "identity_not_confirmed"
         if status == "confirmed_topic":
@@ -1270,14 +1262,8 @@ class AgentLoop:
         confirmed_entities = tuple(getattr(conv, "confirmed_entities", ()) or ())
         allowed_tools = set(self.registry.names())
         orch_cfg = getattr(self._cfg, "agent_orchestration", None)
-        candidate_pipeline_v2 = bool(getattr(orch_cfg, "candidate_pipeline_v2", False))
-        if candidate_pipeline_v2:
-            allowed_tools.discard("link_entities")
-
         # Mirror Runtime legality in the prompt so Main does not have to infer it
         # from natural-language instructions. Runtime validation remains final.
-        if status != "confirmed_entity":
-            allowed_tools.discard("link_entities")
         if status == "confirmed_entity" and not (conv.topic_shift or conv.entity_transition):
             allowed_tools.discard("clarify")
         if (
@@ -1309,10 +1295,8 @@ class AgentLoop:
         if self.graph_working_set is not None and hasattr(self.graph_working_set, "to_controller_state"):
             if not self.graph_working_set.budget.can_expand():
                 allowed_tools.discard("expand_graph_scope")
-                allowed_tools.discard("link_entities")
         if status != "confirmed_entity" and not confirmed_entities:
             allowed_tools.discard("expand_graph_scope")
-            allowed_tools.discard("link_entities")
 
         state = {
             "identity_status": status,
@@ -1819,7 +1803,7 @@ class AgentLoop:
                 denied = "tool_cycle_detected"
 
             # 7. 连续 NO_PROGRESS 熔断保护
-            if not denied and self._exploration_fuse_open and decision.tool in {"retrieve_kb", "link_entities", "web_search"}:
+            if not denied and self._exploration_fuse_open and decision.tool in {"retrieve_kb", "web_search"}:
                 denied = "exploration_fuse_open"
 
             # 8. 检索预算
@@ -1951,7 +1935,7 @@ class AgentLoop:
                 # 包含首轮 0 docs -> 0 docs 以及无新 chunk / relation / entity 的情况
                 prog_status = ToolProgressStatus.NO_PROGRESS
 
-            exploratory_tool = decision.tool in {"retrieve_kb", "link_entities", "web_search"}
+            exploratory_tool = decision.tool in {"retrieve_kb", "web_search"}
             if exploratory_tool and prog_status == ToolProgressStatus.PROGRESS:
                 self.continuous_no_progress_count = 0
             elif exploratory_tool and prog_status == ToolProgressStatus.NO_PROGRESS:

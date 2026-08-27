@@ -16,8 +16,6 @@ from langchain_core.documents import Document
 
 from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.services.relation_policy import is_candidate_expansion_relation
-
-
 _OVERVIEW_TERMS = ("主要功能", "功能", "用途", "作用", "是什么", "概览", "能力")
 _OVERVIEW_EVIDENCE_TERMS = ("用于", "功能", "支持", "作用", "提供", "实现", "能力")
 _DEPLOYMENT_TERMS = ("部署", "安装", "上传", "目录", "路径", "配置位置")
@@ -172,63 +170,6 @@ class AgentCandidatePipeline:
             conditions.append({"doc_category": doc_category})
         return conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
-    def _entity(self, name: str, graph_working_set: Any = None) -> dict[str, Any] | None:
-        if graph_working_set is not None and hasattr(graph_working_set, "entities"):
-            for ent in graph_working_set.entities.values():
-                if _same(getattr(ent, "canonical_name", ""), name):
-                    return {
-                        "id": getattr(ent, "entity_id", "") or "",
-                        "name": getattr(ent, "canonical_name", "") or "",
-                        "canonical_name": getattr(ent, "canonical_name", "") or "",
-                        "entity_type": getattr(ent, "entity_type", "") or "",
-                    }
-            return None
-        if self._graph_db is None:
-            return None
-        for item in self._graph_db.list_entities(review_status="approved"):
-            if _same(item.get("name"), name) or _same(item.get("canonical_name"), name):
-                return item
-        return None
-
-    def _linked_chunks(
-        self, entity: dict[str, Any] | None, limit: int, *, kb_name: str | None, review_status: str | None, doc_category: str | None,
-    ) -> list[Document]:
-        if entity is None or self._graph_db is None:
-            return []
-        ids = [str(item.get("chunk_id") or "") for item in self._graph_db.list_links(entity_id=str(entity.get("id") or ""))]
-        ids = [item for item in ids if item]
-        return self._chunks(
-            self._generator_filter(
-                {"chunk_id": {"$in": ids[:limit]}},
-                kb_name=kb_name, review_status=review_status, doc_category=doc_category,
-            ),
-            limit,
-        ) if ids else []
-
-    def _graph_neighbors(self, target: str) -> list[tuple[str, tuple[str, ...], float]]:
-        entity = self._entity(target)
-        if entity is None or self._graph_db is None:
-            return []
-        entity_id = str(entity.get("id") or "")
-        strengths = {"strong": 3.0, "medium": 2.0, "weak": 1.0}
-        found: list[tuple[str, tuple[str, ...], float]] = []
-        for relation in self._graph_db.list_relations(entity_id=entity_id, review_status="approved"):
-            relation_type = str(relation.get("relation_type") or "")
-            if not is_candidate_expansion_relation(relation_type):
-                continue
-            source_id = str(relation.get("source_entity_id") or "")
-            name_key = "target_name" if source_id == entity_id else "source_name"
-            neighbor = str(relation.get(name_key) or "").strip()
-            if neighbor:
-                from rag_knowledge.services.relation_policy import relation_rule
-                rule = relation_rule(relation_type)
-                found.append((
-                    neighbor,
-                    (f"{target} --{relation_type}--> {neighbor}",),
-                    strengths.get(getattr(rule, "candidate_expansion", "weak"), 1.0),
-                ))
-        return sorted(found, key=lambda item: (-item[2], item[0].casefold()))
-
     def generate(
         self,
         question: str,
@@ -244,7 +185,8 @@ class AgentCandidatePipeline:
         """Generate independent candidate lists, then deduplicate and RRF-fuse."""
         target = str(target_entity or "").strip()
         lists: list[tuple[str, Iterable[Document], tuple[str, ...], bool, bool]] = []
-        graph_docs: list[tuple[Document, tuple[str, ...], float]] = []
+        graph_docs: list[tuple[Document, tuple[str, ...], float, str, bool]] = []
+        neighbors: list[tuple[str, tuple[str, ...], float]] = []
         if target:
             lists.append((
                 "direct_document_entity",
@@ -257,7 +199,6 @@ class AgentCandidatePipeline:
                 ),
                 (), False, False,
             ))
-            target_graph_entity = self._entity(target, graph_working_set=graph_working_set)
             if graph_working_set is not None and hasattr(graph_working_set, "entity_chunk_links"):
                 linked_ids = graph_working_set.entity_chunk_links.get(target.casefold(), ())
                 lists.append((
@@ -271,17 +212,7 @@ class AgentCandidatePipeline:
                     ),
                     (), True, False,
                 ))
-            elif self._graph_db is not None:
-                lists.append((
-                    "entity_chunk_link",
-                    self._linked_chunks(
-                        target_graph_entity, budgets.entity_chunk,
-                        kb_name=kb_name, review_status=review_status, doc_category=doc_category,
-                    ),
-                    (), True, False,
-                ))
             if graph_working_set is not None and hasattr(graph_working_set, "entities"):
-                neighbors: list[tuple[str, tuple[str, ...], float]] = []
                 for ent_state in getattr(graph_working_set, "entities", {}).values():
                     if _same(ent_state.canonical_name, target):
                         continue
@@ -291,6 +222,8 @@ class AgentCandidatePipeline:
                         s_name = getattr(rel, "source_name", "")
                         t_name = getattr(rel, "target_name", "")
                         r_type = getattr(rel, "relation_type", "")
+                        if not is_candidate_expansion_relation(r_type):
+                            continue
                         if (_same(s_name, target) and _same(t_name, ent_state.canonical_name)) or (
                             _same(t_name, target) and _same(s_name, ent_state.canonical_name)
                         ):
@@ -299,21 +232,34 @@ class AgentCandidatePipeline:
                             rule = relation_rule(r_type)
                             strengths = {"strong": 3.0, "medium": 2.0, "weak": 1.0}
                             strength = max(strength, strengths.get(getattr(rule, "candidate_expansion", "weak"), 1.0))
+                    if not rel_paths:
+                        continue
                     path = tuple(rel_paths) if rel_paths else (f"{target} -> {ent_state.canonical_name}",)
                     neighbors.append((ent_state.canonical_name, path, strength))
-            else:
-                neighbors = self._graph_neighbors(target)
             strength_total = sum(item[2] for item in neighbors) or 1.0
             for neighbor, path, strength in neighbors:
                 neighbor_budget = max(1, round(budgets.graph_expansion * strength / strength_total))
+                linked_ids = ()
+                if graph_working_set is not None and hasattr(graph_working_set, "entity_chunk_links"):
+                    linked_ids = graph_working_set.entity_chunk_links.get(neighbor.casefold(), ())
+                link_budget = min(len(linked_ids), max(1, neighbor_budget // 2))
+                for doc in self._chunks(
+                    self._generator_filter(
+                        {"chunk_id": {"$in": list(linked_ids)[:link_budget]}},
+                        kb_name=kb_name, review_status=review_status, doc_category=doc_category,
+                    ),
+                    link_budget,
+                ) if linked_ids else ():
+                    graph_docs.append((doc, path, strength, "graph_entity_chunk_link", True))
+                document_budget = max(1, neighbor_budget - link_budget)
                 for doc in self._chunks(
                     self._generator_filter(
                         {"document_entity": neighbor},
                         kb_name=kb_name, review_status=review_status, doc_category=doc_category,
                     ),
-                    neighbor_budget,
+                    document_budget,
                 ):
-                    graph_docs.append((doc, path, strength))
+                    graph_docs.append((doc, path, strength, "graph_expansion", False))
                     if len(graph_docs) >= budgets.graph_expansion:
                         break
                 if len(graph_docs) >= budgets.graph_expansion:
@@ -331,12 +277,12 @@ class AgentCandidatePipeline:
 
         for generator, docs, path, link, exact in lists:
             add(generator, docs, graph_path=path, entity_link=link, exact=exact)
-        for rank, (doc, path, strength) in enumerate(graph_docs, start=1):
+        for rank, (doc, path, strength, generator, entity_link) in enumerate(graph_docs, start=1):
             if not self._hard_boundary(doc, kb_name=kb_name, review_status=review_status, doc_category=doc_category):
                 continue
             key = _chunk_key(doc)
             result = candidates.setdefault(key, CandidateResult(document=doc, target_entity=target))
-            result.provenance.append(CandidateProvenance("graph_expansion", rank, path, False, False, strength))
+            result.provenance.append(CandidateProvenance(generator, rank, path, entity_link, False, strength))
 
         for generator, docs in (extra_sources or {}).items():
             add(generator, docs)
@@ -379,19 +325,29 @@ class AgentCandidatePipeline:
                 )
         return summary
 
-    def structural_guard(self, candidates: list[CandidateResult], *, target_entity: str) -> list[CandidateResult]:
+    def structural_guard(
+        self,
+        candidates: list[CandidateResult],
+        *,
+        target_entity: str,
+        graph_working_set: Any = None,
+    ) -> list[CandidateResult]:
         """Reject only an explicit sibling conflict with no target evidence signal."""
         target = str(target_entity or "").strip()
         if not target:
             for candidate in candidates:
                 candidate.structural_flags.append("PASS:unbound_no_entity_guard")
             return candidates
-        target_graph = self._entity(target)
         sibling_names: set[str] = set()
-        if target_graph is not None and self._graph_db is not None:
-            target_id = str(target_graph.get("id") or "")
-            for relation in self._graph_db.list_relations(entity_id=target_id, relation_type="different_from", review_status="approved"):
-                sibling_names.add(str(relation.get("target_name") if str(relation.get("source_entity_id") or "") == target_id else relation.get("source_name") or ""))
+        for relation in getattr(graph_working_set, "relations", {}).values():
+            if str(getattr(relation, "relation_type", "")) != "different_from":
+                continue
+            source_name = getattr(relation, "source_name", "")
+            target_name = getattr(relation, "target_name", "")
+            if _same(source_name, target):
+                sibling_names.add(str(target_name))
+            elif _same(target_name, target):
+                sibling_names.add(str(source_name))
         kept: list[CandidateResult] = []
         for candidate in candidates:
             meta = candidate.document.metadata or {}
