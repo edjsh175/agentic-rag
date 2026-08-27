@@ -664,9 +664,11 @@ function closeInspect() {
 .disclosure-root--reasoning .think-body {
   font-size: 13px;
   line-height: 1.6;
-  border-left-color: #0f172a;
-  background: #f8fafc;
-  color: #1e293b;
+  background: #eef2f6;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #0f172a;
+  border-radius: 0 4px 4px 0;
+  color: #0f172a;
 }
 
 .disclosure-root--reasoning .cursor-blink {

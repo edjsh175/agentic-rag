@@ -537,7 +537,7 @@ App.vue (导航栏: 知识库问答 | 博客管理)
 # 启动（默认使用 config.ini）
 .\venv\Scripts\python.exe run.py
 
-# 启动（以 mix 混合配置启动，外接 Google/OpenAI 等外部模型）
+# 启动（以 mix 混合配置启动，外接 OpenAI 兼容等外部模型）
 $env:RAG_CONFIG="config-mix.ini"; .\venv\Scripts\python.exe run.py
 
 # 生成新评测集并运行四种检索策略
@@ -545,7 +545,7 @@ $env:RAG_CONFIG="config-mix.ini"; .\venv\Scripts\python.exe run.py
 ```
 
 ### 纯本地运行配置说明 (Ollama 运行)
-如果需要在断网或纯本地开发环境下运行后端（不依赖 Google Gemini 或 OpenAI 等外网 API）：
+如果需要在断网或纯本地开发环境下运行后端（不依赖 OpenAI 等外网 API）：
 1. **使用本地配置文件**：项目根目录下已内置了纯本地配置模板 `config-local.ini`。在该配置中，所有 AI 模型服务均指向本地 Ollama 地址 `http://127.0.0.1:11434`，主问答模型为 `qwen3.5:9b`，辅助模型为 `qwen3.5:4b`，向量模型为 `qwen3-embedding`，且禁用了视觉模型。
 2. **拉取本地所需的模型**：确保您的本地 Ollama 机器上已下载并加载了对应模型：
    ```powershell
