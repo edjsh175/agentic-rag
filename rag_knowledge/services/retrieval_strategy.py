@@ -62,7 +62,10 @@ class RetrievalStrategy:
     def _requires_structural_admission(scope: Any) -> bool:
         if scope is None:
             return False
-        if getattr(scope, "candidate_pipeline_v2", False):
+        from rag_knowledge.services.exploration_grant import ExplorationGrant
+        if isinstance(scope, ExplorationGrant):
+            # An Agent grant is an identity/tool authorization record, not a
+            # document allowlist; candidates are guarded at the Admission boundary.
             return False
         if getattr(scope, "target_entities", None) or getattr(scope, "materialized_chunk_ids", None):
             return True

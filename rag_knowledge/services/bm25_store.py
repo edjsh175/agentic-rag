@@ -73,9 +73,13 @@ class BM25Store:
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
 
         norm_scope = getattr(scope, "evidence_scope", scope) if scope is not None else None
+        is_agent_grant = False
+        if norm_scope is not None:
+            from rag_knowledge.services.exploration_grant import ExplorationGrant
+            is_agent_grant = isinstance(norm_scope, ExplorationGrant)
         structural_filter = bool(
             norm_scope
-            and not getattr(norm_scope, "candidate_pipeline_v2", False)
+            and not is_agent_grant
             and hasattr(norm_scope, "is_structurally_admissible")
             and (
                 getattr(norm_scope, "target_entities", None)

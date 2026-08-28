@@ -71,29 +71,37 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
 
     scope = conversation.scope
     identity_scope_id = str(getattr(scope, "scope_id", "") or "")
-    any_v2_docs = any(
-        bool(((doc.get("metadata") if isinstance(doc, dict) else None) or {}).get("candidate_pipeline_v2"))
-        or (((doc.get("metadata") if isinstance(doc, dict) else None) or {}).get("source_type") == "graph_relation")
-        for doc in docs
-    )
+
+    def _doc_source_type(doc: dict) -> str:
+        meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+        return str(meta.get("source_type") or "").strip()
+
+    # Admitted evidence = knowledge-base text or graph relations that passed
+    # the query-scoped Text/Graph Admission. External sources follow their own
+    # protocol and do not count.
+    has_admitted_evidence = any(_doc_source_type(doc) != "external" for doc in docs)
+    valid_text_evidence = {
+        ("TARGET_DIRECT", "TARGET_SPECIFIC"),
+        ("RELATED_CONTEXT", "CONTEXT_ONLY"),
+    }
     for group in evidence.groups:
         if group.status != "ACTIVE":
             continue
         for doc in group.docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
-            if (
-                meta.get("source_type") == "graph_relation"
-                and str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT"
-            ):
-                return {"allow_knowledge_answer": False, "reason": "graph_relation_admission_failed"}
-            if not meta.get("candidate_pipeline_v2"):
+            source_type = _doc_source_type(doc)
+            if source_type == "external":
+                continue
+            if source_type == "graph_relation":
+                if str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT":
+                    return {"allow_knowledge_answer": False, "reason": "graph_relation_admission_failed"}
                 continue
             if group.kind not in {"retrieve", "relation", "reuse", "previous_turn_cited"}:
-                return {"allow_knowledge_answer": False, "reason": "v2_non_retrieve_evidence"}
+                return {"allow_knowledge_answer": False, "reason": "text_admission_non_retrieve_evidence"}
             if (
                 str(meta.get("evidence_class") or "").strip().upper(),
                 str(meta.get("support_scope") or "").strip().upper(),
-            ) not in {("TARGET_DIRECT", "TARGET_SPECIFIC"), ("RELATED_CONTEXT", "CONTEXT_ONLY")}:
+            ) not in valid_text_evidence:
                 return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
     grant_groups = [
         group for group in evidence.groups
@@ -102,12 +110,12 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
     for group in grant_groups:
         for doc in group.docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
-            if meta.get("source_type") == "external":
+            if _doc_source_type(doc) == "external":
                 continue
-            if meta.get("candidate_pipeline_v2") and (
+            if (
                 str(meta.get("evidence_class") or "").strip().upper(),
                 str(meta.get("support_scope") or "").strip().upper(),
-            ) not in {("TARGET_DIRECT", "TARGET_SPECIFIC"), ("RELATED_CONTEXT", "CONTEXT_ONLY")}:
+            ) not in valid_text_evidence:
                 return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
             if str(meta.get("grant_id") or "") != str(group.grant_id or ""):
                 return {"allow_knowledge_answer": False, "reason": "grant_id_mismatch"}
@@ -128,9 +136,9 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
                     return {"allow_knowledge_answer": False, "reason": "grant_target_mismatch"}
 
     head = conversation.head_entity or conversation.selected_entity
-    # V2 evidence has already passed query-scoped Text/Graph Admission. Legacy
-    # name/anchor heuristics must not become a second evidence authority.
-    if head and not any_v2_docs:
+    # Admitted evidence has already passed query-scoped Text/Graph Admission.
+    # Legacy name/anchor heuristics must not become a second evidence authority.
+    if head and not has_admitted_evidence:
         active_heads = [
             group.head_entity
             for group in evidence.groups

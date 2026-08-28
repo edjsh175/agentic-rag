@@ -114,7 +114,6 @@ def test_dod_incident_chain_1_pipe_management_related_context():
             "citation_id": 1,
             "document_entity": "管线系统",
             "evidence_target_entity": "三维管线管理",
-            "candidate_pipeline_v2": True,
                 "support_scope": qual.support_scope,
                 "evidence_class": qual.evidence_class,
             "grant_id": "grant-pipe-1",

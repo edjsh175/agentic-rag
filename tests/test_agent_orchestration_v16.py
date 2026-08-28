@@ -8,7 +8,6 @@ from langchain_core.documents import Document
 from rag_knowledge.services.agent_orchestration.evidence_gate import evaluate_rules
 from rag_knowledge.services.agent_orchestration.models import ConversationContext, EvidencePool
 from rag_knowledge.services.agent_orchestration.runtime import build_agent_registry
-from rag_knowledge.services.bm25_store import BM25Store
 from rag_knowledge.services.conversation_context import UnderstandingResult
 from rag_knowledge.services.dialogue_understanding import (
     SemanticTaskContext,
@@ -17,7 +16,6 @@ from rag_knowledge.services.dialogue_understanding import (
 from rag_knowledge.services.exploration_grant import ExplorationGrant, ExplorationGrantResolver
 from rag_knowledge.services.identity_scope import IdentityScopeResolver
 from rag_knowledge.services.query_cache import QueryCache
-from rag_knowledge.services.retrieval_strategy import RetrievalStrategy
 
 
 _TEST_CONSTRAINTS = {
@@ -150,6 +148,8 @@ def _grant_doc(grant: ExplorationGrant, entity: str, chunk_id: str, content: str
                 "source_type": grant.source_type,
                 "source_ref": grant.source_ref,
             },
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
         },
     }
 
@@ -281,90 +281,6 @@ def test_v16_grant_fingerprint_and_cache_key_isolate_targets():
     key_a = QueryCache.make_key(**common, scope_fingerprint=grant_a.fingerprint)
     key_b = QueryCache.make_key(**common, scope_fingerprint=grant_b.fingerprint)
     assert key_a != key_b
-
-
-def test_v16_vector_pre_topk_filter_uses_current_grant_target_only():
-    strategy = object.__new__(RetrievalStrategy)
-    strategy._cfg = SimpleNamespace(
-        retrieval_top_k=4,
-        retrieval_fetch_k=20,
-        retrieval_lambda_mult=0.5,
-    )
-    chroma = MagicMock()
-    chroma.as_retriever.return_value.invoke.return_value = []
-    strategy._store = MagicMock()
-    strategy._store.get_chroma.return_value = chroma
-
-    grant = ExplorationGrant(
-        grant_id="grant-a",
-        identity_scope_id="identity-a",
-        target_entities=("EntityA",),
-        source_type="user_explicit_mention",
-        source_ref="user_query:EntityA",
-    )
-    strategy._retrieve_vector(
-        "same query",
-        kb_name="kb",
-        doc_category=None,
-        review_status="approved",
-        search_type="similarity",
-        top_k=2,
-        scope=grant,
-    )
-
-    filt = chroma.as_retriever.call_args.kwargs["search_kwargs"]["filter"]
-    assert filt == {
-        "$and": [
-            {"kb_name": "kb"},
-            {"review_status": "approved"},
-            {"document_entity": {"$in": ["EntityA"]}},
-        ]
-    }
-
-
-def test_v16_bm25_pre_topk_filter_uses_grant_before_collecting_topk():
-    store = BM25Store()
-    store.build_index_from_documents([
-        Document(page_content="共同关键词 alpha", metadata={"chunk_id": "a1", "document_entity": "EntityA", "review_status": "approved"}),
-        Document(page_content="共同关键词 alpha alpha", metadata={"chunk_id": "b1", "document_entity": "EntityB", "review_status": "approved"}),
-        Document(page_content="共同关键词 alpha beta", metadata={"chunk_id": "a2", "document_entity": "EntityA", "review_status": "approved"}),
-    ])
-    grant = ExplorationGrant(
-        grant_id="grant-a",
-        identity_scope_id="identity-a",
-        target_entities=("EntityA",),
-        source_type="user_explicit_mention",
-        source_ref="user_query:EntityA",
-    )
-
-    hits = store.search("共同关键词", top_k=2, scope=grant)
-
-    assert len(hits) == 2
-    assert all(hit.metadata.get("document_entity") == "EntityA" for hit in hits)
-
-
-def test_v16_structural_admission_marks_grant_provenance_and_rejects_sibling():
-    grant = ExplorationGrant(
-        grant_id="grant-a",
-        identity_scope_id="identity-a",
-        target_entities=("EntityA",),
-        source_type="user_explicit_mention",
-        source_ref="user_query:EntityA",
-    )
-    docs = [
-        Document(page_content="A", metadata={"chunk_id": "a", "document_entity": "EntityA"}),
-        Document(page_content="B", metadata={"chunk_id": "b", "document_entity": "EntityB"}),
-    ]
-
-    filtered = RetrievalStrategy._filter_by_scope(docs, grant)
-
-    assert [doc.metadata["chunk_id"] for doc in filtered] == ["a"]
-    meta = filtered[0].metadata
-    assert meta["grant_id"] == "grant-a"
-    assert meta["identity_scope_id"] == "identity-a"
-    assert meta["grant_admitted"] is True
-    assert meta["evidence_target_entity"] == "EntityA"
-    assert meta["provenance_source_type"] == "user_explicit_mention"
 
 
 def test_v16_evidence_pool_groups_retrieval_by_target_and_grant():

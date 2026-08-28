@@ -1,7 +1,6 @@
 """Regression test suite for PipelineWebGL retrieval mis-association and strict entity scope enforcement."""
 
 import pytest
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from langchain_core.documents import Document
 
@@ -138,7 +137,7 @@ def test_anchor_filter_strict_refusal_when_no_aligned_chunks():
 
 
 def test_evidence_gate_refuses_when_no_aligned_chunks():
-    """Verify Evidence Gate evaluates to refusal when citable docs contain no PipelineWebGL chunks."""
+    """Verify Evidence Gate refuses KB text that never passed Text Admission (no protocol fields)."""
     conv = ConversationContext.from_request("pipeline", [])
     conv.selected_entity = "PipelineWebGL"
     conv.head_entity = "PipelineWebGL"
@@ -162,12 +161,11 @@ def test_evidence_gate_refuses_when_no_aligned_chunks():
 
     verdict = evaluate_rules(conv, evidence)
     assert verdict["allow_knowledge_answer"] is False
-    assert verdict["reason"] == "strict_entity_alignment_failed"
-    assert "无法可靠回答" in verdict["refusal_text"]
+    assert verdict["reason"] == "query_admission_failed"
 
 
 def test_generic_entity_refusal_for_other_entities():
-    """Verify that refusal generalization works seamlessly for any target entity (e.g. ObliqueModelBuilder or StampServer)."""
+    """Verify that protocol refusal generalizes to any target entity (e.g. ObliqueModelBuilder or StampServer)."""
     conv = ConversationContext.from_request("怎么配置", [])
     conv.selected_entity = "ObliqueModelBuilder"
     conv.head_entity = "ObliqueModelBuilder"
@@ -191,67 +189,7 @@ def test_generic_entity_refusal_for_other_entities():
 
     verdict = evaluate_rules(conv, evidence)
     assert verdict["allow_knowledge_answer"] is False
-    assert verdict["reason"] == "strict_entity_alignment_failed"
-    assert "ObliqueModelBuilder" in verdict["refusal_text"]
-
-
-def test_agent_retrieval_propagates_explicit_scope():
-    """Agent KB retrieval must enforce the same canonical scope as linear retrieval."""
-    import asyncio
-    from rag_knowledge.services.rag import RagChain
-
-    async def _run():
-        chain = object.__new__(RagChain)
-        resolver = get_entity_candidate_resolver()
-        snapshot = resolver.create_clarification_snapshot(
-            resolver.resolve_identity("PipelineWebGL")
-        )
-        plan = SimpleNamespace(
-            queries=["pipeline"],
-            enable_rerank=False,
-            top_k=8,
-            candidate_k=16,
-            expand_neighbors=False,
-            intent_plan=None,
-            backbone_canonical=("PipelineBuilder",),
-            linked_entities=(),
-        )
-        target = {
-            "content": "PipelineWebGL 硬件要求",
-            "metadata": {"document_entity": "PipelineWebGL", "chunk_id": "chk_pw"},
-        }
-        chain._build_retrieval_query_specs = lambda question, history: ["pipeline"]
-        chain._plan_retrieval = lambda question, queries, force_rerank=False: plan
-        chain._prepare_graph_plan = MagicMock(return_value=(plan, None, []))
-        chain._build_graph_kwargs = lambda *args, **kwargs: {}
-        chain._anchor_protect_names = lambda current_plan: ()
-        chain._aretrieve_multi_uncached = AsyncMock(return_value=([target], "ctx"))
-        chain._record_chunk_hit_query = MagicMock()
-
-        docs, _, _ = await chain._retrieve_kb_for_agent(
-            "pipeline",
-            history=None,
-            kb_name=None,
-            doc_category="StampTools",
-            entity_name="PipelineWebGL",
-            web_search=False,
-            pinned_chunk_ids=None,
-            excluded_chunk_ids=None,
-        )
-
-        assert len(docs) == 1
-        assert docs[0]["content"] == target["content"]
-        meta = docs[0]["metadata"]
-        assert meta["chunk_id"] == "chk_pw"
-        assert meta["scope_admitted"] is True
-        assert meta["scope_admission_reason"] == "admissible_entity"
-        assert meta["provenance_source_type"] == "direct_entity_chunk"
-        assert meta["provenance_path"]["root_entity"] == "PipelineWebGL"
-        call = chain._aretrieve_multi_uncached.await_args.kwargs
-        assert call["backbone_canonical"] == ("PipelineWebGL",)
-        assert call["strict_explicit_target"] is True
-
-    asyncio.run(_run())
+    assert verdict["reason"] == "query_admission_failed"
 
 
 def test_stream_retrieval_propagates_explicit_scope():

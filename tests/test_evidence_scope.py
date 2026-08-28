@@ -231,7 +231,7 @@ def test_retrieval_strategy_filter_by_scope():
 
 
 def test_evidence_gate_evaluate_rules():
-    """测试 Evidence Guard 对广义 Provenance 与对齐证据的校验。"""
+    """测试 Evidence Guard 按证据类型协议校验（Text Admission 权威）。"""
     scope = EvidenceScope(
         scope_id="test_gate_scope",
         root_entities=("PipelineWebGL",),
@@ -247,7 +247,7 @@ def test_evidence_gate_evaluate_rules():
         scope=scope,
     )
 
-    # 1. 证据池包含合法实体
+    # 1. 证据池包含合法实体（携带 Text Admission 协议字段）
     pool = EvidencePool(question_id="q1")
     pool.add_retrieve([
         {
@@ -259,6 +259,8 @@ def test_evidence_gate_evaluate_rules():
                 "scope_admitted": True,
                 "scope_admission_reason": "admissible_entity",
                 "provenance_source_type": ProvenanceSourceType.DIRECT_ENTITY_CHUNK.value,
+                "evidence_class": "TARGET_DIRECT",
+                "support_scope": "TARGET_SPECIFIC",
             },
         }
     ])
@@ -278,6 +280,8 @@ def test_evidence_gate_evaluate_rules():
                 "scope_admission_reason": "admissible_entity",
                 "provenance_source_type": ProvenanceSourceType.GRAPH_RELATION.value,
                 "provenance_path": {"relation_type": "depends_on"},
+                "evidence_class": "RELATED_CONTEXT",
+                "support_scope": "CONTEXT_ONLY",
             },
         }
     ])
@@ -290,7 +294,7 @@ def test_evidence_gate_evaluate_rules():
     assert verdict3["allow_knowledge_answer"] is False
     assert verdict3["reason"] == "empty_pool"
 
-    # 4. filename/section 等 legacy heuristic 不能单独通过 locked Evidence Guard。
+    # 4. 未通过 Text Admission 的 KB 文本（缺协议字段）不能作为回答依据。
     legacy_pool = EvidencePool(question_id="q4")
     legacy_pool.add_retrieve([
         {
@@ -304,27 +308,7 @@ def test_evidence_gate_evaluate_rules():
     ])
     verdict4 = evaluate_rules(conv, legacy_pool)
     assert verdict4["allow_knowledge_answer"] is False
-    assert verdict4["reason"] == "scope_provenance_failed"
-
-    # 5. Evidence Guard 与 ScopeResolver 共用 relation policy，未知关系不能借 graph provenance 放行。
-    invalid_relation_pool = EvidencePool(question_id="q5")
-    invalid_relation_pool.add_retrieve([
-        {
-            "content": "ServiceA weak relation",
-            "metadata": {
-                "chunk_id": "c5",
-                "document_entity": "ServiceA",
-                "scope_id": "test_gate_scope",
-                "scope_admitted": True,
-                "scope_admission_reason": "admissible_entity",
-                "provenance_source_type": ProvenanceSourceType.GRAPH_RELATION.value,
-                "provenance_path": {"relation_type": "mentions"},
-            },
-        }
-    ])
-    verdict5 = evaluate_rules(conv, invalid_relation_pool)
-    assert verdict5["allow_knowledge_answer"] is False
-    assert verdict5["provenance_reason"] == "relation_not_scope_admissible"
+    assert verdict4["reason"] == "query_admission_failed"
 
 
 def test_bm25_pre_topk_scope_filtering():

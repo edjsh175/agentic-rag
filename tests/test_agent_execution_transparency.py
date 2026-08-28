@@ -965,6 +965,8 @@ def test_strict_agent_stream_publishes_before_final_answer_without_token_alias()
     conversation = ConversationContext.from_request("StampServer 的端口是多少？", [])
     evidence = EvidencePool(question_id="strict-stream")
     evidence.add_retrieve([_doc()], query="StampServer 端口")
+    evidence.groups[0].docs[0]["metadata"]["evidence_class"] = "TARGET_DIRECT"
+    evidence.groups[0].docs[0]["metadata"]["support_scope"] = "TARGET_SPECIFIC"
     snapshot = evidence.create_snapshot(
         verdict={"allow_knowledge_answer": True, "coverage": "FULL"},
     )

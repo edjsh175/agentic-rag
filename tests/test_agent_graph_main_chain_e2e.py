@@ -83,7 +83,7 @@ def _mock_graph_db():
     return db
 
 
-def test_runtime_bootstrap_writes_evidence_pool_even_with_candidate_pipeline_v2(isolated_storage):
+def test_runtime_bootstrap_writes_evidence_pool_unconditionally(isolated_storage):
     """Verify that Runtime 1-hop Bootstrap relations enter EvidencePool unconditionally."""
     cfg, _, _, _ = isolated_storage()
     db = _mock_graph_db()
@@ -111,8 +111,7 @@ def test_runtime_bootstrap_writes_evidence_pool_even_with_candidate_pipeline_v2(
     evidence = EvidencePool(question_id="q1")
     budget = AgentBudget(max_steps=4)
 
-    # Configure candidate_pipeline_v2 = True
-    cfg.agent_orchestration.candidate_pipeline_v2 = True
+    # Configure graph bootstrap
     cfg.agent_orchestration.graph_bootstrap_enabled = True
 
     async def mock_handler(_args):
@@ -141,7 +140,7 @@ def test_runtime_bootstrap_writes_evidence_pool_even_with_candidate_pipeline_v2(
     assert rel_groups[0].docs[0]["metadata"]["relation_type"] == "belongs_to"
 
 
-def test_candidate_pipeline_v2_consumes_graph_working_set_exclusively():
+def test_candidate_pipeline_consumes_graph_working_set_exclusively():
     """Verify Candidate Pipeline generates graph candidates from GraphWorkingSet without querying Graph DB."""
     forbidden_db = MagicMock()
     forbidden_db.list_relations.side_effect = AssertionError("Direct Graph DB list_relations called in candidate pipeline!")
@@ -346,7 +345,6 @@ def test_grounding_reviewer_verifies_graph_relation_claims():
 def test_v2_allowed_tools_exposes_expand_graph_scope_and_excludes_link_entities(isolated_storage):
     """Verify that in V2 Agent mode, allowed_tools contains expand_graph_scope and strictly excludes link_entities."""
     cfg, _, _, _ = isolated_storage()
-    cfg.agent_orchestration.candidate_pipeline_v2 = True
 
     conv = ConversationContext(
         session=SessionState(),

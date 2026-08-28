@@ -675,14 +675,13 @@ def test_target_mention_does_not_override_explicit_sibling_conflict():
     assert signals == ["explicit_sibling_conflict:PipelineBuilder"]
 
 
-def test_snapshot_rejects_v2_evidence_without_support_scope():
+def test_snapshot_rejects_text_evidence_without_support_scope():
     pool = EvidencePool(question_id="q-missing-scope")
     pool.add_retrieve(
         [{
             "content": "PipelineWebRTC 用于建立实时通道。",
             "metadata": {
                 "chunk_id": "c-missing-scope",
-                "candidate_pipeline_v2": True,
                 "evidence_class": "TARGET_DIRECT",
             },
         }],
@@ -690,7 +689,7 @@ def test_snapshot_rejects_v2_evidence_without_support_scope():
         target_entity="PipelineWebRTC",
     )
 
-    with pytest.raises(ValueError, match="invalid_v2_evidence_support_scope"):
+    with pytest.raises(ValueError, match="invalid_text_evidence_protocol"):
         pool.create_snapshot(verdict={"coverage": "PARTIAL"})
 
 

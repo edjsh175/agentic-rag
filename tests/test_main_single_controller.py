@@ -32,6 +32,8 @@ def _doc(chunk_id: str, content: str = "doc content") -> dict:
             "page_label": "无页码",
             "category": "text",
             "source_type": "knowledge_base",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
         },
     }
 

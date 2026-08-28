@@ -36,6 +36,8 @@ def _doc(chunk_id: str, content: str = "StampServer 的端口是 8080") -> dict:
             "chunk_id": chunk_id,
             "file_name": "server.md",
             "document_entity": "StampServer",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
         },
     }
 

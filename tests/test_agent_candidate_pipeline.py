@@ -310,8 +310,7 @@ def test_ambiguous_graph_candidate_uses_semantic_admission_protocol():
 def test_v2_grant_keeps_only_hard_chroma_boundary_and_bm25_is_unscoped():
     grant = ExplorationGrant(
         grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
-        source_type="user_explicit_mention", source_ref="query", candidate_pipeline_v2=True,
-    )
+        source_type="user_explicit_mention", source_ref="query",    )
     strategy = object.__new__(RetrievalStrategy)
     strategy._cfg = SimpleNamespace(retrieval_top_k=4, retrieval_fetch_k=20, retrieval_lambda_mult=0.5)
     chroma = MagicMock()
@@ -394,21 +393,20 @@ def test_graph_rrf_rank_is_continuous_and_strength_weighted():
     assert graph["strong-a"].weight > graph["weak"].weight
 
 
-def test_v2_evidence_gate_requires_current_admission_and_retrieve_group():
+def test_evidence_gate_requires_current_admission_and_retrieve_group():
     conv = ConversationContext(user_question="q", session=SimpleNamespace(turns=[]))
     pool = EvidencePool(question_id="q")
     pool.add_retrieve([{
         "content": "unreviewed candidate",
-        "metadata": {"chunk_id": "x", "candidate_pipeline_v2": True, "grant_id": "g", "grant_admitted": True},
+        "metadata": {"chunk_id": "x", "grant_id": "g", "grant_admitted": True},
     }], grant=SimpleNamespace(grant_id="g", target_entities=(), source_type="", source_ref="", hop_depth=0, primary_root=None))
     assert evaluate_rules(conv, pool)["reason"] == "query_admission_failed"
 
     relation_pool = EvidencePool(question_id="q")
     relation_pool.add_relation(relation_key="A -[depends_on]-> B", relation_relevance="DIRECT")
     relation_pool.groups[0].kind = "unknown"
-    relation_pool.groups[0].docs[0]["metadata"]["candidate_pipeline_v2"] = True
-    relation_pool.groups[0].docs[0]["metadata"]["relation_relevance"] = "DIRECT"
-    assert evaluate_rules(conv, relation_pool)["reason"] == "v2_non_retrieve_evidence"
+    relation_pool.groups[0].docs[0]["metadata"] = {"chunk_id": "x", "relation_relevance": "DIRECT"}
+    assert evaluate_rules(conv, relation_pool)["reason"] == "text_admission_non_retrieve_evidence"
 
 
 def test_graph_relation_gate_rejects_missing_admission_without_v2_marker():
@@ -441,8 +439,7 @@ def test_v2_pinned_chunk_is_admitted_instead_of_inserted_after_admission():
     chain._record_chunk_hit_query = lambda _docs: None
     grant = ExplorationGrant(
         grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
-        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
-    )
+        source_type="user_explicit_mention", source_ref="q",    )
     plan = SimpleNamespace(enable_rerank=False, top_k=8)
 
     docs, _ = asyncio.run(chain._retrieve_agent_candidates_v2(
@@ -464,8 +461,7 @@ def test_v2_reuse_is_re_admitted_for_the_current_question():
     chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
     grant = ExplorationGrant(
         grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
-        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
-    )
+        source_type="user_explicit_mention", source_ref="q",    )
     reused = [{
         "content": "PipelineWebRTC 上传到 /data/html 目录。",
         "metadata": {"chunk_id": "old-deploy", "document_entity": "PipelineWebRTC", "review_status": "approved"},
@@ -489,8 +485,7 @@ def test_v2_reuse_respects_current_kb_and_category_boundary():
     chain._normalize_source = lambda content, metadata, _index: {"content": content, "metadata": dict(metadata)}
     grant = ExplorationGrant(
         grant_id="g", identity_scope_id="i", target_entities=("PipelineWebRTC",),
-        source_type="user_explicit_mention", source_ref="q", candidate_pipeline_v2=True,
-    )
+        source_type="user_explicit_mention", source_ref="q",    )
     previous = [{
         "content": "PipelineWebRTC 用于实时音视频处理。",
         "metadata": {
@@ -557,8 +552,7 @@ def test_v2_agent_entrypoint_retrieves_unbound_topic_instead_of_returning_empty(
     chain._cfg = SimpleNamespace()
     grant = ExplorationGrant(
         grant_id="topic", identity_scope_id="i", target_entities=(),
-        source_type="confirmed_topic", source_ref="topic:media", candidate_pipeline_v2=True,
-    )
+        source_type="confirmed_topic", source_ref="topic:media",    )
 
     semantic_pass = TextEvidenceQualification(
         verdict="PASS",

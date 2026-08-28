@@ -866,16 +866,21 @@ class EvidencePool:
         }
         for doc in docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
-            is_v2 = bool(meta.get("candidate_pipeline_v2")) or meta.get("source_type") == "graph_relation"
-            if not is_v2:
+            source_type = str(meta.get("source_type") or "").strip()
+            if source_type == "external":
+                # External sources (web search) follow their own protocol and
+                # stay outside the Text Admission authority.
                 continue
             support_scope = str(meta.get("support_scope") or "").strip().upper()
-            if support_scope not in valid_support_scopes:
-                raise ValueError("invalid_v2_evidence_support_scope")
-            if meta.get("source_type") == "graph_relation":
+            if source_type == "graph_relation":
+                if support_scope not in valid_support_scopes:
+                    raise ValueError("invalid_v2_evidence_support_scope")
                 if str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT":
                     raise ValueError("invalid_graph_relation_evidence")
-            elif (
+                continue
+            # Knowledge-base text evidence must carry Text Admission protocol
+            # fields: validity follows the evidence type, not a migration flag.
+            if (
                 str(meta.get("evidence_class") or "").strip().upper(),
                 support_scope,
             ) not in valid_text_evidence:

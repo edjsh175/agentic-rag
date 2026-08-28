@@ -792,7 +792,9 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
     result = asyncio.run(loop.run())
     assert result.llm_gate == "support"
     assert result.answer_gate["allow_knowledge_answer"] is False
-    assert result.answer_gate["reason"] == "entity_conflict"
+    # 未通过 Text Admission 的 KB 文本（无 evidence_class/support_scope 协议字段）
+    # 必须在协议检查处拒绝，实体冲突防护已前移到 Admission 层。
+    assert result.answer_gate["reason"] == "query_admission_failed"
 
 
 def test_empty_retrieval_binds_gap_and_rewrites_query():
@@ -835,7 +837,10 @@ def test_empty_retrieval_binds_gap_and_rewrites_query():
 def test_agent_answer_docs_drop_when_gate_denies():
     conv = ConversationContext.from_request("什么", [])
     pool = EvidencePool(question_id="q")
-    pool.add_retrieve([_doc("x", "无关", citation_id=1)], query="q", head_entity="Other")
+    doc = _doc("x", "无关")
+    doc["metadata"]["evidence_class"] = "RELATED_CONTEXT"
+    doc["metadata"]["support_scope"] = "CONTEXT_ONLY"
+    pool.add_retrieve([doc], query="q", head_entity="Other")
     from rag_knowledge.services.agent_orchestration.models import AgentTurnResult
 
     result = AgentTurnResult(
