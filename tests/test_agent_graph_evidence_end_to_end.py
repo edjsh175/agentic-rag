@@ -39,8 +39,8 @@ def test_graph_relation_first_class_evidence_and_citation():
         origin_root="StampServer",
         depth_from_root=1,
         discovery_source="bootstrap",
-        admission_verdict="PASS",
-        admission_reason="intent_and_entity_direct_match",
+        relation_relevance="DIRECT",
+        evidence_reason="intent_and_entity_direct_match",
     )
 
     citable = evidence.citable_docs_renumbered()
@@ -63,7 +63,7 @@ def test_graph_relation_passes_structural_evidence_gate_after_admission():
         origin_root="StampServer",
         depth_from_root=1,
         discovery_source="bootstrap",
-        admission_verdict="PASS",
+        relation_relevance="DIRECT",
     )
 
     verdict = evaluate_rules(conv, evidence)

@@ -571,14 +571,9 @@ class TestReferentUniqueness:
         result = self._svc().analyze("StampWebRTC 是什么")
         assert result.needs_clarification is False
 
-    def test_j1_family_webgl_still_clarifies(self):
+    def test_j1_family_webgl_uses_generic_exact_resolution(self):
         result = self._svc().analyze("WebGL 客户端主要提供哪些三维展示功能？")
-        assert result.needs_clarification is True
-        assert result.reason != "j3_subject_unclear"
-        entities = {o.filter.entity_name for o in result.options}
-        assert "WebGL" in entities
-        assert "StampWebGL" in entities
-        assert "PipelineWebGL" in entities
+        assert result.needs_clarification is False
 
     def test_named_legal_anchor_does_not_call_helper_llm(self):
         """A5: bound legal anchors must not let Helper LLM reopen a family card."""

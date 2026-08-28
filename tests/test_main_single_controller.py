@@ -307,7 +307,7 @@ def test_duplicate_graph_relation_is_no_progress_not_a_new_chunk():
         pool.add_relation(
             relation_key="StampServer -[depends_on]-> Redis",
             target_entity="StampServer",
-            admission_verdict="PASS",
+            relation_relevance="DIRECT",
         )
         return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation")
 

@@ -204,7 +204,6 @@ class ScopeResolver:
         """Resolve a legacy primary entity and other explicitly referenced entities."""
         constraints = constraints if constraints is not None else load_backbone_constraints()
         raw_entity = (entity_name or "").strip()
-        raw_selected = (clarification_selected or "").strip()
 
         # 1. 显式指定 entity_name -> EXPLICIT
         if raw_entity:
@@ -215,27 +214,7 @@ class ScopeResolver:
                 raw_query=question,
             )
 
-        # 2. 澄清选择 -> CONFIRMED
-        if raw_selected:
-            from rag_knowledge.services.sdk_code_job import map_clarification_text
-            mapped = map_clarification_text(raw_selected)
-            if mapped:
-                canonical = resolve_canonical(mapped, constraints) or mapped
-                return SubjectResolution(
-                    primary_entities=(canonical,),
-                    binding_strength=BindingStrength.CONFIRMED,
-                    raw_query=question,
-                )
-            clean = raw_selected.split("（")[0].split("(")[0].strip()
-            canonical = resolve_canonical(clean, constraints) or clean
-            if canonical:
-                return SubjectResolution(
-                    primary_entities=(canonical,),
-                    binding_strength=BindingStrength.CONFIRMED,
-                    raw_query=question,
-                )
-
-        # 3. Legacy generic query entity extraction. Correction/meta turns are
+        # 2. Generic query entity extraction. Correction/meta turns are
         # handled by DialogueUnderstanding and are not reinterpreted here.
         from rag_knowledge.services.query_entity_guard import detect_correction_or_negation
 

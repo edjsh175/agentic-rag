@@ -1201,10 +1201,10 @@ def test_controller_prompt_does_not_reclarify_an_already_confirmed_entity():
     assert "EvidencePool 为空时优先围绕已确认实体做首次 retrieve_kb" in _DECISION_PROMPT
     assert "ControllerState 是权威状态" in _DECISION_PROMPT
     assert "allowed_tools" in _DECISION_PROMPT
-    assert "用户问题：pipeline" in _DECISION_PROMPT
-    assert "当前主体身份为 PipelineWebGL" in _DECISION_PROMPT
+    assert "用户问题：简称" in _DECISION_PROMPT
+    assert "当前主体身份为实体 A" in _DECISION_PROMPT
     assert '"tool":"retrieve_kb"' in _DECISION_PROMPT
-    assert '"target_entity":"PipelineWebGL"' in _DECISION_PROMPT
+    assert '"target_entity":"实体 A"' in _DECISION_PROMPT
 
 
 def test_controller_state_removes_reclarify_after_entity_confirmation():

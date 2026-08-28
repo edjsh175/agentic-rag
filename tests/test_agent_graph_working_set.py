@@ -93,7 +93,7 @@ def test_graph_working_set_controller_state():
         relation_type="depends_on",
         origin_root="StampServer",
         depth_from_root=1,
-        admission_verdict="PASS",
+        evidence_status="PASS",
     )
     ws.add_relation(r1)
     ws.mark_relation_admitted("rel-1")
@@ -127,9 +127,9 @@ def test_relation_candidate_admission_is_pending_until_recorded_and_traced():
     )
     ws.add_relation(candidate)
 
-    assert candidate.admission_verdict == "PENDING"
-    ws.record_relation_admission(candidate.relation_id, "REJECT", "wrong_intent")
+    assert candidate.evidence_status == "PENDING"
+    ws.record_relation_evidence(candidate.relation_id, "REJECT", "wrong_intent")
 
-    assert candidate.to_dict()["admission_verdict"] == "REJECT"
-    assert candidate.to_dict()["admission_reason"] == "wrong_intent"
+    assert candidate.to_dict()["evidence_status"] == "REJECT"
+    assert candidate.to_dict()["evidence_reason"] == "wrong_intent"
     assert candidate.relation_id not in ws.admitted_relation_ids

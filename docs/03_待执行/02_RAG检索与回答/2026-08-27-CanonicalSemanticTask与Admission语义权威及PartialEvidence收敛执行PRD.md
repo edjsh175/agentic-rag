@@ -3,12 +3,29 @@
 ## 0. 文档信息
 
 **文档类型**：执行 PRD  
-**状态**：待执行  
+**状态**：实施中（架构收口完成，待统一验收）
 **日期**：2026-08-27  
 **实施性质**：事故根因修复 + 架构收口，不新增业务功能  
 **核心目标**：彻底消除“原始歧义 Query / Controller 临时检索 Query / 澄清后真实问题”三套语义同时参与 Evidence Admission 的架构错误，使 Text Evidence、Graph Relation Evidence、Coverage、Answer、Grounding 全部服从同一个 Canonical Semantic Task。
 
 ### 0.1 本 PRD 的权威边界
+
+### 0.2 三份 8·27 PRD 的共同权威声明（2026-08-28）
+
+三份 PRD 的分工固定为：`SemanticTaskContext` 是用户语义唯一权威；
+`EntityCandidateResolver + IdentityResolution` 是身份唯一权威；
+`AgentCandidatePipeline` 只生成候选；Text Evidence 的唯一 Admission 实现是
+`TextEvidenceAdmissionService.qualify()`；Graph Relation Evidence 由 Graph Admission
+规则裁决；Coverage 的唯一状态是 `FULL / PARTIAL / NONE`；Reviewer 决定
+Claim ↔ Evidence ↔ Support Scope；Finalizer 决定最终发布模式。
+
+本 PRD 中此前任何 `pipeline.admit()` 代码片段、调用改造说明或把
+`AgentCandidatePipeline` 描述为 Text Admission 实现的段落，均标记为
+**superseded**，仅保留事故背景。它们不得作为后续实现依据。
+
+Support Scope 对 Coverage 判定的细化，以 Evidence PRD 为准；本 PRD 不另行
+定义 Coverage 状态。三份文档在全部 DoD、真实模型与 HTTP/SSE 验收完成前均
+保持“实施中”，不得单独归档。
 
 本 PRD **不推翻**以下两份现有 PRD 的主架构：
 
@@ -823,7 +840,7 @@ retrieval_intent
 
 ---
 
-## 9.2 Candidate Pipeline 调用边界
+## 9.2 Text Admission 调用边界（已 superseded 的旧 Pipeline 表述已移除）
 
 目标调用关系：
 
@@ -833,7 +850,7 @@ pipeline.generate(
     ...
 )
 
-pipeline.admit(
+TextEvidenceAdmissionService(...).qualify(
     candidate,
     semantic_task=conv.semantic_task,
     target_entity=target,
@@ -844,8 +861,8 @@ pipeline.admit(
 而不是：
 
 ```python
-pipeline.admit(
-    retrieval_query,
+TextEvidenceAdmissionService(...).qualify(
+    candidate,
     candidate,
     ...
 )
@@ -1579,7 +1596,8 @@ conv.semantic_task
 
 所有 `graph_admission_service.admit_relation()` 调用点统一改造。
 
-所有 `pipeline.admit()` 调用点统一改造。
+所有旧 Candidate Pipeline Admission 调用点统一改为
+`TextEvidenceAdmissionService.qualify()`。
 
 禁止只修一个入口。
 
@@ -2354,7 +2372,7 @@ SUFFICIENT
 Graph Admission raw-question intent normalization 主路径
 重复 exact-parameter relation 特判
 SUFFICIENT runtime coverage
-以 retrieval query 作为 pipeline.admit question 的调用方式
+以 retrieval query 作为 Text Admission question 的调用方式
 无效旧测试 fixture / assertion
 ```
 

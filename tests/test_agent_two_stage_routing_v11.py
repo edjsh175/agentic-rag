@@ -472,7 +472,7 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
         pool.add_relation(
             relation_key="ModelBuilder -[different_from]-> UEModelBuilder",
             target_entity="ModelBuilder",
-            admission_verdict="PASS",
+            relation_relevance="DIRECT",
         )
         return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation=1")
 
@@ -933,7 +933,7 @@ def test_answer_prompt_uses_snapshot_citations_and_excludes_history_facts():
             "source_ref": "relation:r1",
             "relation_type": "belongs_to",
         }],
-        admission_verdict="PASS",
+        relation_relevance="DIRECT",
     )
     pool.add_retrieve([_doc("c1", "PipelineWebGL 支持三维管线查询")], query="pipeline")
     snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})

@@ -18,6 +18,7 @@ from rag_knowledge.services.agent_orchestration.models import (
     SessionState,
     ToolProgressStatus,
 )
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.agent_orchestration.runtime import (
     AgentLoop,
     build_agent_registry,
@@ -95,6 +96,17 @@ def test_runtime_bootstrap_writes_evidence_pool_even_with_candidate_pipeline_v2(
         head_entity="StampServer",
         confirmed_entity="StampServer",
         confirmed_entities=("StampServer",),
+    )
+    conv.semantic_task = SemanticTaskContext(
+        "StampServer 包含哪些模块？",
+        "StampServer",
+        ("StampServer",),
+        "single_entity",
+        1.0,
+        "definition",
+        (),
+        "test",
+        True,
     )
     evidence = EvidencePool(question_id="q1")
     budget = AgentBudget(max_steps=4)

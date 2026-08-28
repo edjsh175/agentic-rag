@@ -21,7 +21,7 @@ class GraphEntityState:
     is_frontier: bool = True
     first_seen_via_relation_id: str = ""
     source: str = "bootstrap"
-    admission_verdict: str = "PENDING"
+    evidence_status: str = "PENDING"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,8 +55,8 @@ class GraphRelationCandidate:
     origin_root: str = ""
     discovery_source: str = "bootstrap"  # bootstrap | depth_expansion | root_expansion
     discovery_path: tuple[str, ...] = ()
-    admission_verdict: str = "PENDING"
-    admission_reason: str = ""
+    evidence_status: str = "PENDING"
+    evidence_reason: str = ""
 
     @property
     def relation_key(self) -> str:
@@ -80,8 +80,8 @@ class GraphRelationCandidate:
             "origin_root": self.origin_root,
             "discovery_source": self.discovery_source,
             "discovery_path": list(self.discovery_path),
-            "admission_verdict": self.admission_verdict,
-            "admission_reason": self.admission_reason,
+            "evidence_status": self.evidence_status,
+            "evidence_reason": self.evidence_reason,
         }
 
 
@@ -305,8 +305,8 @@ class GraphWorkingSet:
     def record_attempted_signature(self, signature: str) -> None:
         self.record_expansion_signature(signature)
 
-    def record_relation_admission(self, relation_id: str, verdict: str, reason: str = "") -> None:
-        """Persist the one admission result on its candidate; the ID set is only an index."""
+    def record_relation_evidence(self, relation_id: str, verdict: str, reason: str = "") -> None:
+        """Persist the graph evidence decision on its candidate; the ID set is only an index."""
         key = str(relation_id or "").strip()
         candidate = self.relations.get(key.casefold())
         if candidate is None:
@@ -316,16 +316,16 @@ class GraphWorkingSet:
             )
         if candidate is None:
             return
-        candidate.admission_verdict = str(verdict or "PENDING").strip().upper() or "PENDING"
-        candidate.admission_reason = str(reason or "").strip()
-        if candidate.admission_verdict == "PASS":
+        candidate.evidence_status = str(verdict or "PENDING").strip().upper() or "PENDING"
+        candidate.evidence_reason = str(reason or "").strip()
+        if candidate.evidence_status == "PASS":
             self.admitted_relation_ids.add(candidate.relation_id)
         else:
             self.admitted_relation_ids.discard(candidate.relation_id)
 
     def mark_relation_admitted(self, relation_id: str) -> None:
-        """Compatibility wrapper for callers that only know a successful verdict."""
-        self.record_relation_admission(relation_id, "PASS")
+        """Mark a relation as passed graph evidence."""
+        self.record_relation_evidence(relation_id, "PASS")
 
     def add_entity_chunk_links(self, entity_name: str, chunk_ids: list[str] | tuple[str, ...]) -> None:
         key = str(entity_name or "").strip().casefold()

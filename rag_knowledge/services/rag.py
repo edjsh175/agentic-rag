@@ -163,7 +163,7 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 9. 如果 context 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
 11. 若存在产品主干锚定或已审核知识图谱关系提示：介绍类问题只围绕锚点实体回答；若 context 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用），禁止在主体已命中时直接输出固定未命中提示或规则4空壳句。产品关系类问题可直接使用提示中的已审核知识图谱关系或主干边作为权威关系依据进行回答与梳理；即使 <context> 文本片段中无对应详细描述，也可直接依据该图谱关系作出明确回答并标注“（依据已审核知识图谱关系）”，不得因文本未检索到而盲目拒绝回答；不得把 avoid/易混实体当作回答主体。
-12. 对于专有名词、公司专有工具与系统（如 StampTools、StampServer、StampGIS、PipelineBuilder、StampWebGL、StampWebRTC 等），其功能与定位必须严格以 <context> 和图谱事实为准，严禁与外部同名商业软件（例如 Palantir PipelineBuilder 等外部开源/商业工具）混淆或编造外部软件的通用概念；若 <context> 仅包含局部表格或字段规范，请如实基于局部规范作答并说明未查到更多概述，切勿套用外部软件概念。
+12. 对于内部专有名词、工具与系统，其功能与定位必须严格以 <context> 和图谱事实为准；不得与外部同名软件混淆，也不得编造外部软件的通用概念。若 <context> 仅包含局部表格或字段规范，请如实基于局部规范作答并说明未查到更多概述。
 
 ## 输出规则
 
@@ -186,7 +186,7 @@ _SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被�
 _J3_CONTRACT_SECTION = """## 二次开发代码示例输出契约（J3）
 
 - API 只能来自 <context>：签名、参数与代码示例均须以 context 原文为准；禁止编造 context 中未出现的产品私有 API（尤其 `StampUtil.xxx`、`earth.Factory.xxx`）。
-- 图谱/主干提示仅用于区分产品线（如 StampWebRTC 与 StampWebGL），不得当作 API 参数来源或事实依据。
+- 图谱/主干提示仅用于区分产品线，不得当作 API 参数来源或事实依据。
 - 回答按以下结构组织（缺失部分必须明示）：
   1. 适用产品/版本：来自 context 或锚定提示；无则明确说明。
   2. 使用到的 API：给出签名并引用编号。
@@ -505,6 +505,8 @@ class RagChain:
         *,
         entity_name: str | None,
         clarification_selected: str | None,
+        clarification_option_id: str | None = None,
+        clarification_snapshot_id: str | None = None,
         clarification_selected_candidate: dict[str, Any] | None = None,
     ) -> tuple[str, str | None, str | None]:
         """Keep legacy linear retrieval from treating callback text as an entity."""
@@ -516,6 +518,8 @@ class RagChain:
             None,
             entity_name=entity_name,
             clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             selected_candidate=clarification_selected_candidate,
         )
         if binding.identity_status == "confirmed_entity" and binding.confirmed_entity:
@@ -3575,8 +3579,8 @@ class RagChain:
                     "relation_type": relation_type,
                     "source_entity": source_name,
                     "target_entity": target_name,
-                    "admission_verdict": admission.verdict,
-                    "admission_reason": admission.reason,
+                    "relation_relevance": admission.relation_relevance,
+                    "evidence_reason": admission.reason,
                     "tool": "reuse_evidence",
                 }],
                 tool="reuse_evidence",
@@ -3965,8 +3969,8 @@ class RagChain:
                                         "relation_type": candidate.relation_type,
                                         "source_name": candidate.source_name,
                                         "target_name": candidate.target_name,
-                                        "admission_verdict": admission.verdict,
-                                        "admission_reason": admission.reason,
+                                        "relation_relevance": admission.relation_relevance,
+                                        "evidence_reason": admission.reason,
                                         "tool": "link_entities",
                                     }],
                                     tool="link_entities",
@@ -4200,8 +4204,8 @@ class RagChain:
                             "origin_root": rel.origin_root,
                             "depth_from_root": rel.depth_from_root,
                             "discovery_source": rel.discovery_source or "expand_graph_scope",
-                            "admission_verdict": "PASS",
-                            "admission_reason": rel.admission_reason,
+                            "relation_relevance": "DIRECT",
+                            "evidence_reason": rel.evidence_reason,
                             "graph_revision": rel.graph_revision,
                             "tool": "expand_graph_scope",
                         }]
@@ -5050,10 +5054,21 @@ class RagChain:
               agent_prompt: str | None = None,
               clarification_question: str | None = None,
               clarification_selected: str | None = None,
+              clarification_option_id: str | None = None,
+              clarification_snapshot_id: str | None = None,
+              clarification_selected_candidate: dict[str, Any] | None = None,
               agent_orchestration_enabled: bool | None = None) -> dict:
         from rag_knowledge.services.retrieval_scope import RetrievalScope
 
         q = (question or "").strip()
+        q, entity_name, clarification_selected = self._safe_linear_identity_binding(
+            q,
+            entity_name=entity_name,
+            clarification_selected=clarification_selected,
+            clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
+            clarification_selected_candidate=clarification_selected_candidate,
+        )
         scope = RetrievalScope.create(
             q,
             entity_name=entity_name,
@@ -5102,6 +5117,9 @@ class RagChain:
                     agent_prompt=agent_prompt,
                     clarification_question=clarification_question,
                     clarification_selected=clarification_selected,
+                    clarification_option_id=clarification_option_id,
+                    clarification_snapshot_id=clarification_snapshot_id,
+                    clarification_selected_candidate=clarification_selected_candidate,
                     agent_orchestration_enabled=agent_orchestration_enabled,
                 ))
             raise RuntimeError(
@@ -5258,12 +5276,11 @@ class RagChain:
         """
         from rag_knowledge.services.sdk_code_job import (
             is_j3_aux_selection,
-            map_clarification_text,
             resolve_job,
             should_skip_backbone_guess,
         )
 
-        mapped = (entity_name or "").strip() or map_clarification_text(clarification_selected)
+        mapped = (entity_name or "").strip()
         if is_j3_aux_selection(mapped):
             mapped = ""
         if mapped:
@@ -5349,6 +5366,17 @@ class RagChain:
             logger.info("闲聊模式: %s", q[:40])
             return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
+        agent_enabled = self._agent_orchestration_enabled(agent_orchestration_enabled)
+        if not agent_enabled:
+            q, entity_name, clarification_selected = self._safe_linear_identity_binding(
+                q,
+                entity_name=entity_name,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+            )
+
         rejected = self._com_phase0_reject_if_needed(
             q,
             entity_name=entity_name,
@@ -5360,14 +5388,14 @@ class RagChain:
                 rejected = {**rejected, "trace_id": tid}
             return rejected
 
-        agent_enabled = self._agent_orchestration_enabled(agent_orchestration_enabled)
-
         # In Agent mode the Main Controller is the sole clarification decision
         # maker.  The legacy Stage-1 clarify gate remains available only for the
         # linear path and the explicit /query/clarify endpoint.
         has_bound_selection = bool(
             clarification_selected
             and str(clarification_selected).strip()
+            and clarification_option_id
+            and clarification_snapshot_id
             and str(clarification_selection_kind or "option").casefold() == "option"
         )
         if not agent_enabled and not has_bound_selection:
@@ -5446,12 +5474,6 @@ class RagChain:
                     out["trace_id"] = tid
                 return out
 
-        q, entity_name, clarification_selected = self._safe_linear_identity_binding(
-            q,
-            entity_name=entity_name,
-            clarification_selected=clarification_selected,
-            clarification_selected_candidate=clarification_selected_candidate,
-        )
         from rag_knowledge.services.retrieval_scope import RetrievalScope
 
         scope = RetrievalScope.create(
@@ -5706,6 +5728,7 @@ class RagChain:
                            clarification_question: str | None = None,
                            clarification_selected: str | None = None,
                            clarification_option_id: str | None = None,
+                           clarification_snapshot_id: str | None = None,
                            clarification_selected_candidate: dict[str, Any] | None = None,
                            clarification_options: list[dict[str, Any]] | None = None,
                            clarification_selection_kind: str | None = None,
@@ -5733,6 +5756,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_options=clarification_options,
             clarification_selection_kind=clarification_selection_kind,
@@ -5788,6 +5812,7 @@ class RagChain:
                                    clarification_question: str | None = None,
                                    clarification_selected: str | None = None,
                                    clarification_option_id: str | None = None,
+                                   clarification_snapshot_id: str | None = None,
                                    clarification_selected_candidate: dict[str, Any] | None = None,
                                    clarification_options: list[dict[str, Any]] | None = None,
                                    clarification_selection_kind: str | None = None,
@@ -5806,6 +5831,7 @@ class RagChain:
             clarification_question=clarification_question,
             clarification_selected=clarification_selected,
             clarification_option_id=clarification_option_id,
+            clarification_snapshot_id=clarification_snapshot_id,
             clarification_selected_candidate=clarification_selected_candidate,
             clarification_options=clarification_options,
             clarification_selection_kind=clarification_selection_kind,
@@ -5913,6 +5939,16 @@ class RagChain:
             yield {"type": "done"}
             return
 
+        if not agent_enabled:
+            q, entity_name, clarification_selected = self._safe_linear_identity_binding(
+                q,
+                entity_name=entity_name,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+            )
+
         rejected = self._com_phase0_reject_if_needed(
             q,
             entity_name=entity_name,
@@ -5956,6 +5992,8 @@ class RagChain:
         has_bound_selection = bool(
             clarification_selected
             and str(clarification_selected).strip()
+            and clarification_option_id
+            and clarification_snapshot_id
             and str(clarification_selection_kind or "option").casefold() == "option"
         )
         if not agent_enabled and not has_bound_selection:
@@ -6085,12 +6123,6 @@ class RagChain:
                 yield {"type": "done"}
             return
 
-        q, entity_name, clarification_selected = self._safe_linear_identity_binding(
-            q,
-            entity_name=entity_name,
-            clarification_selected=clarification_selected,
-            clarification_selected_candidate=clarification_selected_candidate,
-        )
         retrieved_source_docs: list[dict] = []
         source_docs: list[dict] = []
         try:

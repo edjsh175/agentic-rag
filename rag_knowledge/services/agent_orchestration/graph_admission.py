@@ -20,22 +20,22 @@ class GraphRelationAdmissionResult:
     """Admission verdict for one graph relation candidate."""
 
     verdict: str  # PASS | REJECT
-    entity_relevance: str  # HIGH | MEDIUM | LOW | CONFLICT
+    endpoint_relevance: str  # HIGH | LOW
     intent_relevance: str  # HIGH | MEDIUM | LOW | NONE
     relation_relevance: str  # DIRECT | CONTEXTUAL | IRRELEVANT
     reason: str
-    admission_signals: tuple[str, ...] = ()
+    signals: tuple[str, ...] = ()
     canonical_question: str = ""
     answer_intent: str = "general_qa"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "verdict": self.verdict,
-            "entity_relevance": self.entity_relevance,
+            "endpoint_relevance": self.endpoint_relevance,
             "intent_relevance": self.intent_relevance,
             "relation_relevance": self.relation_relevance,
             "reason": self.reason,
-            "admission_signals": list(self.admission_signals),
+            "signals": list(self.signals),
             "canonical_question": self.canonical_question,
             "answer_intent": self.answer_intent,
         }
@@ -100,42 +100,40 @@ class GraphRelationAdmissionService:
         # Clarification has already resolved the question.  Search plans and
         # raw utterances cannot reinterpret the admission intent after this point.
         if semantic_task is None:
-            from rag_knowledge.services.query_surface import infer_answer_intent
+            return GraphRelationAdmissionResult(
+                verdict="REJECT",
+                endpoint_relevance="LOW",
+                intent_relevance="NONE",
+                relation_relevance="IRRELEVANT",
+                reason="missing_semantic_task",
+                signals=("semantic_task_required",),
+            )
 
-            normalized_intent, _facets, _source = infer_answer_intent(question, task_type=task_type)
-            canonical_question = str(question or "")
-            semantic_task_type = str(task_type or "")
-        else:
-            normalized_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
-            canonical_question = str(getattr(semantic_task, "resolved_question", "") or question or "")
-            semantic_task_type = str(getattr(semantic_task, "task_type", "") or task_type or "")
+        normalized_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
+        canonical_question = str(getattr(semantic_task, "resolved_question", "") or "")
+        semantic_task_type = str(getattr(semantic_task, "task_type", "") or "")
 
         # 1. Hard validations
         valid_hard, hard_reason = cls._validate_hard_conditions(candidate, working_set, normalized_intent)
         if not valid_hard:
             return GraphRelationAdmissionResult(
                 verdict="REJECT",
-                entity_relevance="LOW",
+                endpoint_relevance="LOW",
                 intent_relevance="NONE",
                 relation_relevance="IRRELEVANT",
                 reason=hard_reason,
-                admission_signals=("hard_condition_failed",),
+                signals=("hard_condition_failed",),
                 canonical_question=canonical_question,
                 answer_intent=normalized_intent,
             )
 
         signals: list[str] = [f"policy_intent:{normalized_intent}"]
 
-        # 2. Entity relevance comes only from the frozen semantic task (or the
-        # explicit legacy target list when no SemanticTaskContext is available).
-        # Raw-question substrings are not evidence authorization.
-        if semantic_task is not None:
-            semantic_entities = [
-                getattr(semantic_task, "primary_entity", None),
-                *(getattr(semantic_task, "mentioned_entities", ()) or ()),
-            ]
-        else:
-            semantic_entities = list(target_entities or (working_set.exploration_roots if working_set else ()))
+        # 2. Entity relevance comes only from the frozen semantic task.
+        semantic_entities = [
+            getattr(semantic_task, "primary_entity", None),
+            *(getattr(semantic_task, "mentioned_entities", ()) or ()),
+        ]
 
         def _entity_key(value: Any) -> str:
             return normalize_entity_name(str(value or "")).casefold()
@@ -145,16 +143,16 @@ class GraphRelationAdmissionService:
         target_in_targets = _entity_key(candidate.target_name) in active_targets
 
         if source_in_targets and target_in_targets:
-            entity_relevance = "HIGH"
+            endpoint_relevance = "HIGH"
             signals.append("both_endpoints_in_semantic_task")
         elif source_in_targets or target_in_targets:
-            entity_relevance = "HIGH"
+            endpoint_relevance = "HIGH"
             signals.append("endpoint_in_semantic_task")
         else:
-            entity_relevance = "LOW"
+            endpoint_relevance = "LOW"
             signals.append("no_endpoint_in_semantic_task")
 
-        if entity_relevance == "HIGH":
+        if endpoint_relevance == "HIGH":
             relation_relevance = "DIRECT"
             reason = (
                 "multi_entity_relation_direct_fact"
@@ -163,11 +161,11 @@ class GraphRelationAdmissionService:
             )
             return GraphRelationAdmissionResult(
                 verdict="PASS",
-                entity_relevance="HIGH",
+                endpoint_relevance="HIGH",
                 intent_relevance="HIGH",
                 relation_relevance=relation_relevance,
                 reason=reason,
-                admission_signals=tuple(signals),
+                signals=tuple(signals),
                 canonical_question=canonical_question,
                 answer_intent=normalized_intent,
             )
@@ -177,11 +175,11 @@ class GraphRelationAdmissionService:
         # the frozen SemanticTaskContext.
         return GraphRelationAdmissionResult(
             verdict="REJECT",
-            entity_relevance="LOW",
+            endpoint_relevance="LOW",
             intent_relevance="NONE",
             relation_relevance="IRRELEVANT",
             reason="relation_endpoints_outside_semantic_task",
-            admission_signals=tuple(signals),
+            signals=tuple(signals),
             canonical_question=canonical_question,
             answer_intent=normalized_intent,
         )

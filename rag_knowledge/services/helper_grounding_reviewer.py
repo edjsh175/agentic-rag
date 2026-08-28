@@ -52,6 +52,12 @@ Claim 类型说明：
 - limitation_statement：描述“当前完整 Evidence Snapshot 未提供、未说明或无法确认什么”的证据边界说明。
 - non_factual_expression：组织语言，不构成可验证知识事实。
 
+Claim 归属（claim_attribution）必须显式标记：
+- target_attribute：直接断言目标实体自身属性或能力。
+- contextual_fact：陈述相关系统/上下文资料中的事实，不归属给目标实体。
+- relation_fact：陈述实体间直接关系。
+- non_factual：问题复述、证据边界说明或组织语言。
+
 重要边界规则：
 - Evidence Snapshot 中的 source、section、title、content 都属于证据本体。不得只看 content 而忽略 section/title 中明确出现的实体类型、章节归属或上下文标签。
 - 允许对 Evidence 中明确的操作事实做不增强语义的过程概括。例如 Evidence 明确出现“某实体镜像”“Dockerfile.xxx”“编写 Dockerfile”“按该文件构建镜像”，Candidate 概括为“文档提供该实体的 Docker 镜像配置/镜像部署信息”属于 supported；这不等于推断该实体的业务功能、技术栈或运行机制。
@@ -138,6 +144,7 @@ Candidate: “StampGIS 仅在 Windows 10 运行 [1]。”
       "claim_id": "c1",
       "claim": "识别出的断言文本",
       "claim_type": "knowledge_claim" | "question_context" | "limitation_statement" | "non_factual_expression",
+      "claim_attribution": "target_attribute" | "contextual_fact" | "relation_fact" | "non_factual",
       "status": "supported" | "unsupported" | "contradicted",
       "evidence_ids": [1],
       "reason": "判断原因"
@@ -160,6 +167,12 @@ _ALLOWED_CLAIM_TYPES = frozenset({
     "question_context",
     "limitation_statement",
     "non_factual_expression",
+})
+_ALLOWED_CLAIM_ATTRIBUTIONS = frozenset({
+    "target_attribute",
+    "contextual_fact",
+    "relation_fact",
+    "non_factual",
 })
 _ALLOWED_CLAIM_STATUSES = frozenset({"supported", "unsupported", "contradicted"})
 _ALLOWED_REWRITE_ACTIONS = frozenset({
@@ -200,6 +213,7 @@ def review_response_json_schema() -> dict[str, Any]:
                         "claim_id": {"type": "string", "minLength": 1},
                         "claim": {"type": "string", "minLength": 1},
                         "claim_type": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_TYPES)},
+                        "claim_attribution": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_ATTRIBUTIONS)},
                         "status": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_STATUSES)},
                         "evidence_ids": {"type": "array", "items": {"type": "integer"}},
                         "reason": {"type": "string"},
@@ -271,12 +285,14 @@ class ClaimReview:
     status: str
     evidence_ids: tuple[int, ...]
     reason: str
+    claim_attribution: str = "non_factual"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "claim_id": self.claim_id,
             "claim": self.claim,
             "claim_type": self.claim_type,
+            "claim_attribution": self.claim_attribution,
             "status": self.status,
             "evidence_ids": list(self.evidence_ids),
             "reason": self.reason,
@@ -371,8 +387,8 @@ def format_evidence_snapshot(
             "content": content,
             "support_scope": support_scope,
         }
-        if meta.get("text_evidence_class"):
-            item["evidence_class"] = str(meta.get("text_evidence_class")).strip().upper()
+        if meta.get("evidence_class"):
+            item["evidence_class"] = str(meta.get("evidence_class")).strip().upper()
         snapshot.append(item)
     return snapshot
 
@@ -430,7 +446,15 @@ class HelperGroundingReviewer:
             )
 
         valid_evidence_ids = {e["evidence_id"] for e in snapshot}
-        first = self._parse_and_validate(raw, valid_evidence_ids=valid_evidence_ids)
+        evidence_scopes = {
+            int(item["evidence_id"]): str(item.get("support_scope") or "UNKNOWN").strip().upper()
+            for item in snapshot
+        }
+        first = self._parse_and_validate(
+            raw,
+            valid_evidence_ids=valid_evidence_ids,
+            evidence_scopes=evidence_scopes,
+        )
         first_attempt = {
             "attempt": 1,
             "raw_response": raw,
@@ -457,7 +481,11 @@ class HelperGroundingReviewer:
                 ),
             )
 
-        repaired = self._parse_and_validate(repaired_raw, valid_evidence_ids=valid_evidence_ids)
+        repaired = self._parse_and_validate(
+            repaired_raw,
+            valid_evidence_ids=valid_evidence_ids,
+            evidence_scopes=evidence_scopes,
+        )
         repair_error = repaired.error
         if repair_error is None and semantic_signature is not None:
             if self._semantic_signature(repaired_raw) != semantic_signature:
@@ -588,6 +616,7 @@ class HelperGroundingReviewer:
         raw: str | dict[str, Any],
         *,
         valid_evidence_ids: set[int],
+        evidence_scopes: dict[int, str] | None = None,
     ) -> HelperGroundingReviewResult:
         try:
             if isinstance(raw, dict):
@@ -619,6 +648,7 @@ class HelperGroundingReviewer:
                     raise _ReviewProtocolError(f"duplicate_claim_id:{claim_id}")
                 claim_text = _required_string(item, "claim", location=location, nonempty=True)
                 claim_type = _required_string(item, "claim_type", location=location, nonempty=True)
+                claim_attribution = str(item.get("claim_attribution") or "").strip()
                 status = _required_string(item, "status", location=location, nonempty=True)
                 reason = _required_string(item, "reason", location=location)
                 raw_eids = _required_list(item, "evidence_ids", location=location)
@@ -640,13 +670,45 @@ class HelperGroundingReviewer:
                     seen_eids.add(eid)
                     parsed_eids.append(eid)
 
+                scopes = {
+                    str((evidence_scopes or {}).get(evidence_id) or "UNKNOWN").upper()
+                    for evidence_id in parsed_eids
+                }
+                if not claim_attribution:
+                    if claim_type != "knowledge_claim":
+                        claim_attribution = "non_factual"
+                    elif scopes == {"CONTEXT_ONLY"}:
+                        claim_attribution = "contextual_fact"
+                    elif scopes == {"RELATION_SPECIFIC"}:
+                        claim_attribution = "relation_fact"
+                    else:
+                        claim_attribution = "target_attribute"
+                if claim_attribution not in _ALLOWED_CLAIM_ATTRIBUTIONS:
+                    raise _ReviewProtocolError(f"{location}_invalid_claim_attribution:{claim_attribution}")
+
                 if claim_type == "knowledge_claim" and status == "supported" and not parsed_eids:
                     raise _ReviewProtocolError(f"{location}_supported_knowledge_claim_without_evidence")
+                if (
+                    claim_type == "knowledge_claim"
+                    and status == "supported"
+                    and evidence_scopes is not None
+                    and scopes != {"UNKNOWN"}
+                ):
+                    required_scope = {
+                        "target_attribute": "TARGET_SPECIFIC",
+                        "contextual_fact": "CONTEXT_ONLY",
+                        "relation_fact": "RELATION_SPECIFIC",
+                    }.get(claim_attribution)
+                    if required_scope and required_scope not in scopes:
+                        raise _ReviewProtocolError(
+                            f"{location}_claim_attribution_scope_mismatch:{claim_attribution}"
+                        )
 
                 claim_review = ClaimReview(
                     claim_id=claim_id,
                     claim=claim_text,
                     claim_type=claim_type,
+                    claim_attribution=claim_attribution,
                     status=status,
                     evidence_ids=tuple(parsed_eids),
                     reason=reason,

@@ -99,7 +99,13 @@ def serialize_scope(scope: Any) -> dict[str, Any]:
     if scope is None:
         return {}
     if hasattr(scope, "to_dict"):
-        return scope.to_dict()
+        payload = scope.to_dict()
+        resolution = getattr(scope, "identity_resolution", None)
+        if resolution is not None and hasattr(resolution, "to_dict"):
+            # Scope establishes the active identity; retain the resolver's
+            # decision and ranked candidates beside it for trace replay.
+            payload["identity_resolution"] = resolution.to_dict()
+        return payload
     ev = getattr(scope, "evidence_scope", None)
     if ev and hasattr(ev, "to_dict"):
         return ev.to_dict()
@@ -156,8 +162,12 @@ def serialize_candidates(
             "candidate_provenance": list(meta.get("candidate_provenance") or []),
             "candidate_fusion_score": meta.get("candidate_fusion_score"),
             "structural_guard": list(meta.get("structural_guard") or []),
-            "admission": dict(meta.get("admission") or {}),
-            "admission_verdict": meta.get("admission_verdict") or "",
+            "evidence_class": meta.get("evidence_class") or "",
+            "support_scope": meta.get("support_scope") or "",
+            "intent_relevance": meta.get("intent_relevance") or "",
+            "evidence_reason_code": meta.get("evidence_reason_code") or "",
+            "evidence_signals": list(meta.get("evidence_signals") or []),
+            "relation_relevance": meta.get("relation_relevance") or "",
             "content_preview": content[:preview_chars],
         })
     return out
@@ -368,7 +378,18 @@ class QaTraceBuilder:
         """FR-7: record the clarify gate (needs / options / selected / option source)."""
         if not self._enabled:
             return
-        self._clarify = dict(clarify or {})
+        payload = dict(clarify or {})
+        for key in (
+            "clarification_snapshot_id",
+            "clarification_option_id",
+            "clarification_selected_candidate",
+            "clarification_selection_kind",
+            "clarification_free_text",
+        ):
+            value = self._request.get(key)
+            if value is not None and key not in payload:
+                payload[key] = value
+        self._clarify = payload
 
     def add_event(self, event_type: str, data: dict[str, Any] | None = None) -> None:
         """Append one replayable decision event without affecting the answer path."""

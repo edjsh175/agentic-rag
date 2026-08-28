@@ -548,17 +548,17 @@ class EvidencePool:
         origin_root: str | None = None,
         depth_from_root: int = 1,
         discovery_source: str = "bootstrap",
-        admission_verdict: str = "",
-        admission_reason: str = "",
+        relation_relevance: str = "",
+        evidence_reason: str = "",
         graph_revision: str = "",
         tool: str = "expand_graph_scope",
     ) -> EvidenceGroup | None:
-        # Graph relations must carry an explicit PASS from GraphRelationAdmission.
-        # A provenance item may carry that verdict when adapting legacy callers.
-        explicit_verdict = str(admission_verdict or "").strip().upper()
-        if not explicit_verdict and provenance:
-            explicit_verdict = str((provenance[0] or {}).get("admission_verdict") or "").strip().upper()
-        if explicit_verdict != "PASS":
+        # Graph relations are materialized only after GraphAdmission has
+        # classified them as direct relation evidence.
+        relevance = str(relation_relevance or "").strip().upper()
+        if not relevance and provenance:
+            relevance = str((provenance[0] or {}).get("relation_relevance") or "").strip().upper()
+        if relevance != "DIRECT":
             return None
         normalized_relation = str(relation_key or "").strip().casefold()
         for group in self.groups:
@@ -578,8 +578,8 @@ class EvidencePool:
         o_root = origin_root
         d_from_root = depth_from_root
         d_source = discovery_source
-        adm_verdict = admission_verdict
-        adm_reason = admission_reason
+        relation_evidence = relevance
+        e_reason = evidence_reason
         g_revision = graph_revision
         t_tool = tool
         source_ref = ""
@@ -594,8 +594,8 @@ class EvidencePool:
             o_root = o_root or item.get("origin_root")
             d_from_root = item.get("depth_from_root") or item.get("hop_depth") or d_from_root
             d_source = d_source or item.get("discovery_source")
-            adm_verdict = adm_verdict or item.get("admission_verdict")
-            adm_reason = adm_reason or item.get("admission_reason")
+            relation_evidence = relation_evidence or item.get("relation_relevance")
+            e_reason = e_reason or item.get("evidence_reason")
             g_revision = g_revision or item.get("graph_revision")
             t_tool = item.get("tool") or t_tool
             source_ref = str(item.get("source_ref") or "").strip()
@@ -626,8 +626,8 @@ class EvidencePool:
                 "origin_root": o_root or "",
                 "depth_from_root": d_from_root,
                 "discovery_source": d_source or "bootstrap",
-                "admission_verdict": adm_verdict,
-                "admission_reason": adm_reason or "",
+                "relation_relevance": relation_evidence,
+                "evidence_reason": e_reason or "",
                 "graph_revision": g_revision or "",
                 "grant_id": grant_id or "",
                 "grant_admitted": True,
@@ -681,8 +681,8 @@ class EvidencePool:
             origin_root=getattr(candidate, "origin_root", None),
             depth_from_root=getattr(candidate, "depth_from_root", 1),
             discovery_source=getattr(candidate, "discovery_source", "bootstrap"),
-            admission_verdict="PASS",
-            admission_reason=getattr(admission_result, "reason", ""),
+            relation_relevance=getattr(admission_result, "relation_relevance", ""),
+            evidence_reason=getattr(admission_result, "reason", ""),
             graph_revision=getattr(candidate, "graph_revision", ""),
             tool=tool,
         )
@@ -860,6 +860,10 @@ class EvidencePool:
         """Freeze the current citable evidence into an answer-only snapshot."""
         docs = self.citable_docs_renumbered()
         valid_support_scopes = {"TARGET_SPECIFIC", "CONTEXT_ONLY", "RELATION_SPECIFIC"}
+        valid_text_evidence = {
+            ("TARGET_DIRECT", "TARGET_SPECIFIC"),
+            ("RELATED_CONTEXT", "CONTEXT_ONLY"),
+        }
         for doc in docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             is_v2 = bool(meta.get("candidate_pipeline_v2")) or meta.get("source_type") == "graph_relation"
@@ -868,6 +872,14 @@ class EvidencePool:
             support_scope = str(meta.get("support_scope") or "").strip().upper()
             if support_scope not in valid_support_scopes:
                 raise ValueError("invalid_v2_evidence_support_scope")
+            if meta.get("source_type") == "graph_relation":
+                if str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT":
+                    raise ValueError("invalid_graph_relation_evidence")
+            elif (
+                str(meta.get("evidence_class") or "").strip().upper(),
+                support_scope,
+            ) not in valid_text_evidence:
+                raise ValueError("invalid_text_evidence_protocol")
         wanted = {str(item).strip() for item in (focus_evidence_ids or ()) if str(item).strip()}
         if wanted:
             focused: list[dict[str, Any]] = []

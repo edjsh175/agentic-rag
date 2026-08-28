@@ -1174,7 +1174,7 @@ Gate: support
 def test_decision_prompt_has_one_shot():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
     assert "示例（One-shot）" in _DECISION_PROMPT
-    assert "StampServer 默认端口" in _DECISION_PROMPT
+    assert "实体 A 默认端口" in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():
@@ -1410,7 +1410,7 @@ Gate: support
 def test_decision_prompt_has_one_shot():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
     assert "示例 1" in _DECISION_PROMPT or "示例" in _DECISION_PROMPT
-    assert "StampServer 默认端口" in _DECISION_PROMPT
+    assert "实体 A 默认端口" in _DECISION_PROMPT
     assert "retrieve_kb" in _DECISION_PROMPT
     assert "expand_graph_scope" in _DECISION_PROMPT
 
@@ -2016,7 +2016,7 @@ def test_agent_turn_trace_includes_snapshot_support_scope():
                 "chunk_id": "ctx-1",
                 "citation_id": 1,
                 "support_scope": "CONTEXT_ONLY",
-                "text_evidence_class": "RELATED_CONTEXT",
+                "evidence_class": "RELATED_CONTEXT",
             },
         }],
         query="三维管线管理",
@@ -2029,7 +2029,7 @@ def test_agent_turn_trace_includes_snapshot_support_scope():
 
     assert trace["evidence_snapshot_id"] == snapshot.snapshot_id
     assert trace["evidence_snapshot"]["evidence_items"][0]["metadata"]["support_scope"] == "CONTEXT_ONLY"
-    assert trace["evidence_snapshot"]["evidence_items"][0]["metadata"]["text_evidence_class"] == "RELATED_CONTEXT"
+    assert trace["evidence_snapshot"]["evidence_items"][0]["metadata"]["evidence_class"] == "RELATED_CONTEXT"
 
 
 def test_explicit_function_query_keeps_related_context_partial():
@@ -2056,7 +2056,7 @@ def test_explicit_function_query_keeps_related_context_partial():
                     "chunk_id": f"chunk-{i}",
                     "citation_id": i,
                     "support_scope": "CONTEXT_ONLY",
-                    "text_evidence_class": "RELATED_CONTEXT",
+                    "evidence_class": "RELATED_CONTEXT",
                 },
             }],
             query="三维管线管理",

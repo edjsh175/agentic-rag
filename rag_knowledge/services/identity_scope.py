@@ -223,47 +223,13 @@ class IdentityScopeResolver:
                         strength = BindingStrength.UNBOUND
                         reason = "clarification_snapshot_mismatch"
                         identity_status = "unresolved"
-                elif clarification_option_id:
+                else:
                     primary = None
                     valid_entities = []
                     confirmed_topic = raw_sel
                     strength = BindingStrength.UNBOUND
                     reason = "clarification_snapshot_required"
                     identity_status = "unresolved"
-                else:
-                    # Legacy label-only callbacks predate snapshot-backed options.
-                    resolved = None
-                    if candidate_id and candidate_id.startswith("ent_"):
-                        reg_ent = resolver.registry.get_by_id(candidate_id)
-                        if reg_ent is not None:
-                            resolved = reg_ent.canonical_name
-                            confirmed_entity_id = reg_ent.entity_id
-
-                    if not resolved:
-                        resolved = cls._known_canonical(raw_sel, constraints)
-                    metadata_canonical = cls._known_canonical(candidate_canonical, constraints)
-                    if candidate_canonical and (
-                        not resolved
-                        or not metadata_canonical
-                        or resolved.casefold() != metadata_canonical.casefold()
-                    ):
-                        resolved = None
-                    if resolved:
-                        primary = resolved
-                        reg_ent = resolver.registry.get_by_name(resolved)
-                        if reg_ent:
-                            confirmed_entity_id = reg_ent.entity_id
-                        valid_entities = [resolved]
-                        strength = BindingStrength.CONFIRMED
-                        reason = "clarification_confirmed"
-                        identity_status = "confirmed_entity"
-                    else:
-                        primary = None
-                        valid_entities = []
-                        confirmed_topic = raw_sel
-                        strength = BindingStrength.UNBOUND
-                        reason = "clarification_topic"
-                        identity_status = "confirmed_topic"
 
         elif explicit:
             primary = explicit

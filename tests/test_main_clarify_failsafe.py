@@ -71,21 +71,28 @@ def test_merge_clarification_candidates_only_uses_verified_candidate_set():
     assert any("以上都不是" in m.label for m in merged)
 
 
-def test_identity_scope_resolution_confirmed_entity_and_topic():
+def test_identity_scope_requires_snapshot_backed_entity_selection():
     constraints = {
         "entity_type_by_name": {
-            "PipelineWebGL": "module",
-            "PipelineBuilder": "module",
+            "PipelineWebGL": "Module",
+            "PipelineBuilder": "Module",
         },
         "canonical_by_alias": {
             "webgl pipeline": "PipelineWebGL",
         },
     }
 
-    # 1. Canonical selection -> CONFIRMED_ENTITY
+    resolver = get_entity_candidate_resolver(constraints=constraints)
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineWebGL")
+    )
+    # 1. Snapshot-backed selection -> CONFIRMED_ENTITY
     scope_entity = IdentityScopeResolver.resolve(
         None,
         clarification_selected="PipelineWebGL",
+        clarification_option_id="a",
+        clarification_snapshot_id=snapshot.clarification_id,
+        selected_candidate=snapshot.display_candidates[0].to_dict(),
         constraints=constraints,
     )
     assert scope_entity.identity_status == "confirmed_entity"
@@ -93,13 +100,13 @@ def test_identity_scope_resolution_confirmed_entity_and_topic():
     assert scope_entity.confirmed_entity == "PipelineWebGL"
     assert scope_entity.confirmed_topic is None
 
-    # 2. Novel topic selection not in backbone -> CONFIRMED_TOPIC
+    # 2. A label without a server snapshot must not bind a topic or entity.
     scope_topic = IdentityScopeResolver.resolve(
         None,
         clarification_selected="CloudRenderTopic",
         constraints=constraints,
     )
-    assert scope_topic.identity_status == "confirmed_topic"
+    assert scope_topic.identity_status == "unresolved"
     assert scope_topic.primary_entity is None
     assert scope_topic.confirmed_entity is None
     assert scope_topic.confirmed_topic == "CloudRenderTopic"
@@ -132,7 +139,7 @@ def test_callback_metadata_cannot_spoof_a_canonical_entity():
         },
         constraints=constraints,
     )
-    assert scope.identity_status == "confirmed_topic"
+    assert scope.identity_status == "unresolved"
     assert scope.confirmed_entity is None
     assert scope.confirmed_topic == "PipelineMagicServer"
 

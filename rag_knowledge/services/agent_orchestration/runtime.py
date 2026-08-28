@@ -113,12 +113,12 @@ Runtime 已提前计算实体状态、证据状态、预算与当前合法工具
 1. 【用户可见决策理由（reason）】：在 reason 中简明说明用户意图、当前证据缺口与下一步依据；不要输出模型内部自由推理。
    - 【ControllerState 是权威状态】：`identity_status`、`confirmed_entity/confirmed_entities`、`evidence_state`、`budget`、`allowed_tools` 都由 Runtime 计算。不得仅因用户原始词较短、泛化、存在拼写近似重新解释确定性状态；若某工具不在 `allowed_tools` 中，不得选择它。EvidencePool 为空时优先围绕已确认实体做首次 retrieve_kb。
    - 【澄清决策（clarify）】：当 `identity_status` 为 `ambiguous_entity` 或 (`identity_status=unresolved` 且 `entity_binding_required=true`)、确实需要先确定专有实体范围，或用户显式切换/否定当前主体且新主体仍未确认时，才调用 clarify。`entity_binding_required=false` 的 topic/unbound 任务必须允许 `target_entity=null` 直接 retrieve_kb，不得仅因没有实体自动澄清。若 `identity_status=confirmed_entity`，不得调用 clarify，必须围绕已确认实体直接 retrieve_kb。
-   - 【多实体关系与对比（multi-entity）】：当用户提问显式涉及多个合法实体（如“StampServer 和 StampTools 是什么关系？”、“A 和 B 有什么区别？”）时，所有提及的合法实体均属于已确认范围。你可以在 target_entity 中传入组合实体（如 ["StampServer", "StampTools"] 或 "StampServer, StampTools"），或分步调用 retrieve_kb / expand_graph_scope 探索各实体及关联。
+   - 【多实体关系与对比（multi-entity）】：当用户提问显式涉及多个合法实体（如“A 和 B 有什么关系？”、“A 和 B 有什么区别？”）时，所有提及的合法实体均属于已确认范围。你可以在 target_entity 中传入组合实体（如 ["A", "B"] 或 "A, B"），或分步调用 retrieve_kb / expand_graph_scope 探索各实体及关联。
    - 【补检契约（gap & expected_gain）】：初次检索无需 gap。但若发起第二次及后续检索，必须明确指出具体缺失事实（gap）与预期增量（expected_gain）；若上一步 Observation 返回 NO_PROGRESS，严禁仅通过改写同义 query 重复尝试相同 gap！
    - 【Guard/预算终止信号】：每轮 Observation 会给出 guard_constraints 与 budget。若 `retrieval_allowed=false` 或 `remaining_retrieve_attempts=0`，严禁再次选择 retrieve_kb；已有可引用证据时必须直接依据 `current_evidence_state.coverage` 选择回答模式：FULL → finalize full；PARTIAL 且已不能/不应继续补检 → finalize partial；NONE → 不得伪装成 full。若 latest Observation 为 DENIED 且 error 属于 tool_cycle_detected / retrieve_budget_exhausted / exhausted_gap / exploration_fuse_open，严禁通过改写 query 或换同义 gap 重试同一探索；主体仍不明确时才 clarify。
    - 【部分回答与终止（finalize）】：当已有证据足够时，设定 action="finalize"、answer_mode="full"。若知识库只能部分回答，可由你显式设定 answer_mode="partial"；系统不会根据尝试次数或熔断状态替你改成部分回答。
    - 若用户仅在进行会话反问、流程质询或历史回顾（例如“我们刚刚在讨论什么”），且无需外部知识支持，直接设定 action="finalize"、answer_mode="full"。
-   - 若本轮属于澄清选择回调（用户刚选定歧义分支，例如“StampTools Web 端”），必须结合前文原始问题改写为完整查询词（例如“StampTools Web 端 配置”），调用 retrieve_kb 检索具体文档。
+   - 若本轮属于澄清选择回调（用户刚选定歧义分支），必须结合前文原始问题改写为完整查询词，调用 retrieve_kb 检索具体文档。
 2. 【工具调用（action="tool_call"）】：
    - clarify: 向用户出示反问澄清卡片并暂停等待用户选择。入参：question (澄清问题), reason (可选澄清原因)。系统将自动根据当前已验证的候选实体生成选项卡片。
    - retrieve_kb: 知识库检索。必须在 arguments.query 中填入精准改写词；当任务已绑定实体时同时给出 target_entity。二次及以上检索必须在顶层提供 gap 与 expected_gain。严禁传递空 query！
@@ -131,28 +131,28 @@ Runtime 已提前计算实体状态、证据状态、预算与当前合法工具
 
 示例 1（知识库初次精准检索）：
 用户问题：那它的默认端口是多少？
-对话上下文：前序正在讨论 StampServer 配置
+对话上下文：前序正在讨论已确认实体 A 的配置
 输出：
-{{"reason":"问题指向前文的 StampServer 默认端口，需先检索对应配置资料。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"StampServer 默认端口","target_entity":"StampServer","intent":"exact_parameter","mode":"hybrid"}},"gap":null,"expected_gain":null}}
+{{"reason":"问题指向前文已确认实体的默认端口，需先检索对应配置资料。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A 默认端口","target_entity":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":null,"expected_gain":null}}
 
 示例 2（第二次定向补检，携带明确 Gap）：
-用户问题：StampWebRTC UDP 部署需要配置哪些端口？
+用户问题：实体 A 部署需要配置哪些端口？
 已获取证据：已获取 HTTP 管理端口 8080，但缺少 UDP 媒体端口列表
 输出：
-{{"reason":"当前证据仅包含管理端口，仍缺 UDP 媒体传输端口清单，发起一次定向补检。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"StampWebRTC UDP 媒体传输端口配置","target_entity":"StampWebRTC","intent":"exact_parameter","mode":"hybrid"}},"gap":"StampWebRTC UDP 媒体传输端口清单","expected_gain":"获取 UDP 媒体服务端口及范围配置"}}
+{{"reason":"当前证据仅包含管理端口，仍缺 UDP 媒体传输端口清单，发起一次定向补检。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A UDP 媒体传输端口配置","target_entity":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":"实体 A 的 UDP 媒体传输端口清单","expected_gain":"获取 UDP 媒体服务端口及范围配置"}}
 
 示例 3（证据充分或部分覆盖，直接完成）：
-用户问题：StampServer 默认端口是多少？
-证据池摘要：[1] StampServer 配置文档：默认服务端口为 8080，管理端口为 8081。
+用户问题：实体 A 默认端口是多少？
+证据池摘要：[1] 实体 A 配置文档：默认服务端口为 8080，管理端口为 8081。
 输出：
 {{"reason":"证据池已覆盖默认端口问题，结束检索并进入回答生成。","action":"finalize","answer_mode":"full","tool":null,"arguments":{{}},"gap":null,"expected_gain":null}}
 
 示例 4（原始词很短，但主体已由用户确认，不得重复澄清）：
-用户问题：pipeline
-对话上下文：当前主体身份为 PipelineWebGL；用户已选实体为 PipelineWebGL
+用户问题：简称
+对话上下文：当前主体身份为实体 A；用户已选实体为实体 A
 证据池摘要：为空
 输出：
-{{"reason":"PipelineWebGL 已由上下文明确绑定，当前只是缺少该实体的知识证据，无需再次做实体澄清，先检索其概览信息。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"PipelineWebGL 概览","target_entity":"PipelineWebGL","intent":"conceptual_overview","mode":"hybrid"}},"gap":null,"expected_gain":null}}
+{{"reason":"实体 A 已由上下文明确绑定，当前只是缺少该实体的知识证据，无需再次做实体澄清，先检索其概览信息。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A 概览","target_entity":"实体 A","intent":"conceptual_overview","mode":"hybrid"}},"gap":null,"expected_gain":null}}
 
 ControllerState（Runtime 已计算；不要重新推断）：
 {controller_state}
@@ -190,7 +190,7 @@ _AGENT_SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不�
 9. 如果 evidence_pool 对同一配置项给出不同值，必须并列列出各值及引用并提示“请核对原文”；不得静默选择其中一个。不得仅因某组是补检结果或排在前面而采信。
 10. 对“完整、全部、按顺序、端到端”等问题，只有证据覆盖充分时才能使用“完整流程”等断言；否则明确说明证据不足。
 11. 若存在产品主干锚定或已审核知识图谱关系提示：介绍类问题只围绕锚点实体回答；若 evidence_pool 含锚点的部署/配置/使用等片段，应据此写出实质性介绍（并引用）。产品关系类问题可直接使用提示中的已审核知识图谱关系或主干边作为权威关系依据；不得把 avoid/易混实体当作回答主体。
-12. 对于专有名词、公司专有工具与系统（如 StampTools、StampServer、StampGIS、PipelineBuilder、StampWebGL、StampWebRTC 等），其功能与定位必须严格以证据池（EvidencePool）和图谱事实为准，严禁与外部同名商业软件（例如 Palantir PipelineBuilder 等外部开源/商业工具）混淆或编造外部软件的通用概念；若证据池仅包含局部表格或字段规范，请如实基于局部规范作答并说明未查到更多概述，切勿套用外部软件概念。
+12. 对于内部专有名词、工具与系统，其功能与定位必须严格以证据池（EvidencePool）和图谱事实为准；不得与外部同名软件混淆，也不得编造外部软件的通用概念。若证据池仅包含局部表格或字段规范，请如实基于局部规范作答并说明未查到更多概述。
 
 ## 输出规则
 
@@ -951,7 +951,7 @@ class AgentLoop:
     def _understanding_event_data(self) -> dict[str, Any]:
         conv = self.conversation
         understanding = conv.understanding
-        task_type = str(getattr(conv.semantic_task, "task_type", "") or "knowledge_qa")
+        task_type = str(getattr(conv.semantic_task, "task_type", "") or "unbound")
         entity = conv.confirmed_entity or conv.confirmed_topic or conv.head_entity
         rationale = str(getattr(understanding, "rationale", "") or "").strip()
         summary = rationale or (
@@ -1203,7 +1203,6 @@ class AgentLoop:
         return resolve_anchor_binding(
             conv.user_question,
             entity_name=conv.head_entity,
-            clarification_selected=conv.selected_entity,
         )
 
     def _effective_llm_gate(self, decision: AgentDecision, verdict: dict[str, Any]) -> str:
@@ -1435,8 +1434,8 @@ class AgentLoop:
                         "origin_root": rel.origin_root,
                         "depth_from_root": rel.depth_from_root,
                         "discovery_source": "bootstrap",
-                        "admission_verdict": "PASS",
-                        "admission_reason": rel.admission_reason,
+                        "relation_relevance": "DIRECT",
+                        "evidence_reason": rel.evidence_reason,
                         "graph_revision": rel.graph_revision,
                         "tool": "bootstrap_anchor_graph",
                     }]

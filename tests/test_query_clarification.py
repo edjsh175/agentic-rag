@@ -394,18 +394,15 @@ def test_query_callback_rejects_unknown_option_id(monkeypatch):
     assert "not present" in resp.json()["detail"]
 
 
-def test_query_callback_keeps_legacy_label_contract():
+def test_query_callback_rejects_legacy_label_only_contract():
     from rag_knowledge.api.routes import _resolve_clarification_callback
     from rag_knowledge.models.api import QueryRequest
+    from fastapi import HTTPException
 
-    callback = _resolve_clarification_callback(
-        QueryRequest(question="pipeline", clarification_selected="PipelineBuilder")
-    )
-
-    assert callback.question == "pipeline"
-    assert callback.selected_label == "PipelineBuilder"
-    assert callback.option_id is None
-    assert callback.selected_candidate is None
+    with pytest.raises(HTTPException, match="requires snapshot_id and option_id"):
+        _resolve_clarification_callback(
+            QueryRequest(question="pipeline", clarification_selected="PipelineBuilder")
+        )
 
 
 def test_live_backbone_pipeline_includes_webgl_webrtc(isolated_storage):

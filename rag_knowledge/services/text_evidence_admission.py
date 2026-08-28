@@ -78,12 +78,9 @@ class TextEvidenceQualification:
             "intent_relevance": self.intent_relevance,
             "reason_code": self.reason_code,
             "reason": self.reason,
-            "admission_signals": list(self.signals),
             "signals": list(self.signals),
             "canonical_question": self.canonical_question,
             "answer_intent": self.answer_intent,
-            # Legacy compatibility fields
-            "entity_relevance": "HIGH" if self.evidence_class == "TARGET_DIRECT" else ("MEDIUM" if self.evidence_class == "RELATED_CONTEXT" else "LOW"),
         }
 
 
@@ -225,16 +222,20 @@ class TextEvidenceAdmissionService:
     ) -> TextEvidenceQualification:
         """Qualify one candidate without turning retrieval/metadata signals into evidence authority."""
         if semantic_task is None:
-            from rag_knowledge.services.query_surface import infer_answer_intent
+            return TextEvidenceQualification(
+                verdict="REJECT",
+                evidence_class="IRRELEVANT",
+                support_scope="NONE",
+                intent_relevance="NONE",
+                reason_code="missing_semantic_task",
+                reason="Text evidence admission requires a canonical SemanticTaskContext.",
+                signals=("semantic_task_required",),
+            )
 
-            canonical_question = str(retrieval_query or "").strip()
-            answer_intent, requested_facets, _source = infer_answer_intent(canonical_question)
-            semantic_target = ""
-        else:
-            canonical_question = str(getattr(semantic_task, "resolved_question", "") or "").strip()
-            answer_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
-            requested_facets = tuple(getattr(semantic_task, "requested_facets", ()) or ())
-            semantic_target = str(getattr(semantic_task, "primary_entity", "") or "").strip()
+        canonical_question = str(getattr(semantic_task, "resolved_question", "") or "").strip()
+        answer_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
+        requested_facets = tuple(getattr(semantic_task, "requested_facets", ()) or ())
+        semantic_target = str(getattr(semantic_task, "primary_entity", "") or "").strip()
 
         requested_target = str(target_entity or "").strip()
         if semantic_target and requested_target and not _same(semantic_target, requested_target):
@@ -414,7 +415,7 @@ class TextEvidenceAdmissionService:
             "- CONFLICT: 明确属于与目标冲突的其他实体（verdict: REJECT, support_scope: NONE）。\n"
             "- IRRELEVANT: 与目标及当前问题均无证据价值（verdict: REJECT, support_scope: NONE）。\n\n"
             "归属反例：目标是“模块 A”，候选仅说“系统 B 支持功能 X”。即使 A 与 B 名称相近、属于同一系统或检索命中了 A，原文未证明 A 是 B 或功能 X 属于 A 时，必须是 RELATED_CONTEXT，不能是 TARGET_DIRECT。\n\n"
-            "RELATED_CONTEXT 不要求候选写出目标的完整名称，也不要求已存在实体等同或图谱关系。只要候选描述的是目标同一核心对象/领域的系统能力，且能为当前问题提供限定性上下文，就应保留为 RELATED_CONTEXT。示例：目标“三维管线管理”，候选“管线系统支持碰撞分析和智能排管”，应为 RELATED_CONTEXT；它不能证明功能属于目标模块，因此绝不是 TARGET_DIRECT。\n\n"
+            "RELATED_CONTEXT 不要求候选写出目标的完整名称，也不要求已存在实体等同或图谱关系。只要候选描述的是目标同一核心对象/领域的系统能力，且能为当前问题提供限定性上下文，就应保留为 RELATED_CONTEXT。示例：目标“模块 A”，候选“系统 B 支持功能 X”，应为 RELATED_CONTEXT；它不能证明功能属于目标模块，因此绝不是 TARGET_DIRECT。\n\n"
             "target_direct_eligibility 是代码提供的单向安全约束：若为 false，表示候选没有任何可供检查的直接归属线索；此时 TARGET_DIRECT 非法，你只能在 RELATED_CONTEXT 和 IRRELEVANT 中选择。该约束不代表候选自动相关。\n\n"
             "只返回 JSON 格式：\n"
             "{\n"
@@ -449,7 +450,7 @@ class TextEvidenceAdmissionService:
             intent = str(data.get("intent_relevance") or "").upper()
             reason_code = str(data.get("reason_code") or "semantic_qualification")
             reason = str(data.get("reason") or "semantic_qualification_evaluated")
-            signals = tuple(str(s) for s in (data.get("signals") or data.get("admission_signals") or ()) if str(s).strip())
+            signals = tuple(str(s) for s in (data.get("signals") or ()) if str(s).strip())
 
             if verdict not in {"PASS", "REJECT"}:
                 return None
@@ -499,12 +500,10 @@ class TextEvidenceAdmissionService:
             meta["candidate_provenance"] = [item.to_dict() for item in candidate.provenance]
             meta["candidate_fusion_score"] = candidate.fusion_score
             meta["structural_guard"] = list(candidate.structural_flags)
-            meta["text_evidence_class"] = qual.evidence_class
+            meta["evidence_class"] = qual.evidence_class
             meta["support_scope"] = qual.support_scope
             meta["intent_relevance"] = qual.intent_relevance
-            meta["admission_reason_code"] = qual.reason_code
-            meta["admission_signals"] = list(qual.signals)
-            meta["admission"] = qual.to_dict()
-            meta["admission_verdict"] = qual.verdict
+            meta["evidence_reason_code"] = qual.reason_code
+            meta["evidence_signals"] = list(qual.signals)
             docs.append(Document(page_content=candidate.document.page_content, metadata=meta))
         return docs

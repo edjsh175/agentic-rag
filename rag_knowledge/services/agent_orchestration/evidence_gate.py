@@ -81,13 +81,19 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
             continue
         for doc in group.docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
-            if meta.get("source_type") == "graph_relation" and meta.get("admission_verdict") != "PASS":
+            if (
+                meta.get("source_type") == "graph_relation"
+                and str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT"
+            ):
                 return {"allow_knowledge_answer": False, "reason": "graph_relation_admission_failed"}
             if not meta.get("candidate_pipeline_v2"):
                 continue
             if group.kind not in {"retrieve", "relation", "reuse", "previous_turn_cited"}:
                 return {"allow_knowledge_answer": False, "reason": "v2_non_retrieve_evidence"}
-            if meta.get("admission_verdict") and meta.get("admission_verdict") != "PASS":
+            if (
+                str(meta.get("evidence_class") or "").strip().upper(),
+                str(meta.get("support_scope") or "").strip().upper(),
+            ) not in {("TARGET_DIRECT", "TARGET_SPECIFIC"), ("RELATED_CONTEXT", "CONTEXT_ONLY")}:
                 return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
     grant_groups = [
         group for group in evidence.groups
@@ -98,7 +104,10 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             if meta.get("source_type") == "external":
                 continue
-            if meta.get("candidate_pipeline_v2") and meta.get("admission_verdict") != "PASS":
+            if meta.get("candidate_pipeline_v2") and (
+                str(meta.get("evidence_class") or "").strip().upper(),
+                str(meta.get("support_scope") or "").strip().upper(),
+            ) not in {("TARGET_DIRECT", "TARGET_SPECIFIC"), ("RELATED_CONTEXT", "CONTEXT_ONLY")}:
                 return {"allow_knowledge_answer": False, "reason": "query_admission_failed"}
             if str(meta.get("grant_id") or "") != str(group.grant_id or ""):
                 return {"allow_knowledge_answer": False, "reason": "grant_id_mismatch"}

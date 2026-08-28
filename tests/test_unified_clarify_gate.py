@@ -3,6 +3,7 @@ import pytest
 
 from rag_knowledge.config import Config
 from rag_knowledge.services.rag import RagChain
+from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
 
 
 def test_stream_query_ambiguous_short_circuits_with_clarify_card(isolated_storage, monkeypatch):
@@ -35,12 +36,19 @@ def test_stream_query_with_clarification_selected_passes_gate(isolated_storage, 
 
     chain = RagChain()
     chain._retrieve_multi = lambda *a, **k: ([], "")
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineBuilder")
+    )
 
     async def collect():
         events = []
         async for event in chain.stream_query(
             "pipeline",
             clarification_selected="PipelineBuilder",
+            clarification_option_id="a",
+            clarification_snapshot_id=snapshot.clarification_id,
+            clarification_selected_candidate=snapshot.display_candidates[0].to_dict(),
             allow_general_knowledge=False,
         ):
             events.append(event)

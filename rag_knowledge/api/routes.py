@@ -315,11 +315,13 @@ class _ResolvedClarificationCallback:
 def _resolve_clarification_callback(req: QueryRequest) -> _ResolvedClarificationCallback:
     """Resolve callbacks from the server-created snapshot, never client options."""
     question = req.question
-    legacy_selected = (req.clarification_selected or "").strip() or None
+    submitted_label = (req.clarification_selected or "").strip() or None
     option_id = (req.clarification_option_id or "").strip()
     snapshot_id = (req.clarification_snapshot_id or "").strip() or None
     if not option_id and not snapshot_id:
-        return _ResolvedClarificationCallback(question=question, selected_label=legacy_selected)
+        if submitted_label:
+            raise HTTPException(400, detail="clarification selection requires snapshot_id and option_id")
+        return _ResolvedClarificationCallback(question=question, selected_label=None)
 
     if not snapshot_id:
         raise HTTPException(400, detail="clarification_option_id requires clarification_snapshot_id")
@@ -364,9 +366,7 @@ def _resolve_clarification_callback(req: QueryRequest) -> _ResolvedClarification
 
     serialized_options = [option.to_dict() for option in options]
     selected_candidate = selected_option.to_dict()
-    selected_label = None if selection_kind == "free_text" else (
-        str(selected_option.label or "").strip() or legacy_selected
-    )
+    selected_label = None if selection_kind == "free_text" else str(selected_option.label or "").strip()
     return _ResolvedClarificationCallback(
         question=question,
         selected_label=selected_label,

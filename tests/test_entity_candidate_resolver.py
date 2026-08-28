@@ -10,6 +10,7 @@ from rag_knowledge.services.entity_candidate_resolver import (
     EntityCandidateResolver,
     EntityRegistry,
     IdentityResolution,
+    ClarificationSnapshotStore,
     get_entity_candidate_resolver,
 )
 from rag_knowledge.services.identity_scope import IdentityScopeResolver
@@ -83,6 +84,14 @@ def _custom_constraints() -> dict:
     }
 
 
+def _family_root_constraints() -> dict:
+    """Registry fixture for bare family surfaces and concrete implementations."""
+    constraints = _custom_constraints()
+    constraints["entity_type_by_name"].update({"WebGL": "Product", "WebRTC": "Product"})
+    constraints["canonical_by_alias"].update({"WebGL": "WebGL", "WebRTC": "WebRTC"})
+    return constraints
+
+
 @pytest.fixture
 def resolver() -> EntityCandidateResolver:
     return EntityCandidateResolver(constraints=_custom_constraints())
@@ -143,6 +152,28 @@ def test_vague_surface_builder_recalls_builder(resolver: EntityCandidateResolver
     res = resolver.resolve_identity("builder")
     c_names = [c.canonical_name for c in res.candidates]
     assert "PipelineBuilder" in c_names
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected_root", "expected_implementations"),
+    [
+        ("WebGL", "WebGL", {"StampWebGL", "PipelineWebGL"}),
+        ("WebRTC", "WebRTC", {"StampWebRTC", "PipelineWebRTC"}),
+    ],
+)
+def test_bare_family_surface_uses_generic_identity_ranking(
+    surface: str,
+    expected_root: str,
+    expected_implementations: set[str],
+):
+    """Bare surfaces retain their generic recall after family-specific logic is removed."""
+    result = EntityCandidateResolver(constraints=_family_root_constraints()).resolve_identity(surface)
+
+    assert result.status == "confirmed"
+    assert result.confirmed_entity_name == expected_root
+    candidate_names = [candidate.canonical_name for candidate in result.candidates]
+    assert candidate_names[0] == expected_root
+    assert expected_implementations <= set(candidate_names)
 
 
 # -----------------------------------------------------------------------------
@@ -309,6 +340,27 @@ def test_snapshot_creation_and_callback_validation(resolver: EntityCandidateReso
     assert other_ent is None
 
 
+def test_snapshot_store_expires_and_bounds_process_local_callbacks():
+    now = [100.0]
+    store = ClarificationSnapshotStore(ttl_seconds=5, max_entries=2, clock=lambda: now[0])
+    resolver = EntityCandidateResolver(constraints=_custom_constraints(), snapshot_store=store)
+
+    first = resolver.create_clarification_snapshot(resolver.resolve_identity("pipeline"))
+    assert first.expires_at == 105.0
+    assert resolver.get_snapshot(first.clarification_id) is first
+
+    now[0] = 101.0
+    second = resolver.create_clarification_snapshot(resolver.resolve_identity("pipeline"))
+    now[0] = 102.0
+    third = resolver.create_clarification_snapshot(resolver.resolve_identity("pipeline"))
+    assert resolver.get_snapshot(first.clarification_id) is None
+    assert resolver.get_snapshot(second.clarification_id) is second
+
+    now[0] = 108.0
+    assert resolver.get_snapshot(second.clarification_id) is None
+    assert resolver.get_snapshot(third.clarification_id) is None
+
+
 def test_authoritative_snapshot_callback_via_identity_scope():
     constraints = _custom_constraints()
     resolver = get_entity_candidate_resolver(constraints=constraints)
@@ -338,6 +390,21 @@ def test_authoritative_snapshot_callback_via_identity_scope():
     )
     assert scope_tampered.identity_status in {"unresolved", "confirmed_topic"}
     assert scope_tampered.confirmed_entity is None
+
+
+def test_callback_without_snapshot_fails_closed():
+    constraints = _custom_constraints()
+    resolver = get_entity_candidate_resolver(constraints=constraints)
+
+    assert resolver.validate_callback_selection("PipelineWebGL") is None
+    scope = IdentityScopeResolver.resolve(
+        None,
+        clarification_selected="PipelineWebGL",
+        constraints=constraints,
+    )
+    assert scope.identity_status == "unresolved"
+    assert scope.confirmed_entity is None
+    assert scope.scope_reason == "clarification_snapshot_required"
 
 
 # -----------------------------------------------------------------------------

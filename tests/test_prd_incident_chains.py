@@ -115,9 +115,8 @@ def test_dod_incident_chain_1_pipe_management_related_context():
             "document_entity": "管线系统",
             "evidence_target_entity": "三维管线管理",
             "candidate_pipeline_v2": True,
-            "admission_verdict": qual.verdict,
-            "support_scope": qual.support_scope,
-            "text_evidence_class": qual.evidence_class,
+                "support_scope": qual.support_scope,
+                "evidence_class": qual.evidence_class,
             "grant_id": "grant-pipe-1",
             "grant_admitted": True,
             "identity_scope_id": conv.scope.scope_id,
@@ -291,4 +290,4 @@ def test_dod_incident_chain_3_pipeline_webrtc_cross_doc_entity_direct_mention():
     admitted = TextEvidenceAdmissionService.admitted_documents([candidate], {candidate.chunk_id: qual})
     assert len(admitted) == 1
     assert admitted[0].metadata["support_scope"] == "TARGET_SPECIFIC"
-    assert admitted[0].metadata["text_evidence_class"] == "TARGET_DIRECT"
+    assert admitted[0].metadata["evidence_class"] == "TARGET_DIRECT"

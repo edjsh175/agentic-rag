@@ -318,7 +318,7 @@ class ExplorationGrantResolver:
             return None
 
         reason = str(getattr(self.identity_scope, "scope_reason", "") or "")
-        if reason == "clarification_confirmed":
+        if reason == "clarification_confirmed_from_snapshot":
             return "clarification_confirmed"
         if reason in {"previous_confirmed_context", "conversation_confirmed_subject"}:
             return "previous_confirmed_context"

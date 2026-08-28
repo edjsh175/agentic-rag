@@ -16,6 +16,39 @@ from rag_knowledge.services.query_contextualizer import QueryContextualizer, Ret
 
 logger = logging.getLogger(__name__)
 
+_SEMANTIC_TASK_TYPES = frozenset({"unbound", "single_entity", "multi_entity_relation"})
+_SEMANTIC_INTENT_SOURCES = frozenset({
+    "explicit_user",
+    "stage1_resolved",
+    "clarification_default",
+    "structural_relation",
+    "fallback",
+})
+
+
+def normalize_semantic_task_type(
+    value: Any,
+    *,
+    primary_entity: str | None,
+    mentioned_entities: tuple[str, ...],
+) -> str:
+    """Normalize legacy task labels at the Stage-1 protocol boundary."""
+    task_type = str(value or "").strip().lower()
+    if task_type in _SEMANTIC_TASK_TYPES:
+        return task_type
+    distinct_entities = {str(item).strip().casefold() for item in mentioned_entities if str(item).strip()}
+    if len(distinct_entities) >= 2:
+        return "multi_entity_relation"
+    if str(primary_entity or "").strip() or distinct_entities:
+        return "single_entity"
+    return "unbound"
+
+
+def normalize_semantic_intent_source(value: Any) -> str:
+    """Keep persisted Stage-1 intent provenance within the public protocol."""
+    source = str(value or "").strip().lower()
+    return source if source in _SEMANTIC_INTENT_SOURCES else "fallback"
+
 
 @dataclass(frozen=True)
 class SemanticTaskContext:
@@ -31,21 +64,40 @@ class SemanticTaskContext:
     intent_source: str = "fallback"
     entity_binding_required: bool = False
 
+    def __post_init__(self) -> None:
+        normalized = normalize_semantic_task_type(
+            self.task_type,
+            primary_entity=self.primary_entity,
+            mentioned_entities=self.mentioned_entities,
+        )
+        if normalized != self.task_type:
+            object.__setattr__(self, "task_type", normalized)
+        source = normalize_semantic_intent_source(self.intent_source)
+        if source != self.intent_source:
+            object.__setattr__(self, "intent_source", source)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "SemanticTaskContext":
         payload = data if isinstance(data, dict) else {}
+        primary_entity = str(payload.get("primary_entity") or "").strip() or None
+        mentioned_entities = tuple(
+            str(item).strip()
+            for item in (payload.get("mentioned_entities") or ())
+            if str(item).strip()
+        )
+        task_type = normalize_semantic_task_type(
+            payload.get("task_type"),
+            primary_entity=primary_entity,
+            mentioned_entities=mentioned_entities,
+        )
         return cls(
             resolved_question=str(payload.get("resolved_question") or ""),
-            primary_entity=str(payload.get("primary_entity") or "").strip() or None,
-            mentioned_entities=tuple(
-                str(item).strip()
-                for item in (payload.get("mentioned_entities") or ())
-                if str(item).strip()
-            ),
-            task_type=str(payload.get("task_type") or "unbound"),
+            primary_entity=primary_entity,
+            mentioned_entities=mentioned_entities,
+            task_type=task_type,
             confidence=float(payload.get("confidence") or 0.0),
             answer_intent=str(payload.get("answer_intent") or "general_qa"),
             requested_facets=tuple(
@@ -53,11 +105,11 @@ class SemanticTaskContext:
                 for item in (payload.get("requested_facets") or ())
                 if str(item).strip()
             ),
-            intent_source=str(payload.get("intent_source") or "fallback"),
+            intent_source=normalize_semantic_intent_source(payload.get("intent_source")),
             entity_binding_required=bool(
                 payload.get(
                     "entity_binding_required",
-                    str(payload.get("task_type") or "unbound") != "unbound",
+                    task_type != "unbound",
                 )
             ),
         )
@@ -176,9 +228,11 @@ def build_semantic_task_context(
     )
 
     answer_intent, requested_facets, intent_source = infer_answer_intent(
-        question,
+        resolved,
         task_type=task_type,
     )
+    if resolved != (question or "").strip():
+        intent_source = "stage1_resolved"
 
     return SemanticTaskContext(
         resolved_question=resolved,

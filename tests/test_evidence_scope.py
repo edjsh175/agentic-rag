@@ -79,10 +79,10 @@ def test_scope_resolver_subject_resolution():
     assert subj1.binding_strength == BindingStrength.EXPLICIT
     assert subj1.primary_entities == ("PipelineWebGL",)
 
-    # 2. 澄清选择 -> CONFIRMED
+    # 2. Label-only callbacks cannot bind an entity.
     subj2 = ScopeResolver.resolve_subject("介绍一下", clarification_selected="PipelineWebGL（StampTools）", constraints=constraints)
-    assert subj2.binding_strength == BindingStrength.CONFIRMED
-    assert subj2.primary_entities == ("PipelineWebGL",)
+    assert subj2.binding_strength == BindingStrength.UNBOUND
+    assert subj2.primary_entities == ()
 
     # 3. 普通文本匹配 -> INFERRED
     subj3 = ScopeResolver.resolve_subject("PipelineWebGL 怎么配置？", constraints=constraints)
@@ -103,7 +103,7 @@ def test_scope_resolver_subject_resolution():
     assert "PipelineBuilder" in scope4.admissible_entities
 
 
-def test_pipeline_clarification_selection_locks_pipelinewebgl_over_ambiguous_alias():
+def test_label_only_callback_does_not_override_question_entity_resolution():
     constraints = {
         "canonical_by_alias": {
             "pipeline": "PipelineBuilder",
@@ -130,11 +130,10 @@ def test_pipeline_clarification_selection_locks_pipelinewebgl_over_ambiguous_ali
         constraints=constraints,
     )
 
-    assert subject.binding_strength == BindingStrength.CONFIRMED
-    assert subject.primary_entities == ("PipelineWebGL",)
-    assert scope.is_identity_locked
-    assert scope.primary_root == "PipelineWebGL"
-    assert "PipelineBuilder" not in scope.root_entities
+    assert subject.binding_strength == BindingStrength.INFERRED
+    assert subject.primary_entities == ("PipelineBuilder",)
+    assert not scope.is_identity_locked
+    assert scope.primary_root == "PipelineBuilder"
 
 
 def test_scope_resolver_bounded_expansion():
@@ -547,4 +546,3 @@ def test_qa_trace_scope_persistence():
     assert "PipelineWebGL" in serialized["root_entities"]
     assert "PipelineBuilder" in serialized["excluded_rebindings"]
     assert serialized["binding_strength"] == "explicit"
-

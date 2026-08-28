@@ -10,6 +10,13 @@ from rag_knowledge.services.agent_orchestration.graph_working_set import GraphRe
 from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 
 
+def _task(*, intent: str = "general_qa") -> SemanticTaskContext:
+    return SemanticTaskContext(
+        "StampServer 的相关信息", "StampServer", ("StampServer",),
+        "single_entity", 1.0, intent, (), "stage1",
+    )
+
+
 class MockGraphDB:
     def __init__(self, entities: list[dict] | None = None, relations: list[dict] | None = None):
         self._entities = entities or []
@@ -38,7 +45,7 @@ def test_admission_hard_validation_unapproved():
         relation_type="depends_on",
         review_status="pending",
     )
-    result = service.admit_relation(candidate, question="StampServer 依赖什么？")
+    result = service.admit_relation(candidate, question="ignored raw query", semantic_task=_task())
     assert result.verdict == "REJECT"
     assert "unapproved_review_status" in result.reason
 
@@ -52,7 +59,7 @@ def test_admission_hard_validation_invalid_type():
         relation_type="non_existent_relation_type",
         review_status="approved",
     )
-    result = service.admit_relation(candidate, question="StampServer 依赖什么？")
+    result = service.admit_relation(candidate, question="ignored raw query", semantic_task=_task())
     assert result.verdict == "REJECT"
     assert "unregistered_relation_type" in result.reason
 
@@ -93,7 +100,7 @@ def test_admission_deterministic_belongs_to():
     assert res1.verdict == "PASS"
 
     # Exact parameter question -> REJECT
-    res2 = service.admit_relation(candidate, question="StampServer 的默认端口是多少？")
+    res2 = service.admit_relation(candidate, question="ignored raw query", semantic_task=_task(intent="config"))
     assert res2.verdict == "REJECT"
     assert res2.reason == "relation_type_not_answer_evidence:belongs_to"
 
@@ -110,11 +117,30 @@ def test_admission_uses_relation_policy_intent_as_a_hard_authority():
     result = GraphRelationAdmissionService().admit_relation(
         candidate,
         question="StampServer 默认端口是多少？",
-        task_type="config",
+        semantic_task=_task(intent="config"),
     )
 
     assert result.verdict == "REJECT"
     assert result.reason == "relation_type_not_answer_evidence:belongs_to"
+
+
+def test_admission_without_semantic_task_fails_closed():
+    candidate = GraphRelationCandidate(
+        relation_id="rel-missing-task",
+        source_name="StampServer",
+        target_name="StampDB",
+        relation_type="depends_on",
+        review_status="approved",
+    )
+
+    result = GraphRelationAdmissionService().admit_relation(
+        candidate,
+        question="StampServer 依赖什么？",
+        target_entities=["StampServer"],
+    )
+
+    assert result.verdict == "REJECT"
+    assert result.reason == "missing_semantic_task"
 
 
 def test_admission_uses_canonical_semantic_task_after_clarification():

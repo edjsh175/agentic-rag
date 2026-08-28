@@ -683,7 +683,7 @@ def test_snapshot_rejects_v2_evidence_without_support_scope():
             "metadata": {
                 "chunk_id": "c-missing-scope",
                 "candidate_pipeline_v2": True,
-                "text_evidence_class": "TARGET_DIRECT",
+                "evidence_class": "TARGET_DIRECT",
             },
         }],
         query="PipelineWebRTC 的主要功能是什么？",
@@ -702,7 +702,7 @@ def test_snapshot_freezes_support_scope():
             "chunk_id": "c1",
             "citation_id": 1,
             "document_entity": "管线系统",
-            "text_evidence_class": "RELATED_CONTEXT",
+            "evidence_class": "RELATED_CONTEXT",
             "support_scope": "CONTEXT_ONLY",
         },
     }
@@ -712,4 +712,4 @@ def test_snapshot_freezes_support_scope():
     docs = snapshot.documents()
     assert len(docs) == 1
     assert docs[0]["metadata"]["support_scope"] == "CONTEXT_ONLY"
-    assert docs[0]["metadata"]["text_evidence_class"] == "RELATED_CONTEXT"
+    assert docs[0]["metadata"]["evidence_class"] == "RELATED_CONTEXT"

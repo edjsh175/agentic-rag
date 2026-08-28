@@ -184,7 +184,7 @@ def test_evidence_digest_exposes_facts_and_relations_for_controller_decisions():
     pool.add_relation(
         relation_key="PipelineBuilder -[different_from]-> PipelineWebGL",
         target_entity="PipelineWebGL",
-        admission_verdict="PASS",
+        relation_relevance="DIRECT",
     )
 
     digest = pool.decision_digest()

@@ -15,29 +15,38 @@ from rag_knowledge.services.agent_orchestration.models import (
     ConversationContext,
     EvidencePool,
 )
+from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
 
 
 def test_retrieval_scope_creation():
-    """Verify RetrievalScope correctly resolves explicit entity_name vs clarification_selected."""
+    """Verify RetrievalScope accepts only explicit entity_name as an entity binding."""
     # Explicit entity_name provided
     scope1 = RetrievalScope.create("pipeline", entity_name="PipelineWebGL", doc_category="StampTools")
     assert scope1.canonical_entity == "PipelineWebGL"
     assert scope1.explicit_selection is True
     assert scope1.allowed_document_entity == "PipelineWebGL"
 
-    # Selection from clarification string
+    # A label-only callback cannot become an entity binding.
     scope2 = RetrievalScope.create("pipeline", clarification_selected="PipelineWebGL（StampTools）")
-    assert scope2.canonical_entity == "PipelineWebGL"
-    assert scope2.explicit_selection is True
-    assert scope2.allowed_document_entity == "PipelineWebGL"
+    assert scope2.canonical_entity == ""
+    assert scope2.explicit_selection is False
+    assert scope2.allowed_document_entity is None
 
 
 def test_clarification_selection_collapses_semantic_task_to_chosen_entity():
+    resolver = get_entity_candidate_resolver()
+    snapshot = resolver.create_clarification_snapshot(
+        resolver.resolve_identity("PipelineWebGL")
+    )
+    candidate = snapshot.display_candidates[0].to_dict()
     conv = ConversationContext.from_request(
         "pipeline",
         [],
         entity_name="PipelineWebGL",
-        clarification_selected="PipelineWebGL（StampTools）",
+        clarification_selected="PipelineWebGL",
+        clarification_option_id="a",
+        clarification_snapshot_id=snapshot.clarification_id,
+        clarification_selected_candidate=candidate,
     )
 
     assert conv.head_entity == "PipelineWebGL"
@@ -193,6 +202,10 @@ def test_agent_retrieval_propagates_explicit_scope():
 
     async def _run():
         chain = object.__new__(RagChain)
+        resolver = get_entity_candidate_resolver()
+        snapshot = resolver.create_clarification_snapshot(
+            resolver.resolve_identity("PipelineWebGL")
+        )
         plan = SimpleNamespace(
             queries=["pipeline"],
             enable_rerank=False,
@@ -249,6 +262,10 @@ def test_stream_retrieval_propagates_explicit_scope():
 
     async def _run():
         chain = object.__new__(RagChain)
+        resolver = get_entity_candidate_resolver()
+        snapshot = resolver.create_clarification_snapshot(
+            resolver.resolve_identity("PipelineWebGL")
+        )
         plan = RetrievalPlan("definition", [], 4, 12, True, False, 0.9)
         chain._build_retrieval_query_specs = lambda question, history: ["question"]
         chain._plan_retrieval = lambda question, queries, force_rerank=False: plan
@@ -264,7 +281,10 @@ def test_stream_retrieval_propagates_explicit_scope():
             async for event in chain.stream_query(
                 "question",
                 doc_category="StampTools",
-                clarification_selected="PipelineWebGL（StampTools）",
+                clarification_selected="PipelineWebGL",
+                clarification_option_id="a",
+                clarification_snapshot_id=snapshot.clarification_id,
+                clarification_selected_candidate=snapshot.display_candidates[0].to_dict(),
                 allow_general_knowledge=False,
             )
         ]

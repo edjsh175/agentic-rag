@@ -358,11 +358,10 @@ def resolve_anchor_binding(
     question: str,
     *,
     entity_name: str | None = None,
-    clarification_selected: str | None = None,
     constraints: dict | None = None,
 ) -> AnchorBinding:
     """FR-1: one adjudicator for whether clarification may run."""
-    mapped = (entity_name or "").strip() or map_clarification_text(clarification_selected)
+    mapped = (entity_name or "").strip()
     if is_j3_aux_selection(mapped):
         decision = resolve_job(question, entity_name=mapped)
         return AnchorBinding(

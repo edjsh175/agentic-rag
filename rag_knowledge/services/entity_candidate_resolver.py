@@ -14,9 +14,11 @@ import hashlib
 import logging
 import re
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from threading import RLock
+from typing import Any, Callable
 
 from rag_knowledge.services.backbone_guard import load_backbone_constraints
 
@@ -25,6 +27,8 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ALLOWED_ENTITY_TYPES = frozenset({"Product", "Tool", "Service", "Module"})
 _MAX_DISPLAY_OPTIONS = 5
 _MIN_DISPLAY_OPTIONS = 3
+_SNAPSHOT_TTL_SECONDS = 15 * 60
+_SNAPSHOT_MAX_ENTRIES = 1_024
 
 
 def _normalize_key(text: str) -> str:
@@ -226,6 +230,7 @@ class ClarificationCandidateSnapshot:
 
     clarification_id: str
     created_at: float
+    expires_at: float
     surface: str | None
     candidate_entity_ids: tuple[str, ...]
     candidates: tuple[EntityCandidate, ...]
@@ -236,6 +241,7 @@ class ClarificationCandidateSnapshot:
         return {
             "clarification_id": self.clarification_id,
             "created_at": self.created_at,
+            "expires_at": self.expires_at,
             "surface": self.surface,
             "candidate_entity_ids": list(self.candidate_entity_ids),
             "candidates": [c.to_dict() for c in self.candidates],
@@ -244,7 +250,59 @@ class ClarificationCandidateSnapshot:
         }
 
 
-_GLOBAL_SNAPSHOT_STORE: dict[str, ClarificationCandidateSnapshot] = {}
+class ClarificationSnapshotStore:
+    """Process-local, bounded clarification snapshot store.
+
+    Snapshots are reusable until their TTL expires. They deliberately do not
+    survive a process restart or cross a worker boundary; callbacks on another
+    worker fail closed and the client must request clarification again.
+    """
+
+    def __init__(
+        self,
+        *,
+        ttl_seconds: float = _SNAPSHOT_TTL_SECONDS,
+        max_entries: int = _SNAPSHOT_MAX_ENTRIES,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._ttl_seconds = max(1.0, float(ttl_seconds))
+        self._max_entries = max(1, int(max_entries))
+        self._clock = clock
+        self._snapshots: OrderedDict[str, ClarificationCandidateSnapshot] = OrderedDict()
+        self._lock = RLock()
+
+    def put(self, snapshot: ClarificationCandidateSnapshot) -> None:
+        with self._lock:
+            self._purge_expired()
+            self._snapshots[snapshot.clarification_id] = snapshot
+            self._snapshots.move_to_end(snapshot.clarification_id)
+            while len(self._snapshots) > self._max_entries:
+                self._snapshots.popitem(last=False)
+
+    def issued_at(self) -> float:
+        return self._clock()
+
+    def expires_at(self, created_at: float) -> float:
+        return created_at + self._ttl_seconds
+
+    def get(self, snapshot_id: str | None) -> ClarificationCandidateSnapshot | None:
+        if not snapshot_id:
+            return None
+        with self._lock:
+            self._purge_expired()
+            snapshot = self._snapshots.get(snapshot_id)
+            if snapshot is not None:
+                self._snapshots.move_to_end(snapshot_id)
+            return snapshot
+
+    def _purge_expired(self) -> None:
+        now = self._clock()
+        expired = [sid for sid, snapshot in self._snapshots.items() if snapshot.expires_at <= now]
+        for snapshot_id in expired:
+            self._snapshots.pop(snapshot_id, None)
+
+
+_CLARIFICATION_SNAPSHOT_STORE = ClarificationSnapshotStore()
 
 
 class EntityCandidateResolver:
@@ -258,12 +316,13 @@ class EntityCandidateResolver:
         confirmed_min_score: float = 0.90,
         confirmed_min_margin: float = 0.15,
         ambiguous_min_score: float = 0.45,
+        snapshot_store: ClarificationSnapshotStore | None = None,
     ):
         self.registry = registry or EntityRegistry(constraints=constraints)
         self.confirmed_min_score = float(confirmed_min_score)
         self.confirmed_min_margin = float(confirmed_min_margin)
         self.ambiguous_min_score = float(ambiguous_min_score)
-        self._snapshots: dict[str, ClarificationCandidateSnapshot] = {}
+        self._snapshot_store = snapshot_store or _CLARIFICATION_SNAPSHOT_STORE
 
     def discover_candidates(
         self,
@@ -496,26 +555,6 @@ class EntityCandidateResolver:
         top2 = candidates[1] if len(candidates) > 1 else None
         margin = (top1.final_score - top2.final_score) if top2 is not None else top1.final_score
 
-        # Broad family root terms (e.g. "WebGL", "WebRTC") require clarification with their specific product implementations
-        family_roots = {"WebGL", "WebRTC"}
-        if top1.canonical_name in family_roots:
-            family_children = [
-                c for c in candidates
-                if c.canonical_name != top1.canonical_name
-                and (c.canonical_name.endswith(top1.canonical_name) or top1.canonical_name in c.canonical_name)
-            ]
-            if family_children:
-                return IdentityResolution(
-                    status="ambiguous",
-                    surface=s,
-                    confirmed_entity_id=None,
-                    confirmed_entity_name=None,
-                    candidates=tuple(candidates),
-                    confidence=top1.final_score,
-                    margin=margin,
-                    reason="family_root_ambiguous",
-                )
-
         # Rule 1: Exact match with clean margin -> confirmed
         if "exact" in top1.match_sources:
             return IdentityResolution(
@@ -587,7 +626,8 @@ class EntityCandidateResolver:
         max_options: int = _MAX_DISPLAY_OPTIONS,
     ) -> ClarificationCandidateSnapshot:
         """Freeze candidates for UI clarification presentation."""
-        raw_id = f"{resolution.surface}:{time.time()}:{len(resolution.candidates)}"
+        created_at = self._snapshot_store.issued_at()
+        raw_id = f"{resolution.surface}:{created_at}:{id(resolution)}"
         clarification_id = f"clar_{hashlib.sha256(raw_id.encode('utf-8')).hexdigest()[:16]}"
 
         display_cands = resolution.candidates[:max_options]
@@ -595,22 +635,22 @@ class EntityCandidateResolver:
 
         snapshot = ClarificationCandidateSnapshot(
             clarification_id=clarification_id,
-            created_at=time.time(),
+            created_at=created_at,
+            expires_at=self._snapshot_store.expires_at(created_at),
             surface=resolution.surface,
             candidate_entity_ids=entity_ids,
             candidates=resolution.candidates,
             display_candidates=display_cands,
             identity_resolution=resolution,
         )
-        self._snapshots[clarification_id] = snapshot
-        _GLOBAL_SNAPSHOT_STORE[clarification_id] = snapshot
+        self._snapshot_store.put(snapshot)
         return snapshot
 
     def get_snapshot(self, snapshot_id: str | None) -> ClarificationCandidateSnapshot | None:
         """Retrieve frozen snapshot by clarification_id."""
         if not snapshot_id:
             return None
-        return self._snapshots.get(snapshot_id) or _GLOBAL_SNAPSHOT_STORE.get(snapshot_id)
+        return self._snapshot_store.get(snapshot_id)
 
     def validate_callback_selection(
         self,
@@ -643,10 +683,8 @@ class EntityCandidateResolver:
                 logger.warning("Callback selection '%s' not found in snapshot %s", sel, snapshot_id)
                 return None
 
-        # Fallback to direct registry lookup
-        if sel.startswith("ent_"):
-            return self.registry.get_by_id(sel)
-        return self.registry.get_by_name(sel)
+        logger.warning("Callback selection requires a clarification snapshot")
+        return None
 
 
 _GLOBAL_RESOLVER: EntityCandidateResolver | None = None

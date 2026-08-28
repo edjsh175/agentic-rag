@@ -6,6 +6,8 @@ import json
 
 from rag_knowledge.config import Config
 from rag_knowledge.services.evidence_scope import BindingStrength, EvidenceScope
+from rag_knowledge.services.entity_candidate_resolver import EntityCandidate, IdentityResolution
+from rag_knowledge.services.identity_scope import IdentityScope
 from rag_knowledge.services import retrieval_diagnostics
 from rag_knowledge.services.qa_trace import (
     QaTraceBuilder,
@@ -499,6 +501,109 @@ def test_qa_trace_records_clarify_block(isolated_storage, monkeypatch):
     entities = {o.get("entity_name") for o in clarify.get("options", [])}
     assert {"StampWebRTC", "StampWebGL"} <= entities
     assert not any(str(e or "").startswith("Pipeline") for e in entities)
+
+
+def test_qa_trace_replays_identity_candidate_evidence_and_publication(isolated_storage, monkeypatch):
+    """P1-6: one trace exposes each cross-PRD decision boundary."""
+    cfg, _db, _chroma, _data_dir = isolated_storage()
+    monkeypatch.setattr(cfg.qa_trace, "enabled", True)
+    candidate = EntityCandidate(
+        entity_id="webgl-id",
+        canonical_name="PipelineWebGL",
+        display_name="PipelineWebGL",
+        entity_type="product",
+        matched_surface="pipeline",
+        match_sources=("lexical",),
+        lexical_score=0.81,
+        semantic_score=None,
+        context_score=0.0,
+        graph_score=0.0,
+        final_score=0.81,
+    )
+    resolution = IdentityResolution(
+        status="ambiguous",
+        surface="pipeline",
+        confirmed_entity_id=None,
+        confirmed_entity_name=None,
+        candidates=(candidate,),
+        confidence=0.81,
+        margin=0.02,
+        reason="insufficient_score_margin",
+    )
+    scope = IdentityScope(
+        scope_id="scope-1",
+        primary_entity=None,
+        binding_strength=BindingStrength.UNBOUND,
+        forbidden_rebindings=frozenset(),
+        scope_reason="identity_ambiguous",
+        identity_status="ambiguous",
+        identity_resolution=resolution,
+        clarification_snapshot_id="snapshot-1",
+    )
+    builder = QaTraceBuilder(
+        question="pipeline 怎么配置？",
+        clarification_snapshot_id="snapshot-1",
+        clarification_option_id="option-1",
+        clarification_selected_candidate={"entity_id": "webgl-id"},
+        clarification_selection_kind="option",
+        cfg=cfg,
+    )
+    builder.set_understanding({
+        "semantic_task_context": {
+            "task_type": "single_entity",
+            "intent_source": "explicit_user",
+        },
+    })
+    builder.set_scope(scope)
+    builder.set_clarify({"needs_clarification": True, "options": []})
+    builder.set_agent({
+        "candidate_pipeline": {
+            "raw_candidates": [{
+                "chunk_id": "c-pass",
+                "provenance": [{"source_type": "vector", "rank": 1}],
+            }],
+            "admissions": {
+                "c-pass": {"evidence_class": "PASS", "support_scope": "TARGET_SPECIFIC"},
+                "c-reject": {"evidence_class": "REJECT", "evidence_reason_code": "missing_target"},
+            },
+        },
+        "evidence_snapshot": {"snapshot_id": "evidence-1"},
+        "answer_gate": {"coverage": "PARTIAL"},
+    })
+    builder.append_grounding_lifecycle({
+        "type": "review_status",
+        "data": {
+            "review_count": 1,
+            "coverage": "PARTIAL",
+            "claim_reviews": [{
+                "claim_id": "claim-1",
+                "claim_attribution": "target_attribute",
+                "evidence_ids": [1],
+                "evidence_support_scopes": ["TARGET_SPECIFIC"],
+            }],
+        },
+    })
+    builder.append_grounding_lifecycle({
+        "type": "publication",
+        "data": {"final_mode": "grounded_partial"},
+    })
+
+    trace_id = builder.finish(answer="部分回答")
+    detail = QaTraceStore(cfg).get(trace_id)
+    assert detail["understanding"]["semantic_task_context"]["intent_source"] == "explicit_user"
+    assert detail["scope"]["identity_resolution"]["reason"] == "insufficient_score_margin"
+    assert detail["scope"]["identity_resolution"]["candidates"][0]["entity_id"] == "webgl-id"
+    assert detail["clarify"]["clarification_snapshot_id"] == "snapshot-1"
+    assert detail["clarify"]["clarification_option_id"] == "option-1"
+    admissions = detail["agent"]["candidate_pipeline"]["admissions"]
+    assert admissions["c-pass"]["support_scope"] == "TARGET_SPECIFIC"
+    assert admissions["c-reject"]["evidence_reason_code"] == "missing_target"
+    assert detail["agent"]["evidence_snapshot"]["snapshot_id"] == "evidence-1"
+    assert detail["agent"]["answer_gate"]["coverage"] == "PARTIAL"
+    review = detail["grounding"]["lifecycle_events"][0]["data"]["claim_reviews"][0]
+    assert review["evidence_ids"] == [1]
+    assert review["evidence_support_scopes"] == ["TARGET_SPECIFIC"]
+    assert detail["grounding"]["lifecycle_events"][-1]["event"] == "answer_published"
 
 
 def test_qa_trace_records_ordered_decision_events(isolated_storage, monkeypatch):

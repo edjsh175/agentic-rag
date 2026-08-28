@@ -603,7 +603,7 @@ def test_evidence_snapshot_includes_support_scope():
             "source": "pipe.md",
             "section_path": "第1章",
             "support_scope": "CONTEXT_ONLY",
-            "text_evidence_class": "RELATED_CONTEXT",
+                "evidence_class": "RELATED_CONTEXT",
         },
     }
     snapshot = format_evidence_snapshot([doc1])

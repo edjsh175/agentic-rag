@@ -10,6 +10,9 @@ from rag_knowledge.services.dialogue_understanding import (
     DialogueUnderstanding,
     SemanticTaskContext,
     collapse_clarification_selection,
+    build_semantic_task_context,
+    normalize_semantic_intent_source,
+    normalize_semantic_task_type,
 )
 from rag_knowledge.services.query_clarification import ClarificationResult, QueryClarificationService
 from rag_knowledge.services.query_contextualizer import RetrievalQuery
@@ -59,6 +62,37 @@ def test_clarification_selection_preserves_explicit_deployment_intent():
     assert collapsed.resolved_question == "pipeline 怎么部署"
     assert collapsed.answer_intent == "deployment"
     assert collapsed.requested_facets == ("deployment",)
+
+
+def test_semantic_task_type_is_normalized_at_the_stage1_boundary():
+    legacy_single = SemanticTaskContext("StampServer 是什么？", "StampServer", ("StampServer",), "entity_query", 1.0)
+    legacy_multi = SemanticTaskContext("A 和 B 有什么关系？", "A", ("A", "B"), "relation_query", 1.0)
+    invalid_unbound = SemanticTaskContext("怎么配置？", None, (), "unknown", 1.0)
+
+    assert legacy_single.task_type == "single_entity"
+    assert legacy_multi.task_type == "multi_entity_relation"
+    assert invalid_unbound.task_type == "unbound"
+    assert normalize_semantic_task_type("invalid", primary_entity="", mentioned_entities=()) == "unbound"
+    assert SemanticTaskContext.from_dict({
+        "primary_entity": "StampServer", "mentioned_entities": ["StampServer"], "task_type": "legacy",
+    }).task_type == "single_entity"
+
+
+def test_semantic_intent_source_is_normalized_and_traces_stage1_resolution():
+    assert normalize_semantic_intent_source("unknown") == "fallback"
+    assert SemanticTaskContext("q", None, (), "unbound", 1.0, intent_source="legacy").intent_source == "fallback"
+
+    task = build_semantic_task_context(
+        "它怎么配？",
+        UnderstandingResult(
+            mode="retrieve",
+            user_utterance="它怎么配？",
+            resolved_question="StampServer 如何配置？",
+            confidence=1.0,
+        ),
+    )
+    assert task.answer_intent == "procedure"
+    assert task.intent_source == "stage1_resolved"
 
 
 def test_semantic_task_distinguishes_topic_from_required_entity_binding(isolated_storage):

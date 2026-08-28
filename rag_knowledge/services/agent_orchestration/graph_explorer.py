@@ -189,7 +189,7 @@ class GraphExplorer:
         for r in new_relations:
             adm = admissions.get(str(r.relation_id or r.relation_key))
             if adm:
-                working_set.record_relation_admission(r.relation_id, adm.verdict, adm.reason)
+                working_set.record_relation_evidence(r.relation_id, adm.verdict, adm.reason)
 
         working_set.bootstrap_status = "COMPLETE" if working_set.entities else "EMPTY"
         working_set.recalculate_frontier()
@@ -455,7 +455,7 @@ class GraphExplorer:
         for r in new_candidates:
             adm = admissions.get(str(r.relation_id or r.relation_key))
             if adm:
-                working_set.record_relation_admission(r.relation_id, adm.verdict, adm.reason)
+                working_set.record_relation_evidence(r.relation_id, adm.verdict, adm.reason)
             if adm and adm.verdict == "PASS":
                 new_evidence_count += 1
                 admitted_keys.append(r.relation_key)

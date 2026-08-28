@@ -5,6 +5,7 @@ import pytest
 from rag_knowledge.services.agent_orchestration.graph_admission import GraphRelationAdmissionService
 from rag_knowledge.services.agent_orchestration.graph_explorer import GraphExplorer
 from rag_knowledge.services.agent_orchestration.graph_working_set import GraphWorkingSet
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 
 
 class MockGraphDB:
@@ -64,6 +65,17 @@ def test_bootstrap_single_and_multi_root(sample_graph_db):
     ws, admitted, admissions = explorer.bootstrap_anchor_graph(
         confirmed_roots=["StampServer", "StampTools"],
         question="StampServer 和 StampTools 依赖什么？",
+        semantic_task=SemanticTaskContext(
+            "StampServer 和 StampTools 依赖什么？",
+            "StampServer",
+            ("StampServer", "StampTools"),
+            "multi_entity_relation",
+            1.0,
+            "procedure",
+            (),
+            "test",
+            True,
+        ),
     )
 
     assert ws.exploration_roots == ("StampServer", "StampTools")
