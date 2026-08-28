@@ -577,7 +577,7 @@ def test_qa_trace_replays_identity_candidate_evidence_and_publication(isolated_s
             "coverage": "PARTIAL",
             "claim_reviews": [{
                 "claim_id": "claim-1",
-                "claim_attribution": "target_attribute",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [1],
                 "evidence_support_scopes": ["TARGET_SPECIFIC"],
             }],

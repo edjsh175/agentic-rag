@@ -15,9 +15,15 @@ from rag_knowledge.services.helper_grounding_reviewer import (
 
 
 def _source(index: int, content: str):
+    # 通过 Text Admission 的 KB 文本必须携带协议字段（evidence_class + support_scope）。
     return {
         "content": content,
-        "metadata": {"citation_id": index, "source": f"doc-{index}.md"},
+        "metadata": {
+            "citation_id": index,
+            "source": f"doc-{index}.md",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
+        },
     }
 
 
@@ -26,7 +32,7 @@ def _pass_reviewer(coverage: str = "FULL"):
         "verdict": "PASS",
         "coverage": "{coverage}",
         "summary": "通过",
-        "claim_reviews": [{{"claim_id": "c1", "claim": "测试", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"}}],
+        "claim_reviews": [{{"claim_id": "c1", "claim": "测试", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"}}],
         "rewrite_actions": []
     }}""")
 
@@ -37,8 +43,8 @@ def _revise_reviewer():
         "coverage": "PARTIAL",
         "summary": "需要修改",
         "claim_reviews": [
-            {"claim_id": "c1", "claim": "受支持断言", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "依据充分"},
-            {"claim_id": "c2", "claim": "未支持断言", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+            {"claim_id": "c1", "claim": "受支持断言", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "依据充分"},
+            {"claim_id": "c2", "claim": "未支持断言", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
         ],
         "rewrite_actions": [
             {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除未支持断言"}
@@ -52,7 +58,7 @@ def _no_safe_answer_reviewer():
         "coverage": "NONE",
         "summary": "无法安全回答",
         "claim_reviews": [
-            {"claim_id": "c1", "claim": "第一版回答中的事实主张", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "当前证据无法支持该主张"}
+            {"claim_id": "c1", "claim": "第一版回答中的事实主张", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "当前证据无法支持该主张"}
         ],
         "rewrite_actions": []
     }""")
@@ -162,8 +168,8 @@ def test_candidate_v1_revise_and_v2_pass_keeps_frozen_partial_coverage():
                 "coverage": "PARTIAL",
                 "summary": "请删除离线发布",
                 "claim_reviews": [
-                    {"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
-                    {"claim_id": "c2", "claim": "支持离线发布", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                    {"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "支持离线发布", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
                 ],
                 "rewrite_actions": [
                     {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除离线发布"}
@@ -174,7 +180,7 @@ def test_candidate_v1_revise_and_v2_pass_keeps_frozen_partial_coverage():
                 "verdict": "PASS",
                 "coverage": "FULL",
                 "summary": "修改后通过",
-                "claim_reviews": [{"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
+                "claim_reviews": [{"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
                 "rewrite_actions": []
             }"""
 
@@ -219,8 +225,8 @@ def test_candidate_v1_revise_and_v2_pass_partial():
                 "coverage": "PARTIAL",
                 "summary": "请删除 3478 端口",
                 "claim_reviews": [
-                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
-                    {"claim_id": "c2", "claim": "必须开放 3478", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "必须开放 3478", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
                 ],
                 "rewrite_actions": [
                     {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除 3478，若无其他端口说明资料未确认"}
@@ -232,7 +238,7 @@ def test_candidate_v1_revise_and_v2_pass_partial():
                 "coverage": "PARTIAL",
                 "summary": "部分通过",
                 "claim_reviews": [
-                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
                     {"claim_id": "c3", "claim": "当前资料未说明其他 UDP 端口", "evidence_ids": [], "status": "supported", "claim_type": "limitation_statement", "reason": "合理边界"}
                 ],
                 "rewrite_actions": []
@@ -270,8 +276,8 @@ def test_candidate_v2_cannot_change_frozen_coverage_to_none():
                 "coverage": "PARTIAL",
                 "summary": "需要修改",
                 "claim_reviews": [
-                    {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
-                    {"claim_id": "c2", "claim": "负责模型处理", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                    {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                    {"claim_id": "c2", "claim": "负责模型处理", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
                 ],
                 "rewrite_actions": [
                     {"claim_id": "c2", "action": "rewrite_to_supported_scope_or_remove", "instruction": "删除模型处理"}
@@ -281,8 +287,8 @@ def test_candidate_v2_cannot_change_frozen_coverage_to_none():
             "coverage": "NONE",
             "summary": "错误地改变 coverage",
             "claim_reviews": [
-                {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "evidence_ids": [1], "status": "supported", "reason": "支持"},
-                {"claim_id": "c2", "claim": "仍有未支持内容", "claim_type": "knowledge_claim", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
+                {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
+                {"claim_id": "c2", "claim": "仍有未支持内容", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
             ],
             "rewrite_actions": []
         }"""

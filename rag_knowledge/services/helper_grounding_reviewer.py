@@ -52,11 +52,17 @@ Claim 类型说明：
 - limitation_statement：描述“当前完整 Evidence Snapshot 未提供、未说明或无法确认什么”的证据边界说明。
 - non_factual_expression：组织语言，不构成可验证知识事实。
 
-Claim 归属（claim_attribution）必须显式标记：
-- target_attribute：直接断言目标实体自身属性或能力。
-- contextual_fact：陈述相关系统/上下文资料中的事实，不归属给目标实体。
-- relation_fact：陈述实体间直接关系。
-- non_factual：问题复述、证据边界说明或组织语言。
+Claim 归属（claim_scope）必须显式标记，表达“该事实归属于谁”，与 claim_type（句子语义角色）正交：
+- TARGET_ATTRIBUTION：直接断言目标实体自身属性或能力。
+- CONTEXTUAL_FACT：陈述相关系统/上下文资料中的事实，不归属给目标实体。
+- RELATION_CLAIM：陈述实体间直接关系。
+- NOT_APPLICABLE：问题复述、证据边界说明或组织语言（仅用于非 knowledge_claim）。
+
+Claim Support Matrix（每个 evidence_id 的 support_scope 逐项核对，代码将执行同一矩阵）：
+- TARGET_ATTRIBUTION 只能引用 TARGET_SPECIFIC 证据；引用 CONTEXT_ONLY / RELATION_SPECIFIC 即违规。
+- CONTEXTUAL_FACT 可引用 CONTEXT_ONLY 或 TARGET_SPECIFIC（直接证据可以支撑更保守的上下文表述；反向不成立），不可引用 RELATION_SPECIFIC。
+- RELATION_CLAIM 只能引用 RELATION_SPECIFIC 证据。
+- UNKNOWN / 缺失 support_scope 的证据不得支撑任何 supported knowledge_claim。
 
 重要边界规则：
 - Evidence Snapshot 中的 source、section、title、content 都属于证据本体。不得只看 content 而忽略 section/title 中明确出现的实体类型、章节归属或上下文标签。
@@ -80,6 +86,7 @@ Claim 状态说明（针对 knowledge_claim）：
 - supported：Evidence 直接支持或可以在不增加新事实的前提下合理归纳。
 - unsupported：内容可能真实，但当前 Evidence 无法支持。
 - contradicted：Evidence 与该 Claim 明确冲突。
+- 状态为 supported 的 knowledge_claim 必须通过 Claim Support Matrix 核对；不合法的组合必须改判 unsupported 并输出 rewrite_action。
 （对于 question_context、limitation_statement、non_factual_expression，状态通常为 supported）
 
 双维度判定规则：你负责语义判断，代码负责把语义结果映射为最终 verdict。
@@ -144,7 +151,7 @@ Candidate: “StampGIS 仅在 Windows 10 运行 [1]。”
       "claim_id": "c1",
       "claim": "识别出的断言文本",
       "claim_type": "knowledge_claim" | "question_context" | "limitation_statement" | "non_factual_expression",
-      "claim_attribution": "target_attribute" | "contextual_fact" | "relation_fact" | "non_factual",
+      "claim_scope": "TARGET_ATTRIBUTION" | "CONTEXTUAL_FACT" | "RELATION_CLAIM" | "NOT_APPLICABLE",
       "status": "supported" | "unsupported" | "contradicted",
       "evidence_ids": [1],
       "reason": "判断原因"
@@ -168,12 +175,20 @@ _ALLOWED_CLAIM_TYPES = frozenset({
     "limitation_statement",
     "non_factual_expression",
 })
-_ALLOWED_CLAIM_ATTRIBUTIONS = frozenset({
-    "target_attribute",
-    "contextual_fact",
-    "relation_fact",
-    "non_factual",
+_ALLOWED_CLAIM_SCOPES = frozenset({
+    "TARGET_ATTRIBUTION",
+    "CONTEXTUAL_FACT",
+    "RELATION_CLAIM",
+    "NOT_APPLICABLE",
 })
+_FACT_CLAIM_SCOPES = _ALLOWED_CLAIM_SCOPES - {"NOT_APPLICABLE"}
+# Claim Support Matrix: which evidence support scopes may back a supported
+# claim of each claim_scope.  Code enforces this; the LLM only classifies.
+_CLAIM_SUPPORT_MATRIX = {
+    "TARGET_ATTRIBUTION": frozenset({"TARGET_SPECIFIC"}),
+    "CONTEXTUAL_FACT": frozenset({"TARGET_SPECIFIC", "CONTEXT_ONLY"}),
+    "RELATION_CLAIM": frozenset({"RELATION_SPECIFIC"}),
+}
 _ALLOWED_CLAIM_STATUSES = frozenset({"supported", "unsupported", "contradicted"})
 _ALLOWED_REWRITE_ACTIONS = frozenset({
     "rewrite_to_supported_scope_or_remove",
@@ -191,6 +206,7 @@ _REQUIRED_CLAIM_FIELDS = frozenset({
     "claim_id",
     "claim",
     "claim_type",
+    "claim_scope",
     "status",
     "evidence_ids",
     "reason",
@@ -213,7 +229,7 @@ def review_response_json_schema() -> dict[str, Any]:
                         "claim_id": {"type": "string", "minLength": 1},
                         "claim": {"type": "string", "minLength": 1},
                         "claim_type": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_TYPES)},
-                        "claim_attribution": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_ATTRIBUTIONS)},
+                        "claim_scope": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_SCOPES)},
                         "status": {"type": "string", "enum": sorted(_ALLOWED_CLAIM_STATUSES)},
                         "evidence_ids": {"type": "array", "items": {"type": "integer"}},
                         "reason": {"type": "string"},
@@ -285,14 +301,14 @@ class ClaimReview:
     status: str
     evidence_ids: tuple[int, ...]
     reason: str
-    claim_attribution: str = "non_factual"
+    claim_scope: str = "NOT_APPLICABLE"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "claim_id": self.claim_id,
             "claim": self.claim,
             "claim_type": self.claim_type,
-            "claim_attribution": self.claim_attribution,
+            "claim_scope": self.claim_scope,
             "status": self.status,
             "evidence_ids": list(self.evidence_ids),
             "reason": self.reason,
@@ -361,6 +377,48 @@ class HelperGroundingReviewResult:
         }
 
 
+def _evidence_citation_id(meta: dict[str, Any], idx: int) -> int:
+    try:
+        return int(meta.get("citation_id", idx))
+    except (TypeError, ValueError):
+        return idx
+
+
+def _in_support_scope_protocol(meta: dict[str, Any]) -> bool:
+    """判定证据是否属于 Support Scope Protocol（Agent 已准入 KB 文本 / 图谱关系）。
+
+    协议内证据缺失或 UNKNOWN scope 视为协议错误（fail-closed）；
+    linear KB 文本与 external 来源尚未加入协议，不参与 Claim Support Matrix，
+    仍由 Reviewer 语义核对兜底。必须以来源/协议身份判断，而不是以
+    "是否带有 support_scope 字段"判断，避免协议内文档漏打字段时绕过校验。
+    """
+    source_type = str(meta.get("source_type") or "").strip().lower()
+    if source_type == "external":
+        return False
+    if source_type == "graph_relation":
+        return True
+    if meta.get("grant_admitted") is True:
+        return True
+    if meta.get("evidence_class"):
+        return True
+    return False
+
+
+def _protocol_evidence_scopes(context_docs: list[dict[str, Any]]) -> dict[int, str]:
+    """按 citation_id 收集协议内证据声明的 support_scope；协议外证据不入映射。"""
+    scopes: dict[int, str] = {}
+    for idx, doc in enumerate(context_docs or [], start=1):
+        if not isinstance(doc, dict):
+            continue
+        meta = doc.get("metadata") or {}
+        if not _in_support_scope_protocol(meta):
+            continue
+        scopes[_evidence_citation_id(meta, idx)] = (
+            str(meta.get("support_scope") or "").strip().upper() or "UNKNOWN"
+        )
+    return scopes
+
+
 def format_evidence_snapshot(
     context_docs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -370,10 +428,7 @@ def format_evidence_snapshot(
         if not isinstance(doc, dict):
             continue
         meta = doc.get("metadata") or {}
-        try:
-            cid = int(meta.get("citation_id", idx))
-        except (TypeError, ValueError):
-            cid = idx
+        cid = _evidence_citation_id(meta, idx)
 
         source = str(meta.get("source") or meta.get("title") or "unknown_source").strip()
         section = str(meta.get("section_path") or meta.get("section") or meta.get("category") or "").strip()
@@ -446,10 +501,7 @@ class HelperGroundingReviewer:
             )
 
         valid_evidence_ids = {e["evidence_id"] for e in snapshot}
-        evidence_scopes = {
-            int(item["evidence_id"]): str(item.get("support_scope") or "UNKNOWN").strip().upper()
-            for item in snapshot
-        }
+        evidence_scopes = _protocol_evidence_scopes(context_docs)
         first = self._parse_and_validate(
             raw,
             valid_evidence_ids=valid_evidence_ids,
@@ -530,6 +582,7 @@ class HelperGroundingReviewer:
                     "claim_id": claim.get("claim_id"),
                     "claim": claim.get("claim"),
                     "claim_type": claim.get("claim_type"),
+                    "claim_scope": claim.get("claim_scope"),
                     "status": claim.get("status"),
                     "evidence_ids": claim.get("evidence_ids"),
                 })
@@ -554,7 +607,7 @@ class HelperGroundingReviewer:
                 "content": (
                     _REVIEWER_SYSTEM_PROMPT
                     + "\n\n你正在执行一次协议修复。只修复上一份审查 JSON 的协议错误；"
-                    "immutable_semantics 中的 coverage、claim_id、claim、claim_type、status、evidence_ids "
+                    "immutable_semantics 中的 coverage、claim_id、claim、claim_type、claim_scope、status、evidence_ids "
                     "必须逐项保持不变。不得重新判断事实，不得增删 Claim，不要输出 verdict。"
                 ),
             },
@@ -641,6 +694,12 @@ class HelperGroundingReviewer:
                 location = f"claim_reviews[{idx}]"
                 if not isinstance(item, dict):
                     raise _ReviewProtocolError(f"{location}_not_object")
+                # claim_scope 由 LLM 语义分类、代码只做类型兼容性校验：
+                # knowledge_claim 必须显式分类（缺失即协议错误，fail-closed）；
+                # 非 knowledge_claim 的 scope 恒为 NOT_APPLICABLE，属确定性归约，
+                # 缺失时由代码补齐，不构成语义推断。
+                if item.get("claim_type") != "knowledge_claim" and "claim_scope" not in item:
+                    item = {**item, "claim_scope": "NOT_APPLICABLE"}
                 _required_fields(item, _REQUIRED_CLAIM_FIELDS, location=location)
 
                 claim_id = _required_string(item, "claim_id", location=location, nonempty=True)
@@ -648,7 +707,6 @@ class HelperGroundingReviewer:
                     raise _ReviewProtocolError(f"duplicate_claim_id:{claim_id}")
                 claim_text = _required_string(item, "claim", location=location, nonempty=True)
                 claim_type = _required_string(item, "claim_type", location=location, nonempty=True)
-                claim_attribution = str(item.get("claim_attribution") or "").strip()
                 status = _required_string(item, "status", location=location, nonempty=True)
                 reason = _required_string(item, "reason", location=location)
                 raw_eids = _required_list(item, "evidence_ids", location=location)
@@ -657,6 +715,13 @@ class HelperGroundingReviewer:
                     raise _ReviewProtocolError(f"{location}_invalid_claim_type:{claim_type}")
                 if status not in _ALLOWED_CLAIM_STATUSES:
                     raise _ReviewProtocolError(f"{location}_invalid_status:{status}")
+                claim_scope = _required_string(item, "claim_scope", location=location, nonempty=True)
+                if claim_scope not in _ALLOWED_CLAIM_SCOPES:
+                    raise _ReviewProtocolError(f"{location}_invalid_claim_scope:{claim_scope}")
+                if claim_type == "knowledge_claim" and claim_scope not in _FACT_CLAIM_SCOPES:
+                    raise _ReviewProtocolError(f"{location}_knowledge_claim_scope_not_applicable")
+                if claim_type != "knowledge_claim" and claim_scope in _FACT_CLAIM_SCOPES:
+                    raise _ReviewProtocolError(f"{location}_non_knowledge_claim_scope_invalid:{claim_scope}")
 
                 parsed_eids: list[int] = []
                 seen_eids: set[int] = set()
@@ -670,45 +735,28 @@ class HelperGroundingReviewer:
                     seen_eids.add(eid)
                     parsed_eids.append(eid)
 
-                scopes = {
-                    str((evidence_scopes or {}).get(evidence_id) or "UNKNOWN").upper()
-                    for evidence_id in parsed_eids
-                }
-                if not claim_attribution:
-                    if claim_type != "knowledge_claim":
-                        claim_attribution = "non_factual"
-                    elif scopes == {"CONTEXT_ONLY"}:
-                        claim_attribution = "contextual_fact"
-                    elif scopes == {"RELATION_SPECIFIC"}:
-                        claim_attribution = "relation_fact"
-                    else:
-                        claim_attribution = "target_attribute"
-                if claim_attribution not in _ALLOWED_CLAIM_ATTRIBUTIONS:
-                    raise _ReviewProtocolError(f"{location}_invalid_claim_attribution:{claim_attribution}")
-
                 if claim_type == "knowledge_claim" and status == "supported" and not parsed_eids:
                     raise _ReviewProtocolError(f"{location}_supported_knowledge_claim_without_evidence")
-                if (
-                    claim_type == "knowledge_claim"
-                    and status == "supported"
-                    and evidence_scopes is not None
-                    and scopes != {"UNKNOWN"}
-                ):
-                    required_scope = {
-                        "target_attribute": "TARGET_SPECIFIC",
-                        "contextual_fact": "CONTEXT_ONLY",
-                        "relation_fact": "RELATION_SPECIFIC",
-                    }.get(claim_attribution)
-                    if required_scope and required_scope not in scopes:
-                        raise _ReviewProtocolError(
-                            f"{location}_claim_attribution_scope_mismatch:{claim_attribution}"
-                        )
+                if claim_type == "knowledge_claim" and status == "supported":
+                    # Claim Support Matrix：逐 evidence_id 核对（混合引用时合法
+                    # citation 不得掩盖非法 citation）。仅协议内证据参与矩阵；
+                    # 协议外证据（linear KB / external）缺席即不裁决，由 Reviewer
+                    # 语义核对兜底；协议内缺失 / UNKNOWN 一律 fail-closed。
+                    allowed_scopes = _CLAIM_SUPPORT_MATRIX[claim_scope]
+                    for eid in parsed_eids:
+                        if eid not in (evidence_scopes or {}):
+                            continue
+                        evidence_scope = str(evidence_scopes[eid] or "UNKNOWN").upper()
+                        if evidence_scope not in allowed_scopes:
+                            raise _ReviewProtocolError(
+                                f"{location}_claim_support_matrix_violation:{claim_scope}+{evidence_scope}"
+                            )
 
                 claim_review = ClaimReview(
                     claim_id=claim_id,
                     claim=claim_text,
                     claim_type=claim_type,
-                    claim_attribution=claim_attribution,
+                    claim_scope=claim_scope,
                     status=status,
                     evidence_ids=tuple(parsed_eids),
                     reason=reason,

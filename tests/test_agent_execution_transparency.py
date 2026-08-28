@@ -361,6 +361,7 @@ def test_helper_reviewer_streams_raw_reasoning_without_bypassing_protocol_valida
             "claim_id": "c1",
             "claim": "StampServer 的端口是 8080",
             "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
             "evidence_ids": [1],
             "status": "supported",
             "reason": "证据直接支持",

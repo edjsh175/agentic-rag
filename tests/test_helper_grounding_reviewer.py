@@ -10,13 +10,17 @@ from rag_knowledge.services.helper_grounding_reviewer import (
 )
 
 
-def _source(index: int, content: str, source: str = ""):
+def _source(index: int, content: str, source: str = "", support_scope: str = "TARGET_SPECIFIC"):
+    # 通过 Text Admission 的 KB 文本必须携带协议字段（evidence_class + support_scope）；
+    # 有 evidence_class 即属于 Support Scope Protocol，参与 Claim Support Matrix。
     return {
         "content": content,
         "metadata": {
             "citation_id": index,
             "source": source or f"doc-{index}.md",
             "section_path": f"第{index}章",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": support_scope,
         },
     }
 
@@ -39,6 +43,7 @@ def _pass_payload() -> dict:
                 "claim_id": "c1",
                 "claim": "StampServer 支持服务发布。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 明确支持",
@@ -58,6 +63,7 @@ def _revise_payload() -> dict:
                 "claim_id": "c1",
                 "claim": "StampServer 支持服务发布。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 明确支持",
@@ -66,6 +72,7 @@ def _revise_payload() -> dict:
                 "claim_id": "c2",
                 "claim": "StampServer 默认开放 9999 端口。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "unsupported",
                 "evidence_ids": [],
                 "reason": "证据未提供该端口",
@@ -91,6 +98,7 @@ def _no_safe_answer_payload() -> dict:
                 "claim_id": "c1",
                 "claim": "系统默认开放 9999 端口。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "unsupported",
                 "evidence_ids": [],
                 "reason": "证据未提供该端口",
@@ -128,6 +136,7 @@ def test_reviewer_pass_full():
                 "claim_id": "c1",
                 "claim": "StampServer 支持服务发布。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [1],
                 "status": "supported",
                 "reason": "证据 1 明确说明支持服务发布",
@@ -159,6 +168,7 @@ def test_reviewer_pass_partial():
                 "claim_id": "c1",
                 "claim": "StampWebRTC 示例使用 31443 端口。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [1],
                 "status": "supported",
                 "reason": "证据 1 包含 31443 端口",
@@ -199,6 +209,7 @@ def test_reviewer_revise_atomic_actions():
                 "claim_id": "c1",
                 "claim": "StampServer 支持在线发布。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [1],
                 "status": "supported",
                 "reason": "证据 1 明确支持",
@@ -207,6 +218,7 @@ def test_reviewer_revise_atomic_actions():
                 "claim_id": "c2",
                 "claim": "StampServer 支持基于 Redis 的缓存集群。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [],
                 "status": "unsupported",
                 "reason": "证据中未提及 Redis 缓存",
@@ -250,6 +262,7 @@ def test_reviewer_no_safe_answer():
                 "claim_id": "c1",
                 "claim": "系统使用 Java 编写。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "evidence_ids": [],
                 "status": "contradicted",
                 "reason": "证据中说明系统使用 C++",
@@ -302,6 +315,7 @@ def test_reviewer_evidence_formatting():
                 "claim_id": "c1",
                 "claim": "候选答案。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据支持",
@@ -456,6 +470,7 @@ def test_problem_claim_without_rewrite_action_fails_protocol_validation(status):
 def test_unsupported_non_knowledge_claim_also_requires_rewrite_action():
     payload = _pass_payload()
     payload["claim_reviews"][0]["claim_type"] = "limitation_statement"
+    payload["claim_reviews"][0]["claim_scope"] = "NOT_APPLICABLE"
     payload["claim_reviews"][0]["status"] = "unsupported"
     payload["claim_reviews"][0]["evidence_ids"] = []
 
@@ -620,6 +635,7 @@ def test_context_only_supports_contextual_claim():
                 "claim_id": "c1",
                 "claim": "相关管线系统资料涉及碰撞分析与智能排管。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "CONTEXTUAL_FACT",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 (CONTEXT_ONLY) 支持相关系统资料的陈述",
@@ -638,7 +654,12 @@ def test_context_only_supports_contextual_claim():
     reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
     doc = {
         "content": "管线系统支持碰撞分析和智能排管。",
-        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "CONTEXT_ONLY"},
+        "metadata": {
+            "citation_id": 1,
+            "source": "pipe.md",
+            "evidence_class": "RELATED_CONTEXT",
+            "support_scope": "CONTEXT_ONLY",
+        },
     }
     result = reviewer.review(
         "三维管线管理的相关信息",
@@ -659,6 +680,7 @@ def test_context_only_rejects_target_attribute_claim():
                 "claim_id": "c1",
                 "claim": "三维管线管理支持碰撞分析。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "unsupported",
                 "evidence_ids": [1],
                 "reason": "证据 1 仅为 CONTEXT_ONLY 上下文资料，不能支持三维管线管理模块的直接功能归属",
@@ -692,6 +714,7 @@ def test_target_specific_supports_target_claim():
                 "claim_id": "c1",
                 "claim": "PipelineWebRTC 用于建立实时音视频处理通道。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 (TARGET_SPECIFIC) 明确支持目标功能",
@@ -702,7 +725,12 @@ def test_target_specific_supports_target_claim():
     reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
     doc = {
         "content": "PipelineWebRTC 用于建立实时音视频处理通道。",
-        "metadata": {"citation_id": 1, "source": "pipe.md", "support_scope": "TARGET_SPECIFIC"},
+        "metadata": {
+            "citation_id": 1,
+            "source": "pipe.md",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
+        },
     }
     result = reviewer.review("PipelineWebRTC 的功能是什么？", [doc], "PipelineWebRTC 用于建立实时音视频处理通道。[1]")
     assert result.verdict == "PASS"
@@ -718,6 +746,7 @@ def test_graph_relation_supports_relation_claim_only():
                 "claim_id": "c1",
                 "claim": "三维管线管理在知识图谱中归属于 PipelineWebGL。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "RELATION_CLAIM",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 明确为 belongs_to 关系证据",
@@ -750,6 +779,7 @@ def test_graph_relation_plus_context_does_not_create_attribute_inheritance():
                 "claim_id": "c1",
                 "claim": "三维管线管理归属于 PipelineWebGL。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "RELATION_CLAIM",
                 "status": "supported",
                 "evidence_ids": [1],
                 "reason": "证据 1 支持 belongs_to 关系",
@@ -758,6 +788,7 @@ def test_graph_relation_plus_context_does_not_create_attribute_inheritance():
                 "claim_id": "c2",
                 "claim": "三维管线管理具备 PipelineWebGL 的高并发渲染能力。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "unsupported",
                 "evidence_ids": [2],
                 "reason": "证据 2 仅为 CONTEXT_ONLY 上下文资料，不能通过 belongs_to 自动继承属性",
@@ -801,6 +832,7 @@ def test_reviewer_cannot_upgrade_support_scope():
                 "claim_id": "c1",
                 "claim": "三维管线管理支持智能排管功能。",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "TARGET_ATTRIBUTION",
                 "status": "unsupported",
                 "evidence_ids": [1],
                 "reason": "证据 1 为 CONTEXT_ONLY，无法升级支持目标实体的直接属性",
@@ -826,3 +858,464 @@ def test_reviewer_cannot_upgrade_support_scope():
     )
     assert result.verdict == "REVISE"
     assert len(result.unsupported_claims) == 1
+
+
+# ---------------------------------------------------------------------------
+# Claim Support Matrix：LLM 负责语义分类，代码负责类型兼容性（逐 evidence_id 核对）
+# ---------------------------------------------------------------------------
+
+
+def test_matrix_target_attribution_accepts_target_specific():
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "TARGET_ATTRIBUTION + TARGET_SPECIFIC 合法组合",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "StampServer 支持服务发布。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 为 TARGET_SPECIFIC",
+        }],
+        "rewrite_actions": [],
+    })
+    result = _review_payload(mock_response)
+    assert result.verdict == "PASS"
+    assert result.claim_reviews[0].claim_scope == "TARGET_ATTRIBUTION"
+
+
+def test_matrix_target_attribution_with_context_only_is_protocol_rejected():
+    # 实体防漂移核心反例：LLM 把 CONTEXT_ONLY 证据当成目标实体归属断言的支持，
+    # 即使 LLM 判 supported，代码也必须按矩阵拒绝该组合。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "非法组合：TARGET_ATTRIBUTION 引用 CONTEXT_ONLY",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理支持碰撞分析。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 提及碰撞分析",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "管线系统支持碰撞分析。",
+        "metadata": {
+            "citation_id": 1,
+            "source": "pipe.md",
+            "evidence_class": "RELATED_CONTEXT",
+            "support_scope": "CONTEXT_ONLY",
+        },
+    }
+    result = reviewer.review("三维管线管理支持碰撞分析吗？", [doc], "三维管线管理支持碰撞分析。[1]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:TARGET_ATTRIBUTION+CONTEXT_ONLY")
+
+
+def test_matrix_target_attribution_with_relation_specific_is_protocol_rejected():
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "非法组合：TARGET_ATTRIBUTION 引用 RELATION_SPECIFIC",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理支持碰撞分析。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 提及碰撞分析",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {"citation_id": 1, "source_type": "graph_relation", "support_scope": "RELATION_SPECIFIC"},
+    }
+    result = reviewer.review("三维管线管理支持碰撞分析吗？", [doc], "三维管线管理支持碰撞分析。[1]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:TARGET_ATTRIBUTION+RELATION_SPECIFIC")
+
+
+def test_matrix_contextual_fact_accepts_target_specific():
+    # ✅* 方向：直接证据当然也能支撑更保守的上下文表述；反向不成立。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "CONTEXTUAL_FACT 引用 TARGET_SPECIFIC 属于更保守的合法组合",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "相关管线系统资料涉及碰撞分析。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "CONTEXTUAL_FACT",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "TARGET_SPECIFIC 证据可支撑更保守的上下文表述",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = _source(1, "三维管线管理支持碰撞分析。")
+    result = reviewer.review(
+        "三维管线管理支持碰撞分析吗？",
+        [doc],
+        "相关管线系统资料涉及碰撞分析。[1]",
+    )
+    assert result.verdict == "PASS"
+    assert result.claim_reviews[0].claim_scope == "CONTEXTUAL_FACT"
+
+
+def test_matrix_contextual_fact_with_relation_specific_is_protocol_rejected():
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "非法组合：CONTEXTUAL_FACT 引用 RELATION_SPECIFIC",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "相关系统资料涉及归属关系。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "CONTEXTUAL_FACT",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 提及归属",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {"citation_id": 1, "source_type": "graph_relation", "support_scope": "RELATION_SPECIFIC"},
+    }
+    result = reviewer.review("三维管线管理属于哪个系统？", [doc], "相关系统资料涉及归属关系。[1]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:CONTEXTUAL_FACT+RELATION_SPECIFIC")
+
+
+def test_matrix_relation_claim_accepts_relation_specific_only():
+    mock_response = json.dumps({
+        "coverage": "PARTIAL",
+        "summary": "RELATION_CLAIM + RELATION_SPECIFIC 合法组合",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理在知识图谱中归属于 PipelineWebGL。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "RELATION_CLAIM",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 明确为 belongs_to 关系证据",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {"citation_id": 1, "source_type": "graph_relation", "support_scope": "RELATION_SPECIFIC"},
+    }
+    result = reviewer.review("三维管线管理属于哪个系统？", [doc], "三维管线管理归属于 PipelineWebGL。[1]")
+    assert result.verdict == "PASS"
+
+
+def test_matrix_relation_claim_with_context_only_is_protocol_rejected():
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "非法组合：RELATION_CLAIM 引用 CONTEXT_ONLY",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理归属于 PipelineWebGL。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "RELATION_CLAIM",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 提及 PipelineWebGL",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "PipelineWebGL 相关系统资料。",
+        "metadata": {
+            "citation_id": 1,
+            "source": "webgl.md",
+            "evidence_class": "RELATED_CONTEXT",
+            "support_scope": "CONTEXT_ONLY",
+        },
+    }
+    result = reviewer.review("三维管线管理属于哪个系统？", [doc], "三维管线管理归属于 PipelineWebGL。[1]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:RELATION_CLAIM+CONTEXT_ONLY")
+
+
+def test_matrix_graph_relation_plus_context_cannot_merge_into_target_attribution():
+    # belongs_to 关系 + CONTEXT_ONLY 上下文，LLM 试图合并成 TARGET_ATTRIBUTION：
+    # 属性自动继承必须在代码矩阵处被拒绝。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "非法组合：把关系与上下文合并成目标实体自身属性",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理具备 PipelineWebGL 的高并发渲染能力。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1, 2],
+            "reason": "证据 1 为归属关系，证据 2 提及高并发渲染",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc1 = {
+        "content": "三维管线管理 -[belongs_to]-> PipelineWebGL",
+        "metadata": {"citation_id": 1, "source_type": "graph_relation", "support_scope": "RELATION_SPECIFIC"},
+    }
+    doc2 = {
+        "content": "PipelineWebGL 具备高并发渲染能力。",
+        "metadata": {
+            "citation_id": 2,
+            "source": "webgl.md",
+            "evidence_class": "RELATED_CONTEXT",
+            "support_scope": "CONTEXT_ONLY",
+        },
+    }
+    result = reviewer.review(
+        "三维管线管理具备什么渲染能力？",
+        [doc1, doc2],
+        "三维管线管理具备高并发渲染能力。[1][2]",
+    )
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:TARGET_ATTRIBUTION+RELATION_SPECIFIC")
+
+
+def test_matrix_unknown_support_scope_fails_closed():
+    # 协议内证据（有 evidence_class）缺失 support_scope = SHOULD_HAVE_SCOPE_BUT_MISSING，
+    # 视为协议错误 fail-closed，不得支撑任何 supported knowledge_claim。
+    # 注意区分：协议外证据（linear KB / external）缺 scope 是 OUT_OF_SCOPE_PROTOCOL，不裁决。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "UNKNOWN scope 不得支撑 supported knowledge_claim",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "StampServer 支持服务发布。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据 1 提及服务发布",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "StampServer 支持服务发布。",
+        "metadata": {"citation_id": 1, "source": "doc.md", "evidence_class": "TARGET_DIRECT"},
+    }
+    result = reviewer.review("StampServer 支持服务发布吗？", [doc], "StampServer 支持服务发布。[1]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:TARGET_ATTRIBUTION+UNKNOWN")
+
+
+def test_matrix_out_of_protocol_external_evidence_is_not_adjudicated():
+    # external 来源明确属于本轮豁免类型：不参与 Claim Support Matrix（不裁决），
+    # 继续由既有 Reviewer 语义核对兜底，缺席 scope 不构成协议错误。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "外部来源证据不参与矩阵",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "StampServer 支持服务发布。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "外部页面提及服务发布",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "官网页面说明服务发布功能。",
+        "metadata": {"citation_id": 1, "title": "官网页面", "source_type": "external"},
+    }
+    result = reviewer.review("StampServer 支持服务发布吗？", [doc], "StampServer 支持服务发布。[1]")
+
+    assert result.verdict == "PASS"
+    assert result.error is None
+
+
+def test_matrix_out_of_protocol_linear_kb_evidence_is_not_adjudicated():
+    # Linear KB 文本（source_type=knowledge_base 且无 evidence_class / grant_admitted）
+    # 尚未迁移 Support Scope Protocol：本轮不执行 Matrix，继续既有 Reviewer 语义核对。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "线性路径 KB 文本不参与矩阵",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "StampServer 支持服务发布。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "KB 文本提及服务发布",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    doc = {
+        "content": "StampServer 支持服务发布。",
+        "metadata": {"citation_id": 1, "source": "doc.md", "source_type": "knowledge_base"},
+    }
+    result = reviewer.review("StampServer 支持服务发布吗？", [doc], "StampServer 支持服务发布。[1]")
+
+    assert result.verdict == "PASS"
+    assert result.error is None
+
+
+def test_matrix_mixed_protocol_and_external_citations_are_judged_per_citation():
+    # 逐 citation 判断：[1] 协议内 TARGET_SPECIFIC 逐项核对合法，[2] external 不裁决
+    # → 整体 PASS。external citation 只豁免它自己，不得改变其他 citation 的核对。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "协议内 citation 合法、external citation 不裁决",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "StampServer 支持服务发布。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1, 2],
+            "reason": "证据 1 支持目标功能，证据 2 为外部补充",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    docs = [
+        _source(1, "StampServer 支持服务发布。"),
+        {
+            "content": "官网页面说明服务发布功能。",
+            "metadata": {"citation_id": 2, "title": "官网页面", "source_type": "external"},
+        },
+    ]
+    result = reviewer.review("StampServer 支持服务发布吗？", docs, "StampServer 支持服务发布。[1][2]")
+
+    assert result.verdict == "PASS"
+    assert result.error is None
+
+
+def test_matrix_external_citation_does_not_mask_illegal_protocol_citation():
+    # 禁止旁路：Claim 混合引用协议内非法 citation 与协议外 citation 时，
+    # 不得因为 external 不参与矩阵就跳过整个 Claim 的核对；[1] 仍必须按矩阵拒绝。
+    mock_response = json.dumps({
+        "coverage": "FULL",
+        "summary": "external citation 不得掩盖协议内非法组合",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "三维管线管理支持碰撞分析。",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1, 2],
+            "reason": "证据 1 提及碰撞分析，证据 2 为外部补充",
+        }],
+        "rewrite_actions": [],
+    })
+    reviewer = HelperGroundingReviewer(lambda _msgs: mock_response)
+    docs = [
+        {
+            "content": "管线系统支持碰撞分析。",
+            "metadata": {
+                "citation_id": 1,
+                "source": "pipe.md",
+                "evidence_class": "RELATED_CONTEXT",
+                "support_scope": "CONTEXT_ONLY",
+            },
+        },
+        {
+            "content": "官网页面说明碰撞分析功能。",
+            "metadata": {"citation_id": 2, "title": "官网页面", "source_type": "external"},
+        },
+    ]
+    result = reviewer.review("三维管线管理支持碰撞分析吗？", docs, "三维管线管理支持碰撞分析。[1][2]")
+
+    _assert_protocol_error(result, "claim_support_matrix_violation:TARGET_ATTRIBUTION+CONTEXT_ONLY")
+
+
+def test_matrix_missing_claim_scope_on_knowledge_claim_fails_closed():
+    # 语义分类必须来自 LLM：knowledge_claim 缺失 claim_scope 即协议错误。
+    payload = _pass_payload()
+    del payload["claim_reviews"][0]["claim_scope"]
+
+    result = _review_payload(payload)
+
+    _assert_protocol_error(result, "missing_fields:claim_scope")
+
+
+def test_matrix_missing_claim_scope_on_non_knowledge_claim_defaults_not_applicable():
+    # 非 knowledge_claim 的 scope 是确定性归约（NOT_APPLICABLE），缺失时由代码补齐。
+    payload = _pass_payload()
+    payload["claim_reviews"][0]["claim_type"] = "limitation_statement"
+    payload["claim_reviews"][0]["claim"] = "当前证据未说明其他端口。"
+    del payload["claim_reviews"][0]["claim_scope"]
+
+    result = _review_payload(payload)
+
+    assert result.verdict == "PASS"
+    assert result.claim_reviews[0].claim_scope == "NOT_APPLICABLE"
+
+
+def test_matrix_knowledge_claim_with_not_applicable_scope_is_protocol_rejected():
+    payload = _pass_payload()
+    payload["claim_reviews"][0]["claim_scope"] = "NOT_APPLICABLE"
+
+    result = _review_payload(payload)
+
+    _assert_protocol_error(result, "knowledge_claim_scope_not_applicable")
+
+
+def test_matrix_non_knowledge_claim_with_fact_scope_is_protocol_rejected():
+    payload = _pass_payload()
+    payload["claim_reviews"][0]["claim_type"] = "question_context"
+    payload["claim_reviews"][0]["claim_scope"] = "CONTEXTUAL_FACT"
+
+    result = _review_payload(payload)
+
+    _assert_protocol_error(result, "non_knowledge_claim_scope_invalid:CONTEXTUAL_FACT")
+
+
+def test_matrix_unsupported_claim_is_not_subject_to_matrix():
+    # 矩阵只约束 supported knowledge_claim；unsupported claim 允许引用任何证据说明判断依据。
+    payload = _pass_payload()
+    payload["claim_reviews"][0]["status"] = "unsupported"
+    payload["claim_reviews"][0]["evidence_ids"] = [1]
+    payload["rewrite_actions"] = [{
+        "claim_id": "c1",
+        "action": "rewrite_to_supported_scope_or_remove",
+        "instruction": "删除该断言",
+    }]
+    # _review_payload 的证据是 TARGET_SPECIFIC；再换成 CONTEXT_ONLY 也应放行（unsupported 不核对矩阵）。
+    reviewer = HelperGroundingReviewer(lambda _msgs: json.dumps(payload))
+    doc = {
+        "content": "StampServer 支持服务发布。",
+        "metadata": {"citation_id": 1, "source": "doc.md", "support_scope": "CONTEXT_ONLY"},
+    }
+    result = reviewer.review("StampServer 支持服务发布吗？", [doc], "StampServer 支持服务发布。[1]")
+
+    assert result.verdict == "REVISE"
+    assert result.unsupported_claims[0].claim_scope == "TARGET_ATTRIBUTION"
+
+
+def test_structured_output_schema_requires_claim_scope():
+    from rag_knowledge.services.helper_grounding_reviewer import review_response_json_schema
+
+    schema = review_response_json_schema()
+    claim_schema = schema["properties"]["claim_reviews"]["items"]
+
+    assert "claim_scope" in claim_schema["properties"]
+    assert "claim_scope" in claim_schema["required"]
+    assert claim_schema["properties"]["claim_scope"]["enum"] == [
+        "CONTEXTUAL_FACT",
+        "NOT_APPLICABLE",
+        "RELATION_CLAIM",
+        "TARGET_ATTRIBUTION",
+    ]

@@ -131,6 +131,7 @@ def setup_integration_env(isolated_storage, monkeypatch):
             "claim_id": "c1",
             "claim": "fixture answer",
             "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
             "evidence_ids": [1],
             "status": "supported",
             "reason": "fixture isolates entity retrieval behavior"

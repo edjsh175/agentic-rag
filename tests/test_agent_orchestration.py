@@ -1547,12 +1547,14 @@ def test_govern_answer_path_case_insensitivity():
     from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
 
     docs = [_doc("chk_path", "安装目录位于 C:\\Program Files\\StampServer 路径下", citation_id=1)]
+    docs[0]["metadata"]["evidence_class"] = "TARGET_DIRECT"
+    docs[0]["metadata"]["support_scope"] = "TARGET_SPECIFIC"
 
     pass_reviewer = HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "PASS",
         "coverage": "FULL",
         "summary": "通过",
-        "claim_reviews": [{"claim_id": "c1", "claim_type": "knowledge_claim", "claim": "测试", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
+        "claim_reviews": [{"claim_id": "c1", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "claim": "测试", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
         "rewrite_actions": []
     }""")
     block_reviewer = HelperGroundingReviewer(lambda _msgs: """{

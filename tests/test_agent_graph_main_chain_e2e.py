@@ -310,6 +310,7 @@ def test_grounding_reviewer_verifies_graph_relation_claims():
                 "claim_id": "c1",
                 "claim": "StampServer 包含 StampWebRTC 模块",
                 "claim_type": "knowledge_claim",
+                "claim_scope": "RELATION_CLAIM",
                 "evidence_ids": [1],
                 "status": "supported",
                 "reason": "由图谱事实关系证据 [1] StampServer belongs_to StampWebRTC 直接支持",
@@ -327,6 +328,7 @@ def test_grounding_reviewer_verifies_graph_relation_claims():
                 "relation_type": "belongs_to",
                 "source_name": "StampServer",
                 "target_name": "StampWebRTC",
+                "support_scope": "RELATION_SPECIFIC",
             },
         }
     ]

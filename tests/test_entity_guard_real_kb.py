@@ -136,6 +136,7 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
             "claim_id": "c1",
             "claim": "fixture answer",
             "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
             "evidence_ids": [1],
             "status": "supported",
             "reason": "fixture isolates retrieval/entity-guard behavior"

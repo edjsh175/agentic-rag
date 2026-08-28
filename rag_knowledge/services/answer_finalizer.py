@@ -606,7 +606,7 @@ class AnswerFinalizer:
                         "claim_id": claim.claim_id,
                         "claim": claim.claim,
                         "claim_type": claim.claim_type,
-                        "claim_attribution": claim.claim_attribution,
+                        "claim_scope": claim.claim_scope,
                         "status": claim.status,
                         "evidence_ids": list(claim.evidence_ids),
                         "evidence_support_scopes": [
