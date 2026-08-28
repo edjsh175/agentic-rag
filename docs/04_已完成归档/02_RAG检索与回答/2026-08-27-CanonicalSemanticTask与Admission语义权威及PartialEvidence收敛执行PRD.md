@@ -3,8 +3,10 @@
 ## 0. 文档信息
 
 **文档类型**：执行 PRD  
-**状态**：实施中（架构收口完成，待统一验收）
+**状态**：已完成（全链路验收通过，已归档）  
 **日期**：2026-08-27  
+**验收日期**：2026-08-28  
+**验收 Commit**：`6a05e62`  
 **实施性质**：事故根因修复 + 架构收口，不新增业务功能  
 **核心目标**：彻底消除“原始歧义 Query / Controller 临时检索 Query / 澄清后真实问题”三套语义同时参与 Evidence Admission 的架构错误，使 Text Evidence、Graph Relation Evidence、Coverage、Answer、Grounding 全部服从同一个 Canonical Semantic Task。
 
@@ -24,8 +26,9 @@ Claim ↔ Evidence ↔ Support Scope；Finalizer 决定最终发布模式。
 **superseded**，仅保留事故背景。它们不得作为后续实现依据。
 
 Support Scope 对 Coverage 判定的细化，以 Evidence PRD 为准；本 PRD 不另行
-定义 Coverage 状态。三份文档在全部 DoD、真实模型与 HTTP/SSE 验收完成前均
-保持“实施中”，不得单独归档。
+定义 Coverage 状态。三份文档已于 2026-08-28 完成全部 Deterministic Gold、全量回归、
+真实模型 Micro-chain、真实 Agent E2E、HTTP/SSE ↔ Trace 及 Web UX 验收（Commit: `6a05e62`），
+正式归档至 `docs/04_已完成归档/02_RAG检索与回答/`。
 
 本 PRD **不推翻**以下两份现有 PRD 的主架构：
 
