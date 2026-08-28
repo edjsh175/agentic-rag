@@ -1,0 +1,433 @@
+{
+  "version": "v1",
+  "description": "Deterministic Gold Matrix for TextEvidenceAdmissionService. Authoritative single source of truth for text evidence qualification protocol and invariant boundaries.",
+  "cases": [
+    {
+      "id": "evidence_protocol_valid_direct",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "TARGET_DIRECT",
+        "support_scope": "TARGET_SPECIFIC",
+        "intent_relevance": "HIGH",
+        "reason_code": "direct_mention",
+        "reason": "Direct target mention with proposition attribution"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "evidence_protocol_valid_related",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "RELATED_CONTEXT",
+        "support_scope": "CONTEXT_ONLY",
+        "intent_relevance": "MEDIUM",
+        "reason_code": "domain_context",
+        "reason": "Domain context relevant to target object"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "evidence_protocol_valid_conflict",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "REJECT",
+        "evidence_class": "CONFLICT",
+        "support_scope": "NONE",
+        "intent_relevance": "NONE",
+        "reason_code": "explicit_conflict",
+        "reason": "Explicit sibling conflict"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "evidence_protocol_valid_irrelevant",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "intent_relevance": "LOW",
+        "reason_code": "no_relevance",
+        "reason": "No evidence value for query"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "evidence_protocol_invalid_conflict_pass",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "CONFLICT",
+        "support_scope": "NONE",
+        "intent_relevance": "HIGH",
+        "reason_code": "invalid",
+        "reason": "Conflict cannot PASS"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "evidence_protocol_invalid_irrelevant_pass",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "intent_relevance": "HIGH",
+        "reason_code": "invalid",
+        "reason": "Irrelevant cannot PASS"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "evidence_protocol_invalid_related_direct_scope",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "RELATED_CONTEXT",
+        "support_scope": "TARGET_SPECIFIC",
+        "intent_relevance": "HIGH",
+        "reason_code": "invalid",
+        "reason": "Related context cannot have TARGET_SPECIFIC scope"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "evidence_protocol_invalid_direct_none_scope",
+      "category": "protocol_validation",
+      "test_type": "protocol_check",
+      "qualification": {
+        "verdict": "PASS",
+        "evidence_class": "TARGET_DIRECT",
+        "support_scope": "NONE",
+        "intent_relevance": "HIGH",
+        "reason_code": "invalid",
+        "reason": "Passed direct evidence cannot have NONE scope"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "evidence_incident_case_a_webgl_vs_builder_conflict",
+      "category": "incident_case_a",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebGL",
+      "semantic_task": {
+        "resolved_question": "PipelineWebGL 主要提供哪些渲染功能？",
+        "primary_entity": "PipelineWebGL",
+        "task_type": "single_entity_detail",
+        "answer_intent": "function_overview"
+      },
+      "candidate": {
+        "chunk_id": "chunk_builder_01",
+        "document_entity": "PipelineBuilder",
+        "content": "PipelineBuilder 负责三维管线模型数据的导入、轻量化处理与构建转换。",
+        "metadata": {
+          "document_entity": "PipelineBuilder",
+          "section_title": "PipelineBuilder 构建说明"
+        },
+        "provenance": []
+      },
+      "working_set": {
+        "roots": ["PipelineWebGL"],
+        "entities": [
+          {"entity_id": "ent_builder", "name": "PipelineBuilder", "origin_root": "PipelineWebGL"}
+        ],
+        "relations": [
+          {"source": "PipelineWebGL", "target": "PipelineBuilder", "relation_type": "different_from"}
+        ]
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "CONFLICT",
+        "support_scope": "NONE",
+        "reason_code": "explicit_entity_conflict"
+      }
+    },
+    {
+      "id": "evidence_incident_case_b_webrtc_cross_doc_direct",
+      "category": "incident_case_b",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebRTC",
+      "semantic_task": {
+        "resolved_question": "PipelineWebRTC 的访问方式和端口配置是什么？",
+        "primary_entity": "PipelineWebRTC",
+        "task_type": "single_entity_detail",
+        "answer_intent": "deployment_config"
+      },
+      "candidate": {
+        "chunk_id": "chunk_webrtc_cross_01",
+        "document_entity": "StampServer",
+        "content": "在客户端配置中，PipelineWebRTC 支持通过私有证书在 31443 端口进行流媒体渲染推流，用户可在启动界面选择端口连接。",
+        "metadata": {
+          "document_entity": "StampServer",
+          "section_title": "服务集成与 WebRTC 访问"
+        },
+        "provenance": []
+      },
+      "semantic_admitter_response": {
+        "verdict": "PASS",
+        "evidence_class": "TARGET_DIRECT",
+        "support_scope": "TARGET_SPECIFIC",
+        "intent_relevance": "HIGH",
+        "reason_code": "cross_doc_direct_mention",
+        "reason": "Text explicitly describes PipelineWebRTC port configuration despite document_entity being StampServer"
+      },
+      "expected": {
+        "verdict": "PASS",
+        "evidence_class": "TARGET_DIRECT",
+        "support_scope": "TARGET_SPECIFIC",
+        "intent_relevance": "HIGH"
+      }
+    },
+    {
+      "id": "evidence_incident_case_c_pipe_mgmt_related_context",
+      "category": "incident_case_c",
+      "test_type": "service_qualify",
+      "target_entity": "三维管线管理",
+      "semantic_task": {
+        "resolved_question": "三维管线管理支持哪些核心能力？",
+        "primary_entity": "三维管线管理",
+        "task_type": "single_entity_detail",
+        "answer_intent": "function_overview"
+      },
+      "candidate": {
+        "chunk_id": "chunk_pipe_system_01",
+        "document_entity": "三维管线",
+        "content": "管线系统支持碰撞分析和智能排管，提供地下管线三维可视化管理能力。",
+        "metadata": {
+          "document_entity": "三维管线",
+          "section_title": "管线系统能力概览"
+        },
+        "provenance": []
+      },
+      "semantic_admitter_response": {
+        "verdict": "PASS",
+        "evidence_class": "RELATED_CONTEXT",
+        "support_scope": "CONTEXT_ONLY",
+        "intent_relevance": "HIGH",
+        "reason_code": "system_domain_context",
+        "reason": "Text describes overall pipeline system capabilities but does not directly attribute them to specific module 三维管线管理"
+      },
+      "expected": {
+        "verdict": "PASS",
+        "evidence_class": "RELATED_CONTEXT",
+        "support_scope": "CONTEXT_ONLY",
+        "intent_relevance": "HIGH"
+      }
+    },
+    {
+      "id": "evidence_hard_sibling_conflict_stampwebgl",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebGL",
+      "semantic_task": {
+        "resolved_question": "PipelineWebGL 如何配置？",
+        "primary_entity": "PipelineWebGL",
+        "task_type": "single_entity_detail"
+      },
+      "candidate": {
+        "chunk_id": "chunk_stampwebgl_01",
+        "document_entity": "StampWebGL",
+        "content": "StampWebGL 客户端在浏览器中加载模型配置。",
+        "metadata": {
+          "document_entity": "StampWebGL"
+        },
+        "provenance": []
+      },
+      "working_set": {
+        "roots": ["PipelineWebGL"],
+        "entities": [
+          {"entity_id": "ent_stampwebgl", "name": "StampWebGL", "origin_root": "PipelineWebGL"}
+        ],
+        "relations": [
+          {"source": "PipelineWebGL", "target": "StampWebGL", "relation_type": "different_from"}
+        ]
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "CONFLICT",
+        "support_scope": "NONE"
+      }
+    },
+    {
+      "id": "evidence_hard_no_graph_link_not_conflict",
+      "category": "boundary_hard_case",
+      "test_type": "conflict_check",
+      "target_entity": "三维管线管理",
+      "candidate": {
+        "chunk_id": "chunk_no_link_01",
+        "document_entity": "三维管线",
+        "content": "管线系统支持碰撞分析和智能排管。",
+        "metadata": {
+          "document_entity": "三维管线"
+        }
+      },
+      "working_set": {
+        "roots": ["三维管线管理"],
+        "entities": [],
+        "relations": []
+      },
+      "expected_conflict_status": "NO_CONFLICT"
+    },
+    {
+      "id": "evidence_hard_graph_path_no_semantic_support_rejected",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebGL",
+      "semantic_task": {
+        "resolved_question": "PipelineWebGL 的渲染流程是怎样的？",
+        "primary_entity": "PipelineWebGL",
+        "task_type": "single_entity_detail"
+      },
+      "candidate": {
+        "chunk_id": "chunk_boilerplate_01",
+        "document_entity": "StampWebGL",
+        "content": "版权所有 (C) 2026 保留所有权利。本文档内容可能随时更改，恕不另行通知。",
+        "metadata": {
+          "document_entity": "StampWebGL"
+        },
+        "provenance": [
+          {"graph_path": ["PipelineWebGL", "belongs_to", "StampWebGL"]}
+        ]
+      },
+      "semantic_admitter_response": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "intent_relevance": "NONE",
+        "reason_code": "boilerplate_no_evidence",
+        "reason": "Boilerplate text carries no evidence value despite graph path"
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE"
+      }
+    },
+    {
+      "id": "evidence_hard_lexical_hit_no_semantic_support_rejected",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "StampServer",
+      "semantic_task": {
+        "resolved_question": "StampServer 怎么安装部署？",
+        "primary_entity": "StampServer",
+        "task_type": "single_entity_detail"
+      },
+      "candidate": {
+        "chunk_id": "chunk_lexical_noise_01",
+        "document_entity": "CompanyNotice",
+        "content": "全体员工请注意：公司服务器 StampServer 所在机房将于本周五晚进行例行电力检修，请提前关闭办公电脑。",
+        "metadata": {
+          "document_entity": "CompanyNotice"
+        },
+        "provenance": [
+          {"exact_lexical": true}
+        ]
+      },
+      "semantic_admitter_response": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "intent_relevance": "NONE",
+        "reason_code": "lexical_noise_no_technical_evidence",
+        "reason": "Administrative notice mentions entity name but has no technical deployment evidence"
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE"
+      }
+    },
+    {
+      "id": "evidence_hard_direct_ceiling_downgrade",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebGL",
+      "semantic_task": {
+        "resolved_question": "PipelineWebGL 支持哪些材质贴图？",
+        "primary_entity": "PipelineWebGL",
+        "task_type": "single_entity_detail"
+      },
+      "candidate": {
+        "chunk_id": "chunk_unbound_texture_01",
+        "document_entity": "GeneralDoc",
+        "content": "三维引擎支持 PBR 材质与法线贴图渲染。",
+        "metadata": {
+          "document_entity": "GeneralDoc"
+        },
+        "provenance": []
+      },
+      "semantic_admitter_response": {
+        "verdict": "PASS",
+        "evidence_class": "TARGET_DIRECT",
+        "support_scope": "TARGET_SPECIFIC",
+        "intent_relevance": "HIGH",
+        "reason_code": "llm_over_optimistic",
+        "reason": "Helper LLM erroneously claims target direct attribution without signals"
+      },
+      "expected": {
+        "verdict": "PASS",
+        "evidence_class": "RELATED_CONTEXT",
+        "support_scope": "CONTEXT_ONLY",
+        "reason_code": "direct_scope_downgraded_without_attribution_candidate"
+      }
+    },
+    {
+      "id": "evidence_hard_missing_semantic_task_rejected",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "StampServer",
+      "semantic_task": null,
+      "candidate": {
+        "chunk_id": "chunk_any_01",
+        "document_entity": "StampServer",
+        "content": "StampServer 服务部署文档内容。",
+        "metadata": {
+          "document_entity": "StampServer"
+        },
+        "provenance": []
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "reason_code": "missing_semantic_task"
+      }
+    },
+    {
+      "id": "evidence_hard_semantic_target_mismatch_rejected",
+      "category": "boundary_hard_case",
+      "test_type": "service_qualify",
+      "target_entity": "PipelineWebGL",
+      "semantic_task": {
+        "resolved_question": "StampServer 端口是多少？",
+        "primary_entity": "StampServer",
+        "task_type": "single_entity_detail"
+      },
+      "candidate": {
+        "chunk_id": "chunk_mismatch_01",
+        "document_entity": "PipelineWebGL",
+        "content": "PipelineWebGL 渲染配置。",
+        "metadata": {
+          "document_entity": "PipelineWebGL"
+        },
+        "provenance": []
+      },
+      "expected": {
+        "verdict": "REJECT",
+        "evidence_class": "IRRELEVANT",
+        "support_scope": "NONE",
+        "reason_code": "semantic_task_target_mismatch"
+      }
+    }
+  ]
+}

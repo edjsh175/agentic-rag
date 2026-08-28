@@ -1,0 +1,494 @@
+{
+  "version": "v1",
+  "description": "Deterministic Gold Matrix for EntityCandidateResolver and IdentityScopeResolver. Single source of truth for identity resolution invariant behaviors.",
+  "cases": [
+    {
+      "id": "identity_exact_stampserver",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "StampServer",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampServer",
+        "top_candidate": "StampServer",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_pipelinewebgl",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "PipelineWebGL",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineWebGL",
+        "top_candidate": "PipelineWebGL",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_pipelinewebrtc",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "PipelineWebRTC",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineWebRTC",
+        "top_candidate": "PipelineWebRTC",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_pipelinebuilder",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "PipelineBuilder",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineBuilder",
+        "top_candidate": "PipelineBuilder",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_stamptools",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "StampTools",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampTools",
+        "top_candidate": "StampTools",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_stampwebgl",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "StampWebGL",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampWebGL",
+        "top_candidate": "StampWebGL",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_stampwebrtc",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "StampWebRTC",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampWebRTC",
+        "top_candidate": "StampWebRTC",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_stampnodeserver",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "StampNodeServer",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampNodeServer",
+        "top_candidate": "StampNodeServer",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_pipe_publish_service",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "管线发布服务",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "管线发布服务",
+        "top_candidate": "管线发布服务",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_exact_pipe_update_service",
+      "category": "exact_canonical",
+      "target_component": "resolver",
+      "query": "管线更新服务",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "管线更新服务",
+        "top_candidate": "管线更新服务",
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "identity_alias_pipeline_webgl_space",
+      "category": "alias",
+      "target_component": "resolver",
+      "query": "Pipeline WebGL",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineWebGL",
+        "top_candidate": "PipelineWebGL"
+      }
+    },
+    {
+      "id": "identity_alias_pipeline_webgl_cn",
+      "category": "alias",
+      "target_component": "resolver",
+      "query": "管线 WebGL",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineWebGL",
+        "top_candidate": "PipelineWebGL"
+      }
+    },
+    {
+      "id": "identity_alias_pipeline_webrtc_cn",
+      "category": "alias",
+      "target_component": "resolver",
+      "query": "管线 WebRTC",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineWebRTC",
+        "top_candidate": "PipelineWebRTC"
+      }
+    },
+    {
+      "id": "identity_alias_stampgis_server",
+      "category": "alias",
+      "target_component": "resolver",
+      "query": "StampGIS Server",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "StampServer",
+        "top_candidate": "StampServer"
+      }
+    },
+    {
+      "id": "identity_vague_pipeline",
+      "category": "vague_english",
+      "target_component": "resolver",
+      "query": "pipeline",
+      "expected": {
+        "status": "ambiguous",
+        "confirmed_entity": null,
+        "must_include_candidates": ["PipelineWebGL", "PipelineWebRTC", "PipelineBuilder"],
+        "must_exclude_candidates": ["se_pipeline.so"]
+      }
+    },
+    {
+      "id": "identity_vague_server",
+      "category": "vague_english",
+      "target_component": "resolver",
+      "query": "server",
+      "expected": {
+        "status": "ambiguous",
+        "confirmed_entity": null,
+        "must_include_candidates": ["StampServer", "StampNodeServer"]
+      }
+    },
+    {
+      "id": "identity_vague_builder",
+      "category": "vague_english",
+      "target_component": "resolver",
+      "query": "builder",
+      "expected": {
+        "must_include_candidates": ["PipelineBuilder"]
+      }
+    },
+    {
+      "id": "identity_vague_stamp",
+      "category": "vague_english",
+      "target_component": "resolver",
+      "query": "stamp",
+      "expected": {
+        "status": "ambiguous",
+        "confirmed_entity": null,
+        "must_include_candidates": ["StampServer", "StampTools", "StampWebGL", "StampWebRTC"]
+      }
+    },
+    {
+      "id": "identity_vague_chinese_guanxian",
+      "category": "vague_chinese",
+      "target_component": "resolver",
+      "query": "管线",
+      "expected": {
+        "status": "ambiguous",
+        "confirmed_entity": null,
+        "must_include_candidates": ["PipelineWebGL", "PipelineWebRTC"]
+      }
+    },
+    {
+      "id": "identity_bare_webgl_family_surface",
+      "category": "bare_family_surface",
+      "target_component": "resolver",
+      "query": "WebGL",
+      "constraints_profile": "family_root",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "WebGL",
+        "top_candidate": "WebGL",
+        "must_include_candidates": ["StampWebGL", "PipelineWebGL"]
+      }
+    },
+    {
+      "id": "identity_bare_webrtc_family_surface",
+      "category": "bare_family_surface",
+      "target_component": "resolver",
+      "query": "WebRTC",
+      "constraints_profile": "family_root",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "WebRTC",
+        "top_candidate": "WebRTC",
+        "must_include_candidates": ["StampWebRTC", "PipelineWebRTC"]
+      }
+    },
+    {
+      "id": "identity_typo_pipelien",
+      "category": "typo",
+      "target_component": "resolver",
+      "query": "pipelien",
+      "expected": {
+        "must_include_candidates": ["PipelineWebGL", "PipelineWebRTC", "PipelineBuilder"]
+      }
+    },
+    {
+      "id": "identity_typo_stampsever",
+      "category": "typo",
+      "target_component": "resolver",
+      "query": "StampSever",
+      "expected": {
+        "top_candidate": "StampServer",
+        "must_include_candidates": ["StampServer"]
+      }
+    },
+    {
+      "id": "identity_followup_pronoun_deploy",
+      "category": "pronoun_followup",
+      "target_component": "identity_scope",
+      "query": "它怎么部署？",
+      "context": {
+        "previous_confirmed_entity": "StampServer"
+      },
+      "semantic_task": {
+        "resolved_question": "它怎么部署？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": true
+      },
+      "expected": {
+        "identity_status": "confirmed_entity",
+        "confirmed_entity": "StampServer",
+        "scope_reason": "conversation_confirmed_subject"
+      }
+    },
+    {
+      "id": "identity_followup_pronoun_config",
+      "category": "pronoun_followup",
+      "target_component": "identity_scope",
+      "query": "它怎么配置？",
+      "context": {
+        "previous_confirmed_entity": "PipelineWebGL"
+      },
+      "semantic_task": {
+        "resolved_question": "它怎么配置？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": true
+      },
+      "expected": {
+        "identity_status": "confirmed_entity",
+        "confirmed_entity": "PipelineWebGL",
+        "scope_reason": "conversation_confirmed_subject"
+      }
+    },
+    {
+      "id": "identity_continuation_implicit_port",
+      "category": "subject_continuation",
+      "target_component": "identity_scope",
+      "query": "默认端口是多少？",
+      "context": {
+        "previous_confirmed_entity": "StampServer"
+      },
+      "semantic_task": {
+        "resolved_question": "默认端口是多少？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": true
+      },
+      "expected": {
+        "identity_status": "confirmed_entity",
+        "confirmed_entity": "StampServer",
+        "scope_reason": "conversation_confirmed_subject"
+      }
+    },
+    {
+      "id": "identity_switch_subject",
+      "category": "subject_switch",
+      "target_component": "identity_scope",
+      "query": "那 StampServer 呢？",
+      "context": {
+        "previous_confirmed_entity": "PipelineWebGL"
+      },
+      "semantic_task": {
+        "resolved_question": "那 StampServer 呢？",
+        "primary_entity": "StampServer",
+        "mentioned_entities": ["StampServer"],
+        "task_type": "single_entity_detail",
+        "entity_binding_required": true
+      },
+      "expected": {
+        "identity_status": "confirmed_entity",
+        "confirmed_entity": "StampServer"
+      }
+    },
+    {
+      "id": "identity_not_required_architecture",
+      "category": "not_required",
+      "target_component": "identity_scope",
+      "query": "系统架构分层有哪些？",
+      "context": {
+        "previous_confirmed_entity": "PipelineWebGL"
+      },
+      "semantic_task": {
+        "resolved_question": "系统架构分层有哪些？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": false
+      },
+      "expected": {
+        "identity_status": "not_required",
+        "confirmed_entity": null,
+        "scope_reason": "entity_binding_not_required"
+      }
+    },
+    {
+      "id": "identity_not_required_hybrid_retrieval",
+      "category": "not_required",
+      "target_component": "identity_scope",
+      "query": "知识库的混合检索如何工作？",
+      "semantic_task": {
+        "resolved_question": "知识库的混合检索如何工作？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": false
+      },
+      "expected": {
+        "identity_status": "not_required",
+        "confirmed_entity": null,
+        "scope_reason": "entity_binding_not_required"
+      }
+    },
+    {
+      "id": "identity_not_required_formats",
+      "category": "not_required",
+      "target_component": "identity_scope",
+      "query": "当前知识库支持哪些文档格式？",
+      "semantic_task": {
+        "resolved_question": "当前知识库支持哪些文档格式？",
+        "primary_entity": null,
+        "mentioned_entities": [],
+        "task_type": "unbound",
+        "entity_binding_required": false
+      },
+      "expected": {
+        "identity_status": "not_required",
+        "confirmed_entity": null,
+        "scope_reason": "entity_binding_not_required"
+      }
+    },
+    {
+      "id": "identity_hallucination_random_string",
+      "category": "hallucinated_candidate",
+      "target_component": "resolver",
+      "query": "zyx987654321random",
+      "expected": {
+        "status": "unresolved",
+        "confirmed_entity": null,
+        "candidates_count": 0
+      }
+    },
+    {
+      "id": "identity_hallucination_unregistered",
+      "category": "hallucinated_candidate",
+      "target_component": "resolver",
+      "query": "FakeNonExistentProductXYZ",
+      "expected": {
+        "status": "unresolved",
+        "confirmed_entity": null,
+        "candidates_count": 0
+      }
+    },
+    {
+      "id": "identity_different_from_isolation",
+      "category": "different_from_isolation",
+      "target_component": "resolver",
+      "query": "PipelineBuilder",
+      "expected": {
+        "status": "confirmed",
+        "confirmed_entity": "PipelineBuilder",
+        "top_candidate": "PipelineBuilder",
+        "must_exclude_candidates": ["StampWebGL"]
+      }
+    },
+    {
+      "id": "identity_callback_other_rejected",
+      "category": "callback_validation",
+      "target_component": "callback",
+      "query": "pipeline",
+      "callback_action": "select_other",
+      "expected": {
+        "validate_result": null,
+        "identity_status": "unresolved",
+        "confirmed_entity": null,
+        "scope_reason": "clarification_other"
+      }
+    },
+    {
+      "id": "identity_callback_valid_snapshot",
+      "category": "callback_validation",
+      "target_component": "callback",
+      "query": "pipeline",
+      "callback_action": "select_valid_candidate",
+      "expected": {
+        "validate_success": true,
+        "identity_status": "confirmed_entity",
+        "scope_reason": "clarification_confirmed_from_snapshot"
+      }
+    },
+    {
+      "id": "identity_callback_tampered_id",
+      "category": "callback_validation",
+      "target_component": "callback",
+      "query": "pipeline",
+      "callback_action": "select_tampered_id",
+      "expected": {
+        "validate_result": null,
+        "identity_status": "unresolved",
+        "confirmed_entity": null,
+        "scope_reason": "clarification_snapshot_mismatch"
+      }
+    },
+    {
+      "id": "identity_callback_missing_snapshot",
+      "category": "callback_validation",
+      "target_component": "callback",
+      "query": "pipeline",
+      "callback_action": "select_without_snapshot",
+      "expected": {
+        "validate_result": null,
+        "identity_status": "unresolved",
+        "confirmed_entity": null,
+        "scope_reason": "clarification_snapshot_required"
+      }
+    }
+  ]
+}
