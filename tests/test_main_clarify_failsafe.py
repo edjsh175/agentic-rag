@@ -481,6 +481,23 @@ async def test_topic_task_without_binding_requirement_keeps_null_target_retrieva
     assert "retrieve_kb" in state["allowed_tools"]
 
 
+@pytest.mark.anyio
+async def test_not_required_identity_enters_null_target_retrieval_without_clarify():
+    semantic_task = SimpleNamespace(entity_binding_required=False)
+    loop = _unbound_identity_loop("not_required", semantic_task=semantic_task)
+
+    obs = await loop._execute(
+        "retrieve_kb", {"target_entity": None, "query": "系统架构分层有哪些"}
+    )
+    assert obs.ok
+
+    # 主题型任务没有可出示的候选集，clarify 与 unresolved 时一致地被禁用
+    state = json.loads(loop._controller_state_for_prompt())
+    assert state["identity_status"] == "not_required"
+    assert "retrieve_kb" in state["allowed_tools"]
+    assert "clarify" not in state["allowed_tools"]
+
+
 def test_identity_scope_multi_entity_confirmed_set():
     constraints = {
         "entity_type_by_name": {

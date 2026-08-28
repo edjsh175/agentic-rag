@@ -76,6 +76,26 @@ def test_semantic_task_distinguishes_topic_from_required_entity_binding(isolated
     assert underspecified.semantic_task_context["entity_binding_required"] is True
 
 
+def test_semantic_task_marks_anaphora_followup_as_binding_required(isolated_storage):
+    """指代/省略开头（它/这个/继续…）的主体在前一轮，需要实体绑定。"""
+    isolated_storage()
+    from rag_knowledge.services.dialogue_understanding import build_semantic_task_context
+
+    result = UnderstandingResult(
+        mode="retrieve",
+        user_utterance="它怎么配置？",
+        resolved_question="它怎么配置？",
+        confidence=1.0,
+    )
+    followup = build_semantic_task_context("它怎么配置？", result)
+    assert followup.task_type == "unbound"
+    assert followup.entity_binding_required is True
+
+    # 无指代的通用短问不触发绑定，避免把普通问答推向无条件澄清
+    generic = build_semantic_task_context("怎么写代码", result)
+    assert generic.entity_binding_required is False
+
+
 def test_understanding_no_history_keeps_original(isolated_storage):
     isolated_storage()
     cfg = MagicMock()

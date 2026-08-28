@@ -93,6 +93,18 @@ def question_is_underspecified(question: str) -> bool:
     return len(compact) <= 4
 
 
+# 指代/省略开头：主体在前一轮，需要绑定上一轮已确认实体
+_ANAPHORA_PREFIX_RE = re.compile(
+    r"^(?:它|他|她|它们|他们|她们|这个|那个|这些|那些|该|此|上述|"
+    r"前面|之前|刚才|上面|刚刚|继续|接着|然后|还有|另外|其他|再)"
+)
+
+
+def question_refers_to_previous_subject(question: str) -> bool:
+    """True when the question opens with anaphora whose subject is in the prior turn."""
+    return bool(_ANAPHORA_PREFIX_RE.search((question or "").strip()))
+
+
 def is_vague_surface_question(question: str) -> bool:
     """True when the question is underspecified or hits a wide oral surface term."""
     if question_is_underspecified(question):

@@ -169,7 +169,11 @@ def build_semantic_task_context(
     else:
         task_type = "unbound"
 
-    from rag_knowledge.services.query_surface import infer_answer_intent, question_is_underspecified
+    from rag_knowledge.services.query_surface import (
+        infer_answer_intent,
+        question_is_underspecified,
+        question_refers_to_previous_subject,
+    )
 
     answer_intent, requested_facets, intent_source = infer_answer_intent(
         question,
@@ -185,7 +189,11 @@ def build_semantic_task_context(
         answer_intent=answer_intent,
         requested_facets=requested_facets,
         intent_source=intent_source,
-        entity_binding_required=(task_type != "unbound" or question_is_underspecified(question)),
+        entity_binding_required=(
+            task_type != "unbound"
+            or question_is_underspecified(question)
+            or question_refers_to_previous_subject(question)
+        ),
     )
 
 

@@ -209,6 +209,33 @@ def test_confirmed_scope_survives_ellipsis_followup_from_history_sources():
     assert conv.scope.scope_reason == "conversation_confirmed_subject"
 
 
+def test_topic_question_resolves_not_required_without_drift():
+    """P0-1 四态贯通：主题型问题为 not_required，且不得继承上一轮主体。"""
+    conv = ConversationContext.from_request("系统架构分层有哪些？", [])
+    assert conv.semantic_task.entity_binding_required is False
+    assert conv.identity_status == "not_required"
+    assert conv.head_entity is None
+
+    history = [
+        {"role": "user", "content": "PipelineBuilder 怎么用"},
+        {
+            "role": "assistant",
+            "content": "介绍",
+            "sources": [
+                {
+                    "chunk_id": "pb",
+                    "scope_root": "PipelineBuilder",
+                    "scope_binding_strength": "explicit",
+                }
+            ],
+        },
+    ]
+    conv_drift = ConversationContext.from_request("系统架构分层有哪些？", history)
+    assert conv_drift.previous_head_entity == "PipelineBuilder"
+    assert conv_drift.identity_status == "not_required"
+    assert conv_drift.head_entity is None
+
+
 def test_current_named_entity_overrides_previous_confirmed_scope():
     conv = ConversationContext.from_request(
         "StampServer 怎么配置？",

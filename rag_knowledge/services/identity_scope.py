@@ -291,6 +291,9 @@ class IdentityScopeResolver:
                 identity_status = "confirmed_entity"
             else:
                 context_ents = (previous,) if previous else ()
+                binding_required = bool(getattr(semantic_task, "entity_binding_required", True))
+                # 歧义检测始终召回（resolver 是身份权威）；绑定标志只决定
+                # 召回为空时的终态——话题型 not_required vs 实体型 unresolved。
                 resolution = resolver.resolve_identity(
                     query_text,
                     context_entities=context_ents,
@@ -311,8 +314,16 @@ class IdentityScopeResolver:
                     strength = BindingStrength.UNBOUND
                     reason = f"ambiguous_candidates_surface_{resolution.surface}"
                     identity_status = "ambiguous_entity"
+                elif not binding_required:
+                    # Stage-1 判定无需绑定的任务，召回为空视为话题型，
+                    # 不继承上一轮实体（防漂移）。
+                    primary = None
+                    valid_entities = []
+                    strength = BindingStrength.UNBOUND
+                    reason = "entity_binding_not_required"
+                    identity_status = "not_required"
                 else:
-                    # unresolved or not_required
+                    # unresolved
                     if previous and not mentioned and not resolution.candidates:
                         primary = previous
                         reg_ent = resolver.registry.get_by_name(previous)

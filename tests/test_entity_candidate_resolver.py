@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from rag_knowledge.services.agent_orchestration.models import ConversationContext
+from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.entity_candidate_resolver import (
     EntityCandidate,
     EntityCandidateResolver,
@@ -337,6 +338,65 @@ def test_authoritative_snapshot_callback_via_identity_scope():
     )
     assert scope_tampered.identity_status in {"unresolved", "confirmed_topic"}
     assert scope_tampered.confirmed_entity is None
+
+
+# -----------------------------------------------------------------------------
+# L. P0-1: entity_binding_required → not_required 四态贯通
+# -----------------------------------------------------------------------------
+
+def test_resolve_identity_not_required_skips_recall(resolver: EntityCandidateResolver):
+    res = resolver.resolve_identity("pipeline", entity_binding_required=False)
+    assert res.status == "not_required"
+    assert res.candidates == ()
+    assert res.confirmed_entity_name is None
+    assert res.reason == "entity_binding_not_required"
+
+
+def test_identity_scope_topic_task_resolves_to_not_required():
+    constraints = _custom_constraints()
+    semantic_task = SemanticTaskContext(
+        resolved_question="系统架构分层有哪些？",
+        primary_entity=None,
+        mentioned_entities=(),
+        task_type="unbound",
+        confidence=1.0,
+        entity_binding_required=False,
+    )
+    scope = IdentityScopeResolver.resolve(
+        semantic_task,
+        question="系统架构分层有哪些？",
+        constraints=constraints,
+    )
+    assert scope.identity_status == "not_required"
+    assert scope.primary_entity is None
+    assert scope.confirmed_entity is None
+    assert scope.scope_reason == "entity_binding_not_required"
+    # 召回始终执行（歧义检测不依赖绑定标志）；此处召回为空
+    assert scope.identity_resolution is not None
+    assert scope.identity_resolution.status == "unresolved"
+    assert scope.candidate_entities == ()
+
+
+def test_not_required_does_not_inherit_previous_entity():
+    """主题型问题不得继承上一轮主体（防漂移）。"""
+    constraints = _custom_constraints()
+    semantic_task = SemanticTaskContext(
+        resolved_question="系统架构分层有哪些？",
+        primary_entity=None,
+        mentioned_entities=(),
+        task_type="unbound",
+        confidence=1.0,
+        entity_binding_required=False,
+    )
+    scope = IdentityScopeResolver.resolve(
+        semantic_task,
+        question="系统架构分层有哪些？",
+        previous_confirmed_entity="PipelineWebGL",
+        constraints=constraints,
+    )
+    assert scope.identity_status == "not_required"
+    assert scope.primary_entity is None
+    assert scope.confirmed_entity is None
 
 
 # -----------------------------------------------------------------------------

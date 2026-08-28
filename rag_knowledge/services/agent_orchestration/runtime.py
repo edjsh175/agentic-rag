@@ -1144,14 +1144,16 @@ class AgentLoop:
     def _unbound_identity_denial(self, tool: str, target: Any) -> str | None:
         """身份未绑定时禁止先取证：身份 → 候选范围 → 证据。
 
-        歧义/未解析且需要绑定的状态下，retrieve_kb（无已确认目标）与
-        reuse_evidence 一律先澄清；unbound/topic 任务（无需绑定）不受影响。
+        ambiguous 一律先澄清（歧义必须解决才能取证，与 J3 卡片一致）；
+        unresolved 仅在 Stage-1 要求实体绑定时拦截；not_required（话题型）
+        不受影响。
         """
         if tool not in {"retrieve_kb", "reuse_evidence"}:
             return None
-        if self._identity_status() not in {"ambiguous_entity", "unresolved"}:
+        status = self._identity_status()
+        if status not in {"ambiguous_entity", "unresolved"}:
             return None
-        if not self._entity_binding_required():
+        if status == "unresolved" and not self._entity_binding_required():
             return None
         if tool == "retrieve_kb" and self._target_parts(target):
             return None  # 带 target 的检索由 _entity_tool_denial 裁决
@@ -1288,14 +1290,16 @@ class AgentLoop:
         if status == "confirmed_entity" and not (conv.topic_shift or conv.entity_transition):
             allowed_tools.discard("clarify")
         if (
-            status == "unresolved"
+            status in {"unresolved", "not_required"}
             and not self._entity_binding_required()
             and not self._explicit_clarification_request()
         ):
             allowed_tools.discard("clarify")
         if conv.clarification_callback:
             allowed_tools.discard("reuse_evidence")
-        if status in {"ambiguous_entity", "unresolved"} and self._entity_binding_required():
+        if status == "ambiguous_entity" or (
+            status == "unresolved" and self._entity_binding_required()
+        ):
             # 身份未绑定时只允许澄清；镜像 Harness 的 3.5 守卫，避免 Main 反复撞 denied。
             allowed_tools.discard("retrieve_kb")
             allowed_tools.discard("reuse_evidence")
@@ -1824,7 +1828,7 @@ class AgentLoop:
             if (
                 not denied
                 and decision.tool == "clarify"
-                and self._identity_status() == "unresolved"
+                and self._identity_status() in {"unresolved", "not_required"}
                 and not self._entity_binding_required()
                 and not self._explicit_clarification_request()
             ):
