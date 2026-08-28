@@ -227,8 +227,10 @@ def test_real_pipeline_clarification_locks_pipelinewebgl(monkeypatch):
     BM25Store._instance = None
 
     store = VectorStore()
-    if store.get_chroma()._collection.count() == 0:
-        pytest.skip("live Chroma database is empty")
+    from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+    resolver = get_entity_candidate_resolver()
+    resolution = resolver.resolve_identity("pipeline")
+    snapshot = resolver.create_clarification_snapshot(resolution)
 
     chain = RagChain()
 
@@ -238,7 +240,8 @@ def test_real_pipeline_clarification_locks_pipelinewebgl(monkeypatch):
             async for event in chain.stream_query(
                 "pipeline",
                 history=[],
-                clarification_selected="PipelineWebGL（StampTools）",
+                clarification_selected="PipelineWebGL",
+                clarification_snapshot_id=snapshot.clarification_id,
                 doc_category="StampTools",
                 allow_general_knowledge=False,
                 agent_orchestration_enabled=True,
