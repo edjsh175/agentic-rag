@@ -84,6 +84,24 @@ function isNotFound(error: unknown): boolean {
   return (error as { response?: { status?: number } })?.response?.status === 404
 }
 
+export function normalizeTraceId(raw: unknown): string | null {
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    if ('trace_id' in (raw as any)) {
+      const tid = (raw as any).trace_id
+      if (typeof tid === 'string') {
+        const trimmed = tid.trim()
+        return trimmed.length > 0 ? trimmed : null
+      }
+    }
+  }
+  return null
+}
+
 function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void {
   try {
     const stored: StoredMsg[] = messages.map((m) => ({
@@ -94,7 +112,7 @@ function saveLocalSessionMsgs(sessionId: string, messages: ChatMessage[]): void 
       hasImage: !!m.imageUrl,
       sources: m.sources,
       feedback: m.feedback,
-      trace_id: m.trace_id,
+      trace_id: normalizeTraceId(m.trace_id),
       clarification: m.clarification,
       blocks: m.blocks,
     }))
@@ -229,7 +247,7 @@ async function restoreMessages(stored: StoredMsg[]): Promise<ChatMessage[]> {
         mode: s.mode,
         sources: s.sources,
         feedback: s.feedback,
-        trace_id: s.trace_id,
+        trace_id: normalizeTraceId(s.trace_id),
         clarification: s.clarification,
         blocks: restoredBlocks.length > 0 ? restoredBlocks : undefined,
         thinking: s.thinking,
@@ -306,7 +324,7 @@ export async function loadSessionMessages(sessionId: string): Promise<ChatMessag
         hasImage: !!m.hasImage,
         sources: m.sources,
         feedback: m.feedback,
-        trace_id: m.trace_id,
+        trace_id: normalizeTraceId(m.trace_id),
         clarification: m.clarification,
         blocks: m.blocks,
         thinking: m.thinking,

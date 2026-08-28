@@ -161,4 +161,31 @@ describe('storage.ts session management', () => {
     expect(stored.length).toBe(1)
     expect(stored[0].id).toBe('sess_2')
   })
+
+  it('normalizes object trace_id when loading session messages', async () => {
+    apiMocks.fetchServerSessionDetail.mockResolvedValue({
+      id: 'sess_trace',
+      title: 'Trace 会话',
+      messages: [
+        {
+          id: 'msg_1',
+          role: 'assistant',
+          content: '回答内容',
+          trace_id: { trace_id: 'trace_abc_123' },
+        },
+        {
+          id: 'msg_2',
+          role: 'assistant',
+          content: '普通回答',
+          trace_id: 'trace_xyz_789',
+        },
+      ],
+    })
+
+    const msgs = await loadSessionMessages('sess_trace')
+    expect(msgs).toHaveLength(2)
+    expect(msgs[0].trace_id).toBe('trace_abc_123')
+    expect(typeof msgs[0].trace_id).toBe('string')
+    expect(msgs[1].trace_id).toBe('trace_xyz_789')
+  })
 })

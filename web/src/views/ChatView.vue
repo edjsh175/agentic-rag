@@ -637,6 +637,7 @@ function applyClarification(msg: Message, data: ClarifyResult | undefined) {
     ask_question: data.ask_question || '请选择您要查询的具体模块或方向：',
     trigger: data.trigger,
     reason: data.reason,
+    clarification_snapshot_id: data.clarification_snapshot_id || (data as any)?.snapshot_id,
     options: data.options,
   }
   loading.value = false
@@ -802,7 +803,7 @@ function createStreamHandler(
       targetMsg.sources = sources
     },
     onTrace: (traceId: string) => {
-      targetMsg.trace_id = traceId
+      targetMsg.trace_id = traceId ? String(traceId).trim() : null
     },
     onPipeline: (pipelineData) => {
       if (streamMode !== 'linear') return
@@ -1100,60 +1101,27 @@ async function handleSelectClarificationOption(aiMsg: Message, selection: Clarif
 
   try {
     abortController.value = new AbortController()
-    let streamOk = false
-    try {
-      const llmModel = currentModel.value || undefined
-      await queryKnowledgeStream(
-        userText,
-        history,
-        createStreamHandler(aiMsg, requestMode),
-        llmModel,
-        currentKb.value,
-        thinkingEnabled.value || undefined,
-        webSearchEnabled.value || undefined,
-        abortController.value?.signal,
-        activeAgent.value?.system_prompt,
-        allowGeneralKnowledge.value,
-        docCategoryVal,
-        entityNameVal,
-        undefined,
-        undefined,
-        clarificationQuestion,
-        clarificationSelected,
-        requestMode,
-        clarificationCallback,
-      )
-    } catch {
-      aiMsg.status = undefined
-      if (!streamOk && !abortController.value) {
-        const result = await queryKnowledge(
-          userText,
-          history,
-          currentModel.value || undefined,
-          currentKb.value,
-          thinkingEnabled.value || undefined,
-          webSearchEnabled.value || undefined,
-          undefined,
-          activeAgent.value?.system_prompt,
-          allowGeneralKnowledge.value,
-          docCategoryVal,
-          entityNameVal,
-          requestMode,
-          clarificationQuestion,
-          clarificationSelected,
-          clarificationCallback,
-        )
-        aiMsg.content = result.answer
-        aiMsg.loading = false
-        currentSources.value = result.source_documents
-        aiMsg.sources = result.source_documents
-        applyClarification(aiMsg, result.clarification)
-        if (result.downshift_notice) showGpuNotice(result.downshift_notice)
-        await persist()
-        loading.value = false
-        scrollDown()
-      }
-    }
+    const llmModel = currentModel.value || undefined
+    await queryKnowledgeStream(
+      userText,
+      history,
+      createStreamHandler(aiMsg, requestMode),
+      llmModel,
+      currentKb.value,
+      thinkingEnabled.value || undefined,
+      webSearchEnabled.value || undefined,
+      abortController.value?.signal,
+      activeAgent.value?.system_prompt,
+      allowGeneralKnowledge.value,
+      docCategoryVal,
+      entityNameVal,
+      undefined,
+      undefined,
+      clarificationQuestion,
+      clarificationSelected,
+      requestMode,
+      clarificationCallback,
+    )
   } catch (e: any) {
     if ((e as DOMException)?.name === 'AbortError') {
       // 手动中止

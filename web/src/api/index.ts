@@ -417,9 +417,12 @@ export async function queryKnowledgeStream(
       } else if (event.type === 'sources') {
         callbacks.onSources(event.data)
       } else if (event.type === 'trace') {
-        callbacks.onTrace?.(
-          typeof event.data === 'string' ? event.data : event.data.trace_id,
-        )
+        const tid = typeof event.data === 'string'
+          ? event.data.trim()
+          : (typeof event.data?.trace_id === 'string' ? event.data.trace_id.trim() : '')
+        if (tid) {
+          callbacks.onTrace?.(tid)
+        }
       } else if (event.type === 'pipeline') {
         callbacks.onPipeline?.(event.data)
       } else if (event.type === 'notice') {
@@ -973,7 +976,12 @@ export async function queryAdminDebugStream(
       else if (event.type === 'thinking') callbacks.onThinking?.(event.data)
       else if (event.type === 'final_answer') callbacks.onFinalAnswer?.(event.data)
       else if (event.type === 'sources') callbacks.onSources?.(event.data)
-      else if (event.type === 'trace') callbacks.onTrace?.(event.data?.trace_id || event.data)
+      else if (event.type === 'trace') {
+        const tid = typeof event.data === 'string'
+          ? event.data.trim()
+          : (typeof event.data?.trace_id === 'string' ? event.data.trace_id.trim() : '')
+        if (tid) callbacks.onTrace?.(tid)
+      }
       else if (event.type === 'clarify') callbacks.onClarify?.(event.data)
       else if (event.type === 'evidence_snapshot_created') callbacks.onStatus?.('证据已冻结，开始生成答案。')
       else if (event.type === 'answer_generation_started') {

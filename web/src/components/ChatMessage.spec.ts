@@ -64,6 +64,63 @@ describe('ChatMessage clarification card', () => {
       freeText: '部署流水线服务',
     })
   })
+
+  it('emits selectClarificationOption when a canonical option button is clicked', async () => {
+    const wrapper = mount(ChatMessage, {
+      props: {
+        role: 'assistant',
+        content: '',
+        clarification: {
+          ask_question: '请选择产品：',
+          clarification_snapshot_id: 'clar_snap_test_001',
+          options: [
+            {
+              id: 'cand_01',
+              label: 'PipelineWebGL',
+              filter: { entity_name: 'PipelineWebGL' },
+              source: 'backbone',
+              canonical_name: 'PipelineWebGL',
+              binding_status: 'canonical',
+            },
+            {
+              id: 'other',
+              label: '以上都不是',
+              filter: {},
+              source: 'fixed_other',
+              binding_status: 'unresolved',
+            },
+          ],
+        },
+      },
+      global: {
+        provide: {
+          [Symbol.for('vue-router')]: { push: () => {} },
+        },
+        stubs: {
+          AgentStepStream: true,
+          EvidencePanel: true,
+        },
+      },
+    })
+
+    const buttons = wrapper.findAll('.clarification-option-btn')
+    expect(buttons.length).toBe(2)
+    await buttons[0].trigger('click')
+
+    const emitted = wrapper.emitted('selectClarificationOption')
+    expect(emitted).toHaveLength(1)
+    expect(emitted?.[0]?.[0]).toEqual({
+      option: {
+        id: 'cand_01',
+        label: 'PipelineWebGL',
+        filter: { entity_name: 'PipelineWebGL' },
+        source: 'backbone',
+        canonical_name: 'PipelineWebGL',
+        binding_status: 'canonical',
+      },
+      kind: 'option',
+    })
+  })
 })
 
 describe('ChatMessage execution presentation', () => {

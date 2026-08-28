@@ -137,6 +137,58 @@ describe('queryKnowledgeStream', () => {
     expect(body.clarification_selection_kind).toBe('free_text')
     expect(body.clarification_free_text).toBe('部署流水线服务')
   })
+
+  it('posts canonical option selection with snapshotId and optionId', async () => {
+    const callbacks = streamCallbacks()
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse('data: {"type":"done"}'))
+    vi.stubGlobal('fetch', fetchMock)
+    await queryKnowledgeStream(
+      'pipeline',
+      [],
+      callbacks,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '请选择具体产品：',
+      'PipelineWebGL',
+      'agent',
+      {
+        optionId: 'cand_01',
+        snapshotId: 'clar_snap_999',
+        selectionKind: 'option',
+      },
+    )
+
+    const request = fetchMock.mock.calls[0][1]
+    const body = JSON.parse(String(request.body))
+    expect(body.clarification_option_id).toBe('cand_01')
+    expect(body.clarification_snapshot_id).toBe('clar_snap_999')
+    expect(body.clarification_selection_kind).toBe('option')
+    expect(body.clarification_selected).toBe('PipelineWebGL')
+  })
+
+  it('throws when server responds with HTTP 400 Bad Request', async () => {
+    const callbacks = streamCallbacks()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ detail: 'clarification selection requires snapshot_id and option_id' }),
+      text: async () => 'clarification selection requires snapshot_id and option_id',
+    }))
+
+    await expect(
+      queryKnowledgeStream('pipeline', [], callbacks),
+    ).rejects.toThrow('clarification selection requires snapshot_id and option_id')
+    expect(callbacks.onDone).not.toHaveBeenCalled()
+  })
 })
 
 describe('queryAdminDebugStream', () => {
