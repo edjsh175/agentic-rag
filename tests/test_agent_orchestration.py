@@ -1799,7 +1799,9 @@ def test_v15_oneshot_finish_when_evidence_sufficient():
 
 def test_v15_cycle_detection_prevents_infinite_loop():
     """PRD V1.5 核心特性：当模型连续两次请求完全相同 query+tool 时，触发循环检测安全熔断。"""
-    conv = ConversationContext.from_request("循环测试", [])
+    # 用 topic 问题（无需实体绑定），避免身份绑定守卫抢先拦截首次检索，
+    # 使本测试聚焦循环熔断本身。
+    conv = ConversationContext.from_request("系统架构分层有哪些？", [])
     pool = EvidencePool(question_id="q_cycle")
     retrieved_count = 0
 

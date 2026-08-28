@@ -1,4 +1,7 @@
+import json
+
 import pytest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from rag_knowledge.services.agent_orchestration.models import (
@@ -404,6 +407,78 @@ async def test_agent_loop_rejected_target_memory_and_no_drop_target_recovery():
     broad = await loop._execute("retrieve_kb", {"target_entity": None, "query": "pipelien"})
     assert not broad.ok
     assert broad.error == "broadening_after_target_rejection"
+
+
+def _unbound_identity_loop(identity_status: str, semantic_task=None) -> AgentLoop:
+    conv = ConversationContext(
+        user_question="pipeline",
+        session=MagicMock(turns=[], focus=None, resolved_entity=None, last_sources=[]),
+        head_entity=None,
+        identity_status=identity_status,
+        semantic_task=semantic_task,
+    )
+    registry = ToolRegistry()
+    for name in ("retrieve_kb", "reuse_evidence", "clarify"):
+        registry.register(ToolSpec(name=name, description=name, input_schema={}))
+
+    async def mock_ok(args):
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="executed")
+
+    return AgentLoop(
+        conversation=conv,
+        evidence=EvidencePool(question_id="identity_guard_test"),
+        budget=AgentBudget(max_steps=5, max_retrieve_attempts=2),
+        registry=registry,
+        handlers={"retrieve_kb": mock_ok, "reuse_evidence": mock_ok, "clarify": mock_ok},
+        decide_fn=lambda *args: AgentDecision(action="finalize"),
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("identity_status", ["ambiguous_entity", "unresolved"])
+async def test_unbound_identity_blocks_evidence_tools_until_clarification(identity_status):
+    loop = _unbound_identity_loop(identity_status)
+
+    # P0 事故复现：身份有歧义时 Main 强制调用 retrieve_kb(target_entity=null)
+    obs = await loop._execute("retrieve_kb", {"target_entity": None, "query": "管线相关信息"})
+    assert not obs.ok
+    assert obs.error == "identity_binding_required_before_retrieval"
+
+    # 复用旧证据同样不得绕过身份绑定
+    obs_reuse = await loop._execute("reuse_evidence", {})
+    assert not obs_reuse.ok
+    assert obs_reuse.error == "identity_binding_required_before_retrieval"
+
+    # Prompt 镜像与 Harness 合法性一致：只保留 clarify
+    state = json.loads(loop._controller_state_for_prompt())
+    assert state["identity_status"] == identity_status
+    assert "retrieve_kb" not in state["allowed_tools"]
+    assert "reuse_evidence" not in state["allowed_tools"]
+    assert "clarify" in state["allowed_tools"]
+
+
+@pytest.mark.anyio
+async def test_unbound_identity_still_denies_targeted_retrieval_as_unconfirmed():
+    loop = _unbound_identity_loop("ambiguous_entity")
+    obs = await loop._execute(
+        "retrieve_kb", {"target_entity": "PipelineWebGL", "query": "PipelineWebGL"}
+    )
+    assert not obs.ok
+    assert obs.error == "identity_not_confirmed"
+
+
+@pytest.mark.anyio
+async def test_topic_task_without_binding_requirement_keeps_null_target_retrieval():
+    semantic_task = SimpleNamespace(entity_binding_required=False)
+    loop = _unbound_identity_loop("unresolved", semantic_task=semantic_task)
+
+    obs = await loop._execute(
+        "retrieve_kb", {"target_entity": None, "query": "公司有哪些产品线"}
+    )
+    assert obs.ok
+
+    state = json.loads(loop._controller_state_for_prompt())
+    assert "retrieve_kb" in state["allowed_tools"]
 
 
 def test_identity_scope_multi_entity_confirmed_set():

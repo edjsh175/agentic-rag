@@ -1141,6 +1141,22 @@ class AgentLoop:
             return "identity_not_confirmed"
         return None
 
+    def _unbound_identity_denial(self, tool: str, target: Any) -> str | None:
+        """身份未绑定时禁止先取证：身份 → 候选范围 → 证据。
+
+        歧义/未解析且需要绑定的状态下，retrieve_kb（无已确认目标）与
+        reuse_evidence 一律先澄清；unbound/topic 任务（无需绑定）不受影响。
+        """
+        if tool not in {"retrieve_kb", "reuse_evidence"}:
+            return None
+        if self._identity_status() not in {"ambiguous_entity", "unresolved"}:
+            return None
+        if not self._entity_binding_required():
+            return None
+        if tool == "retrieve_kb" and self._target_parts(target):
+            return None  # 带 target 的检索由 _entity_tool_denial 裁决
+        return "identity_binding_required_before_retrieval"
+
     def _is_rejected_target(self, target: Any, tool: str) -> bool:
         key = self._target_key(target)
         return bool(key and (key, tool) in self._rejected_targets)
@@ -1278,6 +1294,10 @@ class AgentLoop:
         ):
             allowed_tools.discard("clarify")
         if conv.clarification_callback:
+            allowed_tools.discard("reuse_evidence")
+        if status in {"ambiguous_entity", "unresolved"} and self._entity_binding_required():
+            # 身份未绑定时只允许澄清；镜像 Harness 的 3.5 守卫，避免 Main 反复撞 denied。
+            allowed_tools.discard("retrieve_kb")
             allowed_tools.discard("reuse_evidence")
 
         latest_error = ""
@@ -1779,6 +1799,11 @@ class AgentLoop:
             # 3. 实体身份与工具资格必须在 handler 执行前完成裁决
             if not denied:
                 denied = self._entity_tool_denial(decision.tool, tgt)
+
+            # 3.5 身份未绑定（歧义/未解析且需要绑定）时必须先澄清：
+            # 禁止通过取证或复用旧证据绕过「身份 → 候选范围 → 证据」不变量。
+            if not denied:
+                denied = self._unbound_identity_denial(decision.tool, tgt)
 
             # 4. 澄清回调重澄清拦截（比通用“已确认实体”原因更具体）。
             if not denied and self.conversation.clarification_callback and decision.tool == "clarify":
@@ -2549,6 +2574,16 @@ class AgentLoop:
                 summary=f"实体工具调用被拦截: {identity_denial}",
                 error=identity_denial,
                 fallback=identity_denial,
+                status=ToolProgressStatus.DENIED,
+            )
+        unbound_denial = self._unbound_identity_denial(name, target)
+        if unbound_denial:
+            return ToolObservation(
+                tool=name,
+                ok=False,
+                summary=f"工具调用被拦截: {unbound_denial}",
+                error=unbound_denial,
+                fallback=unbound_denial,
                 status=ToolProgressStatus.DENIED,
             )
         t0 = time.perf_counter()
