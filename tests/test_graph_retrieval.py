@@ -606,6 +606,7 @@ def test_full_chain_pipeline_integration(isolated_storage, monkeypatch):
     pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "graph retrieval fixture pass",
         "claim_reviews": [{
             "claim_id": "c1",

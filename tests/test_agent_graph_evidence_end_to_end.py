@@ -10,6 +10,8 @@ from rag_knowledge.services.agent_orchestration.models import (
 
 
 def test_graph_relation_first_class_evidence_and_citation():
+    from types import SimpleNamespace
+
     evidence = EvidencePool(question_id="q-100")
 
     # 1. Add normal text chunk
@@ -21,6 +23,8 @@ def test_graph_relation_first_class_evidence_and_citation():
                     "chunk_id": "chunk-server-001",
                     "file_name": "StampServer说明.md",
                     "document_entity": "StampServer",
+                    "evidence_class": "TARGET_DIRECT",
+                    "support_scope": "TARGET_SPECIFIC",
                 },
             }
         ],
@@ -33,6 +37,7 @@ def test_graph_relation_first_class_evidence_and_citation():
     evidence.add_relation(
         relation_key="StampServer -[depends_on]-> StampDB",
         target_entity="StampServer",
+        grant=SimpleNamespace(grant_id="grant-1", identity_scope_id="scope-100"),
         source_name="StampServer",
         target_name="StampDB",
         relation_type="depends_on",
@@ -52,11 +57,14 @@ def test_graph_relation_first_class_evidence_and_citation():
 
 
 def test_graph_relation_passes_structural_evidence_gate_after_admission():
+    from types import SimpleNamespace
+
     conv = ConversationContext.from_request("StampServer 依赖什么？", history=[])
     evidence = EvidencePool(question_id="q-101")
     evidence.add_relation(
         relation_key="StampServer -[depends_on]-> StampDB",
         target_entity="StampServer",
+        grant=SimpleNamespace(grant_id="grant-101", identity_scope_id="scope-101"),
         source_name="StampServer",
         target_name="StampDB",
         relation_type="depends_on",

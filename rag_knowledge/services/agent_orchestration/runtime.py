@@ -85,17 +85,6 @@ _FORBIDDEN_TOOLS = frozenset({
 
 ToolHandler = Callable[[dict[str, Any]], Awaitable[ToolObservation]]
 
-_ENTITY_TOOLS = frozenset({"retrieve_kb", "expand_graph_scope"})
-_ENTITY_AUTHORIZATION_ERRORS = frozenset({
-    "broadening_after_target_rejection",
-    "confirmed_topic_cannot_grant_entity",
-    "exploration_not_authorized",
-    "grant_entity_budget_exhausted",
-    "identity_not_confirmed",
-    "target_entity_required",
-    "target_not_authorized",
-})
-
 _REASONING_LANGUAGE_SYSTEM_PROMPT = """语言硬约束：
 - 从第一个 reasoning/thinking token 开始，只使用简体中文进行自然语言分析。
 - 不得先用英文起草、分析或列提纲后再翻译成中文。
@@ -121,7 +110,7 @@ Runtime 已提前计算实体状态、证据状态、预算与当前合法工具
    - 若本轮属于澄清选择回调（用户刚选定歧义分支），必须结合前文原始问题改写为完整查询词，调用 retrieve_kb 检索具体文档。
 2. 【工具调用（action="tool_call"）】：
    - clarify: 向用户出示反问澄清卡片并暂停等待用户选择。入参：question (澄清问题), reason (可选澄清原因)。系统将自动根据当前已验证的候选实体生成选项卡片。
-   - retrieve_kb: 知识库检索。必须在 arguments.query 中填入精准改写词；当任务已绑定实体时同时给出 target_entity。二次及以上检索必须在顶层提供 gap 与 expected_gain。严禁传递空 query！
+   - retrieve_kb: 知识库检索。`search_focus_text` 是自由检索假设，可探索相关/冲突方向；`focus_entity_id` 仅在确实围绕已验证实体检索时填写，且必须来自 ControllerState 的 registered_entity_ids。二次及以上检索必须在顶层提供 gap 与 expected_gain。
    - expand_graph_scope: 自主扩展知识图谱范围。Runtime 已对已确认主体自动完成 1-hop Bootstrap，不要重复查询锚点一跳关系。仅当当前 GraphWorkingSet 拓扑或关系不足以支撑当前问题、缺少必要的关系事实（Evidence Gap）时，才调用 expand_graph_scope。可从当前 Frontier 节点加深（Depth Expansion），或从已授权的合法实体开辟新局部根（Root Expansion）。必须根据 Evidence Gap 明确给出 start_entities (必填)、additional_hops (1 或 2)、direction ("in" | "out" | "both") 与可选的 relation_types。
    - reuse_evidence: 连续追问且前序证据仍有效时复用。
    - environment.read_status: 读取系统服务状态。
@@ -133,13 +122,13 @@ Runtime 已提前计算实体状态、证据状态、预算与当前合法工具
 用户问题：那它的默认端口是多少？
 对话上下文：前序正在讨论已确认实体 A 的配置
 输出：
-{{"reason":"问题指向前文已确认实体的默认端口，需先检索对应配置资料。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A 默认端口","target_entity":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":null,"expected_gain":null}}
+{{"reason":"问题指向前文已确认实体的默认端口，需先检索对应配置资料。","action":"tool_call","tool":"retrieve_kb","arguments":{{"search_focus_text":"实体 A 默认端口","focus_entity_id":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":null,"expected_gain":null}}
 
 示例 2（第二次定向补检，携带明确 Gap）：
 用户问题：实体 A 部署需要配置哪些端口？
 已获取证据：已获取 HTTP 管理端口 8080，但缺少 UDP 媒体端口列表
 输出：
-{{"reason":"当前证据仅包含管理端口，仍缺 UDP 媒体传输端口清单，发起一次定向补检。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A UDP 媒体传输端口配置","target_entity":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":"实体 A 的 UDP 媒体传输端口清单","expected_gain":"获取 UDP 媒体服务端口及范围配置"}}
+{{"reason":"当前证据仅包含管理端口，仍缺 UDP 媒体传输端口清单，发起一次定向补检。","action":"tool_call","tool":"retrieve_kb","arguments":{{"search_focus_text":"实体 A UDP 媒体传输端口配置","focus_entity_id":"实体 A","intent":"exact_parameter","mode":"hybrid"}},"gap":"实体 A 的 UDP 媒体传输端口清单","expected_gain":"获取 UDP 媒体服务端口及范围配置"}}
 
 示例 3（证据充分或部分覆盖，直接完成）：
 用户问题：实体 A 默认端口是多少？
@@ -152,7 +141,7 @@ Runtime 已提前计算实体状态、证据状态、预算与当前合法工具
 对话上下文：当前主体身份为实体 A；用户已选实体为实体 A
 证据池摘要：为空
 输出：
-{{"reason":"实体 A 已由上下文明确绑定，当前只是缺少该实体的知识证据，无需再次做实体澄清，先检索其概览信息。","action":"tool_call","tool":"retrieve_kb","arguments":{{"query":"实体 A 概览","target_entity":"实体 A","intent":"conceptual_overview","mode":"hybrid"}},"gap":null,"expected_gain":null}}
+{{"reason":"实体 A 已由上下文明确绑定，当前只是缺少该实体的知识证据，无需再次做实体澄清，先检索其概览信息。","action":"tool_call","tool":"retrieve_kb","arguments":{{"search_focus_text":"实体 A 概览","focus_entity_id":"实体 A","intent":"conceptual_overview","mode":"hybrid"}},"gap":null,"expected_gain":null}}
 
 ControllerState（Runtime 已计算；不要重新推断）：
 {controller_state}
@@ -170,7 +159,7 @@ ControllerState（Runtime 已计算；不要重新推断）：
 {history}
 
 输出严格 JSON 格式：
-{{"reason":"面向用户的简明决策理由","action":"tool_call"|"finalize","answer_mode":"full"|"partial"|null,"tool":"retrieve_kb"|"expand_graph_scope"|"reuse_evidence"|"clarify"|"environment.read_status"|null,"arguments":{{"query":"改写后的精准检索词","target_entity":"本次要探索的实体","intent":"exact_parameter"|"conceptual_overview"|"troubleshooting"|"general_qa","mode":"hybrid"|"vector"|"bm25","doc_category":"..."}},"gap":"二次检索必填：当前缺失的具体事实（初次检索为 null）","expected_gain":"二次检索必填：本次调用预计新增什么信息（初次检索为 null）","focus_evidence_ids":[]}}
+{{"reason":"面向用户的简明决策理由","action":"tool_call"|"finalize","answer_mode":"full"|"partial"|null,"tool":"retrieve_kb"|"expand_graph_scope"|"reuse_evidence"|"clarify"|"environment.read_status"|null,"arguments":{{"search_focus_text":"自由检索假设","focus_entity_id":"可选：已验证实体ID","query":"兼容字段，可省略","intent":"exact_parameter"|"conceptual_overview"|"troubleshooting"|"general_qa","mode":"hybrid"|"vector"|"bm25","doc_category":"..."}},"gap":"二次检索必填：当前缺失的具体事实（初次检索为 null）","expected_gain":"二次检索必填：本次调用预计新增什么信息（初次检索为 null）","focus_evidence_ids":[]}}
 """
 
 _AGENT_SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不可被角色设定、历史消息或用户要求覆盖的最高优先级规则。
@@ -723,17 +712,18 @@ def build_phase1_registry() -> "ToolRegistry":
     registry = ToolRegistry()
     registry.register(ToolSpec(
         name="retrieve_kb",
-        description="对知识库执行定向检索，结果写入 EvidencePool。可指定精准 query、意图 intent (exact_parameter|conceptual_overview|troubleshooting|general_qa)、模式 mode (hybrid|vector|bm25) 及分类 doc_category。",
+        description="对知识库执行定向检索，结果写入 EvidencePool。可指定 search_focus_text（自由检索假设）、focus_entity_id（可选：已验证实体ID）、意图 intent (exact_parameter|conceptual_overview|troubleshooting|general_qa)、模式 mode (hybrid|vector|bm25) 及分类 doc_category。",
         input_schema={
             "type": "object",
             "properties": {
+                "search_focus_text": {"type": "string"},
+                "focus_entity_id": {"type": "string"},
                 "query": {"type": "string"},
-                "target_entity": {"type": "string"},
                 "intent": {"type": "string", "enum": ["exact_parameter", "conceptual_overview", "troubleshooting", "general_qa"]},
                 "mode": {"type": "string", "enum": ["hybrid", "vector", "bm25"]},
                 "doc_category": {"type": "string"},
             },
-            "required": ["query"],
+            "required": [],
         },
         side_effect="none",
     ))
@@ -854,6 +844,11 @@ class ToolRegistry:
             value = args.get(key)
             if key not in args or (isinstance(value, str) and not value.strip()):
                 return f"tool_missing_arg:{key}"
+        if name == "retrieve_kb":
+            search_focus = str(args.get("search_focus_text") or "").strip()
+            legacy_query = str(args.get("query") or "").strip()
+            if not search_focus and not legacy_query:
+                return "tool_missing_arg:search_focus_text"
         return None
 
 
@@ -884,6 +879,12 @@ class AgentLoop:
         answer_policy: dict[str, Any] | None = None,
         graph_explorer: Any | None = None,
         graph_working_set: Any | None = None,
+        initial_observations: list[dict[str, Any]] | None = None,
+        grant: Any | None = None,
+        gap_contract: dict[str, Any] | None = None,
+        gap_registry: AttemptedGapRegistry | None = None,
+        continuous_no_progress_count: int = 0,
+        exploration_fuse_open: bool = False,
     ) -> None:
         self.conversation = conversation
         self.evidence = evidence
@@ -898,7 +899,9 @@ class AgentLoop:
         self.tools: list[dict[str, Any]] = []
         self.fallbacks: list[str] = []
         self.plan: Any = None
-        self._observations: list[dict[str, Any]] = []
+        self._observations: list[dict[str, Any]] = [
+            dict(item) for item in (initial_observations or []) if isinstance(item, dict)
+        ]
         self._clarify_payload: dict[str, Any] | None = None
         self._j3_force_attempted = False
         self._gaps: list[Any] = []
@@ -911,20 +914,30 @@ class AgentLoop:
         self._last_verdict: dict[str, Any] = {}
         self._finalization_attempts = 0
         self._finalization_rejections = 0
-        self.gap_registry = AttemptedGapRegistry()
-        self.continuous_no_progress_count = 0
-        self._exploration_fuse_open = False
+        self.gap_registry = gap_registry if gap_registry is not None else AttemptedGapRegistry()
+        self.continuous_no_progress_count = int(continuous_no_progress_count or 0)
+        self._exploration_fuse_open = bool(exploration_fuse_open)
         self._answer_policy = dict(answer_policy or {})
         self.graph_explorer = graph_explorer
         self.graph_working_set = graph_working_set
+        self.grant = grant
+        if gap_contract is None:
+            for observation in self._observations:
+                if observation.get("tool") != "reviewer_feedback":
+                    continue
+                data = observation.get("data")
+                if isinstance(data, dict):
+                    gap_contract = dict(data)
+                    break
+        self.gap_contract = dict(gap_contract) if gap_contract else None
+        from rag_knowledge.services.agent_orchestration.gap_support import GapSupportEvaluator
+
+        self._gap_evaluator = GapSupportEvaluator(self.gap_contract)
         self._terminal_finalization_v2 = bool(
             # A configured production runtime defaults to V2; an unconfigured
             # loop is only a legacy/unit harness and has no rollout contract.
             getattr(getattr(cfg, "agent_orchestration", None), "terminal_finalization_v2", False)
         )
-        self._rejected_targets: set[tuple[str | None, str]] = set()
-        self._entity_scope_rejected = False
-        self._target_constraints: dict[str, Any] | None = None
         self.lifecycle_events: list[dict[str, Any]] = []
         self._event_started_at = time.perf_counter()
         self._pending_decision_error: dict[str, Any] | None = None
@@ -1047,26 +1060,6 @@ class AgentLoop:
             ]
         return tuple(dict.fromkeys(item for item in values if item))
 
-    def _target_key(self, target: Any) -> str | None:
-        parts = self._target_parts(target)
-        if not parts:
-            return None
-        if self._target_constraints is None:
-            try:
-                from rag_knowledge.services.backbone_guard import load_backbone_constraints
-
-                self._target_constraints = load_backbone_constraints()
-            except Exception:
-                self._target_constraints = {}
-        constraints = self._target_constraints
-        aliases = constraints.get("canonical_by_alias") or {}
-        aliases_cf = {str(alias).casefold(): str(canonical) for alias, canonical in aliases.items()}
-        normalized: list[str] = []
-        for part in parts:
-            canonical = aliases_cf.get(part.casefold(), part)
-            normalized.append(" ".join(canonical.split()).casefold())
-        return "|".join(sorted(dict.fromkeys(normalized)))
-
     def _identity_status(self) -> str:
         conv = self.conversation
         scope = getattr(conv, "scope", None)
@@ -1099,76 +1092,6 @@ class AgentLoop:
     def _explicit_clarification_request(self) -> bool:
         question = str(getattr(self.conversation, "user_question", "") or "")
         return bool(re.search(r"(?:澄清|确认|哪个|哪一个|哪种|具体(?:产品|模块|版本))", question))
-
-    def _has_unresolved_entity_signal(self) -> bool:
-        conv = self.conversation
-        scope = getattr(conv, "scope", None)
-        raw_values = (
-            getattr(scope, "raw_entity_mention", None),
-            getattr(conv, "raw_entity_mention", None),
-        )
-        if any(str(value or "").strip() for value in raw_values):
-            return True
-        raw_many = (
-            tuple(getattr(scope, "raw_entity_mentions", ()) or ()),
-            tuple(getattr(conv, "raw_entity_mentions", ()) or ()),
-        )
-        if any(any(str(item or "").strip() for item in values) for values in raw_many):
-            return True
-        semantic_task = getattr(conv, "semantic_task", None)
-        if str(getattr(semantic_task, "primary_entity", "") or "").strip():
-            return True
-        return any(
-            str(item or "").strip()
-            for item in tuple(getattr(semantic_task, "mentioned_entities", ()) or ())
-        )
-
-    def _entity_tool_denial(self, tool: str, target: Any) -> str | None:
-        if tool not in _ENTITY_TOOLS:
-            return None
-        status = self._identity_status()
-        has_target = bool(self._target_parts(target))
-
-        if self._entity_scope_rejected and not has_target:
-            return "broadening_after_target_rejection"
-        if has_target:
-            return None if status == "confirmed_entity" else "identity_not_confirmed"
-        if status == "confirmed_topic":
-            return None
-        if status == "confirmed_entity":
-            return "target_entity_required"
-        if self._has_unresolved_entity_signal():
-            return "identity_not_confirmed"
-        return None
-
-    def _unbound_identity_denial(self, tool: str, target: Any) -> str | None:
-        """身份未绑定时禁止先取证：身份 → 候选范围 → 证据。
-
-        ambiguous 一律先澄清（歧义必须解决才能取证，与 J3 卡片一致）；
-        unresolved 仅在 Stage-1 要求实体绑定时拦截；not_required（话题型）
-        不受影响。
-        """
-        if tool not in {"retrieve_kb", "reuse_evidence"}:
-            return None
-        status = self._identity_status()
-        if status not in {"ambiguous_entity", "unresolved"}:
-            return None
-        if status == "unresolved" and not self._entity_binding_required():
-            return None
-        if tool == "retrieve_kb" and self._target_parts(target):
-            return None  # 带 target 的检索由 _entity_tool_denial 裁决
-        return "identity_binding_required_before_retrieval"
-
-    def _is_rejected_target(self, target: Any, tool: str) -> bool:
-        key = self._target_key(target)
-        return bool(key and (key, tool) in self._rejected_targets)
-
-    def _remember_rejected_target(self, target: Any, tool: str) -> None:
-        key = self._target_key(target)
-        if not key:
-            return
-        self._rejected_targets.add((key, tool))
-        self._entity_scope_rejected = True
 
     def apply_turn_start_harness(self) -> None:
         conv = self.conversation
@@ -1223,6 +1146,26 @@ class AgentLoop:
                 ids.add(chunk_id)
         return ids
 
+    def _working_evidence_keys(self) -> set[str]:
+        keys: set[str] = set()
+        for index, doc in enumerate(self.evidence.working_docs()):
+            metadata = doc.get("metadata") if isinstance(doc, dict) else {}
+            key = str((metadata or {}).get("chunk_id") or "").strip()
+            if not key:
+                key = f"{(metadata or {}).get('source') or ''}:{doc.get('content') if isinstance(doc, dict) else ''}"
+            keys.add(key or f"working:{index}")
+        return keys
+
+    def _registered_entity_ids(self) -> set[str]:
+        ids = {str(getattr(self.conversation, "confirmed_entity_id", "") or "").strip()}
+        for candidate in getattr(self.conversation, "candidate_entities", ()) or ():
+            ids.add(str(getattr(candidate, "entity_id", "") or "").strip())
+        for linked in getattr(self.conversation, "linked_entities", ()) or ():
+            if isinstance(linked, dict):
+                ids.add(str(linked.get("entity_id") or "").strip())
+        ids.discard("")
+        return ids
+
     def _relation_keys(self) -> set[str]:
         keys: set[str] = set()
         for group in self.evidence.groups:
@@ -1248,6 +1191,39 @@ class AgentLoop:
             if name:
                 names.add(name.casefold())
         return names
+
+    def _gap_registry_key(self, gap: str | None) -> str | None:
+        """Stable gap key for exhaustion tracking.
+
+        With a Reviewer gap contract the stable ``gap_id`` is authoritative, so
+        iterations of the resume state machine cannot evade exhaustion by
+        rephrasing the gap description.
+        """
+        if self.gap_contract:
+            gap_id = str(self.gap_contract.get("gap_id") or "").strip()
+            if gap_id:
+                return f"gap:{gap_id}"
+        return gap
+
+    def _new_citable_docs(
+        self,
+        before_chunk_ids: set[str],
+        before_relations: set[str],
+    ) -> list[dict[str, Any]]:
+        """Citable docs added by the just-executed tool (chunks + relations)."""
+        new_docs: list[dict[str, Any]] = []
+        for doc in self.evidence.citable_docs():
+            metadata = doc.get("metadata") if isinstance(doc, dict) else {}
+            rel_key = str((metadata or {}).get("relation_key") or "").strip().casefold()
+            if rel_key:
+                if rel_key in before_relations:
+                    continue
+            else:
+                chunk_id = str((metadata or {}).get("chunk_id") or "").strip()
+                if chunk_id in before_chunk_ids:
+                    continue
+            new_docs.append(doc)
+        return new_docs
 
     @staticmethod
     def _finalization_answer_mode(decision: AgentDecision) -> str:
@@ -1296,13 +1272,6 @@ class AgentLoop:
             allowed_tools.discard("clarify")
         if conv.clarification_callback:
             allowed_tools.discard("reuse_evidence")
-        if status == "ambiguous_entity" or (
-            status == "unresolved" and self._entity_binding_required()
-        ):
-            # 身份未绑定时只允许澄清；镜像 Harness 的 3.5 守卫，避免 Main 反复撞 denied。
-            allowed_tools.discard("retrieve_kb")
-            allowed_tools.discard("reuse_evidence")
-
         latest_error = ""
         if self._observations:
             latest_error = str(self._observations[-1].get("error") or "").strip()
@@ -1331,6 +1300,7 @@ class AgentLoop:
             "entity_binding_required": self._entity_binding_required(),
             "confirmed_entity": str(confirmed_entity or "") or None,
             "confirmed_entities": list(confirmed_entities),
+            "registered_entity_ids": sorted(self._registered_entity_ids()),
             "clarification_callback": bool(conv.clarification_callback),
             "topic_shift": bool(conv.topic_shift),
             "entity_transition": bool(conv.entity_transition),
@@ -1361,7 +1331,33 @@ class AgentLoop:
             }
             for item in self._observations[-6:-1]
         ]
-        latest = self._observations[-1]
+        latest = dict(self._observations[-1])
+        latest_data = latest.get("data")
+        if isinstance(latest_data, dict) and isinstance(latest_data.get("evidence_observations"), list):
+            observations = list(latest_data.get("evidence_observations") or [])
+            priority = {"TARGET_DIRECT": 0, "CONFLICT": 1, "RELATED_CONTEXT": 2, "IRRELEVANT": 4}
+            observations.sort(
+                key=lambda item: priority.get(
+                    str((item or {}).get("evidence_class") or "").strip().upper(), 3
+                ) if isinstance(item, dict) else 5
+            )
+            compacted = []
+            for item in observations[:8]:
+                if not isinstance(item, dict):
+                    continue
+                compacted.append({
+                    key: item.get(key)
+                    for key in (
+                        "chunk_id", "document_entity", "mentioned_entities",
+                        "relation_to_subject", "evidence_class", "support_scope",
+                        "relevance", "citable", "reason",
+                    ) if key in item
+                })
+            latest_data = dict(latest_data)
+            latest_data["evidence_observations"] = compacted
+            latest_data["evidence_observation_count"] = len(observations)
+            latest_data["evidence_observations_compacted"] = max(0, len(observations) - len(compacted))
+            latest["data"] = latest_data
         latest_error = str(latest.get("error") or "").strip()
         hard_stop_errors = {
             "tool_cycle_detected",
@@ -1395,10 +1391,24 @@ class AgentLoop:
             ExecutionEventType.UNDERSTANDING,
             self._understanding_event_data(),
         )
+        for observation in self._observations:
+            if observation.get("tool") != "reviewer_feedback":
+                continue
+            feedback = observation.get("data") if isinstance(observation.get("data"), dict) else {}
+            await self._emit(
+                on_event,
+                ExecutionEventType.RETRIEVAL_FEEDBACK,
+                {
+                    "status": "received",
+                    "gap_id": feedback.get("gap_id"),
+                    "affected_claim_ids": list(feedback.get("affected_claim_ids") or []),
+                    "message": "Reviewer 反馈了当前证据缺口，等待 Main Controller 决定下一步。",
+                },
+            )
 
         orch_cfg = getattr(self._cfg, "agent_orchestration", None)
         bootstrap_enabled = getattr(orch_cfg, "graph_bootstrap_enabled", True)
-        if self.graph_explorer is not None and bootstrap_enabled:
+        if self.graph_explorer is not None and bootstrap_enabled and self.graph_working_set is None:
             confirmed_roots = []
             if self.conversation.confirmed_entity:
                 confirmed_roots.append(self.conversation.confirmed_entity)
@@ -1448,6 +1458,7 @@ class AgentLoop:
                         target_entity=rel.origin_root or rel.target_name or rel.source_name,
                         provenance=prov,
                         tool="bootstrap_anchor_graph",
+                        grant=self.grant,
                     )
                 await self._emit(
                     on_event,
@@ -1791,28 +1802,20 @@ class AgentLoop:
             denied: str | None = None
             tgt = (decision.arguments or {}).get("target_entity") or self.conversation.head_entity
             tgt_str = str(tgt).strip() if tgt else None
+            if decision.tool == "retrieve_kb":
+                self.budget.record_retrieval_requested()
 
             # 1. 注册表合法性
             denied = self.registry.validate_call(decision.tool, decision.arguments)
+            focus_entity_id = str((decision.arguments or {}).get("focus_entity_id") or "").strip()
+            if not denied and focus_entity_id and focus_entity_id not in self._registered_entity_ids():
+                denied = "unregistered_focus_entity_id"
 
-            # 2. 同一 canonical target 已被拒绝
-            if not denied and tgt_str and self._is_rejected_target(tgt, decision.tool):
-                denied = "target_already_rejected"
-
-            # 3. 实体身份与工具资格必须在 handler 执行前完成裁决
-            if not denied:
-                denied = self._entity_tool_denial(decision.tool, tgt)
-
-            # 3.5 身份未绑定（歧义/未解析且需要绑定）时必须先澄清：
-            # 禁止通过取证或复用旧证据绕过「身份 → 候选范围 → 证据」不变量。
-            if not denied:
-                denied = self._unbound_identity_denial(decision.tool, tgt)
-
-            # 4. 澄清回调重澄清拦截（比通用“已确认实体”原因更具体）。
+            # 2. 澄清回调重澄清拦截（比通用“已确认实体”原因更具体）。
             if not denied and self.conversation.clarification_callback and decision.tool == "clarify":
                 denied = "clarify_callback_reclarify_blocked"
 
-            # 5. 已确认实体不得被短词/模糊原词重新拉回澄清；真正切题时
+            # 3. 已确认实体不得被短词/模糊原词重新拉回澄清；真正切题时
             # Stage-1/Scope 应先把 identity 状态更新为 unresolved/transition。
             if (
                 not denied
@@ -1833,27 +1836,29 @@ class AgentLoop:
             ):
                 denied = "entity_binding_not_required"
 
-            # 6. 严格重复调用循环检测
+            # 4. 严格重复调用循环检测
             if not denied and self.budget.is_cycle(decision.tool, decision.arguments, gap=decision.gap, expected_gain=decision.expected_gain):
                 denied = "tool_cycle_detected"
 
-            # 7. 连续 NO_PROGRESS 熔断保护
-            if not denied and self._exploration_fuse_open and decision.tool in {"retrieve_kb", "web_search"}:
-                denied = "exploration_fuse_open"
-
-            # 8. 检索预算
-            if not denied and decision.tool == "retrieve_kb" and not self.budget.can_retrieve():
-                denied = "retrieve_budget_exhausted"
-
-            # 9. 二次补检 Gap 契约（PRD 7.2 / 7.3 / 7.4）
+            # 5. 二次补检 Gap 契约与耗尽判定（PRD 7.2 / 7.3 / 7.4）
             if not denied and decision.tool == "retrieve_kb" and self.budget.retrieve_attempts >= 1:
                 if not decision.gap or not decision.expected_gain:
                     denied = "missing_retrieval_gap"
             if not denied and decision.gap:
-                if self.gap_registry.is_exhausted(decision.gap, target_scope=tgt_str):
+                if self.gap_registry.is_exhausted(
+                    self._gap_registry_key(decision.gap), target_scope=tgt_str
+                ):
                     denied = "exhausted_gap"
 
-            # 10. reuse_evidence 拦截
+            # 6. 连续 NO_PROGRESS 熔断保护
+            if not denied and self._exploration_fuse_open and decision.tool in {"retrieve_kb", "web_search"}:
+                denied = "exploration_fuse_open"
+
+            # 7. 检索预算
+            if not denied and decision.tool == "retrieve_kb" and not self.budget.can_retrieve():
+                denied = "retrieve_budget_exhausted"
+
+            # 8. reuse_evidence 拦截
             if not denied and decision.tool == "reuse_evidence":
                 blocked = self.reuse_blocked_reason()
                 if blocked:
@@ -1861,8 +1866,8 @@ class AgentLoop:
 
             # === 若被 Harness 拦截 ===
             if denied:
-                if denied in _ENTITY_AUTHORIZATION_ERRORS and tgt_str:
-                    self._remember_rejected_target(tgt, decision.tool)
+                if decision.tool == "retrieve_kb":
+                    self.budget.record_guard_rejected()
                 self.fallbacks.append(denied)
                 step_record["guard"] = {"allowed": False, "reason": denied}
                 denied_delta = EvidenceDelta(
@@ -1930,6 +1935,7 @@ class AgentLoop:
             )
 
             before_version = self.evidence.evidence_version
+            before_working_keys = self._working_evidence_keys()
             before_chunk_ids = self._citable_chunk_ids()
             before_relations = self._relation_keys()
             before_entities = self._entity_names()
@@ -1943,16 +1949,33 @@ class AgentLoop:
             observation = await self._execute(decision.tool, decision.arguments or {})
 
             if decision.tool == "retrieve_kb":
-                self.budget.consume_retrieve()
-                if observation.data.get("plan") is not None:
-                    self.plan = observation.data.get("plan")
+                if observation.data.get("retrieval_executed"):
+                    # PRD §10.1: executed is a fact of the Retriever actually
+                    # running, not of the handler being invoked.
+                    self.budget.consume_retrieve()
+                    if observation.data.get("plan") is not None:
+                        self.plan = observation.data.get("plan")
+                elif str(observation.status or "").strip().upper() == ToolProgressStatus.DENIED:
+                    self.budget.record_guard_rejected()
 
             after_version = self.evidence.evidence_version
+            after_working_keys = self._working_evidence_keys()
             after_chunk_ids = self._citable_chunk_ids()
             after_relations = self._relation_keys()
             after_entities = self._entity_names()
 
             new_chunks = len(after_chunk_ids - before_chunk_ids)
+            working_delta = len(after_working_keys - before_working_keys)
+            citable_delta = new_chunks
+            if decision.gap and self._gap_evaluator.has_contract:
+                # PRD §12.5: gap_support_delta binds to the actual Reviewer
+                # gap contract (subject + deficiency profile), not to the raw
+                # citable delta.
+                gap_support_delta = self._gap_evaluator.evaluate(
+                    self._new_citable_docs(before_chunk_ids, before_relations)
+                )
+            else:
+                gap_support_delta = citable_delta if decision.gap else 0
             new_relations = len(after_relations - before_relations)
             new_entities = len(after_entities - before_entities)
             has_gain = bool(new_chunks > 0 or new_relations > 0 or new_entities > 0)
@@ -1964,7 +1987,11 @@ class AgentLoop:
                 prog_status = ToolProgressStatus.ERROR
             elif observation.tool == "clarify" and observation.data.get("pause"):
                 prog_status = ToolProgressStatus.PROGRESS
-            elif has_gain:
+            elif has_gain or working_delta > 0:
+                # Working-only evidence (for example CONFLICT/IRRELEVANT with
+                # useful attribution) is still cognitive progress for the Main
+                # Agent even when it cannot become Citable. Gap support remains
+                # an independent stricter signal below.
                 prog_status = ToolProgressStatus.PROGRESS
             else:
                 # 包含首轮 0 docs -> 0 docs 以及无新 chunk / relation / entity 的情况
@@ -1982,6 +2009,9 @@ class AgentLoop:
                 new_chunks=new_chunks,
                 new_entities=new_entities,
                 new_relations=new_relations,
+                working_delta=working_delta,
+                citable_delta=citable_delta,
+                gap_support_delta=gap_support_delta,
                 evidence_version_before=before_version,
                 evidence_version_after=after_version,
                 status=prog_status,
@@ -1990,13 +2020,23 @@ class AgentLoop:
             observation.status = prog_status
 
             self.gap_registry.record(
-                gap=decision.gap,
+                gap=self._gap_registry_key(decision.gap),
                 target_scope=tgt_str,
                 status=prog_status,
                 tool=decision.tool,
                 query=(decision.arguments or {}).get("query"),
                 step=step_index,
+                gap_support_delta=gap_support_delta,
             )
+            if decision.tool == "retrieve_kb" and observation.data.get("retrieval_executed"):
+                self.budget.record_retrieval_execution(
+                    returned=int(observation.data.get("n") or 0),
+                    working=working_delta,
+                    citable=citable_delta,
+                    gap_support=gap_support_delta,
+                )
+                if decision.gap and gap_support_delta == 0:
+                    self.fallbacks.append("GAP_NOT_IMPROVED")
 
             record = {
                 "name": decision.tool,
@@ -2174,6 +2214,9 @@ class AgentLoop:
             finalization_attempts=self._finalization_attempts,
             finalization_rejections=self._finalization_rejections,
             lifecycle_events=list(self.lifecycle_events),
+            gap_registry=self.gap_registry.to_dict(),
+            continuous_no_progress_count=self.continuous_no_progress_count,
+            exploration_fuse_open=self._exploration_fuse_open,
         )
 
     def _decide(self) -> AgentDecision:
@@ -2556,39 +2599,6 @@ class AgentLoop:
         handler = self.handlers.get(name)
         if handler is None:
             return ToolObservation(tool=name, ok=False, summary="handler missing", error="no_handler")
-        target = (arguments.get("target_entity") if isinstance(arguments, dict) else None) or self.conversation.head_entity
-        target_str = str(target).strip() if target else None
-        if name in _ENTITY_TOOLS and target_str and self._is_rejected_target(target, name):
-            return ToolObservation(
-                tool=name,
-                ok=False,
-                summary=f"目标 {target_str} 在本轮已被拒绝授权，禁止重复调用",
-                error="target_already_rejected",
-                fallback="target_already_rejected",
-                status=ToolProgressStatus.DENIED,
-            )
-        identity_denial = self._entity_tool_denial(name, target)
-        if identity_denial:
-            if target_str:
-                self._remember_rejected_target(target, name)
-            return ToolObservation(
-                tool=name,
-                ok=False,
-                summary=f"实体工具调用被拦截: {identity_denial}",
-                error=identity_denial,
-                fallback=identity_denial,
-                status=ToolProgressStatus.DENIED,
-            )
-        unbound_denial = self._unbound_identity_denial(name, target)
-        if unbound_denial:
-            return ToolObservation(
-                tool=name,
-                ok=False,
-                summary=f"工具调用被拦截: {unbound_denial}",
-                error=unbound_denial,
-                fallback=unbound_denial,
-                status=ToolProgressStatus.DENIED,
-            )
         t0 = time.perf_counter()
         try:
             if self._tool_timeout and self._tool_timeout > 0:
@@ -2622,8 +2632,6 @@ class AgentLoop:
                 fallback="tool_error",
             )
         observation.elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
-        if not observation.ok and observation.error in _ENTITY_AUTHORIZATION_ERRORS and target_str:
-            self._remember_rejected_target(target, name)
         return observation
 
 

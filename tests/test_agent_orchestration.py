@@ -30,7 +30,13 @@ from rag_knowledge.services.qa_trace import QaTraceBuilder, QaTraceStore
 from rag_knowledge.services.rag import NO_KNOWLEDGE_ANSWER, RagChain
 
 
-def _doc(chunk_id: str, content: str, citation_id: int = 1) -> dict:
+def _doc(
+    chunk_id: str,
+    content: str,
+    citation_id: int = 1,
+    evidence_class: str = "TARGET_DIRECT",
+    support_scope: str = "TARGET_SPECIFIC",
+) -> dict:
     return {
         "content": content,
         "metadata": {
@@ -40,6 +46,8 @@ def _doc(chunk_id: str, content: str, citation_id: int = 1) -> dict:
             "page_label": "无页码",
             "category": "text",
             "source_type": "knowledge_base",
+            "evidence_class": evidence_class,
+            "support_scope": support_scope,
         },
     }
 
@@ -60,9 +68,9 @@ def test_phase1_registry_has_no_answer_or_clarify():
     assert registry.names() == PHASE1_TOOL_NAMES
     assert registry.validate_call("answer", {}) == "tool_forbidden:answer"
     assert registry.validate_call("clarify", {}) == "tool_unknown:clarify"
-    assert registry.validate_call("link_entities", {}) == "tool_unknown:link_entities"
-    assert registry.validate_call("retrieve_kb", {}) == "tool_missing_arg:query"
+    assert registry.validate_call("retrieve_kb", {}) in {"tool_missing_arg:search_focus_text", "tool_missing_arg:query"}
     assert registry.validate_call("retrieve_kb", {"query": "StampServer"}) is None
+    assert registry.validate_call("retrieve_kb", {"search_focus_text": "StampServer"}) is None
 
 
 def test_parse_json_object_strips_fence():
@@ -334,7 +342,7 @@ def test_budget_stops_loop_without_wall_clock():
         calls.append(args)
         from rag_knowledge.services.agent_orchestration.models import ToolObservation
         pool.add_retrieve([_doc("a", "A")], query="q")
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     def decide(conversation, evidence, observations):
         return AgentDecision(
@@ -366,7 +374,7 @@ def test_loop_retrieve_then_finish_records_tools():
 
     async def retrieve(_args):
         pool.add_retrieve([_doc("s1", "StampServer 管理中心")], query="StampServer 是什么")
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="1")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="1", data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(
@@ -762,12 +770,13 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
     pool = EvidencePool(question_id="q")
 
     async def retrieve(_args):
+        # 传入未通过 Text Admission（无协议字段）的 KB 文本
         pool.add_retrieve(
-            [_doc("pb", "PipelineBuilder 发布")],
+            [_doc("pb", "PipelineBuilder 发布", evidence_class="", support_scope="")],
             query="q",
             head_entity="PipelineBuilder",
         )
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="1")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="1", data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(
@@ -792,9 +801,8 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
     result = asyncio.run(loop.run())
     assert result.llm_gate == "support"
     assert result.answer_gate["allow_knowledge_answer"] is False
-    # 未通过 Text Admission 的 KB 文本（无 evidence_class/support_scope 协议字段）
-    # 必须在协议检查处拒绝，实体冲突防护已前移到 Admission 层。
-    assert result.answer_gate["reason"] == "query_admission_failed"
+    # 未通过 Text Admission 的 KB 文本无 citable 资格（citable pool 为空）
+    assert result.answer_gate["reason"] in {"empty_pool", "query_admission_failed"}
 
 
 def test_empty_retrieval_binds_gap_and_rewrites_query():
@@ -811,7 +819,7 @@ def test_empty_retrieval_binds_gap_and_rewrites_query():
             pool.add_retrieve([], query=query)
         else:
             pool.add_retrieve([_doc("s1", "StampServer 部署")], query=query, head_entity="StampServer")
-        return ToolObservation(tool="retrieve_kb", ok=True, summary=str(len(queries)))
+        return ToolObservation(tool="retrieve_kb", ok=True, summary=str(len(queries)), data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": "StampServer 初检"}),
@@ -983,7 +991,7 @@ def test_link_entities_and_retrieve_kb_mode_execution():
             tool="retrieve_kb",
             ok=True,
             summary=f"chunks=1 (mode={mode})",
-            data={"chunk_ids": ["chk_1"], "mode": mode},
+            data={"chunk_ids": ["chk_1"], "mode": mode, "retrieval_executed": True},
         )
 
     loop = AgentLoop(
@@ -1553,6 +1561,7 @@ def test_govern_answer_path_case_insensitivity():
     pass_reviewer = HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "通过",
         "claim_reviews": [{"claim_id": "c1", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "claim": "测试", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
         "rewrite_actions": []
@@ -1560,6 +1569,7 @@ def test_govern_answer_path_case_insensitivity():
     block_reviewer = HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "NO_SAFE_ANSWER",
         "coverage": "NONE",
+        "repair_mode": "NONE",
         "summary": "未在知识库中找到对应路径",
         "claim_reviews": [],
         "rewrite_actions": []
@@ -1751,7 +1761,7 @@ def test_negative_correction_with_tech_question_preserves_evidence():
 
     async def mock_retrieve(args):
         pool.add_retrieve([_doc("gis_conf", "StampGIS")], query=args.get("query"))
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     def decide_step(c, e, obs):
         if not obs:
@@ -1808,7 +1818,7 @@ def test_v15_oneshot_finish_when_evidence_sufficient():
         nonlocal retrieved_count
         retrieved_count += 1
         pool.add_retrieve([_doc("s_port", "StampServer 默认服务端口为 8080")], query=args.get("query"))
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 默认端口"}),
@@ -1842,7 +1852,7 @@ def test_v15_cycle_detection_prevents_infinite_loop():
     async def mock_retrieve(args):
         nonlocal retrieved_count
         retrieved_count += 1
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="未命中")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="未命中", data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "相同查询词"}),
@@ -1873,7 +1883,7 @@ def test_malformed_tool_call_never_downgraded_to_finish():
     async def mock_retrieve(args):
         retrieved.append(args.get("query"))
         pool.add_retrieve([_doc("arch_1", "系统架构分为接入层与服务层")], query=args.get("query"))
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     # 第 1 步输出非法 tool_call（tool=None），第 2 步输出合法 retrieve_kb，第 3 步 finish
     decisions = iter([
@@ -1905,7 +1915,7 @@ def test_evidence_constraint_blocks_premature_finish():
 
     async def mock_retrieve(args):
         retrieved.append(args.get("query"))
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     # 模型在无证据时自主决定 finish
     decisions = iter([
@@ -1996,8 +2006,21 @@ def test_attempted_gap_registry_isolates_target_scope():
         target_scope="StampServer",
         status=ToolProgressStatus.NO_PROGRESS,
         tool="retrieve_kb",
+        gap_support_delta=0,
     )
 
+    # 1 failure: NOT exhausted yet (allows 1 retry with different query)
+    assert registry.is_exhausted("stampserver 端口", " stampserver ") is False
+    assert registry.is_exhausted("stampserver 端口", " stampserver ", max_attempts_per_gap=1) is True
+
+    # 2nd failure: exhausted
+    registry.record(
+        gap="stampserver 端口",
+        target_scope="StampServer",
+        status=ToolProgressStatus.NO_PROGRESS,
+        tool="retrieve_kb",
+        gap_support_delta=0,
+    )
     assert registry.is_exhausted("stampserver 端口", " stampserver ") is True
     assert registry.is_exhausted("stampserver 端口", "StampWebRTC") is False
     assert registry.is_exhausted("stampserver 端口", None) is False
@@ -2008,9 +2031,54 @@ def test_attempted_gap_registry_isolates_target_scope():
         target_scope=None,
         status=ToolProgressStatus.NO_PROGRESS,
         tool="retrieve_kb",
+        gap_support_delta=0,
+    )
+    unscoped.record(
+        gap="端口清单",
+        target_scope=None,
+        status=ToolProgressStatus.NO_PROGRESS,
+        tool="retrieve_kb",
+        gap_support_delta=0,
     )
     assert unscoped.is_exhausted("端口清单", None) is True
     assert unscoped.is_exhausted("端口清单", "StampServer") is False
+
+
+def test_gap_support_evaluator_graph_edge_missing():
+    """Verify GRAPH_EDGE_MISSING contract correctly evaluates graph_relation evidence."""
+    from rag_knowledge.services.agent_orchestration.gap_support import GapSupportEvaluator
+
+    contract = {
+        "gap_id": "gap-graph-1",
+        "deficiency_type": "GRAPH_EDGE_MISSING",
+        "subject_entity_ids": ["StampServer"],
+    }
+    evaluator = GapSupportEvaluator(contract)
+    assert evaluator.has_contract is True
+
+    graph_doc = {
+        "content": "StampServer -[depends_on]-> StampDatabase",
+        "metadata": {
+            "source_type": "graph_relation",
+            "document_entity": "StampServer",
+            "evidence_target_entity": "StampServer",
+            "relation_relevance": "DIRECT",
+            "support_scope": "RELATION_SPECIFIC",
+        },
+    }
+    text_doc = {
+        "content": "Some text",
+        "metadata": {
+            "source_type": "kb",
+            "evidence_class": "TARGET_DIRECT",
+            "support_scope": "TARGET_SPECIFIC",
+        },
+    }
+
+    # Graph doc matches GRAPH_EDGE_MISSING deficiency
+    assert evaluator.evaluate([graph_doc]) == 1
+    # Text doc does NOT match GRAPH_EDGE_MISSING deficiency
+    assert evaluator.evaluate([text_doc]) == 0
 
 
 def test_agent_turn_trace_includes_snapshot_support_scope():

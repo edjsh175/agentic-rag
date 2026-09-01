@@ -101,15 +101,17 @@ Claim 状态说明（针对 knowledge_claim）：
 
 coverage 只衡量 Evidence 对 Question 的覆盖，不衡量 Candidate 的正确率。例如 Evidence 已完整给出 A→B，而 Candidate 错写 B→A：verdict=REVISE，但 coverage=FULL。
 
-当存在 unsupported / contradicted Claim 且 coverage 为 FULL/PARTIAL 时，必须按问题 Claim 的 claim_id 输出 rewrite_actions：
+当存在 unsupported / contradicted Claim 且 coverage 为 FULL/PARTIAL 时，先选择 repair_mode：
+- REWRITE：按问题 Claim 的 claim_id 输出 rewrite_actions；
+- RETRIEVE：只输出缺口描述 retrieval_feedback，不能输出检索 query、tool 或检索策略；
 - supported Claim 不得输出 rewrite action；
 - unsupported Claim 使用 rewrite_to_supported_scope_or_remove、add_limitation_statement，或在 Evidence 已给出可直接替换表述时使用 correct_to_evidence；
 - contradicted Claim 使用 correct_to_evidence 或 rewrite_to_supported_scope_or_remove。
 
 输出协议是严格协议：
-- coverage、summary、claim_reviews、rewrite_actions 四个顶层字段缺一不可；不要输出 verdict；
+- coverage、summary、claim_reviews、repair_mode、rewrite_actions 五个顶层字段缺一不可；不要输出 verdict；
 - coverage=FULL/PARTIAL 且所有 Claim supported 时，rewrite_actions 必须为空；
-- coverage=FULL/PARTIAL 且存在 unsupported/contradicted Claim 时，必须为每个问题 Claim 提供匹配 claim_id 的 rewrite action；
+- coverage=FULL/PARTIAL 且存在 unsupported/contradicted Claim 时，repair_mode 必须为 REWRITE 或 RETRIEVE；REWRITE 必须为每个问题 Claim 提供匹配 claim_id 的 rewrite action；RETRIEVE 必须携带 retrieval_feedback 且 rewrite_actions 为空；
 - coverage=NONE 时 rewrite_actions 必须为空；
 - claim_id 必须非空且唯一；所有 evidence_id 必须来自本次 Evidence Snapshot，数组内不得重复；
 - 每个 claim_reviews 对象都必须显式包含 evidence_ids；没有绑定证据时必须输出 []，不得省略字段。
@@ -146,6 +148,7 @@ Candidate: “StampGIS 仅在 Windows 10 运行 [1]。”
 {
   "coverage": "FULL" | "PARTIAL" | "NONE",
   "summary": "简要审核总结",
+  "repair_mode": "NONE" | "REWRITE" | "RETRIEVE",
   "claim_reviews": [
     {
       "claim_id": "c1",
@@ -163,7 +166,15 @@ Candidate: “StampGIS 仅在 Windows 10 运行 [1]。”
       "action": "rewrite_to_supported_scope_or_remove" | "correct_to_evidence" | "add_limitation_statement",
       "instruction": "具体针对该原子断言的修改要求"
     }
-  ]
+  ],
+  "retrieval_feedback": {
+    "gap_id": "稳定缺口标识",
+    "affected_claim_ids": ["c1"],
+    "missing_fact": "缺少的事实",
+    "subject_entity_ids": ["已验证实体 ID"],
+    "deficiency_type": "NO_DIRECT_EVIDENCE" | "SUBJECT_MISMATCH" | "CONTEXTUAL_MISSING" | "GRAPH_EDGE_MISSING",
+    "reason": "为何现有快照无法支撑"
+  }
 }
 """
 
@@ -195,11 +206,13 @@ _ALLOWED_REWRITE_ACTIONS = frozenset({
     "correct_to_evidence",
     "add_limitation_statement",
 })
+_ALLOWED_REPAIR_MODES = frozenset({"NONE", "REWRITE", "RETRIEVE"})
 
 _REQUIRED_TOP_LEVEL_FIELDS = frozenset({
     "coverage",
     "summary",
     "claim_reviews",
+    "repair_mode",
     "rewrite_actions",
 })
 _REQUIRED_CLAIM_FIELDS = frozenset({
@@ -212,6 +225,14 @@ _REQUIRED_CLAIM_FIELDS = frozenset({
     "reason",
 })
 _REQUIRED_ACTION_FIELDS = frozenset({"claim_id", "action", "instruction"})
+_REQUIRED_RETRIEVAL_FEEDBACK_FIELDS = frozenset({
+    "gap_id",
+    "affected_claim_ids",
+    "missing_fact",
+    "subject_entity_ids",
+    "deficiency_type",
+    "reason",
+})
 
 
 def review_response_json_schema() -> dict[str, Any]:
@@ -254,6 +275,27 @@ def review_response_json_schema() -> dict[str, Any]:
                     "additionalProperties": False,
                 },
             },
+            "repair_mode": {"type": "string", "enum": sorted(_ALLOWED_REPAIR_MODES)},
+            "retrieval_feedback": {
+                "type": "object",
+                "properties": {
+                    "gap_id": {"type": "string", "minLength": 1},
+                    "affected_claim_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                        "minItems": 1,
+                    },
+                    "missing_fact": {"type": "string", "minLength": 1},
+                    "subject_entity_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                    },
+                    "deficiency_type": {"type": "string", "minLength": 1},
+                    "reason": {"type": "string", "minLength": 1},
+                },
+                "required": sorted(_REQUIRED_RETRIEVAL_FEEDBACK_FIELDS),
+                "additionalProperties": False,
+            },
         },
         "required": sorted(_REQUIRED_TOP_LEVEL_FIELDS),
         "additionalProperties": False,
@@ -293,6 +335,37 @@ def _required_list(payload: dict[str, Any], key: str, *, location: str) -> list[
     return value
 
 
+def _required_string_list(
+    payload: dict[str, Any],
+    key: str,
+    *,
+    location: str,
+    nonempty: bool,
+) -> list[str]:
+    values = _required_list(payload, key, location=location)
+    if nonempty and not values:
+        raise _ReviewProtocolError(f"{location}_{key}_empty")
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for index, value in enumerate(values):
+        if not isinstance(value, str) or not value.strip():
+            raise _ReviewProtocolError(f"{location}_{key}[{index}]_not_nonempty_string")
+        item = value.strip()
+        if item in seen:
+            raise _ReviewProtocolError(f"{location}_{key}_duplicate:{item}")
+        seen.add(item)
+        normalized.append(item)
+    return normalized
+
+
+def _forbid_retrieval_directives(payload: dict[str, Any], *, location: str) -> None:
+    forbidden = {str(key).strip().lower() for key in payload}.intersection({"query", "tool", "tools"})
+    if forbidden:
+        raise _ReviewProtocolError(
+            f"{location}_forbidden_retrieval_directive:" + ",".join(sorted(forbidden))
+        )
+
+
 @dataclass(frozen=True)
 class ClaimReview:
     claim_id: str
@@ -330,12 +403,34 @@ class RewriteAction:
 
 
 @dataclass(frozen=True)
+class RetrievalFeedback:
+    gap_id: str
+    affected_claim_ids: tuple[str, ...]
+    missing_fact: str
+    subject_entity_ids: tuple[str, ...]
+    deficiency_type: str
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "gap_id": self.gap_id,
+            "affected_claim_ids": list(self.affected_claim_ids),
+            "missing_fact": self.missing_fact,
+            "subject_entity_ids": list(self.subject_entity_ids),
+            "deficiency_type": self.deficiency_type,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class HelperGroundingReviewResult:
     verdict: str
     coverage: str = "FULL"
     summary: str = ""
     claim_reviews: list[ClaimReview] = field(default_factory=list)
     rewrite_actions: list[RewriteAction] = field(default_factory=list)
+    repair_mode: str = "NONE"
+    retrieval_feedback: RetrievalFeedback | None = None
     rewrite_instructions: list[str] = field(default_factory=list)
     raw_response: Any = None
     protocol_attempts: tuple[dict[str, Any], ...] = ()
@@ -370,6 +465,11 @@ class HelperGroundingReviewResult:
                 a.to_dict()
                 for a in self.rewrite_actions
             ],
+            "repair_mode": self.repair_mode,
+            "retrieval_feedback": (
+                self.retrieval_feedback.to_dict()
+                if self.retrieval_feedback is not None else None
+            ),
             "rewrite_instructions": list(self.rewrite_instructions),
             "raw_response": self.raw_response,
             "protocol_attempts": list(self.protocol_attempts),
@@ -572,7 +672,8 @@ class HelperGroundingReviewer:
                 return None
             claims = payload.get("claim_reviews")
             coverage = payload.get("coverage")
-            if not isinstance(claims, list) or not isinstance(coverage, str):
+            repair_mode = payload.get("repair_mode")
+            if not isinstance(claims, list) or not isinstance(coverage, str) or not isinstance(repair_mode, str):
                 return None
             frozen_claims = []
             for claim in claims:
@@ -586,7 +687,12 @@ class HelperGroundingReviewer:
                     "status": claim.get("status"),
                     "evidence_ids": claim.get("evidence_ids"),
                 })
-            return {"coverage": coverage, "claim_reviews": frozen_claims}
+            return {
+                "coverage": coverage,
+                "repair_mode": repair_mode,
+                "retrieval_feedback": payload.get("retrieval_feedback"),
+                "claim_reviews": frozen_claims,
+            }
         except Exception:
             return None
 
@@ -607,7 +713,7 @@ class HelperGroundingReviewer:
                 "content": (
                     _REVIEWER_SYSTEM_PROMPT
                     + "\n\n你正在执行一次协议修复。只修复上一份审查 JSON 的协议错误；"
-                    "immutable_semantics 中的 coverage、claim_id、claim、claim_type、claim_scope、status、evidence_ids "
+                    "immutable_semantics 中的 coverage、repair_mode、retrieval_feedback、claim_id、claim、claim_type、claim_scope、status、evidence_ids "
                     "必须逐项保持不变。不得重新判断事实，不得增删 Claim，不要输出 verdict。"
                 ),
             },
@@ -680,13 +786,17 @@ class HelperGroundingReviewer:
                 raise _ReviewProtocolError("response_not_json_object")
 
             _required_fields(payload, _REQUIRED_TOP_LEVEL_FIELDS, location="root")
+            _forbid_retrieval_directives(payload, location="root")
             coverage = _required_string(payload, "coverage", location="root", nonempty=True)
             summary = _required_string(payload, "summary", location="root")
             raw_claims = _required_list(payload, "claim_reviews", location="root")
+            repair_mode = _required_string(payload, "repair_mode", location="root", nonempty=True)
             raw_actions = _required_list(payload, "rewrite_actions", location="root")
 
             if coverage not in _ALLOWED_COVERAGES:
                 raise _ReviewProtocolError(f"invalid_coverage:{coverage}")
+            if repair_mode not in _ALLOWED_REPAIR_MODES:
+                raise _ReviewProtocolError(f"invalid_repair_mode:{repair_mode}")
 
             claim_reviews: list[ClaimReview] = []
             claim_by_id: dict[str, ClaimReview] = {}
@@ -829,21 +939,77 @@ class HelperGroundingReviewer:
             problem_claims = [
                 claim for claim in claim_reviews if claim.status in {"unsupported", "contradicted"}
             ]
+            retrieval_feedback: RetrievalFeedback | None = None
+            raw_feedback = payload.get("retrieval_feedback")
+            if repair_mode == "RETRIEVE":
+                if not isinstance(raw_feedback, dict):
+                    raise _ReviewProtocolError("retrieve_requires_retrieval_feedback")
+                _required_fields(
+                    raw_feedback,
+                    _REQUIRED_RETRIEVAL_FEEDBACK_FIELDS,
+                    location="retrieval_feedback",
+                )
+                _forbid_retrieval_directives(raw_feedback, location="retrieval_feedback")
+                gap_id = _required_string(raw_feedback, "gap_id", location="retrieval_feedback", nonempty=True)
+                missing_fact = _required_string(
+                    raw_feedback, "missing_fact", location="retrieval_feedback", nonempty=True,
+                )
+                deficiency_type = _required_string(
+                    raw_feedback, "deficiency_type", location="retrieval_feedback", nonempty=True,
+                )
+                feedback_reason = _required_string(
+                    raw_feedback, "reason", location="retrieval_feedback", nonempty=True,
+                )
+                affected_claim_ids = _required_string_list(
+                    raw_feedback, "affected_claim_ids", location="retrieval_feedback", nonempty=True,
+                )
+                subject_entity_ids = _required_string_list(
+                    raw_feedback, "subject_entity_ids", location="retrieval_feedback", nonempty=False,
+                )
+                unknown_claim_ids = set(affected_claim_ids).difference(claim_by_id)
+                if unknown_claim_ids:
+                    raise _ReviewProtocolError(
+                        "retrieval_feedback_unknown_claim_ids:" + ",".join(sorted(unknown_claim_ids))
+                    )
+                problem_claim_ids = {claim.claim_id for claim in problem_claims}
+                if not set(affected_claim_ids).issubset(problem_claim_ids):
+                    raise _ReviewProtocolError("retrieval_feedback_must_target_problem_claims")
+                retrieval_feedback = RetrievalFeedback(
+                    gap_id=gap_id,
+                    affected_claim_ids=tuple(affected_claim_ids),
+                    missing_fact=missing_fact,
+                    subject_entity_ids=tuple(subject_entity_ids),
+                    deficiency_type=deficiency_type,
+                    reason=feedback_reason,
+                )
+            elif raw_feedback is not None:
+                raise _ReviewProtocolError("retrieval_feedback_only_allowed_for_retrieve")
+
             if coverage == "NONE":
                 verdict = "NO_SAFE_ANSWER"
                 if rewrite_actions:
                     raise _ReviewProtocolError("no_safe_answer_rewrite_actions_must_be_empty")
+                if repair_mode != "NONE":
+                    raise _ReviewProtocolError("no_safe_answer_repair_mode_must_be_none")
             elif problem_claims:
                 verdict = "REVISE"
-                if not rewrite_actions:
+                if repair_mode == "REWRITE":
+                    if not rewrite_actions:
+                        raise _ReviewProtocolError("revise_rewrite_requires_actions")
+                    required_action_ids = {claim.claim_id for claim in problem_claims}
+                    if not required_action_ids.issubset(set(action_by_claim_id)):
+                        raise _ReviewProtocolError("revise_actions_must_cover_problem_claim_ids")
+                elif repair_mode == "RETRIEVE":
+                    if rewrite_actions:
+                        raise _ReviewProtocolError("revise_retrieve_actions_must_be_empty")
+                else:
                     raise _ReviewProtocolError("revise_requires_rewrite_actions")
-                required_action_ids = {claim.claim_id for claim in problem_claims}
-                if not required_action_ids.issubset(set(action_by_claim_id)):
-                    raise _ReviewProtocolError("revise_actions_must_cover_problem_claim_ids")
             else:
                 verdict = "PASS"
                 if rewrite_actions:
                     raise _ReviewProtocolError("pass_rewrite_actions_must_be_empty")
+                if repair_mode != "NONE":
+                    raise _ReviewProtocolError("pass_repair_mode_must_be_none")
 
             rewrite_instructions = [
                 f"[{action.claim_id}|{action.action}] {action.instruction}"
@@ -855,6 +1021,8 @@ class HelperGroundingReviewer:
                 summary=summary,
                 claim_reviews=claim_reviews,
                 rewrite_actions=rewrite_actions,
+                repair_mode=repair_mode,
+                retrieval_feedback=retrieval_feedback,
                 rewrite_instructions=rewrite_instructions,
                 raw_response=raw,
             )

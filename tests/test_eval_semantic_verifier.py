@@ -27,9 +27,11 @@ def _result(verdict, coverage="FULL", status="supported", error=None):
         evidence_ids=evidence_ids,
         reason="mock",
     )
+    repair_mode = "REWRITE" if verdict == "REVISE" else "NONE"
     return HelperGroundingReviewResult(
         verdict=verdict,
         coverage=coverage,
+        repair_mode=repair_mode,
         summary="mock",
         claim_reviews=[claim],
         error=error,
@@ -156,4 +158,4 @@ def test_publication_contract_has_full_reviewer_coverage_and_no_deterministic_fa
     assert "generated" in contract["final_modes"]
     assert "grounded_partial" in contract["final_modes"]
     assert "grounded_rewrite" in contract["final_modes"]
-    assert "review_blocked" in contract["final_modes"]
+    assert "no_safe_answer" in contract["final_modes"]

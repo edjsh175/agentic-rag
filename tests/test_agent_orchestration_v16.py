@@ -220,15 +220,17 @@ def test_v16_explicit_multi_entity_gets_independent_grants_without_rebinding():
     assert identity.primary_entity == "EntityA"
 
 
-def test_v16_sudden_different_from_sibling_is_not_an_exploration_permission():
+def test_v21_different_from_sibling_is_an_exploration_target_with_graph_provenance():
     semantic = _semantic("EntityA", primary="EntityA")
     identity, resolver = _resolver(semantic, _FakeGraphDB())
 
     result = resolver.authorize("EntityB")
 
     assert identity.primary_entity == "EntityA"
-    assert result.authorized is False
-    assert result.rejection_reason == "target_not_authorized"
+    assert result.authorized is True
+    assert result.grant is not None
+    assert result.grant.source_type == "graph_relation"
+    assert result.grant.allowed_relations == frozenset({"different_from"})
 
 
 def test_v16_approved_graph_relation_can_authorize_new_target_and_two_hops():
@@ -251,14 +253,14 @@ def test_v16_approved_graph_relation_can_authorize_new_target_and_two_hops():
     assert identity.primary_entity == "EntityA"
 
 
-def test_v16_graph_hop_budget_rejects_third_party_when_path_exceeds_budget():
+def test_v21_graph_hop_budget_falls_back_to_exploratory_grant():
     semantic = _semantic("EntityA", primary="EntityA")
     _, resolver = _resolver(semantic, _FakeGraphDB(), max_hops=1)
 
     assert resolver.authorize("ServiceX").authorized is True
-    denied = resolver.authorize("ConfigY")
-    assert denied.authorized is False
-    assert denied.rejection_reason == "target_not_authorized"
+    exploratory = resolver.authorize("ConfigY")
+    assert exploratory.authorized is True
+    assert exploratory.grant.source_type == "exploratory_query"
 
 
 def test_v16_grant_fingerprint_and_cache_key_isolate_targets():
@@ -325,9 +327,65 @@ def test_v16_structural_gate_rejects_cross_grant_chunk():
     assert verdict["reason"] == "grant_id_mismatch"
 
 
-def test_v16_tool_schema_exposes_target_entity_for_retrieve_and_retired_link():
+def test_v16_tool_schema_exposes_search_focus_and_retires_target_entity_and_link():
     registry = build_agent_registry()
     retrieve_props = registry.get("retrieve_kb").input_schema["properties"]
 
-    assert "target_entity" in retrieve_props
+    assert "search_focus_text" in retrieve_props
+    assert "focus_entity_id" in retrieve_props
+    assert "target_entity" not in retrieve_props
     assert registry.get("link_entities") is None
+
+
+def test_v16_agent_loop_inherits_state_across_resumes():
+    """Verify AgentLoop inherits gap_registry, continuous_no_progress_count, and budget accounting across resumes."""
+    import asyncio
+    from rag_knowledge.services.agent_orchestration.models import (
+        AgentBudget,
+        AgentDecision,
+        AttemptedGapRegistry,
+        ToolObservation,
+    )
+    from rag_knowledge.services.agent_orchestration.runtime import AgentLoop
+
+    conv = ConversationContext(user_question="test question", session=SimpleNamespace(turns=[]))
+    pool = EvidencePool(question_id="q-resume")
+
+    # 1. First run creates a gap failure
+    registry_v1 = AttemptedGapRegistry()
+    registry_v1.record(
+        gap="missing port",
+        target_scope="StampServer",
+        status="NO_PROGRESS",
+        tool="retrieve_kb",
+        gap_support_delta=0,
+    )
+
+    # Budget with existing accounting
+    budget = AgentBudget(max_steps=6, max_retrieve_attempts=3)
+    budget.steps_used = 2
+    budget.retrieve_attempts = 1
+    budget.retrieval_requested = 1
+    budget.retrieval_executed = 1
+
+    decisions = [
+        AgentDecision(action="finalize"),
+    ]
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=budget,
+        registry=build_agent_registry(),
+        handlers={},
+        gap_registry=registry_v1,
+        continuous_no_progress_count=1,
+        decide_fn=lambda *_: decisions.pop(0),
+    )
+
+    result = asyncio.run(loop.run())
+
+    assert result.gap_registry["entries"][0]["gap"] == "missing port"
+    assert result.continuous_no_progress_count == 1
+    assert result.budget["steps_used"] == 3
+    assert result.budget["retrieval_accounting"]["executed"] == 1

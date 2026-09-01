@@ -303,7 +303,8 @@ def test_grounding_reviewer_verifies_graph_relation_claims():
 
     mock_resp = json.dumps({
         "verdict": "PASS",
-        "coverage": "FULL",
+            "coverage": "FULL",
+            "repair_mode": "NONE",
         "summary": "回答由图谱事实关系完全支持",
         "claim_reviews": [
             {

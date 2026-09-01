@@ -40,7 +40,12 @@ from rag_knowledge.services.helper_grounding_reviewer import (
 from rag_knowledge.services.rag import CONTROLLER_ERROR_ANSWER, NO_KNOWLEDGE_ANSWER, RagChain
 
 
-def _doc(chunk_id: str = "c1", content: str = "StampServer 的端口是 8080。") -> dict:
+def _doc(
+    chunk_id: str = "c1",
+    content: str = "StampServer 的端口是 8080。",
+    evidence_class: str = "TARGET_DIRECT",
+    support_scope: str = "TARGET_SPECIFIC",
+) -> dict:
     return {
         "content": content,
         "metadata": {
@@ -51,6 +56,8 @@ def _doc(chunk_id: str = "c1", content: str = "StampServer 的端口是 8080。"
             "page_label": "无页码",
             "category": "text",
             "source_type": "knowledge_base",
+            "evidence_class": evidence_class,
+            "support_scope": support_scope,
         },
     }
 
@@ -355,8 +362,9 @@ def test_helper_reviewer_streams_raw_reasoning_without_bypassing_protocol_valida
     )
     events: list[dict] = []
     response = json.dumps({
-        "coverage": "PARTIAL",
-        "summary": "证据只覆盖部分问题",
+            "coverage": "PARTIAL",
+            "repair_mode": "NONE",
+            "summary": "证据只覆盖部分问题",
         "claim_reviews": [{
             "claim_id": "c1",
             "claim": "StampServer 的端口是 8080",
@@ -595,10 +603,11 @@ def test_revise_rewrite_second_pass_and_publication_are_fully_structured():
             _claim("c1", evidence_ids=(1,), status="supported"),
             _claim("c2", evidence_ids=(), status="unsupported"),
         ],
-        rewrite_actions=[
-            RewriteAction("c1", "preserve", "保留已支持断言"),
-            RewriteAction("c2", "remove", "删除未支持断言"),
-        ],
+            rewrite_actions=[
+                RewriteAction("c1", "preserve", "保留已支持断言"),
+                RewriteAction("c2", "remove", "删除未支持断言"),
+            ],
+            repair_mode="REWRITE",
     )
     review2 = HelperGroundingReviewResult(
         verdict="PASS",
@@ -713,7 +722,8 @@ def test_rewrite_failure_emits_failed_status_before_blocked_publication():
         coverage="PARTIAL",
         summary="rewrite required",
         claim_reviews=[_claim("c2", evidence_ids=(), status="unsupported")],
-        rewrite_actions=[RewriteAction("c2", "remove", "删除未支持断言")],
+            rewrite_actions=[RewriteAction("c2", "remove", "删除未支持断言")],
+            repair_mode="REWRITE",
     )
     lifecycle: list[dict] = []
 
@@ -1207,7 +1217,7 @@ def test_controller_prompt_does_not_reclarify_an_already_confirmed_entity():
     assert "用户问题：简称" in _DECISION_PROMPT
     assert "当前主体身份为实体 A" in _DECISION_PROMPT
     assert '"tool":"retrieve_kb"' in _DECISION_PROMPT
-    assert '"target_entity":"实体 A"' in _DECISION_PROMPT
+    assert '"focus_entity_id":"实体 A"' in _DECISION_PROMPT
 
 
 def test_controller_state_removes_reclarify_after_entity_confirmation():

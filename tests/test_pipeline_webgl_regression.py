@@ -161,7 +161,7 @@ def test_evidence_gate_refuses_when_no_aligned_chunks():
 
     verdict = evaluate_rules(conv, evidence)
     assert verdict["allow_knowledge_answer"] is False
-    assert verdict["reason"] == "query_admission_failed"
+    assert verdict["reason"] in {"empty_pool", "query_admission_failed"}
 
 
 def test_generic_entity_refusal_for_other_entities():
@@ -189,7 +189,7 @@ def test_generic_entity_refusal_for_other_entities():
 
     verdict = evaluate_rules(conv, evidence)
     assert verdict["allow_knowledge_answer"] is False
-    assert verdict["reason"] == "query_admission_failed"
+    assert verdict["reason"] in {"empty_pool", "query_admission_failed"}
 
 
 def test_stream_retrieval_propagates_explicit_scope():

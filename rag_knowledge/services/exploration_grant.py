@@ -18,9 +18,10 @@ _ALLOWED_DIRECT_SOURCES = frozenset({
     "previous_confirmed_context",
 })
 
-# ``different_from`` is intentionally excluded from autonomous graph expansion.
-# It describes ambiguity separation and must not become a sibling-exploration grant.
-_GRAPH_GRANT_RELATIONS = frozenset(SCOPE_TRAVERSAL_RELATIONS - {"different_from"})
+# Approved graph relations provide exploration provenance, including
+# ``different_from``.  They do not rebind the answer subject or make the
+# resulting text citable for that subject.
+_GRAPH_GRANT_RELATIONS = frozenset(SCOPE_TRAVERSAL_RELATIONS)
 
 
 @dataclass(frozen=True)
@@ -152,7 +153,7 @@ class GrantAuthorization:
 
 
 class ExplorationGrantResolver:
-    """Authorize one Agent exploration target against audited sources only."""
+    """Create auditable retrieval provenance without constraining exploration semantics."""
 
     def __init__(
         self,
@@ -204,13 +205,7 @@ class ExplorationGrantResolver:
         req_targets = self._parse_targets(target_entity)
 
         scope_status = str(getattr(self.identity_scope, "identity_status", "unresolved") or "").strip()
-        if scope_status == "confirmed_topic":
-            if req_targets:
-                return GrantAuthorization(
-                    authorized=False,
-                    rejection_reason="confirmed_topic_cannot_grant_entity",
-                    requested_target=requested_raw,
-                )
+        if scope_status == "confirmed_topic" and not req_targets:
             return GrantAuthorization(
                 authorized=True,
                 grant=self._new_grant(
@@ -223,27 +218,23 @@ class ExplorationGrantResolver:
             )
 
         if scope_status != "confirmed_entity" and req_targets:
-            return GrantAuthorization(
-                authorized=False,
-                rejection_reason="identity_not_confirmed",
-                requested_target=requested_raw,
-            )
+            return self._exploratory_authorization(req_targets, requested_raw)
 
         if not req_targets:
-            if self._is_unbound_task():
+            if scope_status != "confirmed_entity":
                 return GrantAuthorization(
                     authorized=True,
                     grant=self._new_grant(
                         targets=(),
-                        source_type="stage1_resolved_entity",
-                        source_ref="semantic_task:unbound",
+                        source_type="exploratory_query",
+                        source_ref="query:unbound",
                         hop_depth=0,
                     ),
                     requested_target=None,
                 )
             return GrantAuthorization(
                 authorized=False,
-                rejection_reason="target_entity_required" if scope_status == "confirmed_entity" else "identity_not_confirmed",
+                rejection_reason="target_entity_required",
                 requested_target=requested_raw or None,
             )
 
@@ -276,11 +267,7 @@ class ExplorationGrantResolver:
                     allowed_relations_set.add(rtype)
                 self._remember(canonical, depth)
                 continue
-            return GrantAuthorization(
-                authorized=False,
-                rejection_reason="target_not_authorized",
-                requested_target=requested_raw,
-            )
+            return self._exploratory_authorization(req_targets, requested_raw)
 
         if direct_sources:
             source_type = "user_explicit_mention" if any(s == "user_explicit_mention" for s in direct_sources) else direct_sources[0]
@@ -299,6 +286,24 @@ class ExplorationGrantResolver:
             allowed_relations=frozenset(allowed_relations_set),
         )
         return GrantAuthorization(True, grant=grant, requested_target=requested_raw)
+
+    def _exploratory_authorization(
+        self,
+        targets: tuple[str, ...],
+        requested_raw: str,
+    ) -> GrantAuthorization:
+        """Record an unverified retrieval hypothesis without treating it as identity."""
+        canonical_targets = tuple(self._canonical(target) or target for target in targets)
+        return GrantAuthorization(
+            authorized=True,
+            grant=self._new_grant(
+                targets=canonical_targets,
+                source_type="exploratory_query",
+                source_ref=f"query:{requested_raw or 'unbound'}",
+                hop_depth=0,
+            ),
+            requested_target=requested_raw or None,
+        )
 
     def _direct_source(self, target: str) -> str | None:
         confirmed_entities = tuple(getattr(self.identity_scope, "confirmed_entities", ()) or ())
@@ -434,21 +439,6 @@ class ExplorationGrantResolver:
             if any(normalize_entity_name(item).casefold() == key for item in names if item):
                 return entity
         return None
-
-    def _is_unbound_task(self) -> bool:
-        scope_status = str(getattr(self.identity_scope, "identity_status", "") or "").strip()
-        if scope_status != "unresolved":
-            return False
-        raw_mention = str(getattr(self.identity_scope, "raw_entity_mention", "") or "").strip()
-        raw_mentions = tuple(getattr(self.identity_scope, "raw_entity_mentions", ()) or ())
-        if raw_mention or any(str(item or "").strip() for item in raw_mentions):
-            return False
-        primary = str(getattr(self.semantic_task, "primary_entity", "") or "").strip()
-        mentioned = tuple(getattr(self.semantic_task, "mentioned_entities", ()) or ())
-        if primary or mentioned:
-            return False
-        return True
-
 
 def _same_entity(left: str | None, right: str | None) -> bool:
     a = normalize_entity_name(str(left or "")).casefold()

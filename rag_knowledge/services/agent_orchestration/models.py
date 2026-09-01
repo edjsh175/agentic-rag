@@ -37,6 +37,9 @@ class EvidenceDelta:
     new_chunks: int = 0
     new_entities: int = 0
     new_relations: int = 0
+    working_delta: int = 0
+    citable_delta: int = 0
+    gap_support_delta: int = 0
     evidence_version_before: int = 0
     evidence_version_after: int = 0
     status: str = ToolProgressStatus.PROGRESS
@@ -46,6 +49,9 @@ class EvidenceDelta:
             "new_chunks": self.new_chunks,
             "new_entities": self.new_entities,
             "new_relations": self.new_relations,
+            "working_delta": self.working_delta,
+            "citable_delta": self.citable_delta,
+            "gap_support_delta": self.gap_support_delta,
             "evidence_version_before": self.evidence_version_before,
             "evidence_version_after": self.evidence_version_after,
             "status": self.status,
@@ -149,6 +155,7 @@ class ExecutionEventType(str, Enum):
     HELPER_GROUNDING_REVIEW_STARTED = "helper_grounding_review_started"
     REVIEW_STATUS = "review_status"
     REWRITE_STATUS = "rewrite_status"
+    RETRIEVAL_FEEDBACK = "retrieval_feedback"
     GRAPH_BOOTSTRAP_STARTED = "graph_bootstrap_started"
     GRAPH_BOOTSTRAP_COMPLETED = "graph_bootstrap_completed"
     GRAPH_SCOPE_EXPANSION_STARTED = "graph_scope_expansion_started"
@@ -241,6 +248,7 @@ class AttemptedGap:
     tool: str
     query: str | None = None
     step: int = 0
+    gap_support_delta: int = 0
 
 
 @dataclass
@@ -264,6 +272,7 @@ class AttemptedGapRegistry:
         tool: str,
         query: str | None = None,
         step: int = 0,
+        gap_support_delta: int = 0,
     ) -> None:
         norm_gap = self.normalize_gap(gap)
         if not norm_gap:
@@ -276,22 +285,66 @@ class AttemptedGapRegistry:
                 tool=tool,
                 query=query,
                 step=step,
+                gap_support_delta=gap_support_delta,
             )
         )
 
-    def is_exhausted(self, gap: str | None, target_scope: str | None = None) -> bool:
+    def is_exhausted(
+        self,
+        gap: str | None,
+        target_scope: str | None = None,
+        max_attempts_per_gap: int = 2,
+    ) -> bool:
         norm_gap = self.normalize_gap(gap)
         if not norm_gap:
             return False
         norm_scope = self.normalize_scope(target_scope)
+        consecutive_failures = 0
         for entry in reversed(self.entries):
-            if (
-                entry.gap == norm_gap
-                and entry.target_scope == norm_scope
-                and entry.status == ToolProgressStatus.NO_PROGRESS
-            ):
+            if entry.gap != norm_gap or entry.target_scope != norm_scope:
+                continue
+            if entry.gap_support_delta > 0:
+                break
+            consecutive_failures += 1
+            if consecutive_failures >= max_attempts_per_gap:
                 return True
         return False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entries": [
+                {
+                    "gap": e.gap,
+                    "target_scope": e.target_scope,
+                    "status": e.status,
+                    "tool": e.tool,
+                    "query": e.query,
+                    "step": e.step,
+                    "gap_support_delta": e.gap_support_delta,
+                }
+                for e in self.entries
+            ]
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> AttemptedGapRegistry:
+        registry = cls()
+        if not isinstance(data, dict):
+            return registry
+        for item in data.get("entries") or []:
+            if isinstance(item, dict):
+                registry.entries.append(
+                    AttemptedGap(
+                        gap=str(item.get("gap") or ""),
+                        target_scope=item.get("target_scope"),
+                        status=str(item.get("status") or ""),
+                        tool=str(item.get("tool") or ""),
+                        query=item.get("query"),
+                        step=int(item.get("step") or 0),
+                        gap_support_delta=int(item.get("gap_support_delta") or 0),
+                    )
+                )
+        return registry
 
 
 @dataclass
@@ -302,6 +355,28 @@ class AgentBudget:
     steps_used: int = 0
     retrieve_attempts: int = 0
     call_history: list[tuple[str, str]] = field(default_factory=list)
+    retrieval_requested: int = 0
+    guard_rejected: int = 0
+    retrieval_executed: int = 0
+    returned_candidates: int = 0
+    working_added: int = 0
+    citable_added: int = 0
+    gap_support_added: int = 0
+
+    def record_retrieval_requested(self) -> None:
+        self.retrieval_requested += 1
+
+    def record_guard_rejected(self) -> None:
+        self.guard_rejected += 1
+
+    def record_retrieval_execution(
+        self, *, returned: int, working: int, citable: int, gap_support: int,
+    ) -> None:
+        self.retrieval_executed += 1
+        self.returned_candidates += max(0, returned)
+        self.working_added += max(0, working)
+        self.citable_added += max(0, citable)
+        self.gap_support_added += max(0, gap_support)
 
     def can_step(self) -> bool:
         return self.steps_used < self.max_steps
@@ -360,6 +435,35 @@ class AgentBudget:
             return False
         return self.call_history[-1] == (tool, self._call_fingerprint(arguments, gap=gap, expected_gain=expected_gain))
 
+    def restore_state(self, data: dict[str, Any] | None) -> None:
+        if not isinstance(data, dict):
+            return
+        if "max_steps" in data:
+            self.max_steps = int(data["max_steps"])
+        if "max_retrieve_attempts" in data and data["max_retrieve_attempts"] is not None:
+            self.max_retrieve_attempts = int(data["max_retrieve_attempts"])
+        if "hard_retrieve_cap" in data:
+            self.hard_retrieve_cap = int(data["hard_retrieve_cap"])
+        if "steps_used" in data:
+            self.steps_used = min(self.max_steps, int(data["steps_used"]))
+        if "retrieve_attempts" in data:
+            self.retrieve_attempts = min(self.effective_max_retrieves(), int(data["retrieve_attempts"]))
+        if "call_history" in data and isinstance(data["call_history"], list):
+            self.call_history = [
+                (str(item[0]), str(item[1]))
+                for item in data["call_history"]
+                if isinstance(item, (list, tuple)) and len(item) == 2
+            ]
+        acct = data.get("retrieval_accounting")
+        if isinstance(acct, dict):
+            self.retrieval_requested = int(acct.get("requested") or 0)
+            self.guard_rejected = int(acct.get("guard_rejected") or 0)
+            self.retrieval_executed = int(acct.get("executed") or 0)
+            self.returned_candidates = int(acct.get("returned") or 0)
+            self.working_added = int(acct.get("working_added") or 0)
+            self.citable_added = int(acct.get("citable_added") or 0)
+            self.gap_support_added = int(acct.get("gap_support_added") or 0)
+
     def to_dict(self) -> dict[str, Any]:
         max_retrieves = self.effective_max_retrieves()
         remaining_retrieves = max(0, max_retrieves - self.retrieve_attempts)
@@ -371,6 +475,16 @@ class AgentBudget:
             "retrieve_attempts": self.retrieve_attempts,
             "remaining_retrieve_attempts": remaining_retrieves,
             "retrieval_allowed": remaining_retrieves > 0,
+            "call_history": list(self.call_history),
+            "retrieval_accounting": {
+                "requested": self.retrieval_requested,
+                "guard_rejected": self.guard_rejected,
+                "executed": self.retrieval_executed,
+                "returned": self.returned_candidates,
+                "working_added": self.working_added,
+                "citable_added": self.citable_added,
+                "gap_support_added": self.gap_support_added,
+            },
         }
 
 
@@ -390,6 +504,7 @@ class EvidenceGroup:
     relation_key: str | None = None
     grant_id: str | None = None
     provenance: list[dict[str, Any]] = field(default_factory=list)
+    citable_docs: list[dict[str, Any]] = field(default_factory=list)
 
     def to_trace(self) -> dict[str, Any]:
         payload = {
@@ -397,6 +512,9 @@ class EvidenceGroup:
             "kind": self.kind,
             "retrieve_index": self.retrieve_index,
             "chunk_ids": list(self.chunk_ids),
+            "citable_chunk_ids": [
+                chunk_id for chunk_id in (_chunk_id(doc) for doc in self.citable_docs) if chunk_id
+            ],
             "status": self.status,
             "head_entity": self.head_entity,
             "target_entity": self.target_entity,
@@ -438,9 +556,24 @@ class EvidencePool:
     groups: list[EvidenceGroup] = field(default_factory=list)
     _retrieve_seq: int = 0
     evidence_version: int = 0
+    evidence_epoch: int = 1
+    snapshot_version: int | None = None
 
     def _touch(self) -> None:
         self.evidence_version += 1
+
+    def _stamp_current_epoch(self, docs: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        stamped: list[dict[str, Any]] = []
+        for source_doc in docs or []:
+            if not isinstance(source_doc, dict):
+                continue
+            doc = deepcopy(source_doc)
+            meta = dict(doc.get("metadata") or {})
+            meta["evidence_epoch"] = self.evidence_epoch
+            meta.pop("citation_status", None)
+            doc["metadata"] = meta
+            stamped.append(doc)
+        return stamped
 
     @staticmethod
     def _group_evidence_keys(group: EvidenceGroup) -> set[str]:
@@ -451,6 +584,42 @@ class EvidencePool:
             _document_evidence_key(doc)
             for doc in group.docs
             if isinstance(doc, dict)
+        }
+
+    def _is_citable_document(self, doc: dict[str, Any]) -> bool:
+        meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
+        if meta.get("resume_working_only") is True:
+            return False
+        if str(meta.get("citation_status") or "").upper() == "STALE_FOR_CITATION":
+            return False
+        if meta.get("evidence_epoch") is not None and int(meta.get("evidence_epoch") or 0) != self.evidence_epoch:
+            return False
+        source_type = str(meta.get("source_type") or "").strip()
+        if source_type == "external":
+            return True
+        if str(meta.get("scope_binding_strength") or "").strip().casefold() == "unbound":
+            return False
+        if source_type == "graph_relation":
+            # PRD §4.3.1 graph citable: RELATION_SPECIFIC + DIRECT AND the grant
+            # / identity_scope structure must be present.  Relations admitted
+            # outside an authorized grant stay working-only evidence.
+            if (
+                str(meta.get("support_scope") or "").strip().upper() != "RELATION_SPECIFIC"
+                or str(meta.get("relation_relevance") or "").strip().upper() != "DIRECT"
+            ):
+                return False
+            return bool(str(meta.get("grant_id") or "").strip()) and bool(
+                str(meta.get("identity_scope_id") or "").strip()
+            )
+        # PRD §4.3.2: citable eligibility is decided solely by the system
+        # protocol pair.  ``metadata["citable"]`` is at most a derived Trace
+        # field; it is never read as an input here, and a doc without the
+        # protocol fields is not citable (no fail-open).
+        evidence_class = str(meta.get("evidence_class") or "").strip().upper()
+        support_scope = str(meta.get("support_scope") or "").strip().upper()
+        return (evidence_class, support_scope) in {
+            ("TARGET_DIRECT", "TARGET_SPECIFIC"),
+            ("RELATED_CONTEXT", "CONTEXT_ONLY"),
         }
 
     def _evidence_keys(self, *, active_only: bool = False) -> set[str]:
@@ -466,9 +635,30 @@ class EvidencePool:
         docs: list[dict[str, Any]] | None,
         *,
         head_entity: str | None = None,
+        carry_active: bool = False,
     ) -> EvidenceGroup | None:
+        """Seed previous-turn cited evidence.
+
+        Multi-turn reuse keeps the group FROZEN (system-side; a subsequent
+        ``reuse_evidence`` tool call activates it).  The Reviewer-resume path
+        (PRD §12.6) instead carries the docs into the CURRENT working evidence
+        as ACTIVE, re-qualified under the current epoch + protocol via
+        ``_is_citable_document`` — the V2 merge is owned by the system, not by
+        a Main ``reuse_evidence`` call.
+        """
         before_keys = self._evidence_keys()
-        cleaned = [d for d in (docs or []) if isinstance(d, dict)]
+        cleaned: list[dict[str, Any]] = []
+        for source_doc in docs or []:
+            if not isinstance(source_doc, dict):
+                continue
+            doc = deepcopy(source_doc)
+            meta = dict(doc.get("metadata") or {})
+            prior_epoch = int(meta.get("evidence_epoch") or self.evidence_epoch)
+            if prior_epoch != self.evidence_epoch:
+                meta["citation_status"] = "STALE_FOR_CITATION"
+            meta["evidence_epoch"] = self.evidence_epoch if carry_active else prior_epoch
+            doc["metadata"] = meta
+            cleaned.append(doc)
         if not cleaned:
             return None
         group = EvidenceGroup(
@@ -478,12 +668,54 @@ class EvidencePool:
             retrieve_index=None,
             chunk_ids=[cid for cid in (_chunk_id(d) for d in cleaned) if cid],
             docs=list(cleaned),
-            status="FROZEN",
+            citable_docs=(
+                [doc for doc in cleaned if self._is_citable_document(doc)]
+                if carry_active else list(cleaned)
+            ),
+            status="ACTIVE" if carry_active else "FROZEN",
             head_entity=head_entity,
             tool=None,
         )
         self.groups.append(group)
         if self._evidence_keys() != before_keys:
+            self._touch()
+        return group
+
+    def seed_resume_working(
+        self,
+        docs: list[dict[str, Any]] | None,
+        *,
+        head_entity: str | None = None,
+    ) -> EvidenceGroup | None:
+        """Carry Working-only evidence across Reviewer resume rounds.
+
+        These candidates remain available for Main reflection but never gain
+        citation authority merely because they were carried forward. Their
+        existing attribution protocol is preserved and citable eligibility is
+        still derived exclusively by ``_is_citable_document``.
+        """
+        cleaned = self._stamp_current_epoch(docs)
+        for doc in cleaned:
+            meta = dict(doc.get("metadata") or {})
+            meta["resume_working_only"] = True
+            doc["metadata"] = meta
+        if not cleaned:
+            return None
+        before_keys = self._evidence_keys(active_only=True)
+        group = EvidenceGroup(
+            group_id=uuid.uuid4().hex[:12],
+            question_id=self.question_id,
+            kind="reviewer_resume_working",
+            retrieve_index=None,
+            chunk_ids=[cid for cid in (_chunk_id(d) for d in cleaned) if cid],
+            docs=list(cleaned),
+            citable_docs=[],
+            status="ACTIVE",
+            head_entity=head_entity,
+            tool=None,
+        )
+        self.groups.append(group)
+        if self._evidence_keys(active_only=True) != before_keys:
             self._touch()
         return group
 
@@ -501,7 +733,7 @@ class EvidencePool:
     ) -> EvidenceGroup:
         before_keys = self._evidence_keys(active_only=True)
         self._retrieve_seq += 1
-        cleaned = [d for d in (docs or []) if isinstance(d, dict)]
+        cleaned = self._stamp_current_epoch(docs)
         prov_items = list(provenance or [])
         eff_grant_id = grant_id
         if grant is not None:
@@ -519,6 +751,7 @@ class EvidencePool:
             retrieve_index=self._retrieve_seq,
             chunk_ids=[cid for cid in (_chunk_id(d) for d in cleaned) if cid],
             docs=list(cleaned),
+            citable_docs=[doc for doc in cleaned if self._is_citable_document(doc)],
             status="ACTIVE",
             head_entity=head_entity,
             target_entity=target_entity or (getattr(grant, "primary_root", None) if grant else None),
@@ -644,6 +877,7 @@ class EvidencePool:
             retrieve_index=None,
             chunk_ids=[synthetic_chunk_id],
             docs=[relation_doc],
+            citable_docs=[relation_doc],
             status="ACTIVE",
             target_entity=target_entity or t_name or s_name,
             relation_key=relation_key,
@@ -664,13 +898,20 @@ class EvidencePool:
         target_entity: str | None = None,
         provenance: list[dict[str, Any]] | None = None,
         tool: str = "expand_graph_scope",
+        grant: Any = None,
     ) -> EvidenceGroup | None:
-        """Materialize GraphRelationEvidence only after an explicit PASS."""
+        """Materialize GraphRelationEvidence only after an explicit PASS.
+
+        ``grant`` is threaded to ``add_relation`` so the relation carries
+        ``grant_id`` + ``identity_scope_id``; graph citable (PRD §4.3.1)
+        requires that grant structure to be present.
+        """
         if str(getattr(admission_result, "verdict", "") or "").strip().upper() != "PASS":
             return None
         return self.add_relation(
             relation_key=getattr(candidate, "relation_key", ""),
             target_entity=target_entity,
+            grant=grant,
             provenance=provenance,
             source_name=getattr(candidate, "source_name", None),
             target_name=getattr(candidate, "target_name", None),
@@ -705,7 +946,7 @@ class EvidencePool:
         head_entity: str | None = None,
     ) -> EvidenceGroup:
         before_keys = self._evidence_keys(active_only=True)
-        cleaned = [d for d in (docs or []) if isinstance(d, dict)]
+        cleaned = self._stamp_current_epoch(docs)
         group = EvidenceGroup(
             group_id=uuid.uuid4().hex[:12],
             question_id=self.question_id,
@@ -713,6 +954,7 @@ class EvidencePool:
             retrieve_index=None,
             chunk_ids=[cid for cid in (_chunk_id(d) for d in cleaned) if cid],
             docs=list(cleaned),
+            citable_docs=[doc for doc in cleaned if self._is_citable_document(doc)],
             status="ACTIVE",
             head_entity=head_entity,
             query=query,
@@ -760,6 +1002,7 @@ class EvidencePool:
             retrieve_index=None,
             chunk_ids=[cid for cid in (_chunk_id(d) for d in docs) if cid],
             docs=docs,
+            citable_docs=[doc for doc in docs if self._is_citable_document(doc)],
             status="ACTIVE",
             head_entity=head_entity or source.head_entity,
             tool="reuse_evidence",
@@ -770,12 +1013,25 @@ class EvidencePool:
         return group
 
     def citable_docs(self) -> list[dict[str, Any]]:
+        return self._documents(citable_only=True)
+
+    def working_docs(self) -> list[dict[str, Any]]:
+        """All active attributed candidates available for controller reflection."""
+        return self._documents(citable_only=False)
+
+    def working_only_docs(self) -> list[dict[str, Any]]:
+        """Active Working candidates that are not currently citable."""
+        return [doc for doc in self.working_docs() if not self._is_citable_document(doc)]
+
+    def _documents(self, *, citable_only: bool) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         seen: set[str] = set()
         for group in self.groups:
             if group.status != "ACTIVE":
                 continue
             for doc in group.docs:
+                if citable_only and not self._is_citable_document(doc):
+                    continue
                 key = _document_evidence_key(doc)
                 if key in seen:
                     continue
@@ -794,7 +1050,20 @@ class EvidencePool:
         return out
 
     def to_trace(self) -> list[dict[str, Any]]:
-        return [group.to_trace() for group in self.groups]
+        traced: list[dict[str, Any]] = []
+        for group in self.groups:
+            payload = group.to_trace()
+            payload["citable_chunk_ids"] = [
+                chunk_id
+                for chunk_id in (
+                    _chunk_id(doc)
+                    for doc in group.docs
+                    if self._is_citable_document(doc)
+                )
+                if chunk_id
+            ]
+            traced.append(payload)
+        return traced
 
     def to_prompt(self, formatted_context: str) -> str:
         groups = []
@@ -810,12 +1079,12 @@ class EvidencePool:
             groups.append(
                 f"- {label} status={group.status} chunks={len(group.chunk_ids)}{target}{relation}{grant}"
             )
-        header = "当前可引用证据组：\n" + ("\n".join(groups) if groups else "- （空）")
+        header = "当前工作证据组：\n" + ("\n".join(groups) if groups else "- （空）")
         body = formatted_context.strip() if formatted_context.strip() else "（暂无）"
         return (
-            "## 证据池（EvidencePool）\n"
-            "以下是当前问题允许引用的知识事实来源。知识库事实只能来自本区；"
-            "不得把对话上下文、历史消息或未 reuse 的旧证据当作事实。\n"
+            "## 证据池（EvidencePool / Working Evidence）\n"
+            "以下是当前问题的工作证据，包含可引用证据及仅供纠偏的候选；"
+            "最终知识库事实只能来自 Citable Evidence Snapshot。\n"
             f"{header}\n"
             "<evidence_pool>\n"
             f"{body}\n"
@@ -829,8 +1098,31 @@ class EvidencePool:
         max_fact_chars: int = 180,
     ) -> str:
         """Compact factual view for Controller decisions, not answer generation."""
+        working = self.working_docs()
+        if not working:
+            return "（暂无可用证据）"
+
+        priority = {
+            "TARGET_DIRECT": 0,
+            "CONFLICT": 1,
+            "RELATED_CONTEXT": 2,
+            "GRAPH_RELATION": 2,
+            "IRRELEVANT": 4,
+        }
+        counts: dict[str, int] = {}
+        ranked: list[tuple[int, int, dict[str, Any]]] = []
+        for original_index, doc in enumerate(working):
+            meta = doc.get("metadata") or {}
+            evidence_class = str(meta.get("evidence_class") or "").strip().upper()
+            if not evidence_class and str(meta.get("source_type") or "") == "graph_relation":
+                evidence_class = "GRAPH_RELATION"
+            evidence_class = evidence_class or "UNCLASSIFIED"
+            counts[evidence_class] = counts.get(evidence_class, 0) + 1
+            ranked.append((priority.get(evidence_class, 3), original_index, doc))
+        ranked.sort(key=lambda item: (item[0], item[1]))
+
         items: list[str] = []
-        for index, doc in enumerate(self.citable_docs()[:max_items], start=1):
+        for index, (_, _, doc) in enumerate(ranked[:max_items], start=1):
             meta = doc.get("metadata") or {}
             chunk_id = str(meta.get("chunk_id") or f"evidence-{index}")
             entity = str(
@@ -838,18 +1130,29 @@ class EvidencePool:
                 or meta.get("document_entity")
                 or "未标注"
             ).strip()
+            evidence_class = str(meta.get("evidence_class") or "").strip().upper() or "UNCLASSIFIED"
+            support_scope = str(meta.get("support_scope") or "").strip().upper() or "NONE"
             section = str(meta.get("section_path") or meta.get("section_title") or "未标注").strip()
             relation = str(meta.get("relation_key") or "").strip()
             fact = " ".join(str(doc.get("content") or "").split())
             if len(fact) > max_fact_chars:
                 fact = f"{fact[:max_fact_chars].rstrip()}…"
-            parts = [f"Evidence #{index}", f"id={chunk_id}", f"entity={entity}"]
+            parts = [
+                f"Evidence #{index}",
+                f"id={chunk_id}",
+                f"entity={entity}",
+                f"class={evidence_class}",
+                f"support_scope={support_scope}",
+            ]
             if relation:
                 parts.append(f"relation={relation}")
             else:
                 parts.extend((f"section={section}", f"fact={fact or '（空）'}"))
             items.append("; ".join(parts))
-        return "\n".join(items) if items else "（暂无可用证据）"
+        summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+        hidden = max(0, len(working) - min(max_items, len(working)))
+        items.append(f"Working Summary: {summary}; compacted={hidden}")
+        return "\n".join(items)
 
     def create_snapshot(
         self,
@@ -900,7 +1203,11 @@ class EvidencePool:
             documents=docs,
             verdict=verdict,
             evidence_groups=self.to_trace(),
-            evidence_version=self.evidence_version,
+            evidence_version=(
+                self.snapshot_version
+                if self.snapshot_version is not None else self.evidence_version
+            ),
+            evidence_epoch=self.evidence_epoch,
         )
 
 
@@ -932,6 +1239,7 @@ class EvidenceSnapshot:
     evidence_verdict: Any
     evidence_groups: tuple[Any, ...] = ()
     evidence_version: int = 0
+    evidence_epoch: int = 1
 
     @classmethod
     def from_documents(
@@ -942,6 +1250,7 @@ class EvidenceSnapshot:
         verdict: dict[str, Any],
         evidence_groups: list[dict[str, Any]] | None = None,
         evidence_version: int = 0,
+        evidence_epoch: int = 1,
     ) -> "EvidenceSnapshot":
         return cls(
             snapshot_id=f"evs_{uuid.uuid4().hex[:16]}",
@@ -950,6 +1259,7 @@ class EvidenceSnapshot:
             evidence_verdict=_freeze_value(dict(verdict or {})),
             evidence_groups=tuple(_freeze_value(dict(group)) for group in (evidence_groups or [])),
             evidence_version=int(evidence_version or 0),
+            evidence_epoch=int(evidence_epoch or 1),
         )
 
     def documents(self) -> list[dict[str, Any]]:
@@ -960,6 +1270,7 @@ class EvidenceSnapshot:
             "evidence_snapshot_id": self.snapshot_id,
             "question_id": self.question_id,
             "evidence_version": self.evidence_version,
+            "evidence_epoch": self.evidence_epoch,
             "evidence_items": self.documents(),
             "evidence_verdict": _thaw_value(self.evidence_verdict),
             "evidence_groups": _thaw_value(self.evidence_groups),
@@ -1056,6 +1367,7 @@ class ConversationContext:
     raw_entity_mentions: tuple[str, ...] = ()
     candidate_entities: tuple[Any, ...] = ()
     identity_resolution: Any = None
+    evidence_epoch: int = 1
     version: str = "v3"
 
     @classmethod
@@ -1108,9 +1420,15 @@ class ConversationContext:
             previous = (session.resolved_entity or "").strip() or None
 
         previous_identity = ""
+        previous_epoch = 1
         for source in session.last_sources or []:
             if not isinstance(source, dict):
                 continue
+            source_meta = source.get("metadata") if isinstance(source.get("metadata"), dict) else {}
+            previous_epoch = max(
+                previous_epoch,
+                int(source.get("evidence_epoch") or source_meta.get("evidence_epoch") or 1),
+            )
             root = str(
                 source.get("identity_primary_entity")
                 or source.get("scope_root")
@@ -1174,6 +1492,12 @@ class ConversationContext:
                 resolved_question=f"{identity_scope.confirmed_topic} 的相关信息",
             )
         head = identity_scope.primary_entity
+        identity_changed = bool(
+            previous
+            and head
+            and previous.casefold() != head.casefold()
+        )
+        evidence_epoch = previous_epoch + 1 if identity_changed else previous_epoch
 
         clar_hist: list[dict[str, Any]] = []
         if clarification_question or is_callback:
@@ -1216,6 +1540,7 @@ class ConversationContext:
             raw_entity_mentions=tuple(getattr(identity_scope, "raw_entity_mentions", ()) or ()),
             candidate_entities=tuple(getattr(identity_scope, "candidate_entities", ()) or ()),
             identity_resolution=getattr(identity_scope, "identity_resolution", None),
+            evidence_epoch=evidence_epoch,
         )
 
     def to_prompt(self, *, history_summary: str | None = None) -> str:
@@ -1225,6 +1550,7 @@ class ConversationContext:
         ]
         if self.user_question:
             lines.append(f"- 当前问题: {self.user_question}")
+        lines.append(f"- 当前证据 epoch: {self.evidence_epoch}")
         if self.resolved_question and self.resolved_question != self.user_question:
             lines.append(f"- 当前解析问题: {self.resolved_question}")
         if self.confirmed_topic:
@@ -1263,6 +1589,12 @@ class ConversationContext:
             lines.append("- entity_transition: true（旧证据默认不可引用）")
         if self.clarification_callback:
             lines.append("- 本轮为澄清回调：禁止 reuse_evidence，必须重新检索")
+        lines.extend((
+            "## Identity Anchor（身份方向锚，不作为事实来源）",
+            "<identity_anchor>",
+            json.dumps(self.identity_anchor_payload(), ensure_ascii=False),
+            "</identity_anchor>",
+        ))
         focus = ""
         if self.understanding is not None:
             focus = getattr(self.understanding, "dialogue_focus", "") or ""
@@ -1282,6 +1614,61 @@ class ConversationContext:
             if recent_pairs:
                 lines.append("- 近期对话历史:\n" + "\n".join(recent_pairs))
         return "\n".join(lines) + "\n"
+
+    def identity_anchor_payload(self) -> dict[str, Any]:
+        """Return the controller's identity direction without creating a retrieval allowlist."""
+        scope = self.scope
+        confirmed = tuple(getattr(scope, "confirmed_entities", ()) or ())
+        if not confirmed and str(getattr(scope, "identity_status", "") or "") == "confirmed_entity":
+            primary = (
+                getattr(scope, "confirmed_entity", None)
+                or getattr(scope, "primary_entity", None)
+                or self.confirmed_entity
+                or self.head_entity
+            )
+            confirmed = (str(primary).strip(),) if str(primary or "").strip() else ()
+
+        constraints: dict[str, Any] = {}
+        try:
+            from rag_knowledge.services.backbone_guard import (
+                hop_relations_for_anchors,
+                load_backbone_constraints,
+            )
+
+            constraints = load_backbone_constraints()
+            relations = hop_relations_for_anchors(confirmed, constraints)
+        except Exception:  # The anchor is direction-only and must not block a turn.
+            relations = []
+
+        types = constraints.get("entity_type_by_name") or {}
+        primary_id = str(
+            getattr(scope, "confirmed_entity_id", None)
+            or self.confirmed_entity_id
+            or ""
+        ).strip()
+        answer_subject = [
+            {
+                "entity_id": primary_id if index == 0 else "",
+                "canonical_name": entity,
+                "entity_type": str(types.get(entity) or ""),
+                "binding": str(getattr(getattr(scope, "binding_strength", None), "value", "") or ""),
+            }
+            for index, entity in enumerate(confirmed)
+        ]
+        known_confusions = [
+            {"entity": entity, "relation": "different_from"}
+            for entity in sorted(getattr(scope, "forbidden_rebindings", ()) or ())
+        ]
+        return {
+            "answer_subject": answer_subject,
+            "known_confusions": known_confusions,
+            "relevant_relations": relations,
+            "reminder": [
+                "可以调查其他实体，但不会改变 answer_subject。",
+                "known_confusions 中的实体不是 answer_subject 的别名；其证据不能自动支撑主体属性。",
+                "Identity Anchor 仅用于消歧与探索方向，最终事实必须来自 EvidencePool。",
+            ],
+        }
 
     def to_trace(self) -> dict[str, Any]:
         return {
@@ -1319,6 +1706,7 @@ class ConversationContext:
                 else None
             ),
             "clarification_callback": self.clarification_callback,
+            "evidence_epoch": self.evidence_epoch,
             "linked_count": len(self.linked_entities),
             "not_a_fact_source": True,
         }
@@ -1355,6 +1743,9 @@ class AgentTurnResult:
     lifecycle_events: list[dict[str, Any]] = field(default_factory=list)
     graph_working_set: Any = None
     graph_budget: dict[str, Any] = field(default_factory=dict)
+    gap_registry: dict[str, Any] = field(default_factory=dict)
+    continuous_no_progress_count: int = 0
+    exploration_fuse_open: bool = False
 
     def to_trace(self) -> dict[str, Any]:
         grant_authorizations = []

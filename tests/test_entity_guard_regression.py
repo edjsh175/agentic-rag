@@ -126,6 +126,7 @@ def setup_integration_env(isolated_storage, monkeypatch):
     pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "entity guard fixture pass",
         "claim_reviews": [{
             "claim_id": "c1",

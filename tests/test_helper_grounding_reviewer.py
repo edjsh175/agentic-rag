@@ -37,7 +37,9 @@ def _pass_payload() -> dict:
     return {
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "回答内容受证据支持",
+        "repair_mode": "NONE",
         "claim_reviews": [
             {
                 "claim_id": "c1",
@@ -57,7 +59,9 @@ def _revise_payload() -> dict:
     return {
         "verdict": "REVISE",
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "候选回答包含不受支持的事实",
+        "repair_mode": "REWRITE",
         "claim_reviews": [
             {
                 "claim_id": "c1",
@@ -92,7 +96,9 @@ def _no_safe_answer_payload() -> dict:
     return {
         "verdict": "NO_SAFE_ANSWER",
         "coverage": "NONE",
+        "repair_mode": "NONE",
         "summary": "当前证据无法形成安全回答",
+        "repair_mode": "NONE",
         "claim_reviews": [
             {
                 "claim_id": "c1",
@@ -130,6 +136,7 @@ def test_reviewer_pass_full():
     mock_response = json.dumps({
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "回答内容完全受证据支持",
         "claim_reviews": [
             {
@@ -162,6 +169,7 @@ def test_reviewer_pass_partial():
     mock_response = json.dumps({
         "verdict": "PASS",
         "coverage": "PARTIAL",
+        "repair_mode": "NONE",
         "summary": "回答受支持，但证据仅覆盖部分问题",
         "claim_reviews": [
             {
@@ -203,6 +211,7 @@ def test_reviewer_revise_atomic_actions():
     mock_response = json.dumps({
         "verdict": "REVISE",
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "部分断言未在证据中体现",
         "claim_reviews": [
             {
@@ -256,6 +265,7 @@ def test_reviewer_no_safe_answer():
     mock_response = json.dumps({
         "verdict": "NO_SAFE_ANSWER",
         "coverage": "NONE",
+        "repair_mode": "NONE",
         "summary": "证据完全无法回答该问题",
         "claim_reviews": [
             {
@@ -310,6 +320,7 @@ def test_reviewer_evidence_formatting():
         return json.dumps({
             "verdict": "PASS",
             "coverage": "FULL",
+        "repair_mode": "NONE",
             "summary": "ok",
             "claim_reviews": [{
                 "claim_id": "c1",
@@ -629,6 +640,7 @@ def test_evidence_snapshot_includes_support_scope():
 def test_context_only_supports_contextual_claim():
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "NONE",
         "summary": "相关管线系统上下文陈述受支持",
         "claim_reviews": [
             {
@@ -674,6 +686,7 @@ def test_context_only_supports_contextual_claim():
 def test_context_only_rejects_target_attribute_claim():
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "直接将 CONTEXT_ONLY 资料归属于目标实体不被支持",
         "claim_reviews": [
             {
@@ -708,6 +721,7 @@ def test_context_only_rejects_target_attribute_claim():
 def test_target_specific_supports_target_claim():
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "目标直接断言受 TARGET_SPECIFIC 证据支持",
         "claim_reviews": [
             {
@@ -740,6 +754,7 @@ def test_target_specific_supports_target_claim():
 def test_graph_relation_supports_relation_claim_only():
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "NONE",
         "summary": "图谱关系证据支持关系断言，但不支持额外属性",
         "claim_reviews": [
             {
@@ -773,6 +788,7 @@ def test_graph_relation_plus_context_does_not_create_attribute_inheritance():
     # Candidate asserts target entity (三维管线管理) itself has that feature -> Must be rejected (REVISE)!
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "属于关系不能与上下文资料组合成目标实体的自身属性",
         "claim_reviews": [
             {
@@ -826,6 +842,7 @@ def test_reviewer_cannot_upgrade_support_scope():
     # Reviewer prompt forbids upgrading CONTEXT_ONLY to TARGET_SPECIFIC.
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "CONTEXT_ONLY 证据不能被当成 TARGET_SPECIFIC 支撑目标功能",
         "claim_reviews": [
             {
@@ -868,6 +885,7 @@ def test_reviewer_cannot_upgrade_support_scope():
 def test_matrix_target_attribution_accepts_target_specific():
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "TARGET_ATTRIBUTION + TARGET_SPECIFIC 合法组合",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -890,6 +908,7 @@ def test_matrix_target_attribution_with_context_only_is_protocol_rejected():
     # 即使 LLM 判 supported，代码也必须按矩阵拒绝该组合。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "非法组合：TARGET_ATTRIBUTION 引用 CONTEXT_ONLY",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -920,6 +939,7 @@ def test_matrix_target_attribution_with_context_only_is_protocol_rejected():
 def test_matrix_target_attribution_with_relation_specific_is_protocol_rejected():
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "非法组合：TARGET_ATTRIBUTION 引用 RELATION_SPECIFIC",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -946,6 +966,7 @@ def test_matrix_contextual_fact_accepts_target_specific():
     # ✅* 方向：直接证据当然也能支撑更保守的上下文表述；反向不成立。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "CONTEXTUAL_FACT 引用 TARGET_SPECIFIC 属于更保守的合法组合",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -972,6 +993,7 @@ def test_matrix_contextual_fact_accepts_target_specific():
 def test_matrix_contextual_fact_with_relation_specific_is_protocol_rejected():
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "非法组合：CONTEXTUAL_FACT 引用 RELATION_SPECIFIC",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -997,6 +1019,7 @@ def test_matrix_contextual_fact_with_relation_specific_is_protocol_rejected():
 def test_matrix_relation_claim_accepts_relation_specific_only():
     mock_response = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "NONE",
         "summary": "RELATION_CLAIM + RELATION_SPECIFIC 合法组合",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1021,6 +1044,7 @@ def test_matrix_relation_claim_accepts_relation_specific_only():
 def test_matrix_relation_claim_with_context_only_is_protocol_rejected():
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "非法组合：RELATION_CLAIM 引用 CONTEXT_ONLY",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1053,6 +1077,7 @@ def test_matrix_graph_relation_plus_context_cannot_merge_into_target_attribution
     # 属性自动继承必须在代码矩阵处被拒绝。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "非法组合：把关系与上下文合并成目标实体自身属性",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1094,6 +1119,7 @@ def test_matrix_unknown_support_scope_fails_closed():
     # 注意区分：协议外证据（linear KB / external）缺 scope 是 OUT_OF_SCOPE_PROTOCOL，不裁决。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "UNKNOWN scope 不得支撑 supported knowledge_claim",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1121,6 +1147,7 @@ def test_matrix_out_of_protocol_external_evidence_is_not_adjudicated():
     # 继续由既有 Reviewer 语义核对兜底，缺席 scope 不构成协议错误。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "外部来源证据不参与矩阵",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1149,6 +1176,7 @@ def test_matrix_out_of_protocol_linear_kb_evidence_is_not_adjudicated():
     # 尚未迁移 Support Scope Protocol：本轮不执行 Matrix，继续既有 Reviewer 语义核对。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "线性路径 KB 文本不参与矩阵",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1177,6 +1205,7 @@ def test_matrix_mixed_protocol_and_external_citations_are_judged_per_citation():
     # → 整体 PASS。external citation 只豁免它自己，不得改变其他 citation 的核对。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "协议内 citation 合法、external citation 不裁决",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1208,6 +1237,7 @@ def test_matrix_external_citation_does_not_mask_illegal_protocol_citation():
     # 不得因为 external 不参与矩阵就跳过整个 Claim 的核对；[1] 仍必须按矩阵拒绝。
     mock_response = json.dumps({
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "external citation 不得掩盖协议内非法组合",
         "claim_reviews": [{
             "claim_id": "c1",
@@ -1293,6 +1323,7 @@ def test_matrix_unsupported_claim_is_not_subject_to_matrix():
         "action": "rewrite_to_supported_scope_or_remove",
         "instruction": "删除该断言",
     }]
+    payload["repair_mode"] = "REWRITE"
     # _review_payload 的证据是 TARGET_SPECIFIC；再换成 CONTEXT_ONLY 也应放行（unsupported 不核对矩阵）。
     reviewer = HelperGroundingReviewer(lambda _msgs: json.dumps(payload))
     doc = {
@@ -1303,6 +1334,44 @@ def test_matrix_unsupported_claim_is_not_subject_to_matrix():
 
     assert result.verdict == "REVISE"
     assert result.unsupported_claims[0].claim_scope == "TARGET_ATTRIBUTION"
+
+
+def test_retrieve_repair_keeps_verdict_and_exposes_descriptive_feedback():
+    payload = _revise_payload()
+    payload["repair_mode"] = "RETRIEVE"
+    payload["rewrite_actions"] = []
+    payload["retrieval_feedback"] = {
+        "gap_id": "stampserver-port",
+        "affected_claim_ids": ["c2"],
+        "missing_fact": "StampServer 默认端口的直接证据",
+        "subject_entity_ids": ["stampserver"],
+        "deficiency_type": "NO_DIRECT_EVIDENCE",
+        "reason": "当前快照没有端口事实",
+    }
+
+    result = _review_payload(payload)
+
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "RETRIEVE"
+    assert result.retrieval_feedback is not None
+    assert result.retrieval_feedback.gap_id == "stampserver-port"
+
+
+def test_reviewer_retrieve_feedback_rejects_query_or_tool_directives():
+    payload = _revise_payload()
+    payload["repair_mode"] = "RETRIEVE"
+    payload["rewrite_actions"] = []
+    payload["retrieval_feedback"] = {
+        "gap_id": "stampserver-port",
+        "affected_claim_ids": ["c2"],
+        "missing_fact": "默认端口",
+        "subject_entity_ids": ["stampserver"],
+        "deficiency_type": "NO_DIRECT_EVIDENCE",
+        "reason": "缺直接证据",
+        "query": "StampServer 默认端口",
+    }
+
+    _assert_protocol_error(_review_payload(payload), "forbidden_retrieval_directive:query")
 
 
 def test_structured_output_schema_requires_claim_scope():

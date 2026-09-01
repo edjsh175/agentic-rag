@@ -138,6 +138,7 @@ def test_dod_incident_chain_1_pipe_management_related_context():
     # Case 3a: Candidate directly claims target entity has feature -> REVISE
     mock_revise_json = json.dumps({
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "目标直接断言受 CONTEXT_ONLY 证据限制无法直接证明",
         "claim_reviews": [
             {
@@ -169,7 +170,9 @@ def test_dod_incident_chain_1_pipe_management_related_context():
 
     # Case 3b: Candidate uses contextual claim -> PASS (grounded_partial)
     mock_pass_json = json.dumps({
+        "verdict": "PASS",
         "coverage": "PARTIAL",
+        "repair_mode": "NONE",
         "summary": "上下文断言受 CONTEXT_ONLY 证据支持",
         "claim_reviews": [
             {

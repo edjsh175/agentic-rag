@@ -154,7 +154,7 @@ def test_second_retrieval_missing_gap_denied_by_harness():
         doc = _doc("c1", "StampServer 部署")
         doc["metadata"]["document_entity"] = "StampServer"
         pool.add_retrieve([doc], query=args["query"], head_entity="StampServer", target_entity="StampServer")
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 部署"}, source="llm"),
@@ -192,9 +192,12 @@ def test_second_retrieval_missing_gap_denied_by_harness():
     assert step2["guard"]["reason"] == "missing_retrieval_gap"
     assert step2["progress"] == ToolProgressStatus.DENIED
     assert step2["evidence_delta"] == {
-        "new_chunks": 0,
-        "new_entities": 0,
-        "new_relations": 0,
+            "new_chunks": 0,
+            "new_entities": 0,
+            "new_relations": 0,
+            "working_delta": 0,
+            "citable_delta": 0,
+            "gap_support_delta": 0,
         "evidence_version_before": 1,
         "evidence_version_after": 1,
         "status": ToolProgressStatus.DENIED,
@@ -204,19 +207,67 @@ def test_second_retrieval_missing_gap_denied_by_harness():
     assert len(result.tools) == 2
 
 
+def test_reviewer_feedback_is_only_an_observation_until_controller_selects_retrieve():
+    conv = ConversationContext.from_request("StampServer 端口是多少", [])
+    pool = EvidencePool(question_id="q")
+    feedback = {
+        "contract_version": 1,
+        "coverage": "NONE",
+        "claims": [{"claim_id": "c1", "claim": "默认端口", "reason_code": "missing_claim"}],
+    }
+    seen_observations = []
+
+    async def retrieve(args):
+        pool.add_retrieve([_doc("c1", "StampServer 默认端口是 8080")], query=args["query"])
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
+
+    def decide(_conv, _pool, observations):
+        seen_observations.extend(observations)
+        if len(observations) == 1:
+            return AgentDecision(
+                action="tool_call",
+                tool="retrieve_kb",
+                arguments={"query": "StampServer 默认端口"},
+                gap="默认端口",
+                expected_gain="获取端口事实",
+                source="llm",
+            )
+        return AgentDecision(action="finalize", source="llm")
+
+    result = asyncio.run(AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=3),
+        registry=build_agent_registry(),
+        handlers={"retrieve_kb": retrieve},
+        cfg=SimpleNamespace(agent_orchestration=SimpleNamespace(terminal_finalization_v2=True)),
+        decide_fn=decide,
+        initial_observations=[{
+            "tool": "reviewer_feedback",
+            "ok": False,
+            "status": "RETRIEVAL_GAP",
+            "summary": "冻结证据缺少端口事实",
+            "data": feedback,
+        }],
+        tool_timeout=0,
+    ).run())
+
+    assert seen_observations[0]["tool"] == "reviewer_feedback"
+    assert result.tools[0]["name"] == "retrieve_kb"
+
+
 def test_exhausted_gap_denied_by_harness():
-    """验证针对相同 target 重复探索已无增量的 Gap 时被 Harness 拦截。"""
+    """验证针对相同 target 重复探索已无增量的 Gap 时被 Harness 拦截（允许 1 次换 query 重试，连续失败后 exhausted）。"""
     conv = ConversationContext.from_request("StampServer 架构", [])
     conv.head_entity = "StampServer"
     pool = EvidencePool(question_id="q")
 
     async def retrieve(args):
-        # 第一次返回空
         pool.add_retrieve([], query=args["query"])
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="empty")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="empty", data={"retrieval_executed": True})
 
     decisions = iter([
-        # 第 1 步：尝试 gap A，未召回（NO_PROGRESS）
+        # 第 1 步：尝试 gap A，未召回（第 1 次失败）
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
@@ -225,11 +276,20 @@ def test_exhausted_gap_denied_by_harness():
             expected_gain="架构文档",
             source="llm",
         ),
-        # 第 2 步：再次尝试相同的已耗尽 gap A，应被 Harness 拦截
+        # 第 2 步：允许换 query 尝试相同 gap A（第 2 次尝试，仍未召回）
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
             arguments={"query": "StampServer 架构 2", "target_entity": "StampServer"},
+            gap="StampServer 架构图",
+            expected_gain="架构文档",
+            source="llm",
+        ),
+        # 第 3 步：连续 2 次无增量后，该 gap 已 exhausted，应被 Harness 拦截
+        AgentDecision(
+            action="tool_call",
+            tool="retrieve_kb",
+            arguments={"query": "StampServer 架构 3", "target_entity": "StampServer"},
             gap="StampServer 架构图",
             expected_gain="架构文档",
             source="llm",
@@ -239,7 +299,7 @@ def test_exhausted_gap_denied_by_harness():
     loop = AgentLoop(
         conversation=conv,
         evidence=pool,
-        budget=AgentBudget(max_steps=2),
+        budget=AgentBudget(max_steps=4, max_retrieve_attempts=4),
         registry=build_agent_registry(),
         handlers={"retrieve_kb": retrieve},
         cfg=SimpleNamespace(

@@ -468,14 +468,10 @@ class RagChain:
 
     @classmethod
     def _safe_record_agent_rejections(cls, trace: Any, result: Any) -> None:
-        """Expose Runtime/Harness identity denials that never reached a tool handler."""
+        """Expose the remaining structural grant denials that skip a tool handler."""
         rejection_errors = {
-            "broadening_after_target_rejection",
             "confirmed_topic_cannot_grant_entity",
-            "identity_not_confirmed",
-            "target_already_rejected",
             "target_entity_required",
-            "target_not_authorized",
         }
         for step in list(getattr(result, "agent_steps", ()) or ()):
             if not isinstance(step, dict):
@@ -3114,7 +3110,10 @@ class RagChain:
             if candidate is not None:
                 candidate.document = document
                 reranked.append(candidate)
-        from rag_knowledge.services.text_evidence_admission import TextEvidenceAdmissionService
+        from rag_knowledge.services.text_evidence_admission import (
+            TextEvidenceAdmissionService,
+            text_evidence_observation,
+        )
 
         cfg = getattr(self, "_cfg", None)
         admission_service = TextEvidenceAdmissionService(cfg=cfg)
@@ -3132,7 +3131,15 @@ class RagChain:
             }
         )
         admitted_at = time.perf_counter()
-        admitted_docs = admission_service.admitted_documents(reranked, admissions)
+        admitted_docs = admission_service.qualified_documents(reranked, admissions)
+        working_observations = [
+            text_evidence_observation(
+                candidate,
+                admissions.get(candidate.chunk_id),
+                target_entity=target,
+            )
+            for candidate in reranked
+        ]
         source_docs = [
             self._normalize_source(doc.page_content, doc.metadata, index + 1)
             for index, doc in enumerate(admitted_docs)
@@ -3152,6 +3159,7 @@ class RagChain:
             "admissions": {
                 chunk_id: result.to_dict() for chunk_id, result in admissions.items()
             },
+            "working_observations": working_observations,
             "snapshot_candidate_chunk_ids": [
                 str((doc.get("metadata") or {}).get("chunk_id") or "") for doc in source_docs
             ],
@@ -3225,7 +3233,7 @@ class RagChain:
         )
         return [
             self._normalize_source(doc.page_content, doc.metadata, index + 1)
-            for index, doc in enumerate(admission_service.admitted_documents(candidates, admissions))
+            for index, doc in enumerate(admission_service.qualified_documents(candidates, admissions))
         ]
 
     @staticmethod
@@ -3316,11 +3324,21 @@ class RagChain:
         clarification_options: list[dict[str, Any]] | None = None,
         clarification_selection_kind: str | None = None,
         clarification_free_text: str | None = None,
+        previous_cited_docs: list[dict[str, Any]] | None = None,
+        reviewer_feedback: dict[str, Any] | None = None,
+        resume_budget: dict[str, Any] | None = None,
+        resume_gap_registry: dict[str, Any] | None = None,
+        resume_continuous_no_progress_count: int = 0,
+        resume_exploration_fuse_open: bool = False,
+        resume_working_docs: list[dict[str, Any]] | None = None,
+        resume_graph_working_set: dict[str, Any] | None = None,
+        previous_snapshot_version: int | None = None,
         on_event=None,
         trace=None,
     ):
         from rag_knowledge.services.agent_orchestration.models import (
             AgentBudget,
+            AttemptedGapRegistry,
             ConversationContext,
             EvidencePool,
             ToolObservation,
@@ -3431,11 +3449,28 @@ class RagChain:
             max_entities=int(getattr(getattr(self, "_graph_cfg", None), "max_entities", 16) or 16),
         )
 
-        evidence = EvidencePool(question_id="current")
-        evidence.seed_previous_cited(
-            conv.session.last_sources,
-            head_entity=conv.previous_head_entity,
+        evidence = EvidencePool(
+            question_id="current",
+            evidence_epoch=conv.evidence_epoch,
+            snapshot_version=(
+                int(previous_snapshot_version) + 1
+                if previous_snapshot_version is not None else None
+            ),
         )
+        evidence.seed_previous_cited(
+            previous_cited_docs if previous_cited_docs is not None else conv.session.last_sources,
+            head_entity=conv.previous_head_entity,
+            # PRD §12.6: a Reviewer resume carries the V1 evidence into the
+            # current working evidence as ACTIVE, re-qualified under the
+            # current epoch — the system owns the V2 merge, not a Main
+            # reuse_evidence call.
+            carry_active=bool(reviewer_feedback),
+        )
+        if reviewer_feedback and resume_working_docs:
+            evidence.seed_resume_working(
+                resume_working_docs,
+                head_entity=conv.head_entity or conv.previous_head_entity,
+            )
         max_retries = int(getattr(orch, "max_retrieve_attempts", 2) or 2)
         hard_cap = int(getattr(orch, "hard_retrieve_cap", 8) or 8)
         budget = AgentBudget(
@@ -3443,6 +3478,17 @@ class RagChain:
             max_retrieve_attempts=max_retries,
             hard_retrieve_cap=hard_cap,
         )
+        if reviewer_feedback:
+            budget.restore_state(resume_budget)
+            self._safe_add_trace_event(
+                trace,
+                "reviewer_feedback_received",
+                {
+                    "gap_id": reviewer_feedback.get("gap_id"),
+                    "affected_claim_ids": list(reviewer_feedback.get("affected_claim_ids") or []),
+                    "budget": budget.to_dict(),
+                },
+            )
 
         async def emit(event: dict) -> None:
             if on_event is not None:
@@ -3512,39 +3558,58 @@ class RagChain:
                     "tool": "reuse_evidence",
                 }],
                 tool="reuse_evidence",
+                grant=grant,
             )
 
+        def _entity_name_from_verified_id(entity_id: str) -> str | None:
+            eid = str(entity_id or "").strip()
+            if not eid:
+                return None
+            if eid == str(conv.confirmed_entity_id or "").strip():
+                return conv.confirmed_entity or conv.head_entity
+            for candidate in conv.candidate_entities or ():
+                if str(getattr(candidate, "entity_id", "") or "").strip() == eid:
+                    return str(
+                        getattr(candidate, "canonical_name", None)
+                        or getattr(candidate, "name", None)
+                        or ""
+                    ).strip() or None
+            for linked in conv.linked_entities or ():
+                if not isinstance(linked, dict):
+                    continue
+                if str(linked.get("entity_id") or "").strip() == eid:
+                    return str(linked.get("canonical_name") or linked.get("name") or "").strip() or None
+            return None
+
         async def handle_retrieve(args: dict) -> ToolObservation:
-            query = str(args.get("query") or "").strip()
+            search_focus_text = str(args.get("search_focus_text") or "").strip()
+            query = search_focus_text or str(args.get("query") or "").strip()
             if not query:
                 return ToolObservation(
                     tool="retrieve_kb",
                     ok=False,
-                    summary="缺少必填检索参数 query",
-                    error="tool_missing_arg:query",
+                    summary="缺少检索文本 search_focus_text/query",
+                    error="tool_missing_arg:search_focus_text",
                     status=ToolProgressStatus.DENIED,
                 )
-            target = args.get("target_entity") if args.get("target_entity") is not None else conv.head_entity
-            # A graph neighbour is a retrieval path, not a second subject
-            # that the controller may silently bind the question to.
-            identity_targets = tuple(
-                getattr(conv.scope, "confirmed_entities", ()) or ()
-            ) or tuple(filter(None, (
-                getattr(conv.scope, "primary_entity", None),
-                conv.head_entity,
-            )))
-            target_value = str(target or "").strip()
-            if target_value and not any(
-                str(item or "").strip().casefold() == target_value.casefold()
-                for item in identity_targets
-            ):
+            focus_entity_id = str(args.get("focus_entity_id") or "").strip()
+            verified_focus_name = _entity_name_from_verified_id(focus_entity_id)
+            if focus_entity_id and not verified_focus_name:
                 return ToolObservation(
                     tool="retrieve_kb",
                     ok=False,
-                    summary="检索主体必须来自已确认 Identity；图谱邻居仅用于候选扩展",
-                    error="identity_target_required",
+                    summary="focus_entity_id 未对应当前已验证实体",
+                    error="unregistered_focus_entity_id",
                     status=ToolProgressStatus.DENIED,
                 )
+            # New protocol: identity semantics come only from verified IDs.
+            # target_entity remains compatibility-only for older callers; a
+            # free search_focus_text never silently rebinds the answer subject.
+            target = (
+                verified_focus_name
+                if verified_focus_name
+                else (args.get("target_entity") if args.get("target_entity") is not None else conv.head_entity)
+            )
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
                 self._safe_add_trace_event(
@@ -3663,9 +3728,20 @@ class RagChain:
                     "n": len(docs),
                     "mode": reported_mode,
                     "intent": intent or "general_qa",
+                    "search_focus_text": search_focus_text or query,
+                    "focus_entity_id": focus_entity_id or None,
                     "retrieval_trace": retrieval_trace_snapshot,
                     "grant_authorization": authorization.to_dict(),
                     "candidate_pipeline": getattr(self, "_last_agent_candidate_trace", None),
+                    "evidence_observations": list(
+                        (getattr(self, "_last_agent_candidate_trace", {}) or {}).get(
+                            "working_observations", ()
+                        )
+                    ),
+                    # PRD §10.1: executed is decided by the Retriever actually
+                    # running.  The DENIED paths above omit this flag, so the
+                    # loop never credits a vetoed/failed attempt.
+                    "retrieval_executed": True,
                 },
             )
 
@@ -3703,8 +3779,12 @@ class RagChain:
             )
             for doc in admitted_docs:
                 meta = dict(doc.get("metadata") or {})
+                binding = getattr(conv.scope, "binding_strength", None)
                 meta.update({
                     "identity_scope_id": getattr(conv.scope, "scope_id", ""),
+                    "identity_primary_entity": getattr(conv.scope, "primary_entity", None) or conv.head_entity or "",
+                    "scope_binding_strength": getattr(binding, "value", binding) or "",
+                    "scope_root": getattr(conv.scope, "primary_entity", None) or conv.head_entity or "",
                     "grant_id": grant.grant_id,
                     "grant_admitted": True,
                     "grant_source_type": grant.source_type,
@@ -3854,6 +3934,7 @@ class RagChain:
                                         "tool": "link_entities",
                                     }],
                                     tool="link_entities",
+                                    grant=grant,
                                 )
                     except Exception as exc:  # noqa: BLE001
                         logger.debug("graph explorer in handle_link: %s", exc)
@@ -4032,6 +4113,15 @@ class RagChain:
             additional_hops = int(_args.get("additional_hops", 1) or 1)
             goal_ents = _args.get("goal_entities")
 
+            # Resolve the identity grant so admitted relations carry the
+            # grant_id + identity_scope_id structure required for graph
+            # citable (PRD §4.3.1).
+            scope_grant = None
+            if conv.head_entity:
+                scope_auth = grant_resolver.authorize(conv.head_entity)
+                if scope_auth.authorized:
+                    scope_grant = scope_auth.grant
+
             # 4-source authorization:
             stage1_confirmed_entities = set(getattr(conv, "confirmed_entities", ()) or ())
             if conv.head_entity:
@@ -4101,6 +4191,7 @@ class RagChain:
                             target_entity=rel.origin_root or rel.target_name or rel.source_name,
                             provenance=prov,
                             tool="expand_graph_scope",
+                            grant=scope_grant,
                         )
 
             return obs
@@ -4115,6 +4206,20 @@ class RagChain:
         if web_search:
             handlers["web_search"] = handle_web_search
 
+        # Identity grant for graph bootstrap: admitted relations only become
+        # graph citable when they carry grant_id + identity_scope_id (§4.3.1).
+        loop_grant = None
+        if conv.head_entity:
+            loop_grant_auth = grant_resolver.authorize(conv.head_entity)
+            if loop_grant_auth.authorized:
+                loop_grant = loop_grant_auth.grant
+
+        restored_graph_working_set = None
+        if resume_graph_working_set:
+            from rag_knowledge.services.agent_orchestration.graph_working_set import GraphWorkingSet
+
+            restored_graph_working_set = GraphWorkingSet.from_trace(resume_graph_working_set)
+
         loop = AgentLoop(
             conversation=conv,
             evidence=evidence,
@@ -4125,10 +4230,66 @@ class RagChain:
             decide_fn=getattr(self, "_agent_decide_fn", None),
             tool_timeout=float(getattr(orch, "tool_timeout", 60.0) or 0.0),
             graph_explorer=graph_explorer,
+            graph_working_set=restored_graph_working_set,
+            grant=loop_grant,
+            gap_registry=(
+                AttemptedGapRegistry.from_dict(resume_gap_registry)
+                if resume_gap_registry
+                else None
+            ),
+            continuous_no_progress_count=int(resume_continuous_no_progress_count or 0),
+            exploration_fuse_open=bool(resume_exploration_fuse_open),
+            initial_observations=([
+                {
+                    "tool": "reviewer_feedback",
+                    "ok": False,
+                    "status": "RETRIEVE",
+                    "summary": "冻结证据快照存在 Reviewer 标记的缺口",
+                    "data": dict(reviewer_feedback),
+                },
+            ] if reviewer_feedback else None),
         )
         result = await loop.run(on_event=emit)
         self._safe_record_agent_rejections(trace, result)
         return result
+
+    @staticmethod
+    def _classify_empty_agent_publication(result) -> tuple[str, str, str]:
+        """Classify an Agent turn with no Citable snapshot by actual retrieval facts."""
+        budget = dict(getattr(result, "budget", {}) or {})
+        accounting = dict(budget.get("retrieval_accounting") or {})
+        requested = int(accounting.get("requested") or 0)
+        guard_rejected = int(accounting.get("guard_rejected") or 0)
+        executed = int(accounting.get("executed") or 0)
+        returned = int(accounting.get("returned") or 0)
+        working_count = 0
+        evidence = getattr(result, "evidence", None)
+        if evidence is not None and hasattr(evidence, "working_docs"):
+            working_count = len(evidence.working_docs())
+
+        if executed == 0 and (requested > 0 or guard_rejected > 0):
+            return (
+                "retrieval_blocked",
+                "本次知识库检索未能实际执行，暂时无法根据知识库回答。",
+                "知识库检索未实际执行。",
+            )
+        if executed > 0 and returned == 0:
+            return (
+                "retrieved_no_hits",
+                NO_KNOWLEDGE_ANSWER,
+                "知识库检索已执行，但未返回候选内容。",
+            )
+        if executed > 0 and (returned > 0 or working_count > 0):
+            return (
+                "retrieved_no_support",
+                "知识库检索到了候选内容，但当前没有可支撑该问题的证据。",
+                "知识库存在候选内容，但没有通过 Citable Qualification 的支撑证据。",
+            )
+        return (
+            "no_safe_answer",
+            "当前没有足够的可验证证据生成安全答案。",
+            "当前没有足够的可验证证据。",
+        )
 
     def _agent_answer_docs(self, result):
         answer_context = getattr(result, "answer_context", None)
@@ -4151,6 +4312,260 @@ class RagChain:
         if gate and not gate.get("allow_knowledge_answer", True):
             return [], frozen_docs
         return frozen_docs, frozen_docs
+
+    async def _iter_reviewer_resume_loop(
+        self,
+        *,
+        q,
+        history,
+        kb_name,
+        doc_category,
+        entity_name,
+        web_search,
+        pinned_chunk_ids,
+        excluded_chunk_ids,
+        clarification_question,
+        clarification_selected,
+        clarification_option_id,
+        clarification_snapshot_id,
+        clarification_selected_candidate,
+        clarification_options,
+        clarification_selection_kind,
+        clarification_free_text,
+        result,
+        source_docs,
+        retrieved_source_docs,
+        history_summary,
+        answer_context,
+        context,
+        finalized,
+        agent_prompt,
+        allow_general,
+        is_direct_chat,
+        guarded_model,
+        generate_candidate,
+        forward_retry_reasoning,
+        emit_candidate_status,
+        re_finalize_when_empty,
+        state: dict,
+        trace,
+    ):
+        """Bounded Reviewer-resume state machine (PRD §12.2/§12.3/§12.5/§12.6).
+
+        Runs Main Controller resume rounds while the Helper Grounding Reviewer
+        keeps asking for retrieval.  Each round: re-runs the Agent loop under
+        the reviewer's gap contract, re-generates the candidate, and
+        re-finalizes (system-owned V2 merge).  The loop terminates when the
+        reviewer approves/abstains (feedback becomes ``None``), when retrieval
+        budget is exhausted (``retrieval_blocked``), when the resumed round
+        made no progress on the gap, or when the defensive round cap is hit.
+        Lifecycle events are yielded for the caller to record/forward; the
+        final agent state is written back into ``state``.
+        """
+        orch = getattr(self._cfg, "agent_orchestration", None)
+        max_rounds = int(getattr(orch, "max_reviewer_resume_rounds", 3) or 3)
+        rounds = 0
+        feedback = finalized.retrieval_feedback
+        v1_snapshot_id = getattr(result.evidence_snapshot, "snapshot_id", None)
+
+        while feedback and rounds < max_rounds:
+            remaining = dict(getattr(result, "budget", {}) or {})
+            can_resume = (
+                int(remaining.get("remaining_retrieve_attempts") or 0) > 0
+                and int(remaining.get("steps_used") or 0) < int(remaining.get("max_steps") or 0)
+            )
+            if not can_resume:
+                # §14.1: retrieval_blocked is a distinct terminal — the reviewer
+                # asked for more evidence but the budget is gone.
+                finalized.grounding.update({
+                    "final_mode": "retrieval_blocked",
+                    "publication_state": "retrieval_blocked",
+                    "reasons": list(finalized.grounding.get("reasons") or []) + ["retrieval_resume_blocked"],
+                })
+                break
+
+            # §12.5: a resumed round that exhausted the gap / tripped the
+            # exploration fuse is terminal — do not keep patching the same hole.
+            if rounds > 0 and set(getattr(result, "fallbacks", None) or ()) & {
+                "exhausted_gap",
+                "exploration_fuse_open",
+                "retrieve_budget_exhausted",
+            }:
+                if result.evidence.citable_docs():
+                    terminal_state = "no_safe_answer"
+                else:
+                    terminal_state, _terminal_answer, _terminal_message = self._classify_empty_agent_publication(result)
+                finalized.grounding.update({
+                    "final_mode": terminal_state,
+                    "publication_state": terminal_state,
+                    "reasons": list(finalized.grounding.get("reasons") or []) + ["reviewer_resume_no_progress"],
+                })
+                break
+
+            resume_events: list[dict[str, Any]] = []
+
+            async def _capture_resume_event(event: dict[str, Any]) -> None:
+                resume_events.append(event)
+
+            resumed = await self._run_agent_turn(
+                q,
+                history=history,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                entity_name=entity_name,
+                web_search=bool(web_search),
+                pinned_chunk_ids=pinned_chunk_ids,
+                excluded_chunk_ids=excluded_chunk_ids,
+                clarification_question=clarification_question,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+                clarification_options=clarification_options,
+                clarification_selection_kind=clarification_selection_kind,
+                clarification_free_text=clarification_free_text,
+                previous_cited_docs=source_docs,
+                reviewer_feedback=feedback,
+                resume_budget=remaining,
+                resume_gap_registry=getattr(result, "gap_registry", None),
+                resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                resume_working_docs=result.evidence.working_only_docs(),
+                resume_graph_working_set=(
+                    result.graph_working_set.to_trace()
+                    if getattr(result, "graph_working_set", None) is not None
+                    and hasattr(result.graph_working_set, "to_trace")
+                    else None
+                ),
+                previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                on_event=_capture_resume_event,
+                trace=trace,
+            )
+            for event in resume_events:
+                yield event
+
+            resumed_source_docs, resumed_retrieved_docs = self._agent_answer_docs(resumed)
+            if not resumed_source_docs:
+                break
+            result = resumed
+            source_docs = resumed_source_docs
+            retrieved_source_docs = resumed_retrieved_docs
+            context = self._format_context(source_docs)
+            trace.set_agent(result.to_trace())
+            self._safe_set_retrieval(
+                trace,
+                retrieved_source_docs,
+                retrieval_trace=getattr(result, "retrieval_trace", None),
+            )
+            self._safe_add_trace_event(
+                trace,
+                "reviewer_feedback_resumed",
+                {
+                    "gap_id": feedback.get("gap_id"),
+                    "snapshot_id": v1_snapshot_id,
+                    "new_snapshot_id": getattr(result.evidence_snapshot, "snapshot_id", None),
+                    "retrieve_attempts": result.retrieve_attempts,
+                },
+            )
+            pack = self._pack_agent_answer_context(
+                result,
+                source_docs,
+                context,
+                history,
+                q,
+                agent_prompt=agent_prompt,
+            )
+            source_docs = self._freeze_generation_source_docs(pack.source_docs)
+            context = self._format_context(source_docs)
+            history = pack.history
+            history_summary = pack.history_summary
+            trace.set_pack(pack.decision)
+            answer_context = getattr(result, "answer_context", None)
+            if answer_context is not None:
+                from rag_knowledge.services.agent_orchestration.runtime import (
+                    build_answer_generation_messages,
+                )
+
+                msgs = build_answer_generation_messages(answer_context, agent_prompt=agent_prompt)
+            else:
+                msgs = self._build_messages(
+                    q,
+                    context,
+                    history,
+                    agent_prompt=agent_prompt,
+                    allow_general_knowledge=allow_general,
+                    history_summary=history_summary,
+                    prompt_layout="agent",
+                    is_direct_chat=is_direct_chat,
+                    has_evidence=bool(source_docs),
+                )
+            if emit_candidate_status:
+                yield {
+                    "type": "candidate_status",
+                    "data": {
+                        "version": rounds + 2,
+                        "status": "generating",
+                        "message": "Main Controller 已完成补检，正在生成 Candidate V%s。" % (rounds + 2),
+                    },
+                }
+            v2_text = await generate_candidate(msgs)
+            if not v2_text or not v2_text.strip():
+                if not re_finalize_when_empty:
+                    break
+
+            # §12.6: system-owned merge — re-finalize the resumed candidate
+            # under the frozen snapshot context.  Lifecycle events stream from
+            # the worker thread through the loop queue so they stay ordered.
+            lifecycle_queue: asyncio.Queue = asyncio.Queue()
+            curr_loop = asyncio.get_running_loop()
+
+            def _on_lifecycle_sync(evt: dict[str, Any]) -> None:
+                curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, evt)
+
+            async def _run_finalize_task():
+                try:
+                    return await asyncio.to_thread(
+                        _ANSWER_FINALIZER.finalize,
+                        v2_text,
+                        q,
+                        source_docs,
+                        allow_general_knowledge=allow_general,
+                        is_direct_chat=is_direct_chat,
+                        retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                            guarded_model,
+                            q,
+                            v2_text,
+                            source_docs,
+                            review_result,
+                            on_reasoning_event=_on_lifecycle_sync if forward_retry_reasoning else None,
+                        ),
+                        helper_reviewer=self._helper_grounding_reviewer(),
+                        on_lifecycle_event=_on_lifecycle_sync,
+                    )
+                finally:
+                    curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
+
+            fin_task = asyncio.create_task(_run_finalize_task())
+            while True:
+                evt = await lifecycle_queue.get()
+                if evt is None:
+                    break
+                yield evt
+            finalized = await fin_task
+            feedback = finalized.retrieval_feedback
+            rounds += 1
+
+        state.update({
+            "result": result,
+            "source_docs": source_docs,
+            "retrieved_source_docs": retrieved_source_docs,
+            "history": history,
+            "history_summary": history_summary,
+            "answer_context": answer_context,
+            "context": context,
+            "finalized": finalized,
+            "resume_rounds": rounds,
+        })
 
     async def _iter_with_heartbeat(
         self,
@@ -4332,9 +4747,21 @@ class RagChain:
                 "selected": clarification_selected,
                 "options": result.clarify.get("options") or [],
             })
+            publication_event = {
+                "type": "publication",
+                "data": {
+                    "final_mode": "clarification_required",
+                    "publication_state": "clarification_required",
+                    "review_verdict": "NONE",
+                    "coverage": "NONE",
+                    "message": "当前需要先确认回答主体。",
+                },
+            }
+            self._record_execution_event(trace, publication_event)
             tid = self._commit_qa_trace(
                 trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
             )
+            yield publication_event
             yield {"type": "clarify", "data": result.clarify}
             yield {"type": "sources", "data": []}
             if pipeline_events:
@@ -4376,13 +4803,14 @@ class RagChain:
         trace.mark("retrieve")
 
         if not is_direct_chat and not source_docs and not allow_general:
-            evidence = build_evidence_pack(NO_KNOWLEDGE_ANSWER, retrieved_source_docs, [])
-            publication_event = {"type": "publication", "data": {"final_mode": "no_knowledge", "review_verdict": "NONE", "coverage": "NONE", "message": "知识库未查询到相关内容。"}}
-            final_answer_event = {"type": "final_answer", "data": NO_KNOWLEDGE_ANSWER}
+            publication_state, terminal_answer, terminal_message = self._classify_empty_agent_publication(result)
+            evidence = build_evidence_pack(terminal_answer, retrieved_source_docs, [])
+            publication_event = {"type": "publication", "data": {"final_mode": publication_state, "publication_state": publication_state, "review_verdict": "NONE", "coverage": "NONE", "message": terminal_message}}
+            final_answer_event = {"type": "final_answer", "data": terminal_answer}
             self._record_execution_event(trace, publication_event)
             self._record_execution_event(trace, final_answer_event)
             tid = self._commit_qa_trace(
-                trace, answer=NO_KNOWLEDGE_ANSWER,
+                trace, answer=terminal_answer,
                 retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
             )
             yield publication_event
@@ -4393,7 +4821,7 @@ class RagChain:
                     "type": "pipeline",
                     "data": {
                         "stage": "done",
-                        "answer": NO_KNOWLEDGE_ANSWER,
+                        "answer": terminal_answer,
                         "evidence": evidence,
                         "agent": result.to_trace(),
                     },
@@ -4687,6 +5115,71 @@ class RagChain:
             yield evt
         finalized = await fin_task
 
+        feedback = finalized.retrieval_feedback
+        if feedback:
+            resume_state: dict[str, Any] = {}
+
+            async def _generate_v2(msgs):
+                v2_parts: list[str] = []
+                async for part in achat_stream_parts(
+                    ep,
+                    msgs,
+                    default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                    temperature=0.1,
+                    timeout=600.0,
+                    num_predict=reasoning_num_predict,
+                    think=bool(enable_model_thinking),
+                    num_ctx=self._cfg.context_budget.context_window,
+                ):
+                    if part.delta and part.kind != "reasoning":
+                        v2_parts.append(part.delta)
+                return "".join(v2_parts)
+
+            async for event in self._iter_reviewer_resume_loop(
+                q=q,
+                history=history,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                entity_name=entity_name,
+                web_search=bool(web_search),
+                pinned_chunk_ids=pinned_chunk_ids,
+                excluded_chunk_ids=excluded_chunk_ids,
+                clarification_question=clarification_question,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+                clarification_options=clarification_options,
+                clarification_selection_kind=clarification_selection_kind,
+                clarification_free_text=clarification_free_text,
+                result=result,
+                source_docs=source_docs,
+                retrieved_source_docs=retrieved_source_docs,
+                history_summary=history_summary,
+                answer_context=answer_context,
+                context=context,
+                finalized=finalized,
+                agent_prompt=agent_prompt,
+                allow_general=allow_general,
+                is_direct_chat=is_direct_chat,
+                guarded_model=guarded_model,
+                generate_candidate=_generate_v2,
+                forward_retry_reasoning=True,
+                emit_candidate_status=True,
+                state=resume_state,
+                trace=trace,
+            ):
+                self._record_execution_event(trace, event)
+                yield event
+            result = resume_state["result"]
+            source_docs = resume_state["source_docs"]
+            retrieved_source_docs = resume_state["retrieved_source_docs"]
+            history = resume_state["history"]
+            history_summary = resume_state["history_summary"]
+            answer_context = resume_state["answer_context"]
+            context = resume_state["context"]
+            finalized = resume_state["finalized"]
+
         answer_text = finalized.answer
         final_answer_event = {"type": "final_answer", "data": answer_text}
         self._record_execution_event(trace, final_answer_event)
@@ -4810,6 +5303,7 @@ class RagChain:
                 "answer": "",
                 "source_documents": [],
                 "clarification": result.clarify,
+                "publication_state": "clarification_required",
             }
             if tid:
                 out["trace_id"] = tid
@@ -4834,16 +5328,23 @@ class RagChain:
             or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
         )
         if not source_docs and not allow_general and not is_direct_chat:
+            publication_state, terminal_answer, _terminal_message = self._classify_empty_agent_publication(result)
+            self._safe_set_grounding(trace, {
+                "final_mode": publication_state,
+                "publication_state": publication_state,
+                "coverage": "NONE",
+                "reasons": [publication_state],
+            }, allow_general=False)
             tid = self._commit_qa_trace(
-                trace, answer=NO_KNOWLEDGE_ANSWER,
+                trace, answer=terminal_answer,
                 retrieved_docs=retrieved_source_docs, context_docs=[], cited_docs=[],
             )
-            out = {"answer": NO_KNOWLEDGE_ANSWER, "source_documents": []}
+            out = {"answer": terminal_answer, "source_documents": [], "publication_state": publication_state}
             if tid:
                 out["trace_id"] = tid
             if include_evidence:
                 out["evidence_chain"] = build_evidence_pack(
-                    NO_KNOWLEDGE_ANSWER, retrieved_source_docs, []
+                    terminal_answer, retrieved_source_docs, []
                 )
             return out
 
@@ -4902,6 +5403,67 @@ class RagChain:
             helper_reviewer=self._helper_grounding_reviewer(),
             on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
         )
+        feedback = finalized.retrieval_feedback
+        if feedback:
+            resume_state: dict[str, Any] = {}
+
+            async def _generate_v2(msgs):
+                lc_msgs = []
+                for message in msgs:
+                    if message["role"] == "system":
+                        lc_msgs.append(SystemMessage(content=message["content"]))
+                    elif message["role"] == "assistant":
+                        lc_msgs.append(AIMessage(content=message["content"]))
+                    else:
+                        lc_msgs.append(HumanMessage(content=message["content"]))
+                answer = await asyncio.to_thread(llm.invoke, lc_msgs)
+                return answer.content if hasattr(answer, "content") else str(answer)
+
+            async for event in self._iter_reviewer_resume_loop(
+                q=q,
+                history=history,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                entity_name=entity_name,
+                web_search=bool(web_search),
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                clarification_question=clarification_question,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+                clarification_options=clarification_options,
+                clarification_selection_kind=clarification_selection_kind,
+                clarification_free_text=clarification_free_text,
+                result=result,
+                source_docs=source_docs,
+                retrieved_source_docs=retrieved_source_docs,
+                history_summary=history_summary,
+                answer_context=answer_context,
+                context=context,
+                finalized=finalized,
+                agent_prompt=agent_prompt,
+                allow_general=allow_general,
+                is_direct_chat=is_direct_chat,
+                guarded_model=guarded_model,
+                generate_candidate=_generate_v2,
+                forward_retry_reasoning=False,
+                emit_candidate_status=False,
+                re_finalize_when_empty=True,
+                state=resume_state,
+                trace=trace,
+            ):
+                self._record_execution_event(trace, event)
+            result = resume_state["result"]
+            source_docs = resume_state["source_docs"]
+            retrieved_source_docs = resume_state["retrieved_source_docs"]
+            history = resume_state["history"]
+            history_summary = resume_state["history_summary"]
+            answer_context = resume_state["answer_context"]
+            context = resume_state["context"]
+            finalized = resume_state["finalized"]
+
         answer_content = finalized.answer
         self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
         cited = self._filter_cited_sources(answer_content, source_docs)

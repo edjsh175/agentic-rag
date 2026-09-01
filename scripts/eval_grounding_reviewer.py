@@ -174,6 +174,7 @@ def evaluate_publication_contract() -> dict[str, Any]:
     revise = HelperGroundingReviewResult(
         "REVISE",
         "FULL",
+        repair_mode="REWRITE",
         claim_reviews=[claim, unsupported],
         rewrite_actions=[
             RewriteAction("c1", "preserve", "保留事实 A"),

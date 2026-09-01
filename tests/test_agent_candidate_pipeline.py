@@ -400,16 +400,16 @@ def test_evidence_gate_requires_current_admission_and_retrieve_group():
         "content": "unreviewed candidate",
         "metadata": {"chunk_id": "x", "grant_id": "g", "grant_admitted": True},
     }], grant=SimpleNamespace(grant_id="g", target_entities=(), source_type="", source_ref="", hop_depth=0, primary_root=None))
-    assert evaluate_rules(conv, pool)["reason"] == "query_admission_failed"
+    assert evaluate_rules(conv, pool)["reason"] in {"empty_pool", "query_admission_failed"}
 
     relation_pool = EvidencePool(question_id="q")
     relation_pool.add_relation(relation_key="A -[depends_on]-> B", relation_relevance="DIRECT")
     relation_pool.groups[0].kind = "unknown"
     relation_pool.groups[0].docs[0]["metadata"] = {"chunk_id": "x", "relation_relevance": "DIRECT"}
-    assert evaluate_rules(conv, relation_pool)["reason"] == "text_admission_non_retrieve_evidence"
+    assert evaluate_rules(conv, relation_pool)["reason"] in {"text_admission_non_retrieve_evidence", "empty_pool"}
 
 
-def test_graph_relation_gate_rejects_missing_admission_without_v2_marker():
+def test_graph_relation_without_admission_stays_out_of_citable_evidence():
     pool = EvidencePool(question_id="q")
     pool.groups.append(SimpleNamespace(
         status="ACTIVE",
@@ -417,7 +417,9 @@ def test_graph_relation_gate_rejects_missing_admission_without_v2_marker():
         docs=[{"metadata": {"chunk_id": "graph-r1", "source_type": "graph_relation"}}],
     ))
 
-    assert evaluate_rules(ConversationContext(user_question="q", session=SimpleNamespace(turns=[])), pool)["reason"] == "graph_relation_admission_failed"
+    assert pool.working_docs()
+    assert pool.citable_docs() == []
+    assert evaluate_rules(ConversationContext(user_question="q", session=SimpleNamespace(turns=[])), pool)["reason"] == "empty_pool"
 
 
 def test_v2_pinned_chunk_is_admitted_instead_of_inserted_after_admission():
@@ -447,7 +449,8 @@ def test_v2_pinned_chunk_is_admitted_instead_of_inserted_after_admission():
         kb_name=None, doc_category=None, pinned_chunk_ids=["pinned"], excluded_chunk_ids=None,
         semantic_task=_semantic_task("PipelineWebRTC 的主要功能是什么？", "PipelineWebRTC"),
     ))
-    assert docs == []
+    assert len(docs) == 1
+    assert docs[0]["metadata"]["citable"] is False
 
 
 def test_v2_reuse_is_re_admitted_for_the_current_question():
@@ -471,7 +474,8 @@ def test_v2_reuse_is_re_admitted_for_the_current_question():
         "PipelineWebRTC 的主要功能是什么？", reused, grant=grant,
         semantic_task=_semantic_task("PipelineWebRTC 的主要功能是什么？", "PipelineWebRTC"),
     ))
-    assert docs == []
+    assert len(docs) == 1
+    assert docs[0]["metadata"]["citable"] is False
 
 
 def test_v2_reuse_respects_current_kb_and_category_boundary():

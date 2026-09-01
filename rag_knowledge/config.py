@@ -218,6 +218,10 @@ class AgentOrchestrationConfig:
     reasoning_stream_policy: str = "summarized"
     trace_reasoning_policy: str = "summarized"
     trace_reasoning_max_chars: int = 4000
+    # Bounded Reviewer-resume state machine (PRD §12.2/§12.5): how many
+    # REVISE+RETRIEVE rounds the Main Controller may run after the initial
+    # candidate before gap/budget/fuse termination.
+    max_reviewer_resume_rounds: int = 3
 
 
 @dataclass
@@ -667,6 +671,9 @@ class Config:
             ).strip().lower(),
             trace_reasoning_max_chars=int(
                 _get("agent_orchestration", "trace_reasoning_max_chars", "4000")
+            ),
+            max_reviewer_resume_rounds=int(
+                _get("agent_orchestration", "max_reviewer_resume_rounds", "3")
             ),
         )
 

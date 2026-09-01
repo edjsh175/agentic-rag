@@ -29,6 +29,15 @@ class FinalizedAnswer:
     def final_mode(self) -> str:
         return self.grounding.get("final_mode", "")
 
+    @property
+    def publication_state(self) -> str:
+        return self.grounding.get("publication_state", "")
+
+    @property
+    def retrieval_feedback(self) -> dict[str, Any] | None:
+        feedback = self.grounding.get("retrieval_feedback")
+        return dict(feedback) if isinstance(feedback, dict) else None
+
 
 class AnswerFinalizer:
     """Single publication gate for generated RAG answers (PRD V1.2 double-dimension + atomic claim protocol).
@@ -39,7 +48,8 @@ class AnswerFinalizer:
     If the candidate passes with PARTIAL coverage, it is published as 'grounded_partial'.
     If revisions are requested (REVISE), Main LLM is given exactly one chance to rewrite
     according to atomic claim rewrite actions, followed by a second review.
-    Candidates that fail review are blocked with a controlled message (no chunk fallback dump).
+    A Reviewer RETRIEVE repair mode is returned to the Main Controller as a
+    descriptive feedback contract. This class never selects or calls a tool.
     """
 
     def finalize(
@@ -119,14 +129,18 @@ class AnswerFinalizer:
             return res
 
         if not text or text == NO_KNOWLEDGE_ANSWER:
+            # Finalizer does not own retrieval lifecycle/accounting, so it must
+            # not guess `retrieved_no_hits`. The outer Agent runtime classifies
+            # no-hits / no-support / blocked from actual Retriever facts.
             _emit({
                 "type": "publication",
                 "data": {
-                    "final_mode": "no_knowledge",
+                    "final_mode": "no_safe_answer",
+                    "publication_state": "no_safe_answer",
                     "review_verdict": "NONE",
                     "coverage": "NONE",
                     "published_candidate_attempt": 0,
-                    "message": "未检索到相关内容，发布无知识回答。",
+                    "message": "候选答案为空或不可发布，未对检索结果类型作推断。",
                 },
             })
             return FinalizedAnswer(
@@ -137,7 +151,8 @@ class AnswerFinalizer:
                     "coverage": "NONE",
                     "reasons": ["empty_or_no_knowledge_candidate"],
                     "unsupported_segments": [],
-                    "final_mode": "no_knowledge",
+                    "final_mode": "no_safe_answer",
+                    "publication_state": "no_safe_answer",
                     "fallback_used": False,
                     "candidate_attempts": 0,
                     "review_count": 0,
@@ -170,6 +185,7 @@ class AnswerFinalizer:
                 "type": "publication",
                 "data": {
                     "final_mode": "reviewer_error",
+                    "publication_state": "reviewer_error",
                     "review_verdict": "ERROR",
                     "coverage": "NONE",
                     "published_candidate_attempt": None,
@@ -185,6 +201,7 @@ class AnswerFinalizer:
                     "reasons": ["reviewer_not_configured"],
                     "unsupported_segments": [],
                     "final_mode": "reviewer_error",
+                    "publication_state": "reviewer_error",
                     "fallback_used": False,
                     "candidate_attempts": 1,
                     "review_count": 0,
@@ -262,6 +279,7 @@ class AnswerFinalizer:
                 "type": "publication",
                 "data": {
                     "final_mode": final_mode,
+                    "publication_state": "grounded_partial" if review1.is_partial else "grounded_full",
                     "review_verdict": "PASS",
                     "coverage": review1.coverage,
                     "published_candidate_attempt": 1,
@@ -291,7 +309,11 @@ class AnswerFinalizer:
             )
 
         # 2. Directed atomic claim rewrite (at most 1 retry) if REVISE
-        if review1.verdict == "REVISE" and retry_candidate is not None:
+        if (
+            review1.verdict == "REVISE"
+            and review1.repair_mode == "REWRITE"
+            and retry_candidate is not None
+        ):
             candidate_attempts = 2
             _emit({
                 "type": "rewrite_status",
@@ -405,6 +427,7 @@ class AnswerFinalizer:
                         "type": "publication",
                         "data": {
                             "final_mode": "reviewer_error",
+                            "publication_state": "reviewer_error",
                             "review_verdict": review2.verdict,
                             "coverage": review2.coverage,
                             "published_candidate_attempt": None,
@@ -446,6 +469,7 @@ class AnswerFinalizer:
                         "type": "publication",
                         "data": {
                             "final_mode": final_mode,
+                            "publication_state": "grounded_partial" if review2.is_partial else "grounded_full",
                             "review_verdict": "PASS",
                             "coverage": review2.coverage,
                             "published_candidate_attempt": 2,
@@ -498,7 +522,7 @@ class AnswerFinalizer:
                     },
                 })
 
-        elif review1.verdict == "REVISE":
+        elif review1.verdict == "REVISE" and review1.repair_mode == "REWRITE":
             _emit({
                 "type": "rewrite_status",
                 "data": {
@@ -517,13 +541,46 @@ class AnswerFinalizer:
                 },
             })
 
-        # 3. Blocked from publication
+        # 3. A retrieval repair is not a publication and never changes verdict.
         last_verdict = last_review.verdict
         last_coverage = last_review.coverage
+        retrieval_feedback = self._retrieval_feedback_for_controller(last_review)
+        if retrieval_feedback is not None:
+            _emit({
+                "type": "retrieval_feedback",
+                "data": {
+                    "status": "requested",
+                    "gap_id": retrieval_feedback["gap_id"],
+                    "affected_claim_ids": retrieval_feedback["affected_claim_ids"],
+                    "message": "当前冻结证据不足，已形成检索缺口反馈，等待 Main Controller 决定是否补检。",
+                },
+            })
+            return FinalizedAnswer(
+                answer=REVIEW_BLOCKED_ANSWER,
+                grounding={
+                    "policy": "strict_kb",
+                    "verdict": last_verdict.lower(),
+                    "coverage": last_coverage,
+                    "review_verdict": last_verdict,
+                    "repair_mode": "RETRIEVE",
+                    "review_count": review_count,
+                    "review_attempts": review_count,
+                    "reasons": ["grounding_retrieval_feedback"],
+                    "unsupported_segments": [c.claim for c in last_review.unsupported_claims],
+                    "details": last_review.to_dict(),
+                    "retrieval_feedback": retrieval_feedback,
+                    "candidate_attempts": candidate_attempts,
+                    "attempts": attempts,
+                    "final_mode": "retrieval_pending",
+                    "publication_state": "retrieval_pending",
+                    "fallback_used": False,
+                },
+            )
         _emit({
             "type": "publication",
             "data": {
                 "final_mode": "review_blocked",
+                "publication_state": "no_safe_answer",
                 "review_verdict": last_verdict,
                 "coverage": last_coverage,
                 "published_candidate_attempt": None,
@@ -547,10 +604,25 @@ class AnswerFinalizer:
                 "details": last_review.to_dict(),
                 "candidate_attempts": candidate_attempts,
                 "attempts": attempts,
-                "final_mode": "review_blocked",
+                "final_mode": "no_safe_answer",
+                "publication_state": "no_safe_answer",
                 "fallback_used": False,
             },
         )
+
+    @staticmethod
+    def _retrieval_feedback_for_controller(
+        review: HelperGroundingReviewResult,
+    ) -> dict[str, Any] | None:
+        """Return only the Reviewer-authored RETRIEVE contract to Main."""
+        if (
+            review.error
+            or review.verdict != "REVISE"
+            or review.repair_mode != "RETRIEVE"
+            or review.retrieval_feedback is None
+        ):
+            return None
+        return review.retrieval_feedback.to_dict()
 
     @staticmethod
     def _freeze_review_coverage(
@@ -597,6 +669,11 @@ class AnswerFinalizer:
                 "review_count": review_count,
                 "verdict": result.verdict,
                 "coverage": result.coverage,
+                "repair_mode": result.repair_mode,
+                "retrieval_feedback": (
+                    result.retrieval_feedback.to_dict()
+                    if result.retrieval_feedback is not None else None
+                ),
                 "claim_count": len(claims),
                 "unsupported_count": sum(c.status == "unsupported" for c in claims),
                 "contradicted_count": sum(c.status == "contradicted" for c in claims),

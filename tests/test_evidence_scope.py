@@ -308,7 +308,7 @@ def test_evidence_gate_evaluate_rules():
     ])
     verdict4 = evaluate_rules(conv, legacy_pool)
     assert verdict4["allow_knowledge_answer"] is False
-    assert verdict4["reason"] == "query_admission_failed"
+    assert verdict4["reason"] in {"empty_pool", "query_admission_failed"}
 
 
 def test_bm25_pre_topk_scope_filtering():

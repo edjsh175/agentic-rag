@@ -253,7 +253,7 @@ def test_finalize_rejection_returns_observation_then_controller_retrieves():
 
     async def retrieve(args):
         pool.add_retrieve([_doc("c1")], query=args["query"])
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     events = []
 
@@ -307,7 +307,7 @@ def test_rejected_finalize_observation_contains_no_recovery_action():
 
     async def retrieve(args):
         pool.add_retrieve([_doc("c1")], query=args["query"])
-        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     result = asyncio.run(
         AgentLoop(
@@ -474,6 +474,7 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
         pool.add_relation(
             relation_key="ModelBuilder -[different_from]-> UEModelBuilder",
             target_entity="ModelBuilder",
+            grant=SimpleNamespace(grant_id="grant-mb-ue", identity_scope_id="scope-mb"),
             relation_relevance="DIRECT",
         )
         return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation=1")
@@ -931,6 +932,7 @@ def test_answer_prompt_uses_snapshot_citations_and_excludes_history_facts():
     pool.add_relation(
         relation_key="PipelineWebGL -[belongs_to]-> WebGL",
         target_entity="PipelineWebGL",
+        grant=SimpleNamespace(grant_id="grant-pwgl", identity_scope_id="scope-pwgl"),
         provenance=[{
             "source_ref": "relation:r1",
             "relation_type": "belongs_to",

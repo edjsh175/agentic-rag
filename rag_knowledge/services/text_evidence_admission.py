@@ -109,6 +109,63 @@ def valid_text_qualification_protocol(
     return True
 
 
+def is_citable_text_qualification(qualification: TextEvidenceQualification | None) -> bool:
+    """Return whether a text qualification may be routed to Citable evidence.
+
+    This is a routing predicate, not a second admission decision.  The exact
+    evidence_class/support_scope pairs are the V2.1 Citable protocol.
+    """
+    if qualification is None or qualification.verdict != "PASS":
+        return False
+    return (
+        qualification.evidence_class,
+        qualification.support_scope,
+    ) in {
+        ("TARGET_DIRECT", "TARGET_SPECIFIC"),
+        ("RELATED_CONTEXT", "CONTEXT_ONLY"),
+    }
+
+
+def text_evidence_observation(
+    candidate: CandidateResult,
+    qualification: TextEvidenceQualification | None,
+    *,
+    target_entity: str = "",
+) -> dict[str, Any]:
+    """Build the controller-visible attribution record for one candidate."""
+    meta = candidate.document.metadata or {}
+    document_entity = str(meta.get("document_entity") or meta.get("entity_name") or "").strip()
+    mentioned_entities = [
+        str(item).strip()
+        for item in (meta.get("mentioned_entities") or ())
+        if str(item).strip()
+    ]
+    evidence_class = str(getattr(qualification, "evidence_class", "IRRELEVANT") or "IRRELEVANT")
+    if evidence_class == "CONFLICT":
+        relation_to_subject = "DIFFERENT_ENTITY"
+    elif evidence_class == "TARGET_DIRECT":
+        relation_to_subject = "DIRECT"
+    elif target_entity and any(_same(item, target_entity) for item in mentioned_entities):
+        relation_to_subject = "MIXED"
+    elif document_entity:
+        relation_to_subject = "RELATED_ENTITY"
+    else:
+        relation_to_subject = "UNSPECIFIED"
+    return {
+        "chunk_id": candidate.chunk_id,
+        "document_entity": document_entity,
+        "mentioned_entities": mentioned_entities,
+        "relation_to_subject": relation_to_subject,
+        "evidence_class": evidence_class,
+        "support_scope": str(getattr(qualification, "support_scope", "NONE") or "NONE"),
+        "relevance": str(getattr(qualification, "intent_relevance", "NONE") or "NONE"),
+        "citable": is_citable_text_qualification(qualification),
+        "reason_code": str(getattr(qualification, "reason_code", "missing_qualification") or "missing_qualification"),
+        "reason": str(getattr(qualification, "reason", "") or ""),
+        "provenance": [item.to_dict() for item in candidate.provenance],
+    }
+
+
 def text_qualification_response_json_schema(
     *,
     direct_attribution_eligible: bool = True,
@@ -485,25 +542,39 @@ class TextEvidenceAdmissionService:
             return None
 
     @staticmethod
-    def admitted_documents(
+    def qualified_documents(
         candidates: list[CandidateResult],
         qualifications: dict[str, TextEvidenceQualification],
     ) -> list[Document]:
-        """Convert admitted candidates into Documents carrying qualification metadata."""
+        """Convert every candidate into a Working document with attribution metadata."""
         docs: list[Document] = []
         for candidate in candidates:
             qual = qualifications.get(candidate.chunk_id)
-            if qual is None or qual.verdict != "PASS":
-                continue
             meta = dict(candidate.document.metadata or {})
             meta["candidate_sources"] = candidate.source_generators
             meta["candidate_provenance"] = [item.to_dict() for item in candidate.provenance]
             meta["candidate_fusion_score"] = candidate.fusion_score
             meta["structural_guard"] = list(candidate.structural_flags)
-            meta["evidence_class"] = qual.evidence_class
-            meta["support_scope"] = qual.support_scope
-            meta["intent_relevance"] = qual.intent_relevance
-            meta["evidence_reason_code"] = qual.reason_code
-            meta["evidence_signals"] = list(qual.signals)
+            meta["admission_verdict"] = str(getattr(qual, "verdict", "REJECT") or "REJECT")
+            meta["evidence_class"] = str(getattr(qual, "evidence_class", "IRRELEVANT") or "IRRELEVANT")
+            meta["support_scope"] = str(getattr(qual, "support_scope", "NONE") or "NONE")
+            meta["intent_relevance"] = str(getattr(qual, "intent_relevance", "NONE") or "NONE")
+            meta["evidence_reason_code"] = str(getattr(qual, "reason_code", "missing_qualification") or "missing_qualification")
+            meta["evidence_reason"] = str(getattr(qual, "reason", "") or "")
+            meta["evidence_signals"] = list(getattr(qual, "signals", ()) or ())
+            meta["citable"] = is_citable_text_qualification(qual)
             docs.append(Document(page_content=candidate.document.page_content, metadata=meta))
         return docs
+
+    @classmethod
+    def admitted_documents(
+        cls,
+        candidates: list[CandidateResult],
+        qualifications: dict[str, TextEvidenceQualification],
+    ) -> list[Document]:
+        """Compatibility view of the qualified documents that may be cited."""
+        return [
+            document
+            for document in cls.qualified_documents(candidates, qualifications)
+            if bool((document.metadata or {}).get("citable"))
+        ]

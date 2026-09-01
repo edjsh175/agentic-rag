@@ -88,6 +88,8 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
         if group.status != "ACTIVE":
             continue
         for doc in group.docs:
+            if not evidence._is_citable_document(doc):
+                continue
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             source_type = _doc_source_type(doc)
             if source_type == "external":
@@ -109,6 +111,8 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
     ]
     for group in grant_groups:
         for doc in group.docs:
+            if not evidence._is_citable_document(doc):
+                continue
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             if _doc_source_type(doc) == "external":
                 continue

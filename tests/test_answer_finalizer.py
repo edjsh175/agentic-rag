@@ -10,6 +10,7 @@ from rag_knowledge.services.helper_grounding_reviewer import (
     HelperGroundingReviewer,
     HelperGroundingReviewResult,
     ClaimReview,
+    RetrievalFeedback,
     RewriteAction,
 )
 
@@ -32,6 +33,7 @@ def _pass_reviewer(coverage: str = "FULL"):
         "verdict": "PASS",
         "coverage": "{coverage}",
         "summary": "通过",
+        "repair_mode": "NONE",
         "claim_reviews": [{{"claim_id": "c1", "claim": "测试", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"}}],
         "rewrite_actions": []
     }}""")
@@ -41,7 +43,9 @@ def _revise_reviewer():
     return HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "REVISE",
         "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
         "summary": "需要修改",
+        "repair_mode": "REWRITE",
         "claim_reviews": [
             {"claim_id": "c1", "claim": "受支持断言", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "依据充分"},
             {"claim_id": "c2", "claim": "未支持断言", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "无依据"}
@@ -56,7 +60,9 @@ def _no_safe_answer_reviewer():
     return HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "NO_SAFE_ANSWER",
         "coverage": "NONE",
+        "repair_mode": "NONE",
         "summary": "无法安全回答",
+        "repair_mode": "NONE",
         "claim_reviews": [
             {"claim_id": "c1", "claim": "第一版回答中的事实主张", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [], "status": "unsupported", "reason": "当前证据无法支持该主张"}
         ],
@@ -120,7 +126,7 @@ def test_no_knowledge_candidate():
         [_source(1, "文档内容")],
     )
     assert res.answer == NO_KNOWLEDGE_ANSWER
-    assert res.final_mode == "no_knowledge"
+    assert res.final_mode == "no_safe_answer"
 
 
 def test_candidate_v1_pass_full():
@@ -166,6 +172,7 @@ def test_candidate_v1_revise_and_v2_pass_keeps_frozen_partial_coverage():
             return """{
                 "verdict": "REVISE",
                 "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
                 "summary": "请删除离线发布",
                 "claim_reviews": [
                     {"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
@@ -179,6 +186,7 @@ def test_candidate_v1_revise_and_v2_pass_keeps_frozen_partial_coverage():
             return """{
                 "verdict": "PASS",
                 "coverage": "FULL",
+        "repair_mode": "NONE",
                 "summary": "修改后通过",
                 "claim_reviews": [{"claim_id": "c1", "claim": "支持在线发布", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"}],
                 "rewrite_actions": []
@@ -223,6 +231,7 @@ def test_candidate_v1_revise_and_v2_pass_partial():
             return """{
                 "verdict": "REVISE",
                 "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
                 "summary": "请删除 3478 端口",
                 "claim_reviews": [
                     {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
@@ -236,6 +245,7 @@ def test_candidate_v1_revise_and_v2_pass_partial():
             return """{
                 "verdict": "PASS",
                 "coverage": "PARTIAL",
+        "repair_mode": "NONE",
                 "summary": "部分通过",
                 "claim_reviews": [
                     {"claim_id": "c1", "claim": "访问使用 31443 端口", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
@@ -274,6 +284,7 @@ def test_candidate_v2_cannot_change_frozen_coverage_to_none():
         if review_count == 1:
             return """{
                 "coverage": "PARTIAL",
+        "repair_mode": "REWRITE",
                 "summary": "需要修改",
                 "claim_reviews": [
                     {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
@@ -285,6 +296,7 @@ def test_candidate_v2_cannot_change_frozen_coverage_to_none():
             }"""
         return """{
             "coverage": "NONE",
+        "repair_mode": "NONE",
             "summary": "错误地改变 coverage",
             "claim_reviews": [
                 {"claim_id": "c1", "claim": "提供授权服务", "claim_type": "knowledge_claim", "claim_scope": "TARGET_ATTRIBUTION", "evidence_ids": [1], "status": "supported", "reason": "支持"},
@@ -301,7 +313,7 @@ def test_candidate_v2_cannot_change_frozen_coverage_to_none():
         helper_reviewer=HelperGroundingReviewer(_caller),
     )
 
-    assert res.final_mode == "review_blocked"
+    assert res.final_mode == "no_safe_answer"
     assert res.grounding["review_verdict"] == "REVISE"
     assert res.grounding["coverage"] == "PARTIAL"
     assert res.grounding["attempts"][1]["coverage"] == "PARTIAL"
@@ -325,7 +337,7 @@ def test_candidate_v1_revise_and_v2_fail_blocks():
     )
 
     assert res.answer == REVIEW_BLOCKED_ANSWER
-    assert res.final_mode == "review_blocked"
+    assert res.final_mode == "no_safe_answer"
     assert res.grounding["review_verdict"] == "REVISE"
     assert res.grounding["coverage"] == "PARTIAL"
     assert res.grounding["review_attempts"] == 2
@@ -343,9 +355,49 @@ def test_candidate_no_safe_answer_blocks_immediately():
     )
 
     assert res.answer == REVIEW_BLOCKED_ANSWER
-    assert res.final_mode == "review_blocked"
+    assert res.final_mode == "no_safe_answer"
     assert res.grounding["review_verdict"] == "NO_SAFE_ANSWER"
     assert res.grounding["review_attempts"] == 1
+    assert res.retrieval_feedback is None
+
+
+def test_retrieval_feedback_lifecycle_never_selects_or_runs_a_tool():
+    events = []
+
+    reviewer = lambda *_args: HelperGroundingReviewResult(
+        verdict="REVISE",
+        coverage="PARTIAL",
+        summary="缺直接证据",
+        claim_reviews=[ClaimReview(
+            claim_id="c1", claim="端口", claim_type="knowledge_claim",
+            claim_scope="TARGET_ATTRIBUTION", status="unsupported",
+            evidence_ids=(), reason="未找到直接证据",
+        )],
+        repair_mode="RETRIEVE",
+        retrieval_feedback=RetrievalFeedback(
+            gap_id="gap-port", affected_claim_ids=("c1",), missing_fact="默认端口",
+            subject_entity_ids=("stamp-server",), deficiency_type="NO_DIRECT_EVIDENCE",
+            reason="快照没有直接证据",
+        ),
+    )
+
+    result = AnswerFinalizer().finalize(
+        "第一版回答。",
+        "测试问题",
+        [_source(1, "StampServer 资料。")],
+        helper_reviewer=reviewer,
+        on_lifecycle_event=events.append,
+    )
+
+    feedback = next(event for event in events if event["type"] == "retrieval_feedback")
+    assert feedback["data"] == {
+        "status": "requested",
+        "gap_id": "gap-port",
+        "affected_claim_ids": ["c1"],
+        "message": "当前冻结证据不足，已形成检索缺口反馈，等待 Main Controller 决定是否补检。",
+    }
+    assert result.grounding["review_verdict"] == "REVISE"
+    assert result.grounding["repair_mode"] == "RETRIEVE"
 
 
 def test_reviewer_error_fails_closed():

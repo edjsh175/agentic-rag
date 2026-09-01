@@ -24,7 +24,9 @@ from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.text_evidence_admission import (
     TextEvidenceAdmissionService,
     TextEvidenceQualification,
+    is_citable_text_qualification,
     resolve_entity_conflict,
+    text_evidence_observation,
     valid_text_qualification_protocol,
 )
 
@@ -92,6 +94,82 @@ def test_protocol_valid_combinations():
         reason="No relation",
     )
     assert valid_text_qualification_protocol(q4) is True
+
+
+def test_working_observation_keeps_conflict_attribution_but_marks_it_not_citable():
+    candidate = _doc(
+        "builder-conflict",
+        "PipelineBuilder",
+        "PipelineBuilder 用于编译和发布。",
+    )
+    qualification = TextEvidenceQualification(
+        verdict="REJECT",
+        evidence_class="CONFLICT",
+        support_scope="NONE",
+        intent_relevance="HIGH",
+        reason_code="explicit_entity_conflict",
+        reason="PipelineBuilder is different_from PipelineWebGL.",
+    )
+
+    observation = text_evidence_observation(
+        candidate,
+        qualification,
+        target_entity="PipelineWebGL",
+    )
+
+    assert observation["document_entity"] == "PipelineBuilder"
+    assert observation["relation_to_subject"] == "DIFFERENT_ENTITY"
+    assert observation["evidence_class"] == "CONFLICT"
+    assert observation["support_scope"] == "NONE"
+    assert observation["relevance"] == "HIGH"
+    assert observation["citable"] is False
+    assert is_citable_text_qualification(qualification) is False
+
+
+@pytest.mark.parametrize(
+    ("qualification", "expected_citable"),
+    [
+        (
+            TextEvidenceQualification(
+                verdict="REJECT", evidence_class="CONFLICT", support_scope="NONE",
+                intent_relevance="HIGH", reason_code="conflict", reason="different entity",
+            ),
+            False,
+        ),
+        (
+            TextEvidenceQualification(
+                verdict="PASS", evidence_class="RELATED_CONTEXT", support_scope="CONTEXT_ONLY",
+                intent_relevance="HIGH", reason_code="context", reason="related context",
+            ),
+            True,
+        ),
+        (
+            TextEvidenceQualification(
+                verdict="PASS", evidence_class="TARGET_DIRECT", support_scope="TARGET_SPECIFIC",
+                intent_relevance="HIGH", reason_code="direct", reason="direct support",
+            ),
+            True,
+        ),
+    ],
+)
+def test_two_layer_routing_gold(qualification, expected_citable):
+    candidate = _doc("two-layer", "PipelineBuilder", "candidate content")
+    docs = TextEvidenceAdmissionService.qualified_documents(
+        [candidate], {candidate.chunk_id: qualification}
+    )
+    pool = EvidencePool(question_id="two-layer")
+    pool.add_retrieve(
+        [{"content": doc.page_content, "metadata": dict(doc.metadata)} for doc in docs],
+        query="question",
+    )
+
+    assert len(pool.working_docs()) == 1
+    assert bool(pool.citable_docs()) is expected_citable
+    assert pool.to_trace()[0]["citable_chunk_ids"] == (
+        [candidate.chunk_id] if expected_citable else []
+    )
+    snapshot = pool.create_snapshot(verdict={"coverage": "PARTIAL"})
+    assert bool(snapshot.documents()) is expected_citable
 
 
 def test_protocol_invalid_combinations_rejected():
@@ -675,7 +753,7 @@ def test_target_mention_does_not_override_explicit_sibling_conflict():
     assert signals == ["explicit_sibling_conflict:PipelineBuilder"]
 
 
-def test_snapshot_rejects_text_evidence_without_support_scope():
+def test_working_only_text_without_support_scope_is_excluded_from_snapshot():
     pool = EvidencePool(question_id="q-missing-scope")
     pool.add_retrieve(
         [{
@@ -689,8 +767,30 @@ def test_snapshot_rejects_text_evidence_without_support_scope():
         target_entity="PipelineWebRTC",
     )
 
-    with pytest.raises(ValueError, match="invalid_text_evidence_protocol"):
-        pool.create_snapshot(verdict={"coverage": "PARTIAL"})
+    assert len(pool.working_docs()) == 1
+    assert pool.citable_docs() == []
+    assert pool.create_snapshot(verdict={"coverage": "PARTIAL"}).documents() == []
+
+
+def test_unbound_working_evidence_cannot_enter_frozen_snapshot():
+    pool = EvidencePool(question_id="q-unbound")
+    pool.add_retrieve(
+        [{
+            "content": "PipelineWebRTC 用于建立实时通道。",
+            "metadata": {
+                "chunk_id": "c-unbound",
+                "evidence_class": "TARGET_DIRECT",
+                "support_scope": "TARGET_SPECIFIC",
+                "citable": True,
+                "scope_binding_strength": "unbound",
+            },
+        }],
+        query="pipeline 是什么？",
+    )
+
+    assert len(pool.working_docs()) == 1
+    assert pool.citable_docs() == []
+    assert pool.create_snapshot(verdict={"coverage": "PARTIAL"}).documents() == []
 
 
 def test_snapshot_freezes_support_scope():

@@ -452,6 +452,7 @@ class GraphExplorer:
         )
         new_evidence_count = 0
         admitted_keys: list[str] = []
+        relation_observations: list[dict[str, Any]] = []
         for r in new_candidates:
             adm = admissions.get(str(r.relation_id or r.relation_key))
             if adm:
@@ -459,6 +460,33 @@ class GraphExplorer:
             if adm and adm.verdict == "PASS":
                 new_evidence_count += 1
                 admitted_keys.append(r.relation_key)
+            relation_observations.append({
+                "relation_id": r.relation_id,
+                "relation_key": r.relation_key,
+                "document_entity": r.source_name,
+                "mentioned_entities": [r.source_name, r.target_name],
+                "relation_to_subject": (
+                    "DIRECT_RELATION"
+                    if adm and adm.relation_relevance == "DIRECT"
+                    else "OUT_OF_SCOPE_RELATION"
+                ),
+                "evidence_class": "GRAPH_RELATION",
+                "support_scope": (
+                    "RELATION_SPECIFIC"
+                    if adm and adm.verdict == "PASS" and adm.relation_relevance == "DIRECT"
+                    else "NONE"
+                ),
+                "relevance": str(getattr(adm, "intent_relevance", "NONE") or "NONE"),
+                "citable": bool(
+                    adm and adm.verdict == "PASS" and adm.relation_relevance == "DIRECT"
+                ),
+                "reason": str(getattr(adm, "reason", "missing_admission") or "missing_admission"),
+                "provenance": {
+                    "origin_root": r.origin_root,
+                    "depth_from_root": r.depth_from_root,
+                    "discovery_source": r.discovery_source,
+                },
+            })
 
         working_set.last_graph_status = ToolProgressStatus.PROGRESS
         summary = f"图谱扩展发现 {new_entities_count} 个新实体、{new_relations_count} 条关系，其中 {new_evidence_count} 条准入为事实证据。"
@@ -475,6 +503,7 @@ class GraphExplorer:
                 "max_depth_reached": working_set.max_depth_reached,
                 "frontier_entities": list(working_set.frontier_entity_ids),
                 "relation_summaries": [r.relation_key for r in new_candidates[:8]],
+                "evidence_observations": relation_observations,
                 "admitted_evidence_keys": admitted_keys,
                 "admitted_relation_ids": list(working_set.admitted_relation_ids),
                 "budget": working_set.budget.to_dict(),

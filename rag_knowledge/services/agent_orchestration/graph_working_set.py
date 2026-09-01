@@ -33,6 +33,8 @@ class GraphEntityState:
             "is_root": self.is_root,
             "is_frontier": self.is_frontier,
             "first_seen_via_relation_id": self.first_seen_via_relation_id,
+            "source": self.source,
+            "evidence_status": self.evidence_status,
         }
 
 
@@ -350,6 +352,90 @@ class GraphWorkingSet:
             "last_graph_status": self.last_graph_status,
         }
 
+    @classmethod
+    def from_trace(cls, data: dict[str, Any] | None) -> "GraphWorkingSet":
+        """Restore query-scoped graph Working state across Reviewer resumes."""
+        if not isinstance(data, dict):
+            return cls()
+        ws = cls(
+            graph_scope_id=str(data.get("graph_scope_id") or f"gws_{uuid.uuid4().hex[:12]}"),
+            question_id=str(data.get("question_id") or ""),
+            graph_revision=str(data.get("graph_revision") or "rev_v1"),
+            exploration_roots=tuple(data.get("exploration_roots") or ()),
+            anchor_entities=tuple(data.get("anchor_entities") or ()),
+            frontier_entity_ids=tuple(data.get("frontier_entities") or ()),
+            visited_entity_ids=set(data.get("visited_entity_ids") or ()),
+            visited_relation_ids=set(data.get("visited_relation_ids") or ()),
+            admitted_relation_ids=set(data.get("admitted_relation_ids") or ()),
+            max_depth_reached=int(data.get("max_depth_reached") or 0),
+            expansion_calls=int(data.get("expansion_calls") or 0),
+            bootstrap_status=str(data.get("bootstrap_status") or "NOT_STARTED"),
+            last_graph_status=str(data.get("last_graph_status") or "PROGRESS"),
+        )
+        ws.expansion_signatures = set(data.get("expansion_signatures") or ())
+        for key, raw in (data.get("entities") or {}).items():
+            if not isinstance(raw, dict):
+                continue
+            ws.entities[str(key)] = GraphEntityState(
+                entity_id=str(raw.get("entity_id") or ""),
+                canonical_name=str(raw.get("canonical_name") or key),
+                entity_type=str(raw.get("entity_type") or ""),
+                depth_from_root=int(raw.get("depth_from_root") or 0),
+                origin_root=str(raw.get("origin_root") or ""),
+                is_root=bool(raw.get("is_root")),
+                is_frontier=bool(raw.get("is_frontier", True)),
+                first_seen_via_relation_id=str(raw.get("first_seen_via_relation_id") or ""),
+                source=str(raw.get("source") or "bootstrap"),
+                evidence_status=str(raw.get("evidence_status") or "PENDING"),
+            )
+        for key, raw in (data.get("relations") or {}).items():
+            if not isinstance(raw, dict):
+                continue
+            ws.relations[str(key)] = GraphRelationCandidate(
+                relation_id=str(raw.get("relation_id") or key),
+                source_name=str(raw.get("source_name") or ""),
+                target_name=str(raw.get("target_name") or ""),
+                relation_type=str(raw.get("relation_type") or ""),
+                source_entity_id=str(raw.get("source_entity_id") or ""),
+                source_type=str(raw.get("source_type") or "Product"),
+                target_entity_id=str(raw.get("target_entity_id") or ""),
+                target_type=str(raw.get("target_type") or "Product"),
+                review_status=str(raw.get("review_status") or "approved"),
+                confidence=float(raw.get("confidence") or 1.0),
+                graph_revision=str(raw.get("graph_revision") or ws.graph_revision),
+                depth_from_root=int(raw.get("depth_from_root") or 1),
+                origin_root=str(raw.get("origin_root") or ""),
+                discovery_source=str(raw.get("discovery_source") or "bootstrap"),
+                discovery_path=tuple(raw.get("discovery_path") or ()),
+                evidence_status=str(raw.get("evidence_status") or "PENDING"),
+                evidence_reason=str(raw.get("evidence_reason") or ""),
+            )
+        ws.entity_chunk_links = {
+            str(key): tuple(value or ())
+            for key, value in (data.get("entity_chunk_links") or {}).items()
+        }
+        ws.paths = [
+            GraphPathCandidate(
+                path_id=str(item.get("path_id") or ""),
+                nodes=tuple(item.get("nodes") or ()),
+                edges=tuple(item.get("edges") or ()),
+                length=int(item.get("length") or 0),
+                origin_root=str(item.get("origin_root") or ""),
+            )
+            for item in (data.get("paths") or []) if isinstance(item, dict)
+        ]
+        budget = data.get("budget") or {}
+        if isinstance(budget, dict):
+            ws.budget.bootstrap_calls = int(budget.get("bootstrap_calls") or 0)
+            ws.budget.expansion_calls = int(budget.get("expansion_calls") or ws.expansion_calls)
+            ws.budget.entities_seen = int(budget.get("entities_seen") or len(ws.entities))
+            ws.budget.relations_seen = int(budget.get("relations_seen") or len(ws.relations))
+            ws.budget.max_expansion_calls = int(budget.get("max_expansion_calls") or ws.budget.max_expansion_calls)
+            ws.budget.max_entities_total = int(budget.get("max_entities_total") or ws.budget.max_entities_total)
+            ws.budget.max_relations_total = int(budget.get("max_relations_total") or ws.budget.max_relations_total)
+            ws.budget.max_total_depth = int(budget.get("max_total_depth") or ws.budget.max_total_depth)
+        return ws
+
     def to_trace(self) -> dict[str, Any]:
         """Comprehensive trace serialization."""
         return {
@@ -367,6 +453,7 @@ class GraphWorkingSet:
             "visited_relation_ids": list(self.visited_relation_ids),
             "admitted_relation_ids": list(self.admitted_relation_ids),
             "max_depth_reached": self.max_depth_reached,
+            "expansion_signatures": list(self.expansion_signatures),
             "expansion_calls": self.expansion_calls,
             "bootstrap_status": self.bootstrap_status,
             "last_graph_status": self.last_graph_status,

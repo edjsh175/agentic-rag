@@ -131,6 +131,7 @@ def setup_real_chain_env(isolated_storage, monkeypatch):
     pass_reviewer = HelperGroundingReviewer(lambda _messages: """{
         "verdict": "PASS",
         "coverage": "FULL",
+        "repair_mode": "NONE",
         "summary": "entity guard real-KB fixture pass",
         "claim_reviews": [{
             "claim_id": "c1",

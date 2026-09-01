@@ -317,7 +317,7 @@ def test_conversation_other_free_text_stays_unresolved_and_reenters_main():
     assert "内部的发布流水线" in conversation.user_question
 
 
-def test_exploration_grant_failsafe_denies_unauthorized_and_topic():
+def test_exploration_grant_records_unbound_and_unverified_targets_as_exploration():
     constraints = {
         "entity_type_by_name": {
             "PipelineWebGL": "module",
@@ -341,11 +341,11 @@ def test_exploration_grant_failsafe_denies_unauthorized_and_topic():
         constraints=constraints,
     )
     auth = resolver_unresolved.authorize("pipelien")
-    assert not auth.authorized
-    assert auth.rejection_reason in {"target_not_authorized", "identity_not_confirmed"}
+    assert auth.authorized
+    assert auth.grant.source_type == "exploratory_query"
     auth_broad = resolver_unresolved.authorize(None)
-    assert not auth_broad.authorized
-    assert auth_broad.rejection_reason == "identity_not_confirmed"
+    assert auth_broad.authorized
+    assert auth_broad.grant.target_entities == ()
 
     # Case 2: Confirmed topic cannot grant entity exploration
     scope_topic = IdentityScope(
@@ -363,8 +363,8 @@ def test_exploration_grant_failsafe_denies_unauthorized_and_topic():
         constraints=constraints,
     )
     auth_entity = resolver_topic.authorize("SomeEntity")
-    assert not auth_entity.authorized
-    assert auth_entity.rejection_reason in {"confirmed_topic_cannot_grant_entity", "target_not_authorized"}
+    assert auth_entity.authorized
+    assert auth_entity.grant.source_type == "exploratory_query"
 
     # Plain text topic retrieve (no target_entity) is authorized as topic grant
     auth_plain = resolver_topic.authorize(None)
@@ -373,25 +373,33 @@ def test_exploration_grant_failsafe_denies_unauthorized_and_topic():
 
 
 @pytest.mark.anyio
-async def test_agent_loop_rejected_target_memory_and_no_drop_target_recovery():
+async def test_agent_loop_rejected_target_remains_observation_and_allows_new_exploration():
     conv = ConversationContext(
         user_question="pipelien 怎么配置",
         session=MagicMock(turns=[], focus=None, resolved_entity=None, last_sources=[]),
-        head_entity=None,
-        identity_status="unresolved",
-        raw_entity_mention="pipelien",
+        head_entity="pipeline",
+        identity_status="confirmed_entity",
     )
     evidence = EvidencePool(question_id="test_q1")
     budget = AgentBudget(max_steps=5, max_retrieve_attempts=2)
     registry = ToolRegistry()
     registry.register(ToolSpec(name="retrieve_kb", description="retrieval", input_schema={}))
 
+    calls = []
+
     async def mock_retrieve(args):
+        calls.append(args.get("target_entity"))
+        if args.get("target_entity") == "pipelien":
+            return ToolObservation(
+                tool="retrieve_kb",
+                ok=False,
+                summary="探索目标未获得证据范围授权",
+                error="exploration_not_authorized",
+            )
         return ToolObservation(
             tool="retrieve_kb",
-            ok=False,
-            summary="探索目标未获得证据范围授权",
-            error="exploration_not_authorized",
+            ok=True,
+            summary="已切换到候选范围继续探索",
         )
 
     loop = AgentLoop(
@@ -405,15 +413,10 @@ async def test_agent_loop_rejected_target_memory_and_no_drop_target_recovery():
 
     obs1 = await loop._execute("retrieve_kb", {"target_entity": "pipelien", "query": "pipelien"})
     assert not obs1.ok
-    assert ("pipelien", "retrieve_kb") in loop._rejected_targets
 
-    obs2 = await loop._execute("retrieve_kb", {"target_entity": "pipelien", "query": "pipelien"})
-    assert not obs2.ok
-    assert obs2.error == "target_already_rejected"
-
-    broad = await loop._execute("retrieve_kb", {"target_entity": None, "query": "pipelien"})
-    assert not broad.ok
-    assert broad.error == "broadening_after_target_rejection"
+    obs2 = await loop._execute("retrieve_kb", {"target_entity": "pipeline", "query": "pipeline 配置"})
+    assert obs2.ok
+    assert calls == ["pipelien", "pipeline"]
 
 
 def _unbound_identity_loop(identity_status: str, semantic_task=None) -> AgentLoop:
@@ -443,35 +446,32 @@ def _unbound_identity_loop(identity_status: str, semantic_task=None) -> AgentLoo
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("identity_status", ["ambiguous_entity", "unresolved"])
-async def test_unbound_identity_blocks_evidence_tools_until_clarification(identity_status):
+async def test_unbound_identity_allows_working_evidence_exploration(identity_status):
     loop = _unbound_identity_loop(identity_status)
 
-    # P0 事故复现：身份有歧义时 Main 强制调用 retrieve_kb(target_entity=null)
+    # 未绑定仍可先取回 Working Evidence，随后由 Agent 决定是否澄清。
     obs = await loop._execute("retrieve_kb", {"target_entity": None, "query": "管线相关信息"})
-    assert not obs.ok
-    assert obs.error == "identity_binding_required_before_retrieval"
+    assert obs.ok
 
-    # 复用旧证据同样不得绕过身份绑定
+    # 历史证据同样只是 Working 候选，不能据此形成未绑定 answer_subject。
     obs_reuse = await loop._execute("reuse_evidence", {})
-    assert not obs_reuse.ok
-    assert obs_reuse.error == "identity_binding_required_before_retrieval"
+    assert obs_reuse.ok
 
-    # Prompt 镜像与 Harness 合法性一致：只保留 clarify
+    # Prompt 暴露取证和澄清，交由 Main 基于 Observation 决策。
     state = json.loads(loop._controller_state_for_prompt())
     assert state["identity_status"] == identity_status
-    assert "retrieve_kb" not in state["allowed_tools"]
-    assert "reuse_evidence" not in state["allowed_tools"]
+    assert "retrieve_kb" in state["allowed_tools"]
+    assert "reuse_evidence" in state["allowed_tools"]
     assert "clarify" in state["allowed_tools"]
 
 
 @pytest.mark.anyio
-async def test_unbound_identity_still_denies_targeted_retrieval_as_unconfirmed():
+async def test_unbound_identity_allows_targeted_exploration_as_observation():
     loop = _unbound_identity_loop("ambiguous_entity")
     obs = await loop._execute(
         "retrieve_kb", {"target_entity": "PipelineWebGL", "query": "PipelineWebGL"}
     )
-    assert not obs.ok
-    assert obs.error == "identity_not_confirmed"
+    assert obs.ok
 
 
 @pytest.mark.anyio
@@ -567,7 +567,7 @@ def test_exploration_grant_multi_entity_authorizations():
     assert auth_str.authorized
     assert auth_str.grant.target_entities == ("StampServer", "StampTools")
 
-    # 4. Deny if any target in list is invalid
+    # 4. Unknown targets remain valid exploration hypotheses, not identity bindings.
     auth_invalid = resolver.authorize(["StampServer", "UnknownTarget"])
-    assert not auth_invalid.authorized
-    assert auth_invalid.rejection_reason == "target_not_authorized"
+    assert auth_invalid.authorized
+    assert auth_invalid.grant.source_type == "exploratory_query"
