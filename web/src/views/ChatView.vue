@@ -533,7 +533,7 @@ onMounted(async () => {
     embeddingModel.value = modelsResp.current.embedding
     agentOrchestrationEnabled.value = Boolean(modelsResp.current.agent_orchestration_enabled)
     if (!localStorage.getItem('rag-work-mode')) {
-      workMode.value = agentOrchestrationEnabled.value ? 'agent' : 'linear'
+      workMode.value = 'agent'
     }
 
     const lastDefaultLlm = localStorage.getItem('rag-llm-default-model')
