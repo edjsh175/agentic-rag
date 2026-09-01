@@ -12,16 +12,6 @@ EXACT_PARAMETER_TERMS: tuple[str, ...] = (
     "端口", "port", "参数", "密码", "密钥", "默认值", "路径", "命令", "ip", "url",
 )
 _ASCII_PARAMETER_TERMS = frozenset({"ip", "url", "port"})
-# Wide oral terms that often map to multiple products/modules.
-# Bare「管线」仅在问题过短/过泛时启用，避免「管线点表字段」误触发。
-WIDE_SURFACE_TERMS: tuple[str, ...] = (
-    "pipeline",
-    "Pipeline",
-    "管线工具",
-    "管线发布工具",
-    "管线",
-)
-
 
 def normalize_blob(text: str) -> str:
     return (text or "").casefold()
@@ -34,7 +24,8 @@ def contains_term(question: str, term: str) -> bool:
     t = normalize_blob(term)
     if not t:
         return False
-    # Latin identifiers: require token boundary (avoid pipeline ⊂ PipelineBuilder).
+    # Latin identifiers: require token boundaries so a shorter identifier does
+    # not accidentally match a longer registered name.
     if re.search(r"[a-z0-9]", t):
         return re.search(rf"(?<![a-z0-9_.-]){re.escape(t)}(?![a-z0-9_.-])", q) is not None
     return t in q
@@ -106,15 +97,8 @@ def question_refers_to_previous_subject(question: str) -> bool:
 
 
 def is_vague_surface_question(question: str) -> bool:
-    """True when the question is underspecified or hits a wide oral surface term."""
-    if question_is_underspecified(question):
-        return True
-    for term in WIDE_SURFACE_TERMS:
-        if term == "管线" and not question_is_underspecified(question):
-            continue
-        if contains_term(question, term):
-            return True
-    return False
+    """True when the surface itself is structurally underspecified."""
+    return question_is_underspecified(question)
 
 
 def is_explicit_comparison(question: str, names: list[str]) -> bool:

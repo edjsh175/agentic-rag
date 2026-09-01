@@ -245,14 +245,14 @@ def test_finalize_rejection_returns_observation_then_controller_retrieves():
             AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 端口"},
+                arguments={"search_focus_text": "StampServer 端口"},
             ),
             AgentDecision(action="finalize", focus_evidence_ids=("c1",)),
         ]
     )
 
     async def retrieve(args):
-        pool.add_retrieve([_doc("c1")], query=args["query"])
+        pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     events = []
@@ -299,14 +299,14 @@ def test_rejected_finalize_observation_contains_no_recovery_action():
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 端口"},
+                arguments={"search_focus_text": "StampServer 端口"},
                 gap="StampServer 端口配置",
                 expected_gain="获取端口数值",
             )
         return AgentDecision(action="finalize")
 
     async def retrieve(args):
-        pool.add_retrieve([_doc("c1")], query=args["query"])
+        pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     result = asyncio.run(
@@ -343,12 +343,12 @@ def test_retrieve_with_no_new_chunks_freezes_answer_snapshot():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 端口 1"},
+            arguments={"search_focus_text": "StampServer 端口 1"},
         ),
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 端口 2"},
+            arguments={"search_focus_text": "StampServer 端口 2"},
             gap="未覆盖端口",
             expected_gain="补充端口信息",
         ),
@@ -356,10 +356,10 @@ def test_retrieve_with_no_new_chunks_freezes_answer_snapshot():
     ])
 
     async def retrieve(args):
-        if "端口 1" in args["query"]:
-            pool.add_retrieve([_doc("c1")], query=args["query"])
+        if "端口 1" in args["search_focus_text"]:
+            pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
         else:
-            pool.add_retrieve([], query=args["query"])
+            pool.add_retrieve([], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
     events = []
@@ -394,12 +394,12 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "PipelineWebGL 产品关系 1"},
+            arguments={"search_focus_text": "PipelineWebGL 产品关系 1"},
         ),
             AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "PipelineWebGL 产品关系 2"},
+                arguments={"search_focus_text": "PipelineWebGL 产品关系 2"},
                 gap="未覆盖产品关系",
                 expected_gain="补充关系",
             ),
@@ -411,7 +411,7 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
         doc["metadata"]["document_entity"] = "PipelineWebGL"
         pool.add_retrieve(
             [doc],
-            query=args["query"],
+            query=args["search_focus_text"],
             head_entity="PipelineWebGL",
             target_entity="PipelineWebGL",
         )
@@ -450,34 +450,27 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
     assert not any(tool["name"] == "link_entities" for tool in result.tools)
 
 
-def test_missing_relation_recovers_with_graph_relation_retrieval():
+def test_multi_entity_independent_evidence_does_not_require_graph_relation():
     conv = ConversationContext.from_request(
         "ModelBuilder 和 UEModelBuilder 有什么区别？", []
     )
+    conv.semantic_task = SemanticTaskContext(
+        "ModelBuilder 和 UEModelBuilder 有什么区别？",
+        "ModelBuilder",
+        ("ModelBuilder", "UEModelBuilder"),
+        "multi_entity_relation",
+        1.0,
+        "comparison",
+        (),
+        "test",
+    )
+    conv.resolved_question = conv.semantic_task.resolved_question
     pool = EvidencePool(question_id="q")
     for entity, chunk_id in (("ModelBuilder", "model"), ("UEModelBuilder", "ue")):
         doc = _doc(chunk_id, f"{entity} 的说明")
         doc["metadata"]["document_entity"] = entity
         pool.add_retrieve([doc], query=entity, target_entity=entity)
-    decisions = iter([
-        AgentDecision(action="finalize"),
-        AgentDecision(
-            action="tool_call",
-            tool="expand_graph_scope",
-            arguments={"start_entities": ["ModelBuilder"], "additional_hops": 1, "direction": "both"},
-            thought="缺少实体关系证据，调用 expand_graph_scope 探索图谱",
-        ),
-        AgentDecision(action="finalize"),
-    ])
-
-    async def expand_graph_scope(_args):
-        pool.add_relation(
-            relation_key="ModelBuilder -[different_from]-> UEModelBuilder",
-            target_entity="ModelBuilder",
-            grant=SimpleNamespace(grant_id="grant-mb-ue", identity_scope_id="scope-mb"),
-            relation_relevance="DIRECT",
-        )
-        return ToolObservation(tool="expand_graph_scope", ok=True, summary="relation=1")
+    decisions = iter([AgentDecision(action="finalize")])
 
     result = asyncio.run(
         AgentLoop(
@@ -485,7 +478,7 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
             evidence=pool,
             budget=AgentBudget(max_steps=4),
             registry=build_agent_registry(),
-            handlers={"expand_graph_scope": expand_graph_scope},
+            handlers={},
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
@@ -495,9 +488,9 @@ def test_missing_relation_recovers_with_graph_relation_retrieval():
     )
 
     assert result.terminal_action == "controller_finalize"
-    assert any(tool["name"] == "expand_graph_scope" for tool in result.tools)
-    graph_call = next(tool for tool in result.tools if tool["name"] == "expand_graph_scope")
-    assert graph_call["data"] == {}
+    assert result.tools == []
+    assert result.evidence_snapshot is not None
+    assert result.evidence_snapshot.evidence_verdict["coverage"] == "FULL"
 
 
 def test_duplicate_retrieve_denial_returns_to_controller_for_finalization():
@@ -508,19 +501,19 @@ def test_duplicate_retrieve_denial_returns_to_controller_for_finalization():
             AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 端口", "mode": "hybrid"},
+                arguments={"search_focus_text": "StampServer 端口"},
             ),
             AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 端口", "mode": "hybrid"},
+                arguments={"search_focus_text": "StampServer 端口"},
             ),
             AgentDecision(action="finalize"),
         ]
     )
 
     async def retrieve(args):
-        pool.add_retrieve([_doc("c1")], query=args["query"])
+        pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
     result = asyncio.run(
@@ -568,7 +561,7 @@ def test_controller_finish_is_normalized_before_the_answer_stage():
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
-            decide_fn=lambda *_: AgentDecision(action="finish", source="llm"),
+            decide_fn=lambda *_: AgentDecision(action="finalize", source="llm"),
             tool_timeout=0,
         ).run(on_event=on_event)
     )
@@ -603,7 +596,11 @@ def test_direct_chat_finalize_does_not_consume_budget_on_empty_evidence():
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
-            decide_fn=lambda *_: AgentDecision(action="finish", source="llm"),
+            decide_fn=lambda *_: AgentDecision(
+                action="finalize",
+                arguments={"answer_type": "direct_chat"},
+                source="llm",
+            ),
             tool_timeout=0,
         ).run(on_event=on_event)
     )
@@ -627,10 +624,21 @@ def test_direct_chat_finalize_does_not_consume_budget_on_empty_evidence():
     assert "evidence_snapshot_created" not in event_types
 
 
-def test_finalize_rejects_multi_entity_gap_before_answer_stage():
+def test_finalize_allows_multi_entity_partial_for_reviewer():
     conv = ConversationContext.from_request(
         "ModelBuilder 和 UEModelBuilder 有什么区别？", []
     )
+    conv.semantic_task = SemanticTaskContext(
+        "ModelBuilder 和 UEModelBuilder 有什么区别？",
+        "ModelBuilder",
+        ("ModelBuilder", "UEModelBuilder"),
+        "multi_entity_relation",
+        1.0,
+        "comparison",
+        (),
+        "test",
+    )
+    conv.resolved_question = conv.semantic_task.resolved_question
     pool = EvidencePool(question_id="q")
     model_doc = _doc("c1", "ModelBuilder 的说明")
     model_doc["metadata"]["document_entity"] = "ModelBuilder"
@@ -653,10 +661,11 @@ def test_finalize_rejects_multi_entity_gap_before_answer_stage():
             tool_timeout=0,
         ).run()
     )
-    assert result.finalization_rejections == 1
-    assert result.terminal_action == "step_budget_exhausted"
-    assert result.evidence_snapshot is None
-    assert result.answer_context is None
+    assert result.finalization_rejections == 0
+    assert result.terminal_action == "controller_finalize"
+    assert result.evidence_snapshot is not None
+    assert result.evidence_snapshot.evidence_verdict["coverage"] == "PARTIAL"
+    assert result.answer_context is not None
     assert result.answer_contract == {
         "answer_type": "knowledge",
         "evidence_required": True,
@@ -1008,9 +1017,9 @@ def test_react_parser_accepts_finalize_control_action():
     assert parsed["action"] == "finalize"
 
 
-def test_legacy_finish_normalizes_to_finalize_without_accepting_a_tool():
+def test_legacy_finish_is_not_part_of_the_current_controller_protocol():
     normalized = normalize_decision_payload({"action": "finish", "tool": None})
-    assert normalized["action"] == "finalize"
+    assert normalized["action"] == "finish"
     assert normalized["tool"] is None
 
     try:
@@ -1021,7 +1030,7 @@ def test_legacy_finish_normalizes_to_finalize_without_accepting_a_tool():
         raise AssertionError("finalize with a tool must be rejected")
 
 
-def test_finalization_rollout_flag_can_fall_back_to_compatibility_path():
+def test_finalization_has_no_compatibility_fallback():
     conv = ConversationContext.from_request("StampServer 是什么", [])
     pool = EvidencePool(question_id="q")
     cfg = SimpleNamespace(
@@ -1039,5 +1048,5 @@ def test_finalization_rollout_flag_can_fall_back_to_compatibility_path():
             tool_timeout=0,
         ).run()
     )
-    assert result.terminal_action == "finish_compat"
+    assert result.terminal_action == "step_budget_exhausted"
     assert result.evidence_snapshot is None

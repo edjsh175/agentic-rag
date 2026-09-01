@@ -132,7 +132,7 @@ def test_tool_lifecycle_has_canonical_order_and_no_legacy_events():
     pool = EvidencePool(question_id="ordered-events")
 
     async def retrieve(arguments: dict) -> ToolObservation:
-        pool.add_retrieve([_doc()], query=arguments["query"])
+        pool.add_retrieve([_doc()], query=arguments["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="found one chunk")
 
     _, events = asyncio.run(
@@ -141,7 +141,7 @@ def test_tool_lifecycle_has_canonical_order_and_no_legacy_events():
                 AgentDecision(
                     action="tool_call",
                     tool="retrieve_kb",
-                    arguments={"query": "StampServer 端口"},
+                    arguments={"search_focus_text": "StampServer 端口"},
                     thought="需要检索端口证据",
                     source="test",
                 ),
@@ -502,7 +502,7 @@ def test_no_progress_emits_evidence_update_then_explicit_evidence_gap():
     pool = EvidencePool(question_id="no-progress")
 
     async def retrieve(arguments: dict) -> ToolObservation:
-        pool.add_retrieve([], query=arguments["query"])
+        pool.add_retrieve([], query=arguments["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="empty retrieval")
 
     _, events = asyncio.run(
@@ -511,7 +511,7 @@ def test_no_progress_emits_evidence_update_then_explicit_evidence_gap():
                 AgentDecision(
                     action="tool_call",
                     tool="retrieve_kb",
-                    arguments={"query": "unknown StampServer fact"},
+                    arguments={"search_focus_text": "unknown StampServer fact"},
                     gap="缺少关键事实",
                     expected_gain="找到可引用事实",
                     source="test",
@@ -537,20 +537,10 @@ def test_no_progress_emits_evidence_update_then_explicit_evidence_gap():
 
 
 def test_budget_exhaustion_does_not_emit_forced_finalization_check():
-    _, normal_events = asyncio.run(
-        _run_loop(
-            [AgentDecision(action="finish", source="test")],
-            max_steps=1,
-            terminal_finalization_v2=False,
-        ),
-    )
-    normal_check = normal_events[_event_index(normal_events, "finalization_check")]
-    assert normal_check["data"].get("forced", False) is False
-
     exhausted_pool = EvidencePool(question_id="budget-exhausted")
 
     async def retrieve(arguments: dict) -> ToolObservation:
-        exhausted_pool.add_retrieve([_doc()], query=arguments["query"])
+        exhausted_pool.add_retrieve([_doc()], query=arguments["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="found evidence")
 
     result, exhausted_events = asyncio.run(
@@ -559,7 +549,7 @@ def test_budget_exhaustion_does_not_emit_forced_finalization_check():
                 AgentDecision(
                     action="tool_call",
                     tool="retrieve_kb",
-                    arguments={"query": "StampServer 端口"},
+                    arguments={"search_focus_text": "StampServer 端口"},
                     source="test",
                 ),
             ],
@@ -1220,7 +1210,7 @@ def test_controller_prompt_does_not_reclarify_an_already_confirmed_entity():
     assert '"focus_entity_id":"实体 A"' in _DECISION_PROMPT
 
 
-def test_controller_state_removes_reclarify_after_entity_confirmation():
+def test_controller_state_keeps_clarify_available_after_entity_confirmation():
     conversation = ConversationContext.from_request("pipeline", [])
     conversation.identity_status = "confirmed_entity"
     conversation.confirmed_entity = "PipelineWebGL"
@@ -1245,7 +1235,7 @@ def test_controller_state_removes_reclarify_after_entity_confirmation():
 
     assert state["identity_status"] == "confirmed_entity"
     assert state["confirmed_entity"] == "PipelineWebGL"
-    assert "clarify" not in state["allowed_tools"]
+    assert "clarify" in state["allowed_tools"]
     assert "retrieve_kb" in state["allowed_tools"]
     assert state["retrieval_allowed"] is True
 
@@ -1268,7 +1258,7 @@ def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
     assert "clarify" in state["allowed_tools"]
 
 
-def test_unbound_topic_vetoes_clarify_and_keeps_corpus_retrieval_available():
+def test_unbound_topic_allows_main_to_choose_clarify_or_retrieval():
     conversation = ConversationContext.from_request("知识库里关于部署的注意事项有哪些？", [])
     evidence = EvidencePool(question_id="controller-state-unbound-topic")
     events: list[dict] = []
@@ -1287,26 +1277,29 @@ def test_unbound_topic_vetoes_clarify_and_keeps_corpus_retrieval_available():
     async def on_event(event):
         events.append(event)
 
+    async def clarify_handler(_args):
+        return ToolObservation(tool="clarify", ok=True, summary="clarification requested")
+
     loop = AgentLoop(
         conversation=conversation,
         evidence=evidence,
         budget=AgentBudget(max_steps=1, max_retrieve_attempts=2),
         registry=build_agent_registry(),
-        handlers={},
+        handlers={"clarify": clarify_handler},
         decide_fn=decide,
     )
 
     state = json.loads(loop._controller_state_for_prompt())
-    assert state["entity_binding_required"] is False
-    assert "clarify" not in state["allowed_tools"]
+    assert "entity_binding_required" not in state
+    assert "clarify" in state["allowed_tools"]
     assert "retrieve_kb" in state["allowed_tools"]
 
     asyncio.run(loop.run(on_event=on_event))
     guards = [event for event in events if event.get("type") == "guard"]
-    assert guards[-1]["data"]["reason"] == "entity_binding_not_required"
+    assert guards[-1]["data"]["allowed"] is True
 
 
-def test_runtime_vetoes_reclarify_after_entity_confirmation():
+def test_runtime_allows_main_to_reclarify_after_entity_confirmation():
     conversation = ConversationContext.from_request("pipeline", [])
     conversation.identity_status = "confirmed_entity"
     conversation.confirmed_entity = "PipelineWebGL"
@@ -1348,11 +1341,10 @@ def test_runtime_vetoes_reclarify_after_entity_confirmation():
 
     asyncio.run(loop.run(on_event=on_event))
 
-    assert clarify_calls == 0
+    assert clarify_calls == 1
     guards = [event for event in events if event.get("type") == "guard"]
     assert guards
-    assert guards[-1]["data"]["allowed"] is False
-    assert guards[-1]["data"]["reason"] == "confirmed_entity_reclarify_blocked"
+    assert guards[-1]["data"]["allowed"] is True
 
 
 def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():

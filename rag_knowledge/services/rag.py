@@ -466,35 +466,6 @@ class RagChain:
             if callable(lifecycle_recorder):
                 lifecycle_recorder(event)
 
-    @classmethod
-    def _safe_record_agent_rejections(cls, trace: Any, result: Any) -> None:
-        """Expose the remaining structural grant denials that skip a tool handler."""
-        rejection_errors = {
-            "confirmed_topic_cannot_grant_entity",
-            "target_entity_required",
-        }
-        for step in list(getattr(result, "agent_steps", ()) or ()):
-            if not isinstance(step, dict):
-                continue
-            observation = step.get("observation") or {}
-            error = str(observation.get("error") or "").strip()
-            if error not in rejection_errors:
-                continue
-            decision = step.get("decision") or {}
-            arguments = decision.get("arguments") if isinstance(decision, dict) else {}
-            arguments = arguments if isinstance(arguments, dict) else {}
-            controller = step.get("controller") or {}
-            cls._safe_add_trace_event(
-                trace,
-                "tool_target_rejected",
-                {
-                    "tool": decision.get("tool") or controller.get("tool"),
-                    "target_entity": arguments.get("target_entity"),
-                    "reason": error,
-                    "step": step.get("step"),
-                },
-            )
-
     @staticmethod
     def _safe_linear_identity_binding(
         question: str,
@@ -2431,20 +2402,6 @@ class RagChain:
 
     def _route_query(self, question: str) -> str | None:
         """判断问题应检索哪个知识库，返回 kb_name 或 None（不确定/兜底搜全部）"""
-        normalized = (question or "").strip()
-        if normalized:
-            attachment_hints = (
-                "手册", "规范", "要求", "字段", "配置", "发布", "工具", "服务",
-                "PipelineBuilder", "DOMBuilder", "DEMBuilder", "TINBuilder",
-                "ModelBuilder", "UEModelBuilder", "ObliqueModelBuilder",
-                "StampTools", "StampServer", "StampWebRTC", "StampWebGL",
-            )
-            published_hints = ("博客", "新闻", "公告", "资讯", "经验分享", "CSDN")
-            if any(hint in normalized for hint in published_hints):
-                return "已发布文章"
-            if any(hint in normalized for hint in attachment_hints):
-                return "文章附件"
-
         try:
             from rag_knowledge.llm_http import chat_role
 
@@ -3530,7 +3487,7 @@ class RagChain:
                 target_type=str(relation.get("target_type") or ""),
                 review_status=str(relation.get("review_status") or "approved"),
                 confidence=float(relation.get("confidence") or 1.0),
-                discovery_source="legacy_grant_adapter",
+                discovery_source="grant_relation_materialization",
             )
             working_set = getattr(loop, "graph_working_set", None)
             if working_set is not None:
@@ -3566,7 +3523,7 @@ class RagChain:
             if not eid:
                 return None
             if eid == str(conv.confirmed_entity_id or "").strip():
-                return conv.confirmed_entity or conv.head_entity
+                return conv.confirmed_entity
             for candidate in conv.candidate_entities or ():
                 if str(getattr(candidate, "entity_id", "") or "").strip() == eid:
                     return str(
@@ -3583,12 +3540,12 @@ class RagChain:
 
         async def handle_retrieve(args: dict) -> ToolObservation:
             search_focus_text = str(args.get("search_focus_text") or "").strip()
-            query = search_focus_text or str(args.get("query") or "").strip()
+            query = search_focus_text
             if not query:
                 return ToolObservation(
                     tool="retrieve_kb",
                     ok=False,
-                    summary="缺少检索文本 search_focus_text/query",
+                    summary="缺少检索文本 search_focus_text",
                     error="tool_missing_arg:search_focus_text",
                     status=ToolProgressStatus.DENIED,
                 )
@@ -3602,13 +3559,13 @@ class RagChain:
                     error="unregistered_focus_entity_id",
                     status=ToolProgressStatus.DENIED,
                 )
-            # New protocol: identity semantics come only from verified IDs.
-            # target_entity remains compatibility-only for older callers; a
-            # free search_focus_text never silently rebinds the answer subject.
+            # Identity semantics come only from verified IDs or a confirmed
+            # conversation identity. An unresolved head_entity is only a working
+            # hypothesis and must not silently become a Grant target.
             target = (
                 verified_focus_name
                 if verified_focus_name
-                else (args.get("target_entity") if args.get("target_entity") is not None else conv.head_entity)
+                else conv.confirmed_entity if conv.identity_status == "confirmed_entity" else None
             )
             authorization = grant_resolver.authorize(target)
             if not authorization.authorized or authorization.grant is None:
@@ -3631,15 +3588,7 @@ class RagChain:
                 )
             grant = authorization.grant
             materialize_grant_relation(grant)
-            mode = str(args.get("mode") or "").strip().lower()
-            intent = str(args.get("intent") or "").strip().lower()
             cat = str(args.get("doc_category") or doc_category or "").strip() or None
-
-            # Level 3: 算法自闭环，根据 intent 意图自适应检索模式与策略
-            effective_mode = mode if mode in {"vector", "bm25", "hybrid"} else None
-            if not effective_mode and intent == "exact_parameter":
-                # 精确参数/配置查询优先使用 hybrid 兼顾精准匹配
-                effective_mode = "hybrid"
 
             ws = getattr(loop, "graph_working_set", None) if 'loop' in locals() else None
             docs, _context, plan = await self._retrieve_kb_for_agent(
@@ -3663,10 +3612,10 @@ class RagChain:
             for doc in docs:
                 meta = dict(doc.get("metadata") or {})
                 meta["identity_scope_id"] = getattr(conv.scope, "scope_id", "")
-                meta["identity_primary_entity"] = getattr(conv.scope, "primary_entity", None) or conv.head_entity or ""
+                meta["identity_primary_entity"] = conv.confirmed_entity or ""
                 binding = getattr(conv.scope, "binding_strength", None)
                 meta["scope_binding_strength"] = getattr(binding, "value", binding) or ""
-                meta["scope_root"] = getattr(conv.scope, "primary_entity", None) or conv.head_entity or ""
+                meta["scope_root"] = conv.confirmed_entity or ""
                 meta["grant_id"] = grant.grant_id
                 meta["grant_admitted"] = True
                 meta["grant_source_type"] = grant.source_type
@@ -3690,9 +3639,8 @@ class RagChain:
                 grant=grant,
             )
             reported_mode = "multi_path_v2"
-            mode_label = f"（模式: {reported_mode}）" if (effective_mode or intent) else ""
             if len(docs) == 0:
-                summary_label = f"未召回有效文档片段{mode_label}"
+                summary_label = "未召回有效文档片段"
                 retrieval_status = "NO_VALID_EVIDENCE"
                 self._safe_add_trace_event(
                     trace,
@@ -3704,12 +3652,11 @@ class RagChain:
                     },
                 )
             else:
-                summary_label = f"召回 {len(group.chunk_ids)} 个文档片段{mode_label}"
+                summary_label = f"召回 {len(group.chunk_ids)} 个文档片段"
                 retrieval_status = "MATCHED"
 
             retrieval_trace_snapshot = {
                 "retrieval_architecture": "multi_path_v2",
-                "requested_mode": effective_mode,
                 "generators": dict(
                     (getattr(self, "_last_agent_candidate_trace", {}) or {}).get("generators") or {}
                 ),
@@ -3727,8 +3674,7 @@ class RagChain:
                     "plan": serialize_plan(plan),
                     "n": len(docs),
                     "mode": reported_mode,
-                    "intent": intent or "general_qa",
-                    "search_focus_text": search_focus_text or query,
+                    "search_focus_text": search_focus_text,
                     "focus_entity_id": focus_entity_id or None,
                     "retrieval_trace": retrieval_trace_snapshot,
                     "grant_authorization": authorization.to_dict(),
@@ -3761,7 +3707,8 @@ class RagChain:
                 item for item in source.docs
                 if not wanted or str((item.get("metadata") or {}).get("chunk_id") or "") in wanted
             ]
-            authorization = grant_resolver.authorize(conv.head_entity)
+            reuse_target = conv.confirmed_entity if conv.identity_status == "confirmed_entity" else None
+            authorization = grant_resolver.authorize(reuse_target)
             if not authorization.authorized or authorization.grant is None:
                 return ToolObservation(
                     tool="reuse_evidence", ok=False, summary="当前 Identity 未获得检索授权",
@@ -3782,9 +3729,9 @@ class RagChain:
                 binding = getattr(conv.scope, "binding_strength", None)
                 meta.update({
                     "identity_scope_id": getattr(conv.scope, "scope_id", ""),
-                    "identity_primary_entity": getattr(conv.scope, "primary_entity", None) or conv.head_entity or "",
+                    "identity_primary_entity": conv.confirmed_entity or "",
                     "scope_binding_strength": getattr(binding, "value", binding) or "",
-                    "scope_root": getattr(conv.scope, "primary_entity", None) or conv.head_entity or "",
+                    "scope_root": conv.confirmed_entity or "",
                     "grant_id": grant.grant_id,
                     "grant_admitted": True,
                     "grant_source_type": grant.source_type,
@@ -3807,166 +3754,6 @@ class RagChain:
                 data={"chunk_ids": group.chunk_ids, "admission": "PASS"},
             )
 
-        # Legacy-only compatibility bridge. It is intentionally absent from the
-        # Main registry and handler map; V2 uses expand_graph_scope exclusively.
-        async def _handle_legacy_link_entities(_args: dict) -> ToolObservation:
-            linked_payload: list[dict] = []
-            graph_on = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
-            retriever = getattr(self, "_graph_retriever", None)
-            linker = getattr(retriever, "linker", None) if graph_on else None
-            relation_summaries: list[str] = []
-            q_text = str(_args.get("query") or "").strip()
-            if not q_text:
-                return ToolObservation(
-                    tool="link_entities",
-                    ok=False,
-                    summary="缺少必填实体检索参数 query",
-                    error="tool_missing_arg:query",
-                    status=ToolProgressStatus.DENIED,
-                )
-            target = _args.get("target_entity") if _args.get("target_entity") is not None else conv.head_entity
-            identity_targets = tuple(
-                getattr(conv.scope, "confirmed_entities", ()) or ()
-            ) or tuple(filter(None, (
-                getattr(conv.scope, "primary_entity", None),
-                conv.head_entity,
-            )))
-            target_value = str(target or "").strip()
-            if target_value and not any(
-                str(item or "").strip().casefold() == target_value.casefold()
-                for item in identity_targets
-            ):
-                return ToolObservation(
-                    tool="link_entities",
-                    ok=False,
-                    summary="图谱工具不能把邻居改写为 Query Identity",
-                    error="identity_target_required",
-                    status=ToolProgressStatus.DENIED,
-                )
-            authorization = grant_resolver.authorize(target)
-            if not authorization.authorized or authorization.grant is None:
-                self._safe_add_trace_event(
-                    trace,
-                    "tool_target_rejected",
-                    {
-                        "tool": "link_entities",
-                        "target_entity": target,
-                        "reason": authorization.rejection_reason,
-                    },
-                )
-                return ToolObservation(
-                    tool="link_entities",
-                    ok=False,
-                    summary="图谱探索目标未获得授权",
-                    error="exploration_not_authorized",
-                    data={"grant_authorization": authorization.to_dict()},
-                    status=ToolProgressStatus.DENIED,
-                )
-            grant = authorization.grant
-
-            if linker is not None:
-                try:
-                    if grant.target_entities:
-                        # Identity remains unchanged; exact-link only the authorized exploration target.
-                        link_scope_roots = getattr(retriever, "link_scope_roots", None)
-                        linked = link_scope_roots(grant) if callable(link_scope_roots) else ()
-                    else:
-                        # Truly unbound Stage-1 tasks may use lexical linking without an entity grant target.
-                        linked = linker.link(q_text, "definition")
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("link_entities failed: %s", exc)
-                    linked = ()
-                for item in linked:
-                    linked_payload.append({
-                        "entity_id": getattr(item, "entity_id", "") or "",
-                        "canonical_name": getattr(item, "canonical_name", "") or "",
-                        "entity_type": getattr(item, "entity_type", "") or "",
-                        "confidence": float(getattr(item, "confidence", 0.0) or 0.0),
-                        "match_method": getattr(item, "match_method", "") or "",
-                    })
-                if linked:
-                    try:
-                        working_set = getattr(loop, "graph_working_set", None)
-                        start_entities = list(getattr(grant, "target_entities", ()) or ())
-                        if not start_entities and getattr(grant, "primary_root", None):
-                            start_entities = [grant.primary_root]
-                        if working_set is not None and start_entities:
-                            awaitable_observation = graph_explorer.expand_graph_scope(
-                                working_set=working_set,
-                                start_entities=start_entities,
-                                direction="both",
-                                additional_hops=1,
-                                stage1_confirmed_entities=set(getattr(conv, "confirmed_entities", ()) or ()),
-                                user_mentioned_entities=set(getattr(conv.semantic_task, "mentioned_entities", ()) or ()),
-                                question=conv.user_question,
-                                task_type=getattr(conv.semantic_task, "task_type", None),
-                                semantic_task=conv.semantic_task,
-                                conversation_context=conv,
-                                admission_service=graph_admission_service,
-                            )
-                            if awaitable_observation.ok:
-                                loop.graph_working_set = working_set
-                            for candidate in working_set.relations.values():
-                                if candidate.relation_key not in relation_summaries:
-                                    relation_summaries.append(candidate.relation_key)
-                                if candidate.relation_id not in working_set.admitted_relation_ids:
-                                    continue
-                                if evidence.has_relation(candidate.relation_key):
-                                    continue
-                                admission = graph_admission_service.admit_relation(
-                                    candidate,
-                                    semantic_task=conv.semantic_task,
-                                    working_set=working_set,
-                                    target_entities=list(working_set.exploration_roots),
-                                )
-                                evidence.add_admitted_relation(
-                                    candidate,
-                                    admission,
-                                    target_entity=grant.primary_root,
-                                    provenance=[{
-                                        "source_type": "graph_relation",
-                                        "source_ref": f"relation:{candidate.relation_id}",
-                                        "relation_type": candidate.relation_type,
-                                        "source_name": candidate.source_name,
-                                        "target_name": candidate.target_name,
-                                        "relation_relevance": admission.relation_relevance,
-                                        "evidence_reason": admission.reason,
-                                        "tool": "link_entities",
-                                    }],
-                                    tool="link_entities",
-                                    grant=grant,
-                                )
-                    except Exception as exc:  # noqa: BLE001
-                        logger.debug("graph explorer in handle_link: %s", exc)
-
-            existing_links = {
-                str(item.get("entity_id") or item.get("canonical_name") or ""): item
-                for item in conv.linked_entities
-                if isinstance(item, dict)
-            }
-            for item in linked_payload:
-                existing_links[str(item.get("entity_id") or item.get("canonical_name") or "")] = item
-            conv.linked_entities = [item for key, item in existing_links.items() if key]
-            domain_summary = ""
-            if linked_payload:
-                cands_str = ", ".join(f"{c['canonical_name']}({c['entity_type']})" for c in linked_payload[:4])
-                domain_summary = f"已定位实体: {cands_str}"
-                if relation_summaries:
-                    domain_summary += f"；关联关系: {', '.join(relation_summaries)}"
-                conv.domain_context = domain_summary
-            summary_text = domain_summary or f"候选实体数: {len(linked_payload)}"
-            return ToolObservation(
-                tool="link_entities",
-                ok=True,
-                summary=summary_text[:120],
-                data={
-                    "candidates": linked_payload,
-                    "relation_summaries": relation_summaries,
-                    "domain_context": domain_summary,
-                    "grant_authorization": authorization.to_dict(),
-                },
-            )
-
         async def handle_clarify(_args: dict) -> ToolObservation:
             from rag_knowledge.services.query_clarification import (
                 candidate_to_option,
@@ -3984,13 +3771,14 @@ class RagChain:
                 },
             )
             resolution = conv.identity_resolution
-            if resolution is None or getattr(resolution, "status", None) != "ambiguous":
+            resolution_status = str(getattr(resolution, "status", "") or "").strip().casefold()
+            if resolution is None:
                 return ToolObservation(
                     tool="clarify",
                     ok=False,
-                    summary="当前身份状态没有可展示的歧义实体候选。",
+                    summary="缺少可冻结的身份解析状态。",
                     status=ToolProgressStatus.DENIED,
-                    error="identity_resolution_not_ambiguous",
+                    error="identity_resolution_missing",
                 )
 
             resolver = get_entity_candidate_resolver()
@@ -4013,23 +3801,22 @@ class RagChain:
             )
 
             meaningful_options = [opt for opt in merged if getattr(opt, "source", None) != "fixed_other"]
-            if len(meaningful_options) < 2:
-                self._safe_add_trace_event(
-                    trace,
-                    "clarification_suppressed_insufficient_candidates",
-                    {"meaningful_count": len(meaningful_options), "query": conv.user_question},
-                )
+            if resolution_status == "ambiguous" and len(meaningful_options) < 2:
                 return ToolObservation(
                     tool="clarify",
                     ok=False,
-                    summary="有效澄清候选项不足 2 个，取消反问，请继续检索或直接回答。",
+                    summary="歧义状态缺少足够的候选实体。",
                     status=ToolProgressStatus.DENIED,
                     error="meaningful_candidates_insufficient",
                 )
 
             ask_q = str(_args.get("question") or "").strip()
             if not ask_q:
-                ask_q = "您指的是以下哪一个产品或模块？" if merged else "请选择您具体关注的模块或方向："
+                ask_q = (
+                    "您指的是以下哪一个产品或模块？"
+                    if meaningful_options
+                    else "请补充您具体指的产品、模块或主题。"
+                )
 
             payload = {
                 "needs_clarification": True,
@@ -4111,27 +3898,32 @@ class RagChain:
             rel_types = _args.get("relation_types")
             direction = str(_args.get("direction") or "both")
             additional_hops = int(_args.get("additional_hops", 1) or 1)
-            goal_ents = _args.get("goal_entities")
 
             # Resolve the identity grant so admitted relations carry the
             # grant_id + identity_scope_id structure required for graph
             # citable (PRD §4.3.1).
+            confirmed_scope_targets = []
+            if conv.identity_status == "confirmed_entity":
+                confirmed_scope_targets = list(getattr(conv, "confirmed_entities", ()) or ())
+                if conv.confirmed_entity and conv.confirmed_entity not in confirmed_scope_targets:
+                    confirmed_scope_targets.append(conv.confirmed_entity)
             scope_grant = None
-            if conv.head_entity:
-                scope_auth = grant_resolver.authorize(conv.head_entity)
-                if scope_auth.authorized:
-                    scope_grant = scope_auth.grant
+            if confirmed_scope_targets:
+                scope_auth = grant_resolver.authorize(confirmed_scope_targets)
+                scope_grant = scope_auth.grant if scope_auth.authorized else None
 
-            # 4-source authorization:
+            # 4-source authorization. Stage-1 contributes only confirmed identity;
+            # unresolved primary/head values remain working hypotheses and must
+            # enter through user mention, Working Text, or GraphWorkingSet.
             stage1_confirmed_entities = set(getattr(conv, "confirmed_entities", ()) or ())
-            if conv.head_entity:
-                stage1_confirmed_entities.add(conv.head_entity)
+            if conv.identity_status == "confirmed_entity" and conv.confirmed_entity:
+                stage1_confirmed_entities.add(conv.confirmed_entity)
 
             admitted_text_entities = set()
             for grp in evidence.groups:
                 if grp.status == "ACTIVE" and grp.kind in ("retrieve", "reuse"):
-                    if grp.target_entity:
-                        admitted_text_entities.add(str(grp.target_entity).strip())
+                    # Graph root authorization comes from actual Working Text
+                    # attribution, not from the retrieval request's target hint.
                     for doc in grp.docs:
                         meta = doc.get("metadata") or {}
                         for key in ("document_entity", "evidence_target_entity", "scope_entity", "entity_name"):
@@ -4141,14 +3933,17 @@ class RagChain:
 
             user_mentioned = set(getattr(conv.semantic_task, "mentioned_entities", ()) or ())
 
+            from rag_knowledge.services.agent_orchestration.graph_working_set import GraphWorkingSet
+
             working_set = getattr(loop, "graph_working_set", None) if 'loop' in locals() else None
+            if working_set is None:
+                working_set = GraphWorkingSet(question_id=str(getattr(conv, "question_id", "") or ""))
             obs = graph_explorer.expand_graph_scope(
                 working_set=working_set,
                 start_entities=start_ents,
                 relation_types=rel_types,
                 direction=direction,
                 additional_hops=additional_hops,
-                goal_entities=goal_ents,
                 admitted_text_entities=admitted_text_entities,
                 stage1_confirmed_entities=stage1_confirmed_entities,
                 user_mentioned_entities=user_mentioned,
@@ -4157,10 +3952,36 @@ class RagChain:
                 conversation_context=conv,
                 admission_service=graph_admission_service,
             )
-            if 'loop' in locals() and working_set is not None:
+            if 'loop' in locals():
                 loop.graph_working_set = working_set
 
-            if obs.ok and working_set is not None:
+            if obs.ok:
+                from rag_knowledge.models.graph_schema import normalize_entity_name
+
+                def _grant_for_graph_relation(rel):
+                    if scope_grant is None:
+                        return None
+                    origin_root = str(getattr(rel, "origin_root", "") or "").strip()
+                    if origin_root:
+                        provenance_names = (origin_root,)
+                    else:
+                        provenance_names = (
+                            getattr(rel, "source_name", ""),
+                            getattr(rel, "target_name", ""),
+                        )
+                    grant_targets = {
+                        normalize_entity_name(str(item or "")).casefold()
+                        for item in (getattr(scope_grant, "target_entities", ()) or ())
+                    }
+                    return (
+                        scope_grant
+                        if any(
+                            normalize_entity_name(str(item or "")).casefold() in grant_targets
+                            for item in provenance_names
+                        )
+                        else None
+                    )
+
                 for rid in working_set.admitted_relation_ids:
                     rel = working_set.relations.get(rid.casefold()) or next((r for r in working_set.relations.values() if r.relation_id == rid), None)
                     if rel is not None and not evidence.has_relation(rel.relation_key):
@@ -4191,7 +4012,7 @@ class RagChain:
                             target_entity=rel.origin_root or rel.target_name or rel.source_name,
                             provenance=prov,
                             tool="expand_graph_scope",
-                            grant=scope_grant,
+                            grant=_grant_for_graph_relation(rel),
                         )
 
             return obs
@@ -4209,8 +4030,13 @@ class RagChain:
         # Identity grant for graph bootstrap: admitted relations only become
         # graph citable when they carry grant_id + identity_scope_id (§4.3.1).
         loop_grant = None
-        if conv.head_entity:
-            loop_grant_auth = grant_resolver.authorize(conv.head_entity)
+        bootstrap_targets = []
+        if conv.identity_status == "confirmed_entity":
+            bootstrap_targets = list(getattr(conv, "confirmed_entities", ()) or ())
+            if conv.confirmed_entity and conv.confirmed_entity not in bootstrap_targets:
+                bootstrap_targets.append(conv.confirmed_entity)
+        if bootstrap_targets:
+            loop_grant_auth = grant_resolver.authorize(bootstrap_targets)
             if loop_grant_auth.authorized:
                 loop_grant = loop_grant_auth.grant
 
@@ -4250,7 +4076,6 @@ class RagChain:
             ] if reviewer_feedback else None),
         )
         result = await loop.run(on_event=emit)
-        self._safe_record_agent_rejections(trace, result)
         return result
 
     @staticmethod
@@ -4370,17 +4195,23 @@ class RagChain:
 
         while feedback and rounds < max_rounds:
             remaining = dict(getattr(result, "budget", {}) or {})
-            can_resume = (
-                int(remaining.get("remaining_retrieve_attempts") or 0) > 0
-                and int(remaining.get("steps_used") or 0) < int(remaining.get("max_steps") or 0)
+            steps_remaining = int(remaining.get("steps_used") or 0) < int(remaining.get("max_steps") or 0)
+            graph_state = getattr(result, "graph_working_set", None)
+            graph_enabled = bool(getattr(getattr(self, "_graph_cfg", None), "enabled", False))
+            graph_db_available = getattr(getattr(self, "_graph_retriever", None), "db", None) is not None
+            graph_available = graph_enabled and graph_db_available and bool(
+                graph_state is None
+                or not hasattr(graph_state, "budget")
+                or graph_state.budget.can_expand()
             )
+            text_available = int(remaining.get("remaining_retrieve_attempts") or 0) > 0
+            web_available = bool(web_search)
+            can_resume = steps_remaining and (text_available or graph_available or web_available)
             if not can_resume:
-                # §14.1: retrieval_blocked is a distinct terminal — the reviewer
-                # asked for more evidence but the budget is gone.
                 finalized.grounding.update({
                     "final_mode": "retrieval_blocked",
                     "publication_state": "retrieval_blocked",
-                    "reasons": list(finalized.grounding.get("reasons") or []) + ["retrieval_resume_blocked"],
+                    "reasons": list(finalized.grounding.get("reasons") or []) + ["reviewer_resume_blocked"],
                 })
                 break
 
@@ -4777,20 +4608,14 @@ class RagChain:
                 yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
             return
-        from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
-
-        # Answer/Reviewer/citations all consume the immutable finalization snapshot.
+        # Answer/Reviewer/citations consume the immutable finalization contract.
         source_docs, retrieved_source_docs = self._agent_answer_docs(result)
+        is_direct_chat = str((getattr(result, "answer_contract", {}) or {}).get("answer_type") or "knowledge").strip().casefold() == "direct_chat"
         has_citable_evidence = bool(retrieved_source_docs)
         if has_citable_evidence:
-            is_direct_chat = False
             context = self._format_context(source_docs)
             has_evidence = bool(source_docs)
         else:
-            is_direct_chat = (
-                is_meta_or_direct_chat(q)
-                or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
-            )
             source_docs = []
             retrieved_source_docs = []
             context = ""
@@ -5321,12 +5146,7 @@ class RagChain:
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
-
-        is_direct_chat = (
-            is_meta_or_direct_chat(q)
-            or getattr(result.conversation.understanding, "mode", "") == "direct_chat"
-        )
+        is_direct_chat = str((getattr(result, "answer_contract", {}) or {}).get("answer_type") or "knowledge").strip().casefold() == "direct_chat"
         if not source_docs and not allow_general and not is_direct_chat:
             publication_state, terminal_answer, _terminal_message = self._classify_empty_agent_publication(result)
             self._safe_set_grounding(trace, {

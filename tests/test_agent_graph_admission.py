@@ -77,7 +77,12 @@ def test_admission_deterministic_depends_on():
         "StampServer 启动需要依赖哪些组件？", "StampServer", ("StampServer",),
         "single_entity", 1.0, "procedure", ("procedure",), "stage1",
     )
-    result = service.admit_relation(candidate, question="ignored raw query", semantic_task=task)
+    result = service.admit_relation(
+        candidate,
+        question="ignored raw query",
+        semantic_task=task,
+        target_entities=["StampServer"],
+    )
     assert result.verdict == "PASS"
     assert result.intent_relevance == "HIGH"
 
@@ -96,11 +101,21 @@ def test_admission_deterministic_belongs_to():
         "StampServer 是什么产品？", "StampServer", ("StampServer",),
         "single_entity", 1.0, "definition", (), "stage1",
     )
-    res1 = service.admit_relation(candidate, question="ignored raw query", semantic_task=overview_task)
+    res1 = service.admit_relation(
+        candidate,
+        question="ignored raw query",
+        semantic_task=overview_task,
+        target_entities=["StampServer"],
+    )
     assert res1.verdict == "PASS"
 
     # Exact parameter question -> REJECT
-    res2 = service.admit_relation(candidate, question="ignored raw query", semantic_task=_task(intent="config"))
+    res2 = service.admit_relation(
+        candidate,
+        question="ignored raw query",
+        semantic_task=_task(intent="config"),
+        target_entities=["StampServer"],
+    )
     assert res2.verdict == "REJECT"
     assert res2.reason == "relation_type_not_answer_evidence:belongs_to"
 

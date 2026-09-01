@@ -44,11 +44,11 @@ def test_toolcall_source_is_100_percent_controller():
     pool = EvidencePool(question_id="q")
 
     async def retrieve(args):
-        pool.add_retrieve([_doc("c1", "StampServer 的端口是 8080")], query=args["query"])
+        pool.add_retrieve([_doc("c1", "StampServer 的端口是 8080")], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 端口"}, source="llm"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 端口"}, source="llm"),
         AgentDecision(action="finalize", focus_evidence_ids=("c1",), source="llm"),
     ])
 
@@ -62,7 +62,6 @@ def test_toolcall_source_is_100_percent_controller():
             agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
         ),
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: SimpleNamespace(anchor_entity="StampServer", show_j3=False, is_strong=True),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -113,11 +112,11 @@ def test_first_step_zero_docs_marked_as_no_progress():
 
     async def retrieve(args):
         # 首轮空召回
-        pool.add_retrieve([], query=args["query"])
+        pool.add_retrieve([], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="empty")
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 未知功能"}, source="llm"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 未知功能"}, source="llm"),
     ])
 
     loop = AgentLoop(
@@ -153,18 +152,18 @@ def test_second_retrieval_missing_gap_denied_by_harness():
     async def retrieve(args):
         doc = _doc("c1", "StampServer 部署")
         doc["metadata"]["document_entity"] = "StampServer"
-        pool.add_retrieve([doc], query=args["query"], head_entity="StampServer", target_entity="StampServer")
+        pool.add_retrieve([doc], query=args["search_focus_text"], head_entity="StampServer", target_entity="StampServer")
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok", data={"retrieval_executed": True})
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 部署"}, source="llm"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 部署"}, source="llm"),
         # 第二轮未提供 gap 与 expected_gain
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 端口"}, source="llm"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 端口"}, source="llm"),
         # 第三轮纠正，提供 gap
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 端口"},
+            arguments={"search_focus_text": "StampServer 端口"},
             gap="StampServer 端口配置",
             expected_gain="获取默认管理端口",
             source="llm",
@@ -195,9 +194,12 @@ def test_second_retrieval_missing_gap_denied_by_harness():
             "new_chunks": 0,
             "new_entities": 0,
             "new_relations": 0,
-            "working_delta": 0,
-            "citable_delta": 0,
-            "gap_support_delta": 0,
+        "working_delta": 0,
+        "citable_delta": 0,
+        "gap_support_delta": 0,
+        "graph_entity_delta": 0,
+        "graph_relation_delta": 0,
+        "graph_frontier_delta": 0,
         "evidence_version_before": 1,
         "evidence_version_after": 1,
         "status": ToolProgressStatus.DENIED,
@@ -218,7 +220,7 @@ def test_reviewer_feedback_is_only_an_observation_until_controller_selects_retri
     seen_observations = []
 
     async def retrieve(args):
-        pool.add_retrieve([_doc("c1", "StampServer 默认端口是 8080")], query=args["query"])
+        pool.add_retrieve([_doc("c1", "StampServer 默认端口是 8080")], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
     def decide(_conv, _pool, observations):
@@ -227,7 +229,7 @@ def test_reviewer_feedback_is_only_an_observation_until_controller_selects_retri
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 默认端口"},
+            arguments={"search_focus_text": "StampServer 默认端口"},
                 gap="默认端口",
                 expected_gain="获取端口事实",
                 source="llm",
@@ -263,7 +265,7 @@ def test_exhausted_gap_denied_by_harness():
     pool = EvidencePool(question_id="q")
 
     async def retrieve(args):
-        pool.add_retrieve([], query=args["query"])
+        pool.add_retrieve([], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="empty", data={"retrieval_executed": True})
 
     decisions = iter([
@@ -271,7 +273,7 @@ def test_exhausted_gap_denied_by_harness():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 架构 1", "target_entity": "StampServer"},
+            arguments={"search_focus_text": "StampServer 架构 1"},
             gap="StampServer 架构图",
             expected_gain="架构文档",
             source="llm",
@@ -280,7 +282,7 @@ def test_exhausted_gap_denied_by_harness():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 架构 2", "target_entity": "StampServer"},
+            arguments={"search_focus_text": "StampServer 架构 2"},
             gap="StampServer 架构图",
             expected_gain="架构文档",
             source="llm",
@@ -289,7 +291,7 @@ def test_exhausted_gap_denied_by_harness():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 架构 3", "target_entity": "StampServer"},
+            arguments={"search_focus_text": "StampServer 架构 3"},
             gap="StampServer 架构图",
             expected_gain="架构文档",
             source="llm",
@@ -318,15 +320,15 @@ def test_two_consecutive_no_progress_triggers_fuse_and_blocks_further_exploratio
     pool = EvidencePool(question_id="q")
 
     async def retrieve(args):
-        pool.add_retrieve([], query=args["query"])
+        pool.add_retrieve([], query=args["search_focus_text"])
         return ToolObservation(tool="retrieve_kb", ok=True, summary="empty")
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "q1"}, source="llm"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "q1"}, source="llm"),
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "q2"},
+            arguments={"search_focus_text": "q2"},
             gap="第一个未覆盖缺口",
             expected_gain="验证第二个独立检索目标",
             source="llm",
@@ -335,7 +337,7 @@ def test_two_consecutive_no_progress_triggers_fuse_and_blocks_further_exploratio
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "q3"},
+            arguments={"search_focus_text": "q3"},
             gap="新缺口",
             expected_gain="新增益",
             source="llm",
@@ -417,7 +419,7 @@ def test_budget_exhaustion_never_creates_partial_snapshot():
         doc["metadata"]["document_entity"] = "StampServer"
         pool.add_retrieve(
             [doc],
-            query=args["query"],
+            query=args["search_focus_text"],
             head_entity="StampServer",
             target_entity="StampServer",
         )
@@ -427,7 +429,7 @@ def test_budget_exhaustion_never_creates_partial_snapshot():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 部署"},
+            arguments={"search_focus_text": "StampServer 部署"},
             source="llm",
         ),
     ])
@@ -459,7 +461,7 @@ def test_budget_exhaustion_never_creates_partial_snapshot_without_main_finalize(
     async def retrieve(args):
         pool.add_retrieve(
             [_doc("c1", "StampServer 部署说明")],
-            query=args["query"],
+            query=args["search_focus_text"],
             head_entity="StampServer",
             target_entity="StampServer",
         )
@@ -477,7 +479,7 @@ def test_budget_exhaustion_never_creates_partial_snapshot_without_main_finalize(
         decide_fn=lambda *_: AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 部署"},
+            arguments={"search_focus_text": "StampServer 部署"},
             source="llm",
         ),
         tool_timeout=0,
@@ -500,7 +502,7 @@ def test_finalization_rejected_observation_loop_closure():
     async def retrieve(args):
         doc = _doc("c1", "StampServer 完整配置手册")
         doc["metadata"]["document_entity"] = "StampServer"
-        pool.add_retrieve([doc], query=args["query"], head_entity="StampServer", target_entity="StampServer")
+        pool.add_retrieve([doc], query=args["search_focus_text"], head_entity="StampServer", target_entity="StampServer")
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
     observed_tools: list[str] = []
@@ -517,7 +519,7 @@ def test_finalization_rejected_observation_loop_closure():
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 完整配置手册"},
+                arguments={"search_focus_text": "StampServer 完整配置手册"},
                 gap="StampServer 配置事实",
                 expected_gain="获取完整配置手册",
                 source="llm",

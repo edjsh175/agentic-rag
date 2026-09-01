@@ -22,9 +22,6 @@ from rag_knowledge.services.agent_candidate_pipeline import CandidateResult, _ch
 
 logger = logging.getLogger(__name__)
 
-_OVERVIEW_TERMS = ("主要功能", "功能", "用途", "作用", "是什么", "概览", "能力")
-_OVERVIEW_EVIDENCE_TERMS = ("用于", "功能", "支持", "作用", "提供", "实现", "能力")
-_DEPLOYMENT_TERMS = ("部署", "安装", "上传", "目录", "路径", "配置位置")
 _DIRECT_ATTRIBUTION_CANDIDATE_SIGNALS = frozenset({
     "target_text_mention",
     "document_entity_match",
@@ -293,21 +290,33 @@ class TextEvidenceAdmissionService:
         answer_intent = str(getattr(semantic_task, "answer_intent", "") or "general_qa").strip().lower()
         requested_facets = tuple(getattr(semantic_task, "requested_facets", ()) or ())
         semantic_target = str(getattr(semantic_task, "primary_entity", "") or "").strip()
+        mentioned_targets = tuple(
+            str(item).strip()
+            for item in (getattr(semantic_task, "mentioned_entities", ()) or ())
+            if str(item).strip()
+        )
+        task_type = str(getattr(semantic_task, "task_type", "") or "").strip().lower()
 
         requested_target = str(target_entity or "").strip()
-        if semantic_target and requested_target and not _same(semantic_target, requested_target):
+        allowed_targets = tuple(dict.fromkeys(
+            item for item in (semantic_target, *mentioned_targets) if item
+        ))
+        if requested_target and allowed_targets and not any(_same(item, requested_target) for item in allowed_targets):
             return TextEvidenceQualification(
                 verdict="REJECT",
                 evidence_class="IRRELEVANT",
                 support_scope="NONE",
                 intent_relevance="NONE",
                 reason_code="semantic_task_target_mismatch",
-                reason="Admission target disagrees with the frozen SemanticTaskContext primary entity.",
+                reason="Admission target is outside the frozen SemanticTaskContext target set.",
                 signals=("semantic_task_authority_violation",),
                 canonical_question=canonical_question,
                 answer_intent=answer_intent,
             )
-        target = semantic_target or requested_target
+        if task_type == "multi_entity_relation" and requested_target:
+            target = requested_target
+        else:
+            target = semantic_target or requested_target
 
         conflict_status, conflict_signals = resolve_entity_conflict(
             candidate, target_entity=target, graph_working_set=graph_working_set

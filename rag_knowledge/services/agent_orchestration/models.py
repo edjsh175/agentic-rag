@@ -18,7 +18,7 @@ from rag_knowledge.services.conversation_context import (
 )
 
 EvidenceStatus = Literal["ACTIVE", "FROZEN"]
-ToolAction = Literal["tool_call", "finish", "finalize"]
+ToolAction = Literal["tool_call", "finalize"]
 
 
 class ToolProgressStatus:
@@ -38,6 +38,9 @@ class EvidenceDelta:
     new_entities: int = 0
     new_relations: int = 0
     working_delta: int = 0
+    graph_entity_delta: int = 0
+    graph_relation_delta: int = 0
+    graph_frontier_delta: int = 0
     citable_delta: int = 0
     gap_support_delta: int = 0
     evidence_version_before: int = 0
@@ -50,6 +53,9 @@ class EvidenceDelta:
             "new_entities": self.new_entities,
             "new_relations": self.new_relations,
             "working_delta": self.working_delta,
+            "graph_entity_delta": self.graph_entity_delta,
+            "graph_relation_delta": self.graph_relation_delta,
+            "graph_frontier_delta": self.graph_frontier_delta,
             "citable_delta": self.citable_delta,
             "gap_support_delta": self.gap_support_delta,
             "evidence_version_before": self.evidence_version_before,
@@ -92,7 +98,7 @@ class ToolObservation:
 
 @dataclass
 class AgentDecision:
-    action: ToolAction = "finish"
+    action: ToolAction = "finalize"
     tool: str | None = None
     arguments: dict[str, Any] = field(default_factory=dict)
     reason: str = ""
@@ -1532,7 +1538,7 @@ class ConversationContext:
             resolved_question=semantic_task.resolved_question or (question or "").strip(),
             scope=identity_scope,
             identity_status=getattr(identity_scope, "identity_status", "unresolved"),
-            confirmed_entity=getattr(identity_scope, "confirmed_entity", None) or head,
+            confirmed_entity=getattr(identity_scope, "confirmed_entity", None),
             confirmed_entity_id=getattr(identity_scope, "confirmed_entity_id", None),
             confirmed_topic=getattr(identity_scope, "confirmed_topic", None),
             raw_entity_mention=getattr(identity_scope, "raw_entity_mention", None),
@@ -1560,7 +1566,7 @@ class ConversationContext:
         elif self.confirmed_entity:
             lines.append(f"- 当前主体身份: {self.confirmed_entity}（已确认）")
         elif self.head_entity:
-            lines.append(f"- 当前主体身份: {self.head_entity}（已确认）")
+            lines.append(f"- 当前工作主体候选: {self.head_entity}（未确认，仅用于探索，不是身份事实）")
         elif self.identity_status == "ambiguous_entity" or (self.identity_resolution and getattr(self.identity_resolution, "status", None) == "ambiguous"):
             if self.identity_resolution and self.identity_resolution.candidates:
                 c_desc = ", ".join(f"{c.canonical_name} ({round(c.final_score, 2)})" for c in self.identity_resolution.candidates[:5])
@@ -1588,7 +1594,7 @@ class ConversationContext:
         if self.entity_transition:
             lines.append("- entity_transition: true（旧证据默认不可引用）")
         if self.clarification_callback:
-            lines.append("- 本轮为澄清回调：禁止 reuse_evidence，必须重新检索")
+            lines.append("- 本轮为澄清回调：历史证据只能作为候选重新 Qualification，不得沿用旧引用资格")
         lines.extend((
             "## Identity Anchor（身份方向锚，不作为事实来源）",
             "<identity_anchor>",

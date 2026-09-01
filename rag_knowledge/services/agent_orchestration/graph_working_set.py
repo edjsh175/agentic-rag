@@ -281,14 +281,12 @@ class GraphWorkingSet:
         relation_types: list[str] | tuple[str, ...],
         direction: str,
         additional_hops: int,
-        goal_entities: list[str] | tuple[str, ...] | None = None,
     ) -> str:
         payload = {
             "start_entities": sorted(str(s).strip().casefold() for s in (start_entities or [])),
             "relation_types": sorted(str(r).strip().casefold() for r in (relation_types or [])),
             "direction": str(direction or "both").strip().lower(),
             "additional_hops": int(additional_hops or 1),
-            "goal_entities": sorted(str(g).strip().casefold() for g in (goal_entities or [])),
             "graph_revision": self.graph_revision,
         }
         return hashlib.sha256(

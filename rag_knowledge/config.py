@@ -107,7 +107,6 @@ class GraphRetrievalConfig:
     query_rewrite_enabled: bool = False
     anchor_chunk_filter_enabled: bool = False
     anchor_graph_chunk_enabled: bool = False
-    graph_chunk_entity_allowlist: str = "PipelineBuilder"
     min_link_confidence: float = 0.75
     min_entity_confidence: float = 0.7
     min_relation_confidence: float = 0.7
@@ -203,8 +202,6 @@ class AgentOrchestrationConfig:
     tool_timeout: float = 60.0
     heartbeat_initial_delay: float = 1.5
     heartbeat_interval: float = 5.0
-    # Temporary rollout switch; the v2 finalization path is enabled by default.
-    terminal_finalization_v2: bool = True
     # Agent Graph Bootstrap & WorkingSet settings (PRD 2026-08-26)
     graph_bootstrap_enabled: bool = True
     graph_bootstrap_hops: int = 1
@@ -213,8 +210,6 @@ class AgentOrchestrationConfig:
     graph_max_expansion_calls: int = 2
     graph_max_entities_total: int = 24
     graph_max_relations_total: int = 64
-    graph_relation_admission_enabled: bool = True
-    agent_graph_working_set_v1: bool = True
     reasoning_stream_policy: str = "summarized"
     trace_reasoning_policy: str = "summarized"
     trace_reasoning_max_chars: int = 4000
@@ -435,9 +430,6 @@ class Config:
                 "graph_retrieval", "anchor_graph_chunk_enabled", "false"
             ).lower()
             == "true",
-            graph_chunk_entity_allowlist=_get(
-                "graph_retrieval", "graph_chunk_entity_allowlist", "PipelineBuilder"
-            ),
             min_link_confidence=float(_get("graph_retrieval", "min_link_confidence", "0.75")),
             min_entity_confidence=float(_get("graph_retrieval", "min_entity_confidence", "0.7")),
             min_relation_confidence=float(_get("graph_retrieval", "min_relation_confidence", "0.7")),
@@ -633,9 +625,6 @@ class Config:
             heartbeat_interval=float(
                 _get("agent_orchestration", "heartbeat_interval", "5")
             ),
-            terminal_finalization_v2=_get(
-                "agent_orchestration", "terminal_finalization_v2", "true"
-            ).lower() == "true",
             graph_bootstrap_enabled=_get(
                 "agent_orchestration", "graph_bootstrap_enabled", "true"
             ).lower() == "true",
@@ -657,12 +646,6 @@ class Config:
             graph_max_relations_total=int(
                 _get("agent_orchestration", "graph_max_relations_total", "64")
             ),
-            graph_relation_admission_enabled=_get(
-                "agent_orchestration", "graph_relation_admission_enabled", "true"
-            ).lower() == "true",
-            agent_graph_working_set_v1=_get(
-                "agent_orchestration", "agent_graph_working_set_v1", "true"
-            ).lower() == "true",
             reasoning_stream_policy=_get(
                 "agent_orchestration", "reasoning_stream_policy", "summarized"
             ).strip().lower(),

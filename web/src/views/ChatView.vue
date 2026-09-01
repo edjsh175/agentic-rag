@@ -630,7 +630,7 @@ function handleStop() {
 }
 
 function applyClarification(msg: Message, data: ClarifyResult | undefined) {
-  if (!data?.needs_clarification || !data.options || data.options.length < 2) return false
+  if (!data?.needs_clarification || !data.options || data.options.length < 1) return false
   msg.loading = false
   msg.status = undefined
   msg.clarification = {

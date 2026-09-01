@@ -30,7 +30,7 @@ def test_surface_underspecified_and_wide_terms():
     assert not question_is_underspecified("管线点表字段有哪些")
     assert contains_term("介绍 pipeline 能力", "pipeline")
     assert is_vague_surface_question("pipeline")
-    assert is_vague_surface_question("管线工具怎么用")
+    assert not is_vague_surface_question("管线工具怎么用")
     # bare 管线 in a long question should not be treated as vague surface
     assert not is_vague_surface_question("管线点表字段有哪些")
 

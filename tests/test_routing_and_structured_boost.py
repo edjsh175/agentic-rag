@@ -30,14 +30,14 @@ def _isolated_test_storage(isolated_storage):
 class RoutingHeuristicTests(unittest.TestCase):
     def test_manual_queries_route_to_attachment_kb(self):
         chain = object.__new__(RagChain)
-        self.assertEqual(chain._route_query("管线点表规范"), "文章附件")
-        self.assertEqual(chain._route_query("PipelineBuilder 如何发布管线"), "文章附件")
-        self.assertEqual(chain._route_query("管线发布服务如何配置"), "文章附件")
+        self.assertIsNone(chain._route_query("管线点表规范"))
+        self.assertIsNone(chain._route_query("PipelineBuilder 如何发布管线"))
+        self.assertIsNone(chain._route_query("管线发布服务如何配置"))
         self.assertTrue(chain._is_table_oriented_query("PipelineBuilder 管线点表字段要求"))
 
     def test_blog_queries_route_to_published_kb(self):
         chain = object.__new__(RagChain)
-        self.assertEqual(chain._route_query("CSDN 博客里有 Rocky9 安装经验吗"), "已发布文章")
+        self.assertIsNone(chain._route_query("CSDN 博客里有 Rocky9 安装经验吗"))
 
 
 class RetrievalStrategyStructuredBoostTests(unittest.TestCase):

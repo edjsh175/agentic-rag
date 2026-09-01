@@ -11,13 +11,6 @@ from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.services.backbone_guard import load_backbone_constraints, resolve_canonical
 from rag_knowledge.services.relation_policy import SCOPE_TRAVERSAL_RELATIONS
 
-_ALLOWED_DIRECT_SOURCES = frozenset({
-    "user_explicit_mention",
-    "stage1_resolved_entity",
-    "clarification_confirmed",
-    "previous_confirmed_context",
-})
-
 # Approved graph relations provide exploration provenance, including
 # ``different_from``.  They do not rebind the answer subject or make the
 # resulting text citable for that subject.
@@ -306,14 +299,13 @@ class ExplorationGrantResolver:
         )
 
     def _direct_source(self, target: str) -> str | None:
+        if str(getattr(self.identity_scope, "identity_status", "") or "").strip() != "confirmed_entity":
+            return None
         confirmed_entities = tuple(getattr(self.identity_scope, "confirmed_entities", ()) or ())
         confirmed_entity = getattr(self.identity_scope, "confirmed_entity", None)
         if confirmed_entity and not confirmed_entities:
             confirmed_entities = (confirmed_entity,)
 
-        identity_primary = self._canonical(getattr(self.identity_scope, "primary_entity", None))
-        if identity_primary and not confirmed_entities:
-            confirmed_entities = (identity_primary,)
         if not any(_same_entity(target, self._canonical(item) or item) for item in confirmed_entities):
             return None
 
@@ -336,10 +328,16 @@ class ExplorationGrantResolver:
         bases: list[tuple[str, int]] = []
         for name, depth in self._issued_depth.items():
             bases.append((name, depth))
-        primary = self._canonical(getattr(self.identity_scope, "primary_entity", None))
-        if primary and not any(_same_entity(primary, name) for name, _ in bases):
-            bases.append((primary, 0))
-        for item in tuple(getattr(self.identity_scope, "confirmed_entities", ()) or ()):
+        # Only already-authorized roots may extend graph provenance.  The
+        # IdentityScope primary_entity can be an unresolved working hypothesis,
+        # so it must never silently become an authorization root here.
+        confirmed_bases: list[str] = []
+        if str(getattr(self.identity_scope, "identity_status", "") or "").strip() == "confirmed_entity":
+            confirmed_bases = list(getattr(self.identity_scope, "confirmed_entities", ()) or ())
+            confirmed_entity = getattr(self.identity_scope, "confirmed_entity", None)
+            if confirmed_entity and not any(_same_entity(confirmed_entity, item) for item in confirmed_bases):
+                confirmed_bases.append(confirmed_entity)
+        for item in tuple(confirmed_bases):
             canonical = self._canonical(item)
             if canonical and not any(_same_entity(canonical, name) for name, _ in bases):
                 bases.append((canonical, 0))

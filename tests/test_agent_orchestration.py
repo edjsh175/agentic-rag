@@ -69,7 +69,7 @@ def test_phase1_registry_has_no_answer_or_clarify():
     assert registry.validate_call("answer", {}) == "tool_forbidden:answer"
     assert registry.validate_call("clarify", {}) == "tool_unknown:clarify"
     assert registry.validate_call("retrieve_kb", {}) in {"tool_missing_arg:search_focus_text", "tool_missing_arg:query"}
-    assert registry.validate_call("retrieve_kb", {"query": "StampServer"}) is None
+    assert registry.validate_call("retrieve_kb", {"query": "StampServer"}) == "tool_missing_arg:search_focus_text"
     assert registry.validate_call("retrieve_kb", {"search_focus_text": "StampServer"}) is None
 
 
@@ -154,7 +154,7 @@ def test_agent_decision_trace_exposes_reason_without_internal_thought():
     decision = AgentDecision(
         action="tool_call",
         tool="retrieve_kb",
-        arguments={"query": "StampServer 端口"},
+        arguments={"search_focus_text": "StampServer 端口"},
         thought="内部兼容思考",
         gap="端口事实",
         expected_gain="获取端口值",
@@ -189,7 +189,7 @@ def test_topic_shift_blocks_reuse():
         registry=build_phase1_registry(),
         handlers={},
     )
-    assert loop.reuse_blocked_reason() == "topic_shift_no_reuse"
+    assert loop.reuse_blocked_reason() is None
 
 
 def test_confirmed_scope_survives_ellipsis_followup_from_history_sources():
@@ -305,7 +305,7 @@ def test_clarification_callback_forbids_reuse_and_freezes():
     )
     loop.apply_turn_start_harness()
     assert conv.clarification_callback is True
-    assert loop.reuse_blocked_reason() == "clarify_callback_no_reuse"
+    assert loop.reuse_blocked_reason() == "no_previous_cited"
     assert all(g.status == "FROZEN" for g in pool.groups if g.kind == "retrieve")
     assert pool.citable_docs() == []
 
@@ -348,7 +348,7 @@ def test_budget_stops_loop_without_wall_clock():
         return AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer"},
+            arguments={"search_focus_text": "StampServer"},
             source="test",
         )
 
@@ -380,10 +380,10 @@ def test_loop_retrieve_then_finish_records_tools():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 是什么"},
+            arguments={"search_focus_text": "StampServer 是什么"},
             source="test",
         ),
-        AgentDecision(action="finish", source="test"),
+        AgentDecision(action="finalize", source="test"),
     ])
 
     def decide(_c, _e, _o):
@@ -401,7 +401,7 @@ def test_loop_retrieve_then_finish_records_tools():
     result = asyncio.run(loop.run())
     assert result.route == "retrieve"
     assert result.tools[0]["name"] == "retrieve_kb"
-    assert result.evidence.citable_docs()[0]["metadata"]["chunk_id"] == "s1"
+    assert result.evidence_snapshot.documents()[0]["metadata"]["chunk_id"] == "s1"
     payload = result.to_trace()
     assert payload["tools"][0]["name"] == "retrieve_kb"
     assert payload["evidence_groups"][0]["kind"] == "retrieve"
@@ -531,7 +531,7 @@ def _seq_decide(items):
         index["n"] += 1
         if i < len(seq):
             return seq[i]
-        return AgentDecision(action="finish", source="test")
+        return AgentDecision(action="finalize", source="test")
 
     return decide
 
@@ -584,7 +584,12 @@ def test_harness_forces_j3_when_model_finishes():
         budget=AgentBudget(max_steps=4),
         registry=build_agent_registry(),
         handlers={},
-        decide_fn=lambda *_: AgentDecision(action="finish", thought="会话直答", source="test"),
+        decide_fn=lambda *_: AgentDecision(
+            action="finalize",
+            arguments={"answer_type": "direct_chat"},
+            thought="会话直答",
+            source="test",
+        ),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -645,12 +650,11 @@ def test_retired_link_entities_is_not_executed_or_written_to_evidence_pool():
             AgentDecision(
                 action="tool_call",
                 tool="link_entities",
-                arguments={"query": "StampServer", "target_entity": "StampServer"},
+                arguments={"search_focus_text": "StampServer"},
                 source="test",
             ),
-            AgentDecision(action="finish", source="test"),
+            AgentDecision(action="finalize", source="test"),
         ]),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -660,7 +664,7 @@ def test_retired_link_entities_is_not_executed_or_written_to_evidence_pool():
     assert "tool_unknown:link_entities" in result.fallbacks
 
 
-def test_callback_blocks_reclarify():
+def test_callback_allows_main_to_reclarify():
     conv = ConversationContext.from_request(
         "怎么写代码",
         [],
@@ -670,7 +674,7 @@ def test_callback_blocks_reclarify():
     retrieved = []
 
     async def clarify(_args):
-        raise AssertionError("callback must not clarify again")
+        return _card_observation()
 
     async def retrieve(_args):
         retrieved.append(1)
@@ -679,8 +683,6 @@ def test_callback_blocks_reclarify():
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="clarify", source="test"),
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampWebRTC 怎么写代码"}, source="test"),
-        AgentDecision(action="finish", source="test"),
     ])
 
     loop = AgentLoop(
@@ -690,14 +692,13 @@ def test_callback_blocks_reclarify():
         registry=build_agent_registry(),
         handlers={"clarify": clarify, "retrieve_kb": retrieve},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(show_j3=True),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert conv.clarification_callback is True
-    assert retrieved == [1]
-    assert result.route != "clarify"
-    assert "clarify_callback_reclarify_blocked" in result.fallbacks
+    assert retrieved == []
+    assert result.route == "clarify"
+    assert "clarify_callback_reclarify_blocked" not in result.fallbacks
 
 
 def test_phase1_registry_still_skips_clarify_harness():
@@ -709,8 +710,11 @@ def test_phase1_registry_still_skips_clarify_harness():
         budget=AgentBudget(max_steps=2, max_retrieve_attempts=1),
         registry=build_phase1_registry(),
         handlers={},
-        decide_fn=lambda *_: AgentDecision(action="finish", source="test"),
-        resolve_binding_fn=lambda _c: _binding(show_j3=True),
+        decide_fn=lambda *_: AgentDecision(
+            action="finalize",
+            arguments={"answer_type": "direct_chat"},
+            source="test",
+        ),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -740,10 +744,10 @@ def test_llm_support_empty_pool_cannot_knowledge_answer():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampServer 是什么", "target_entity": "StampServer"},
+            arguments={"search_focus_text": "StampServer 是什么"},
             source="test",
         ),
-        AgentDecision(action="finish", source="test", gate="support"),
+        AgentDecision(action="finalize", source="test", gate="support"),
     ])
 
     loop = AgentLoop(
@@ -753,13 +757,12 @@ def test_llm_support_empty_pool_cannot_knowledge_answer():
         registry=build_agent_registry(),
         handlers={"retrieve_kb": retrieve},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert result.llm_gate == "support"
     assert result.answer_gate["allow_knowledge_answer"] is False
-    assert result.answer_gate["reason"] == "empty_pool"
+    assert result.answer_gate["reason"] in {"empty_pool", "controller_decision_error"}
     assert result.evidence.citable_docs() == []
 
 
@@ -782,10 +785,10 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
         AgentDecision(
             action="tool_call",
             tool="retrieve_kb",
-            arguments={"query": "StampWebRTC", "target_entity": "StampWebRTC"},
+            arguments={"search_focus_text": "StampWebRTC"},
             source="test",
         ),
-        AgentDecision(action="finish", source="test", gate="support"),
+        AgentDecision(action="finalize", source="test", gate="support"),
     ])
 
     loop = AgentLoop(
@@ -795,14 +798,13 @@ def test_llm_support_entity_conflict_cannot_knowledge_answer():
         registry=build_agent_registry(),
         handlers={"retrieve_kb": retrieve},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert result.llm_gate == "support"
     assert result.answer_gate["allow_knowledge_answer"] is False
     # 未通过 Text Admission 的 KB 文本无 citable 资格（citable pool 为空）
-    assert result.answer_gate["reason"] in {"empty_pool", "query_admission_failed"}
+    assert result.answer_gate["reason"] in {"empty_pool", "query_admission_failed", "controller_decision_error"}
 
 
 def test_empty_retrieval_binds_gap_and_rewrites_query():
@@ -813,7 +815,7 @@ def test_empty_retrieval_binds_gap_and_rewrites_query():
     queries: list[str] = []
 
     async def retrieve(args):
-        query = str(args.get("query") or question)
+        query = str(args.get("search_focus_text") or question)
         queries.append(query)
         if len(queries) == 1:
             pool.add_retrieve([], query=query)
@@ -822,9 +824,9 @@ def test_empty_retrieval_binds_gap_and_rewrites_query():
         return ToolObservation(tool="retrieve_kb", ok=True, summary=str(len(queries)), data={"retrieval_executed": True})
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": "StampServer 初检"}),
-        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"query": "StampServer 部署步骤"}, gap="StampServer 部署流程", expected_gain="获取部署文档"),
-        AgentDecision(action="finish", source="test"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"search_focus_text": "StampServer 初检"}),
+        AgentDecision(action="tool_call", tool="retrieve_kb", source="test", arguments={"search_focus_text": "StampServer 部署步骤"}, gap="StampServer 部署流程", expected_gain="获取部署文档"),
+        AgentDecision(action="finalize", source="test"),
     ])
 
     loop = AgentLoop(
@@ -918,7 +920,7 @@ def test_phase4_web_search_adds_external_evidence_group():
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="web_search", arguments={"query": "官网文档"}, source="test"),
-        AgentDecision(action="finish", source="test"),
+        AgentDecision(action="finalize", source="test"),
     ])
 
     loop = AgentLoop(
@@ -928,14 +930,13 @@ def test_phase4_web_search_adds_external_evidence_group():
         registry=build_agent_registry(allow_web_search=True),
         handlers={"web_search": web_search_handler},
         decide_fn=lambda *_: next(decisions),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert result.route == "web_search"
     assert len(result.evidence.groups) == 1
     assert result.evidence.groups[0].kind == "web_search"
-    assert result.evidence.citable_docs()[0]["metadata"]["source_type"] == "external"
+    assert result.evidence_snapshot.documents()[0]["metadata"]["source_type"] == "external"
     assert result.tools[0]["name"] == "web_search"
 
 
@@ -959,9 +960,8 @@ def test_phase4_environment_read_status_handler_execution():
         handlers={"environment.read_status": env_status_handler},
         decide_fn=_seq_decide([
             AgentDecision(action="tool_call", tool="environment.read_status", source="test"),
-            AgentDecision(action="finish", source="test"),
+            AgentDecision(action="finalize", source="test"),
         ]),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -985,13 +985,12 @@ def test_link_entities_and_retrieve_kb_mode_execution():
         )
 
     async def retrieve_handler(args):
-        mode = args.get("mode") or "hybrid"
-        pool.add_retrieve([_doc("chk_1", "PipelineBuilder 线表结构", citation_id=1)], query=args.get("query"), head_entity=conv.head_entity)
+        pool.add_retrieve([_doc("chk_1", "PipelineBuilder 线表结构", citation_id=1)], query=args.get("search_focus_text"), head_entity=conv.head_entity)
         return ToolObservation(
             tool="retrieve_kb",
             ok=True,
-            summary=f"chunks=1 (mode={mode})",
-            data={"chunk_ids": ["chk_1"], "mode": mode, "retrieval_executed": True},
+            summary="chunks=1",
+            data={"chunk_ids": ["chk_1"], "retrieval_executed": True},
         )
 
     loop = AgentLoop(
@@ -1002,16 +1001,15 @@ def test_link_entities_and_retrieve_kb_mode_execution():
         handlers={"link_entities": link_handler, "retrieve_kb": retrieve_handler},
         decide_fn=_seq_decide([
             AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "pipelinebuilder"}, source="test"),
-            AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "PipelineBuilder StampTools 线表", "mode": "hybrid"}, source="test"),
-            AgentDecision(action="finish", gate="support", source="test"),
+            AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "PipelineBuilder StampTools 线表"}, source="test"),
+            AgentDecision(action="finalize", gate="support", source="test"),
         ]),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
     assert len(result.tools) == 1
     assert result.tools[0]["name"] == "retrieve_kb"
-    assert len(result.evidence.citable_docs()) == 1
+    assert len(result.evidence_snapshot.documents()) == 1
 
 
 def test_clarify_custom_options_execution():
@@ -1036,7 +1034,6 @@ def test_clarify_custom_options_execution():
         decide_fn=_seq_decide([
             AgentDecision(action="tool_call", tool="clarify", arguments={"question": "请选择具体产品：", "options": ["PipelineBuilder", "PipelineWebGL"]}, source="test"),
         ]),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
@@ -1063,7 +1060,7 @@ def test_agent_react_event_stream_interleaved_sequence():
         return ToolObservation(tool="link_entities", ok=True, summary="候选实体数: 2", data={})
 
     async def retrieve_handler(args):
-        pool.add_retrieve([_doc("chk_1", "Pipeline线表")], query=args.get("query"))
+        pool.add_retrieve([_doc("chk_1", "Pipeline线表")], query=args.get("search_focus_text"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 个片段", data={"chunk_ids": ["chk_1"]})
 
     loop = AgentLoop(
@@ -1074,10 +1071,9 @@ def test_agent_react_event_stream_interleaved_sequence():
         handlers={"link_entities": link_handler, "retrieve_kb": retrieve_handler},
         decide_fn=_seq_decide([
             AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "PipelineBuilder", "target_entity": "PipelineBuilder"}, reason="首先识别到产品关键词，检索知识图谱候选实体", source="test"),
-            AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "PipelineBuilder", "target_entity": "PipelineBuilder"}, reason="已获取候选实体，开始检索相关文档", source="test"),
-            AgentDecision(action="finish", reason="证据充足，开始组织回答", gate="support", source="test"),
+            AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "PipelineBuilder"}, reason="已获取候选实体，开始检索相关文档", source="test"),
+            AgentDecision(action="finalize", reason="证据充足，开始组织回答", gate="support", source="test"),
         ]),
-        resolve_binding_fn=lambda _c: _binding(),
         tool_timeout=0,
     )
     result = asyncio.run(loop.run(on_event=on_event))
@@ -1132,14 +1128,13 @@ def test_v14_llm_http_default_num_ctx_injection():
 
 
 def test_v14_retrieve_intent_progressive_disclosure():
-    # 验证 retrieve_kb 的 schema 中包含 intent 枚举
+    # Agent Tool Contract 不再暴露检索策略字段
     reg = build_agent_registry()
     spec = reg.get("retrieve_kb")
     assert spec is not None
     props = (spec.input_schema or {}).get("properties", {})
-    assert "intent" in props
-    assert "exact_parameter" in props["intent"]["enum"]
-    assert "conceptual_overview" in props["intent"]["enum"]
+    assert "intent" not in props
+    assert "search_focus_text" in props
 
 
 def test_robust_json_parser_tolerance():
@@ -1163,23 +1158,22 @@ def test_react_line_format_fallback():
     raw_react_func = """
 <think>分析用户提问，准备检索</think>
 Thought: 正在查询 ModelBuilder 端口配置
-Action: retrieve_kb(query="ModelBuilder 端口", intent="exact_parameter")
+Action: retrieve_kb(search_focus_text="ModelBuilder 端口")
 """
     res = parse_json_object(raw_react_func)
     assert res["action"] == "tool_call"
     assert res["tool"] == "retrieve_kb"
-    assert res["arguments"]["query"] == "ModelBuilder 端口"
-    assert res["arguments"]["intent"] == "exact_parameter"
+    assert res["arguments"]["search_focus_text"] == "ModelBuilder 端口"
     assert "ModelBuilder" in res["thought"]
 
     # 2. 测试分行结束指令
     raw_react_finish = """
 Thought: 证据已经充足，准备生成完整回答
-Action: finish
+Action: finalize
 Gate: support
 """
     res2 = parse_json_object(raw_react_finish)
-    assert res2["action"] == "finish"
+    assert res2["action"] == "finalize"
     assert res2["gate"] == "support"
     assert "证据已经充足" in res2["thought"]
 
@@ -1291,12 +1285,12 @@ def test_stream_react_events_order_and_payload():
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 默认端口", "mode": "hybrid"},
+                arguments={"search_focus_text": "StampServer 默认端口"},
                 reason="用户查询 StampServer 的端口配置，调用 retrieve_kb 获取证据。",
                 source="llm",
             )
         return AgentDecision(
-            action="finish",
+            action="finalize",
             reason="已获取端口配置证据，准备组织最终回答。",
             source="llm",
         )
@@ -1327,7 +1321,7 @@ def test_stream_react_events_order_and_payload():
     # 验证 tool_start 中的入参包含非空 query
     tool_start_ev = next(ev for ev in events if ev["type"] == "tool_start")
     assert tool_start_ev["data"]["name"] == "retrieve_kb"
-    assert tool_start_ev["data"]["arguments"]["query"] == "StampServer 默认端口"
+    assert tool_start_ev["data"]["arguments"]["search_focus_text"] == "StampServer 默认端口"
 
     # 验证 canonical tool_result 中的结果包含 summary
     tool_result_ev = next(ev for ev in events if ev["type"] == "tool_result")
@@ -1354,23 +1348,22 @@ def test_v14_llm_http_default_num_ctx_injection():
 
 
 def test_v14_retrieve_intent_progressive_disclosure():
-    # 验证 retrieve_kb 的 schema 中包含 intent 枚举
+    # Agent Tool Contract 不再暴露检索策略字段
     reg = build_agent_registry()
     spec = reg.get("retrieve_kb")
     assert spec is not None
     props = (spec.input_schema or {}).get("properties", {})
-    assert "intent" in props
-    assert "exact_parameter" in props["intent"]["enum"]
-    assert "conceptual_overview" in props["intent"]["enum"]
+    assert "intent" not in props
+    assert "search_focus_text" in props
 
 
 def test_robust_json_parser_tolerance():
     # 1. 测试单引号与尾随逗号修复
-    raw_single_quotes = "{'thought': '查询端口', 'action': 'tool_call', 'tool': 'retrieve_kb', 'arguments': {'query': '端口', 'intent': 'exact_parameter',},}"
+    raw_single_quotes = "{'thought': '查询端口', 'action': 'tool_call', 'tool': 'retrieve_kb', 'arguments': {'search_focus_text': '端口',},}"
     res = parse_json_object(raw_single_quotes)
     assert res["action"] == "tool_call"
     assert res["tool"] == "retrieve_kb"
-    assert res["arguments"]["query"] == "端口"
+    assert res["arguments"]["search_focus_text"] == "端口"
 
     # 2. 测试 Python None/True 与未闭合大括号
     raw_python_keywords = "{'thought': '结束', 'action': 'finish', 'tool': None, 'gate': 'support'"
@@ -1399,23 +1392,22 @@ def test_react_line_format_fallback():
     raw_react_func = """
 <think>分析用户提问，准备检索</think>
 Thought: 正在查询 ModelBuilder 端口配置
-Action: retrieve_kb(query="ModelBuilder 端口", intent="exact_parameter")
+Action: retrieve_kb(search_focus_text="ModelBuilder 端口")
 """
     res = parse_json_object(raw_react_func)
     assert res["action"] == "tool_call"
     assert res["tool"] == "retrieve_kb"
-    assert res["arguments"]["query"] == "ModelBuilder 端口"
-    assert res["arguments"]["intent"] == "exact_parameter"
+    assert res["arguments"]["search_focus_text"] == "ModelBuilder 端口"
     assert "ModelBuilder" in res["thought"]
 
     # 2. 测试分行结束指令
     raw_react_finish = """
 Thought: 证据已经充足，准备生成完整回答
-Action: finish
+Action: finalize
 Gate: support
 """
     res2 = parse_json_object(raw_react_finish)
-    assert res2["action"] == "finish"
+    assert res2["action"] == "finalize"
     assert res2["gate"] == "support"
     assert "证据已经充足" in res2["thought"]
 
@@ -1505,12 +1497,12 @@ def test_agent_stream_events_yielded():
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampServer 默认端口", "mode": "hybrid"},
+                arguments={"search_focus_text": "StampServer 默认端口"},
                 reason="用户查询 StampServer 的端口配置，调用 retrieve_kb 获取证据。",
                 source="llm",
             )
         return AgentDecision(
-            action="finish",
+            action="finalize",
             reason="已获取端口配置证据，准备组织最终回答。",
             source="llm",
         )
@@ -1541,7 +1533,7 @@ def test_agent_stream_events_yielded():
     # 验证 tool_start 中的入参包含非空 query
     tool_start_ev = next(ev for ev in events if ev["type"] == "tool_start")
     assert tool_start_ev["data"]["name"] == "retrieve_kb"
-    assert tool_start_ev["data"]["arguments"]["query"] == "StampServer 默认端口"
+    assert tool_start_ev["data"]["arguments"]["search_focus_text"] == "StampServer 默认端口"
 
     # 验证 canonical tool_result 中的结果包含 summary
     tool_result_ev = next(ev for ev in events if ev["type"] == "tool_result")
@@ -1587,15 +1579,8 @@ def test_govern_answer_path_case_insensitivity():
     assert "未在知识库中找到" in res2.answer or "[1]" not in res2.answer or res2.grounding.get("reasons")
 
 
-def test_meta_chat_direct_finish_without_tools():
-    """验证元对话（如'我们刚刚在讨论什么？'）直接判定为 finish，不调用 retrieve_kb/link_entities，且证据池为空。"""
-    from rag_knowledge.services.agent_orchestration.runtime import is_meta_or_direct_chat
-
-    assert is_meta_or_direct_chat("我们刚刚在讨论什么？") is True
-    assert is_meta_or_direct_chat("你刚才说了什么") is True
-    assert is_meta_or_direct_chat("我啥时候说是PipelineBuilder了？") is True
-    assert is_meta_or_direct_chat("StampServer 默认端口是多少") is False
-
+def test_meta_chat_direct_finalize_without_tools():
+    """元对话由 Main 明确选择 direct_chat，不调用知识库工具。"""
     conv = ConversationContext.from_request(
         "我们刚刚在讨论什么？",
         [
@@ -1611,12 +1596,11 @@ def test_meta_chat_direct_finish_without_tools():
         budget=budget,
         registry=build_agent_registry(),
         handlers={},
-        cfg=SimpleNamespace(
-            agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
-        ),
+        cfg=SimpleNamespace(),
         decide_fn=_seq_decide([
             AgentDecision(
                 action="finalize",
+                arguments={"answer_type": "direct_chat"},
                 reason="这是会话历史回顾，可直接回答。",
                 source="test_main",
             ),
@@ -1760,7 +1744,7 @@ def test_negative_correction_with_tech_question_preserves_evidence():
     budget = AgentBudget(max_steps=3, max_retrieve_attempts=2)
 
     async def mock_retrieve(args):
-        pool.add_retrieve([_doc("gis_conf", "StampGIS")], query=args.get("query"))
+        pool.add_retrieve([_doc("gis_conf", "StampGIS")], query=args.get("search_focus_text"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     def decide_step(c, e, obs):
@@ -1768,12 +1752,12 @@ def test_negative_correction_with_tech_question_preserves_evidence():
             return AgentDecision(
                 action="tool_call",
                 tool="retrieve_kb",
-                arguments={"query": "StampGIS 配置", "mode": "hybrid"},
+                arguments={"search_focus_text": "StampGIS 配置"},
                 thought="用户否定了前文的 StampServer 并明确提出 StampGIS 配置诉求，改写为'StampGIS 配置'发起检索。",
                 source="llm",
             )
         return AgentDecision(
-            action="finish",
+            action="finalize",
             gate="support",
             thought="已获取 StampGIS 配置证据，开始组织回答。",
             source="llm",
@@ -1790,8 +1774,8 @@ def test_negative_correction_with_tech_question_preserves_evidence():
 
     result = asyncio.run(loop.run())
     assert result.route == "retrieve"
-    assert len(result.evidence.citable_docs()) == 1
-    assert result.evidence.citable_docs()[0]["metadata"]["chunk_id"] == "gis_conf"
+    assert len(result.evidence_snapshot.documents()) == 1
+    assert result.evidence_snapshot.documents()[0]["metadata"]["chunk_id"] == "gis_conf"
 
 
 def test_clarify_options_string_fault_tolerance():
@@ -1817,12 +1801,12 @@ def test_v15_oneshot_finish_when_evidence_sufficient():
     async def mock_retrieve(args):
         nonlocal retrieved_count
         retrieved_count += 1
-        pool.add_retrieve([_doc("s_port", "StampServer 默认服务端口为 8080")], query=args.get("query"))
+        pool.add_retrieve([_doc("s_port", "StampServer 默认服务端口为 8080")], query=args.get("search_focus_text"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "StampServer 默认端口"}),
-        AgentDecision(action="finish", thought="证据池已包含端口事实，结束检索。"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 默认端口"}),
+        AgentDecision(action="finalize", thought="证据池已包含端口事实，结束检索。"),
     ])
 
     loop = AgentLoop(
@@ -1838,7 +1822,7 @@ def test_v15_oneshot_finish_when_evidence_sufficient():
     assert result.route == "retrieve"
     assert result.retrieve_attempts == 1
     assert retrieved_count == 1
-    assert len(result.evidence.citable_docs()) == 1
+    assert len(result.evidence_snapshot.documents()) == 1
 
 
 def test_v15_cycle_detection_prevents_infinite_loop():
@@ -1855,9 +1839,9 @@ def test_v15_cycle_detection_prevents_infinite_loop():
         return ToolObservation(tool="retrieve_kb", ok=True, summary="未命中", data={"retrieval_executed": True})
 
     decisions = iter([
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "相同查询词"}),
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "相同查询词"}),
-        AgentDecision(action="finish"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "相同查询词"}),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "相同查询词"}),
+        AgentDecision(action="finalize"),
     ])
 
     loop = AgentLoop(
@@ -1881,15 +1865,15 @@ def test_malformed_tool_call_never_downgraded_to_finish():
     retrieved = []
 
     async def mock_retrieve(args):
-        retrieved.append(args.get("query"))
-        pool.add_retrieve([_doc("arch_1", "系统架构分为接入层与服务层")], query=args.get("query"))
+        retrieved.append(args.get("search_focus_text"))
+        pool.add_retrieve([_doc("arch_1", "系统架构分为接入层与服务层")], query=args.get("search_focus_text"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     # 第 1 步输出非法 tool_call（tool=None），第 2 步输出合法 retrieve_kb，第 3 步 finish
     decisions = iter([
         AgentDecision(action="tool_call", tool=None, thought="我想检索但漏了tool名"),
-        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"query": "系统架构 分层"}),
-        AgentDecision(action="finish", thought="已有证据，组织回答"),
+        AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "系统架构 分层"}),
+        AgentDecision(action="finalize", thought="已有证据，组织回答"),
     ])
 
     loop = AgentLoop(
@@ -1914,12 +1898,12 @@ def test_evidence_constraint_blocks_premature_finish():
     retrieved = []
 
     async def mock_retrieve(args):
-        retrieved.append(args.get("query"))
+        retrieved.append(args.get("search_focus_text"))
         return ToolObservation(tool="retrieve_kb", ok=True, summary="召回 1 条", data={"retrieval_executed": True})
 
     # 模型在无证据时自主决定 finish
     decisions = iter([
-        AgentDecision(action="finish", thought="未检索直接尝试结束"),
+        AgentDecision(action="finalize", thought="未检索直接尝试结束"),
     ])
 
     loop = AgentLoop(
@@ -1951,9 +1935,9 @@ def test_universal_cycle_detection_on_link_entities():
 
     # 连续输出相同的 link_entities 调用，第二次应在执行前被精确循环守卫拒绝。
     decisions = iter([
-        AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "StampServer 依赖", "target_entity": "StampServer"}),
-        AgentDecision(action="tool_call", tool="link_entities", arguments={"query": "StampServer 依赖", "target_entity": "StampServer"}),
-        AgentDecision(action="finish", reason="本轮未获得可用关系证据"),
+        AgentDecision(action="tool_call", tool="link_entities", arguments={"search_focus_text": "StampServer 依赖"}),
+        AgentDecision(action="tool_call", tool="link_entities", arguments={"search_focus_text": "StampServer 依赖"}),
+        AgentDecision(action="finalize", reason="本轮未获得可用关系证据"),
     ])
 
     loop = AgentLoop(

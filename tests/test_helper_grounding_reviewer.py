@@ -165,6 +165,23 @@ def test_reviewer_pass_full():
     assert result.error is None
 
 
+def test_non_retrieve_empty_retrieval_feedback_placeholder_is_ignored():
+    payload = _pass_payload()
+    payload["retrieval_feedback"] = {
+        "gap_id": "",
+        "affected_claim_ids": [],
+        "missing_fact": "",
+        "subject_entity_ids": [],
+        "deficiency_type": "",
+        "reason": "",
+    }
+
+    result = _review_payload(payload)
+
+    assert result.verdict == "PASS"
+    assert result.retrieval_feedback is None
+
+
 def test_reviewer_pass_partial():
     mock_response = json.dumps({
         "verdict": "PASS",

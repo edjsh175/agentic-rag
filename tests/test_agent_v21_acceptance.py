@@ -221,8 +221,8 @@ def test_retrieve_kb_schema_and_validation_for_search_focus():
 
     # Valid: search_focus_text provided alone
     assert registry.validate_call("retrieve_kb", {"search_focus_text": "StampServer 默认端口"}) is None
-    # Valid: legacy query provided alone
-    assert registry.validate_call("retrieve_kb", {"query": "StampServer 默认端口"}) is None
+    # Legacy query is no longer part of the Agent retrieve contract.
+    assert registry.validate_call("retrieve_kb", {"query": "StampServer 默认端口"}) == "tool_missing_arg:search_focus_text"
     # Valid: both provided
     assert registry.validate_call("retrieve_kb", {
         "search_focus_text": "StampServer 默认端口",

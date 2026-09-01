@@ -498,11 +498,11 @@ async def test_not_required_identity_enters_null_target_retrieval_without_clarif
     )
     assert obs.ok
 
-    # 主题型任务没有可出示的候选集，clarify 与 unresolved 时一致地被禁用
+    # 主题型任务仍允许 Main 在检索与澄清之间做策略选择
     state = json.loads(loop._controller_state_for_prompt())
     assert state["identity_status"] == "not_required"
     assert "retrieve_kb" in state["allowed_tools"]
-    assert "clarify" not in state["allowed_tools"]
+    assert "clarify" in state["allowed_tools"]
 
 
 def test_identity_scope_multi_entity_confirmed_set():

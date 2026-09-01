@@ -208,7 +208,6 @@ class GraphExplorer:
         relation_types: list[str] | tuple[str, ...] | None = None,
         direction: str = "both",
         additional_hops: int = 1,
-        goal_entities: list[str] | tuple[str, ...] | None = None,
         admitted_text_entities: set[str] | tuple[str, ...] | None = None,
         stage1_confirmed_entities: set[str] | tuple[str, ...] | None = None,
         user_mentioned_entities: set[str] | tuple[str, ...] | list[str] | None = None,
@@ -269,7 +268,6 @@ class GraphExplorer:
             relation_types=relation_types or (),
             direction=direction,
             additional_hops=hops,
-            goal_entities=goal_entities,
         )
 
         if working_set.is_duplicate_expansion(signature):

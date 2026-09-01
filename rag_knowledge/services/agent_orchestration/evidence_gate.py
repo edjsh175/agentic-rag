@@ -143,94 +143,10 @@ def evaluate_rules(conversation: ConversationContext, evidence: EvidencePool) ->
     # Admitted evidence has already passed query-scoped Text/Graph Admission.
     # Legacy name/anchor heuristics must not become a second evidence authority.
     if head and not has_admitted_evidence:
-        active_heads = [
-            group.head_entity
-            for group in evidence.groups
-            if group.status == "ACTIVE"
-            and group.head_entity
-            and group.kind in {"retrieve", "reuse"}
-        ]
-        if active_heads and all(entities_conflict(head, other) for other in active_heads):
-            return {"allow_knowledge_answer": False, "reason": "entity_conflict"}
-
-        from rag_knowledge.services.backbone_guard import load_backbone_constraints, resolve_canonical
-
-        constraints = load_backbone_constraints()
-        canon = resolve_canonical(head, constraints) or head
-        scope = conversation.scope
-
-        is_legacy_evidence_scope = bool(
-            scope is not None
-            and hasattr(scope, "admissible_entities")
-            and not hasattr(scope, "forbidden_rebindings")
-        )
-        if is_legacy_evidence_scope and getattr(scope, "is_identity_locked", False):
-            from rag_knowledge.services.relation_policy import is_scope_traversal_relation
-
-            scope_id = str(getattr(scope, "scope_id", "") or "")
-            invalid_reasons: list[str] = []
-            kb_docs = []
-            for d in docs:
-                meta = (d.get("metadata") if isinstance(d, dict) else None) or {}
-                if meta.get("source_type") == "external":
-                    continue
-                kb_docs.append(d)
-                if str(meta.get("scope_id") or "") != scope_id:
-                    invalid_reasons.append("scope_id_mismatch")
-                    continue
-                if meta.get("scope_admitted") is not True:
-                    invalid_reasons.append("scope_not_admitted")
-                    continue
-                admission_reason = str(meta.get("scope_admission_reason") or "")
-                provenance_type = str(meta.get("provenance_source_type") or "")
-                if admission_reason == "materialized_chunk":
-                    continue
-                if not provenance_type or provenance_type == "legacy_fallback":
-                    invalid_reasons.append("untrusted_provenance")
-                    continue
-                if provenance_type == "graph_relation":
-                    provenance_path = meta.get("provenance_path") or {}
-                    relation_type = str(
-                        provenance_path.get("relation_type")
-                        if isinstance(provenance_path, dict)
-                        else ""
-                    )
-                    if not is_scope_traversal_relation(relation_type):
-                        invalid_reasons.append("relation_not_scope_admissible")
-
-            if kb_docs and invalid_reasons:
-                return {
-                    "allow_knowledge_answer": False,
-                    "reason": "scope_provenance_failed",
-                    "provenance_reason": invalid_reasons[0],
-                    "refusal_text": f"知识库中暂未找到与 {canon} 对齐且来源可验证的已审核文档内容，无法可靠回答。",
-                }
-        elif not grant_groups:
-            # 无 V1.6 Grant 的旧路径继续使用启发式对齐，作为迁移期兼容逻辑。
-            from rag_knowledge.services.anchor_chunk_filter import chunk_matches_anchor
-            from langchain_core.documents import Document
-
-            admissible_canonicals = [canon] if canon else []
-            if (
-                scope is not None
-                and getattr(scope, "primary_root", None) == canon
-                and getattr(scope, "admissible_entities", None)
-            ):
-                admissible_canonicals = sorted(set(admissible_canonicals) | set(scope.admissible_entities))
-
-            if admissible_canonicals:
-                aligned_docs = []
-                for d in docs:
-                    meta = (d.get("metadata") if isinstance(d, dict) else None) or {}
-                    doc_obj = Document(page_content=d.get("content", "") if isinstance(d, dict) else "", metadata=meta)
-                    if chunk_matches_anchor(doc_obj, canonicals=admissible_canonicals, constraints=constraints):
-                        aligned_docs.append(d)
-                if not aligned_docs:
-                    return {
-                        "allow_knowledge_answer": False,
-                        "reason": "strict_entity_alignment_failed",
-                        "refusal_text": f"知识库中暂未找到与 {canon} 对齐的已审核文档内容，无法可靠回答。",
-                    }
+        return {
+            "allow_knowledge_answer": False,
+            "reason": "no_query_admitted_evidence",
+        }
 
     return {"allow_knowledge_answer": True, "reason": "ok"}
 

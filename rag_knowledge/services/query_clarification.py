@@ -18,8 +18,6 @@ from rag_knowledge.services.entity_candidate_resolver import (
     get_entity_candidate_resolver,
 )
 from rag_knowledge.services.query_surface import (
-    WIDE_SURFACE_TERMS,
-    contains_term,
     is_explicit_comparison,
     question_is_underspecified,
 )
@@ -46,18 +44,12 @@ _OWNER_TO_DOC_CATEGORY = {
     "stampwebgl": "StampWebGL",
 }
 
-# Backward-compatible exports
-_WIDE_SURFACE_TERMS = WIDE_SURFACE_TERMS
 MAX_CLARIFICATION_OPTIONS = 5
 
 
 def _normalize_blob(text: str) -> str:
     from rag_knowledge.services.query_surface import normalize_blob
     return normalize_blob(text)
-
-
-def _contains_term(question: str, term: str) -> bool:
-    return contains_term(question, term)
 
 
 def _question_is_underspecified(question: str) -> bool:
@@ -311,7 +303,7 @@ _CLARIFY_LLM_PROMPT = """你是 RAG 知识库的歧义预检助手。根据用�
 输出格式：
 {{"needs_clarification": false, "ask_question": "", "trigger": ""}}
 或
-{{"needs_clarification": true, "ask_question": "您指的是以下哪一个产品/服务？", "trigger": "pipeline"}}
+{{"needs_clarification": true, "ask_question": "您指的是以下哪一个候选实体？", "trigger": "ambiguous_entity"}}
 """
 
 

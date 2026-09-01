@@ -110,6 +110,7 @@ coverage 只衡量 Evidence 对 Question 的覆盖，不衡量 Candidate 的正�
 
 输出协议是严格协议：
 - coverage、summary、claim_reviews、repair_mode、rewrite_actions 五个顶层字段缺一不可；不要输出 verdict；
+- 非 RETRIEVE 时 retrieval_feedback 必须输出 null；只有 repair_mode=RETRIEVE 时才输出完整 retrieval_feedback 对象；
 - coverage=FULL/PARTIAL 且所有 Claim supported 时，rewrite_actions 必须为空；
 - coverage=FULL/PARTIAL 且存在 unsupported/contradicted Claim 时，repair_mode 必须为 REWRITE 或 RETRIEVE；REWRITE 必须为每个问题 Claim 提供匹配 claim_id 的 rewrite action；RETRIEVE 必须携带 retrieval_feedback 且 rewrite_actions 为空；
 - coverage=NONE 时 rewrite_actions 必须为空；
@@ -235,6 +236,17 @@ _REQUIRED_RETRIEVAL_FEEDBACK_FIELDS = frozenset({
 })
 
 
+def _is_empty_retrieval_feedback(value: Any) -> bool:
+    """Recognize provider-generated empty placeholders for an optional object."""
+    if not isinstance(value, dict) or not set(value).issubset(_REQUIRED_RETRIEVAL_FEEDBACK_FIELDS):
+        return False
+    return all(
+        (isinstance(item, str) and not item.strip())
+        or (isinstance(item, list) and not item)
+        for item in value.values()
+    )
+
+
 def review_response_json_schema() -> dict[str, Any]:
     """JSON Schema used by Ollama structured output for reviewer protocol fields."""
     return {
@@ -277,24 +289,29 @@ def review_response_json_schema() -> dict[str, Any]:
             },
             "repair_mode": {"type": "string", "enum": sorted(_ALLOWED_REPAIR_MODES)},
             "retrieval_feedback": {
-                "type": "object",
-                "properties": {
-                    "gap_id": {"type": "string", "minLength": 1},
-                    "affected_claim_ids": {
-                        "type": "array",
-                        "items": {"type": "string", "minLength": 1},
-                        "minItems": 1,
+                "anyOf": [
+                    {"type": "null"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "gap_id": {"type": "string", "minLength": 1},
+                            "affected_claim_ids": {
+                                "type": "array",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                            },
+                            "missing_fact": {"type": "string", "minLength": 1},
+                            "subject_entity_ids": {
+                                "type": "array",
+                                "items": {"type": "string", "minLength": 1},
+                            },
+                            "deficiency_type": {"type": "string", "minLength": 1},
+                            "reason": {"type": "string", "minLength": 1},
+                        },
+                        "required": sorted(_REQUIRED_RETRIEVAL_FEEDBACK_FIELDS),
+                        "additionalProperties": False,
                     },
-                    "missing_fact": {"type": "string", "minLength": 1},
-                    "subject_entity_ids": {
-                        "type": "array",
-                        "items": {"type": "string", "minLength": 1},
-                    },
-                    "deficiency_type": {"type": "string", "minLength": 1},
-                    "reason": {"type": "string", "minLength": 1},
-                },
-                "required": sorted(_REQUIRED_RETRIEVAL_FEEDBACK_FIELDS),
-                "additionalProperties": False,
+                ],
             },
         },
         "required": sorted(_REQUIRED_TOP_LEVEL_FIELDS),
@@ -941,6 +958,8 @@ class HelperGroundingReviewer:
             ]
             retrieval_feedback: RetrievalFeedback | None = None
             raw_feedback = payload.get("retrieval_feedback")
+            if repair_mode != "RETRIEVE" and _is_empty_retrieval_feedback(raw_feedback):
+                raw_feedback = None
             if repair_mode == "RETRIEVE":
                 if not isinstance(raw_feedback, dict):
                     raise _ReviewProtocolError("retrieve_requires_retrieval_feedback")

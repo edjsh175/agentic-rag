@@ -127,6 +127,46 @@ class GraphRelationAdmissionService:
                 answer_intent=normalized_intent,
             )
 
+        def _entity_key(value: Any) -> str:
+            return normalize_entity_name(str(value or "")).casefold()
+
+        # Admission is downstream of the graph start-entity authorization
+        # gate.  Require that provenance explicitly identifies an authorized
+        # root or endpoint; SemanticTask.primary_entity is only a relevance
+        # signal and must never authorize a graph relation by itself.
+        provenance_targets = {
+            _entity_key(item)
+            for item in (target_entities or ())
+            if _entity_key(item)
+        }
+        provenance_names = (
+            (candidate.origin_root,)
+            if str(candidate.origin_root or "").strip()
+            else (candidate.source_name, candidate.target_name)
+        )
+        if not provenance_targets:
+            return GraphRelationAdmissionResult(
+                verdict="REJECT",
+                endpoint_relevance="LOW",
+                intent_relevance="NONE",
+                relation_relevance="IRRELEVANT",
+                reason="missing_graph_provenance",
+                signals=("authorized_provenance_required",),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
+            )
+        if not any(_entity_key(item) in provenance_targets for item in provenance_names):
+            return GraphRelationAdmissionResult(
+                verdict="REJECT",
+                endpoint_relevance="LOW",
+                intent_relevance="NONE",
+                relation_relevance="IRRELEVANT",
+                reason="graph_provenance_mismatch",
+                signals=("authorized_provenance_mismatch",),
+                canonical_question=canonical_question,
+                answer_intent=normalized_intent,
+            )
+
         signals: list[str] = [f"policy_intent:{normalized_intent}"]
 
         # 2. Entity relevance comes only from the frozen semantic task.
@@ -134,9 +174,6 @@ class GraphRelationAdmissionService:
             getattr(semantic_task, "primary_entity", None),
             *(getattr(semantic_task, "mentioned_entities", ()) or ()),
         ]
-
-        def _entity_key(value: Any) -> str:
-            return normalize_entity_name(str(value or "")).casefold()
 
         active_targets = {_entity_key(item) for item in semantic_entities if _entity_key(item)}
         source_in_targets = _entity_key(candidate.source_name) in active_targets

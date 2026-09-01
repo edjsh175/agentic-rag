@@ -96,6 +96,7 @@ def test_runtime_bootstrap_writes_evidence_pool_unconditionally(isolated_storage
         head_entity="StampServer",
         confirmed_entity="StampServer",
         confirmed_entities=("StampServer",),
+        identity_status="confirmed_entity",
     )
     conv.semantic_task = SemanticTaskContext(
         "StampServer 包含哪些模块？",
