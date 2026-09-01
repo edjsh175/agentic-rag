@@ -725,6 +725,29 @@ export const DOC_CATEGORIES = [
 export type DocCategory = typeof DOC_CATEGORIES[number]
 export type ReviewStatus = 'pending' | 'approved' | 'rejected'
 
+
+export interface AdminDoc {
+  file_name: string
+  file_path: string | null
+  source: string
+  doc_category: DocCategory
+  kb_name: string | null
+  indexed_at: string | null
+  total_count: number
+  pending_count: number
+  approved_count: number
+  rejected_count: number
+  chunk_ids: string[]
+}
+
+export interface AdminDocListResponse {
+  items: AdminDoc[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
 export interface AdminChunk {
   chunk_id: string
   file_name: string

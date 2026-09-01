@@ -36,6 +36,7 @@ from rag_knowledge.models.api import AdminQaDebugResponse, QueryRequest, QueryRe
 from rag_knowledge.models.api import ClarifyRequest, ClarifyResponse, ClarificationOption
 from rag_knowledge.models.api import (
     AdminChunkListResponse,
+    AdminDocListResponse,
     AdminChunkUpdateRequest,
     BatchReviewRequest,
     ChunkStatsResponse,
@@ -723,6 +724,47 @@ def admin_chunks(
         filename=filename,
         page=page,
         page_size=page_size,
+    )
+
+
+
+@router.get("/admin/documents", response_model=AdminDocListResponse)
+def admin_documents(
+    doc_category: str = "all",
+    filename: str | None = None,
+    audit_status: str = "all",
+    page: int = 1,
+    page_size: int = 50,
+):
+    """List source documents with aggregated chunk review stats."""
+    if doc_category not in {*DOC_CATEGORIES, "all"}:
+        raise HTTPException(400, detail=f"doc_category 仅支持 {' / '.join(DOC_CATEGORIES)} / all")
+    if audit_status not in {"all", "pending", "done"}:
+        raise HTTPException(400, detail="audit_status 仅支持 all / pending / done")
+    if page < 1:
+        raise HTTPException(400, detail="page 必须大于等于 1")
+    if page_size < 1 or page_size > 200:
+        raise HTTPException(400, detail="page_size 必须在 1 到 200 之间")
+    return ChunkAdminService().list_documents(
+        doc_category=doc_category,
+        filename=filename,
+        audit_status=audit_status,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/admin/documents/chunks", response_model=AdminChunkListResponse)
+def admin_document_chunks(
+    filename: str,
+    file_path: str | None = None,
+):
+    """Return all chunks belonging to a specific source document (no pagination)."""
+    if not filename.strip():
+        raise HTTPException(400, detail="filename 不能为空")
+    return ChunkAdminService().list_document_chunks(
+        filename=filename,
+        file_path=file_path,
     )
 
 

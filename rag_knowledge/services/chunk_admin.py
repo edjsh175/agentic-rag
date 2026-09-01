@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from rag_knowledge.config import Config
-from rag_knowledge.models.api import AdminChunkItem, AdminChunkListResponse, ReviewResponse
+from rag_knowledge.models.api import AdminChunkItem, AdminChunkListResponse, AdminDocItem, AdminDocListResponse, ReviewResponse
 from rag_knowledge.repository.vector_store import VectorStore
 from rag_knowledge.services.chunk_index_lookup import ChunkIndexLookupService
 from rag_knowledge.services.query_cache import clear_query_cache
@@ -168,6 +168,163 @@ class ChunkAdminService:
             total_pages=ceil(total / page_size) if total else 0,
         )
 
+
+    def list_documents(
+        self,
+        *,
+        doc_category: str = "all",
+        filename: str | None = None,
+        audit_status: str = "all",
+        page: int = 1,
+        page_size: int = 50,
+    ) -> AdminDocListResponse:
+        """按源文档聚合 Chunk 数据，返回文档级审核摘要列表。
+
+        audit_status 取值：
+          - all:     全部文档
+          - pending: 含有任意 pending Chunk 的文档（待审核）
+          - done:    所有 Chunk 均已审核（无 pending）
+        """
+        from math import ceil
+        source = self._store.get_chunk_stats_source()
+        ids = source.get("ids") or []
+        documents = source.get("documents") or []
+        metadatas = source.get("metadatas") or []
+        files = self._chunk_index_lookup.all()
+        filename_query = (filename or "").strip().casefold()
+
+        # 以 (file_name, file_path) 为键聚合
+        doc_map: dict[tuple[str, str | None], dict] = {}
+
+        for chunk_id, _content, metadata in zip(ids, documents, metadatas):
+            meta = metadata or {}
+            file_data = files.get(str(chunk_id), {})
+            status = str(meta.get("review_status") or "pending")
+            category = str(meta.get("doc_category") or "其他")
+            source_name = str(meta.get("source") or file_data.get("file_name") or "")
+            file_name = str(file_data.get("file_name") or source_name)
+            file_path = str(meta.get("file_path") or file_data.get("file_path") or "") or None
+
+            if doc_category != "all" and category != doc_category:
+                continue
+            if filename_query and filename_query not in file_name.casefold():
+                continue
+
+            key = (file_name, file_path)
+            if key not in doc_map:
+                doc_map[key] = {
+                    "file_name": file_name,
+                    "file_path": file_path,
+                    "source": source_name,
+                    "doc_category": category,
+                    "kb_name": meta.get("kb_name") or file_data.get("kb_name"),
+                    "indexed_at": file_data.get("added_at"),
+                    "pending_count": 0,
+                    "approved_count": 0,
+                    "rejected_count": 0,
+                    "chunk_ids": [],
+                }
+            entry = doc_map[key]
+            entry["chunk_ids"].append(str(chunk_id))
+            if status == "approved":
+                entry["approved_count"] += 1
+            elif status == "rejected":
+                entry["rejected_count"] += 1
+            else:
+                entry["pending_count"] += 1
+
+        # 按 audit_status 过滤
+        docs = list(doc_map.values())
+        if audit_status == "pending":
+            docs = [d for d in docs if d["pending_count"] > 0]
+        elif audit_status == "done":
+            docs = [d for d in docs if d["pending_count"] == 0]
+
+        # 排序：优先有 pending 的文档，再按入库时间降序
+        docs.sort(
+            key=lambda d: (
+                0 if d["pending_count"] > 0 else 1,
+                -(ord(d["indexed_at"][0]) if d["indexed_at"] else 0),
+                d["file_name"].casefold(),
+            )
+        )
+
+        total = len(docs)
+        start = (page - 1) * page_size
+        page_items = docs[start:start + page_size]
+        return AdminDocListResponse(
+            items=[
+                AdminDocItem(
+                    **d,
+                    total_count=d["pending_count"] + d["approved_count"] + d["rejected_count"],
+                )
+                for d in page_items
+            ],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=ceil(total / page_size) if total else 0,
+        )
+
+    def list_document_chunks(
+        self,
+        *,
+        filename: str,
+        file_path: str | None = None,
+    ) -> AdminChunkListResponse:
+        """返回某个源文档下的所有 Chunk（全量，不分页）。"""
+        from math import ceil
+        source = self._store.get_chunk_stats_source()
+        ids = source.get("ids") or []
+        documents = source.get("documents") or []
+        metadatas = source.get("metadatas") or []
+        files = self._chunk_index_lookup.all()
+        items = []
+        fn_lower = filename.strip().casefold()
+        fp_lower = (file_path or "").strip().casefold()
+
+        for chunk_id, content, metadata in zip(ids, documents, metadatas):
+            meta = metadata or {}
+            file_data = files.get(str(chunk_id), {})
+            source_name = str(meta.get("source") or file_data.get("file_name") or "")
+            file_name_val = str(file_data.get("file_name") or source_name)
+            file_path_val = str(meta.get("file_path") or file_data.get("file_path") or "")
+
+            # 以 file_name 为主键匹配，如提供了 file_path 则同时校验
+            if file_name_val.casefold() != fn_lower:
+                continue
+            if fp_lower and file_path_val.casefold() != fp_lower:
+                continue
+
+            category = str(meta.get("doc_category") or "其他")
+            status = str(meta.get("review_status") or "pending")
+            text = str(content or "")
+            front_matter = self._front_matter(file_path_val)
+            items.append(AdminChunkItem(
+                chunk_id=str(chunk_id), file_name=file_name_val, source=source_name,
+                section_title=str(meta.get("section_title") or ""),
+                doc_category=category, review_status=status,
+                content_preview=text[:80], content=text,
+                kb_name=meta.get("kb_name") or file_data.get("kb_name"),
+                page_label=self._page_label(meta),
+                indexed_at=file_data.get("added_at"),
+                file_path=file_path_val or None,
+                kb_path=meta.get("kb_path") or file_data.get("kb_path"),
+                title=self._first_text(meta, front_matter, "title", "article_title"),
+                source_url=self._source_url(meta, front_matter),
+                author=self._first_text(meta, front_matter, "author"),
+                platform=self._first_text(meta, front_matter, "platform"),
+                publish_date=self._first_text(meta, front_matter, "publish_date"),
+                last_modified=file_data.get("last_modified"),
+                crawled_at=self._first_text(meta, front_matter, "crawled_at"),
+            ))
+
+        items.sort(key=lambda i: (i.page_label, i.chunk_id))
+        total = len(items)
+        return AdminChunkListResponse(
+            items=items, total=total, page=1, page_size=total,
+            total_pages=1 if total else 0,
+        )
     def update_chunk(self, chunk_id: str, changes: dict) -> int:
         updated = self._store.update_metadata([chunk_id], changes)
         if updated:

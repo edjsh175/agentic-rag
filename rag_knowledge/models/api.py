@@ -252,6 +252,31 @@ class AdminChunkListResponse(BaseModel):
     total_pages: int
 
 
+
+
+class AdminDocItem(BaseModel):
+    """单个源文档的聚合摘要（用于文档级审核台）。"""
+    file_name: str
+    file_path: str | None = None
+    source: str
+    doc_category: str
+    kb_name: str | None = None
+    indexed_at: str | None = None
+    total_count: int
+    pending_count: int
+    approved_count: int
+    rejected_count: int
+    chunk_ids: list[str]
+
+
+class AdminDocListResponse(BaseModel):
+    items: list[AdminDocItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class AdminChunkUpdateRequest(BaseModel):
     review_status: str | None = None
     doc_category: str | None = None

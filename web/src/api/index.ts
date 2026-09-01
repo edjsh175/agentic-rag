@@ -14,6 +14,8 @@ export { withDataCache, invalidateDataCache }
 import type {
   AdminChunkListResponse,
   AdminChunkUpdate,
+  AdminDoc,
+  AdminDocListResponse,
   ChunkStats,
   DocCategory,
   ReviewMutationResponse,
@@ -176,6 +178,29 @@ export async function batchReviewChunks(chunkIds: string[], status: 'approved' |
   })
   invalidateDataCache('/admin/chunks')
   return res
+}
+
+
+export async function listAdminDocuments(params: {
+  doc_category?: DocCategory | 'all'
+  filename?: string
+  audit_status?: 'all' | 'pending' | 'done'
+  page?: number
+  page_size?: number
+}, signal?: AbortSignal, forceRefresh = false) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') query.set(key, String(value))
+  })
+  const url = `/admin/documents?${query.toString()}`
+  return withDataCache(url, () => getJSON<AdminDocListResponse>(url, signal), 300000, forceRefresh)
+}
+
+export async function listDocumentChunks(filename: string, filePath?: string | null, signal?: AbortSignal) {
+  const query = new URLSearchParams({ filename })
+  if (filePath) query.set('file_path', filePath)
+  const url = `/admin/documents/chunks?${query.toString()}`
+  return getJSON<AdminChunkListResponse>(url, signal)
 }
 
 // ---- 接口实现 ----

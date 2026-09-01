@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminChunksView from './AdminChunksView.vue'
 import * as api from '../api'
-import type { AdminChunk } from '../types'
+import type { AdminChunk, AdminDoc } from '../types'
 
 vi.mock('../api', () => ({
-  listAdminChunks: vi.fn(),
+  listAdminDocuments: vi.fn(),
+  listDocumentChunks: vi.fn(),
   updateAdminChunk: vi.fn(),
   batchReviewChunks: vi.fn(),
 }))
@@ -35,26 +36,62 @@ const chunks: AdminChunk[] = [
   },
   {
     chunk_id: 'c2',
-    file_name: '博客.md',
-    source: '博客.md',
-    section_title: '摘要',
-    doc_category: '博客',
+    file_name: 'StampServer用户手册.docx',
+    source: 'StampServer用户手册.docx',
+    section_title: '卸载',
+    doc_category: 'StampServer',
     review_status: 'pending',
     content_preview: '第二段内容',
     content: '第二段完整内容',
+    kb_name: '文章附件',
+    page_label: '2',
+    indexed_at: '2026-07-01T10:00:00',
+  },
+]
+
+const docs: AdminDoc[] = [
+  {
+    file_name: 'StampServer用户手册.docx',
+    file_path: 'word/StampServer用户手册.docx',
+    source: 'StampServer用户手册.docx',
+    doc_category: 'StampServer',
+    kb_name: '文章附件',
+    indexed_at: '2026-07-01T10:00:00',
+    total_count: 2,
+    pending_count: 2,
+    approved_count: 0,
+    rejected_count: 0,
+    chunk_ids: ['c1', 'c2'],
+  },
+  {
+    file_name: '博客.md',
+    file_path: null,
+    source: '博客.md',
+    doc_category: '博客',
     kb_name: '已发布文章',
-    page_label: '无页码',
     indexed_at: null,
+    total_count: 1,
+    pending_count: 1,
+    approved_count: 0,
+    rejected_count: 0,
+    chunk_ids: ['c3'],
   },
 ]
 
 describe('AdminChunksView', () => {
   beforeEach(() => {
-    vi.mocked(api.listAdminChunks).mockResolvedValue({
+    vi.mocked(api.listAdminDocuments).mockResolvedValue({
+      items: docs,
+      total: 2,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    })
+    vi.mocked(api.listDocumentChunks).mockResolvedValue({
       items: chunks,
       total: 2,
       page: 1,
-      page_size: 20,
+      page_size: 2,
       total_pages: 1,
     })
     vi.mocked(api.updateAdminChunk).mockResolvedValue({
@@ -65,16 +102,15 @@ describe('AdminChunksView', () => {
     })
   })
 
-  it('loads pending chunks on mount', async () => {
+  it('loads all documents on mount and shows file names', async () => {
     const wrapper = mount(AdminChunksView)
     await flushPromises()
 
-    expect(api.listAdminChunks).toHaveBeenCalledWith({
-      review_status: 'pending',
-      doc_category: 'all',
-      page: 1,
-      page_size: 20,
-    })
+    expect(api.listAdminDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ audit_status: 'all', doc_category: 'all', page: 1 }),
+      undefined,
+      false,
+    )
     expect(wrapper.text()).toContain('StampServer用户手册.docx')
     expect(wrapper.text()).toContain('博客.md')
   })
@@ -83,125 +119,84 @@ describe('AdminChunksView', () => {
     vi.useFakeTimers()
     const wrapper = mount(AdminChunksView)
     await flushPromises()
-    vi.mocked(api.listAdminChunks).mockClear()
+    vi.mocked(api.listAdminDocuments).mockClear()
 
-    await wrapper.get('[data-test="category-filter"]').setValue('博客')
+    // Category filter triggers immediately on change
+    const categorySelect = wrapper.find('select')
+    await categorySelect.setValue('博客')
     await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({
-      doc_category: '博客', page: 1,
-    }))
+    expect(api.listAdminDocuments).toHaveBeenLastCalledWith(
+      expect.objectContaining({ doc_category: '博客', page: 1 }),
+      undefined,
+      false,
+    )
 
-    await wrapper.get('[data-test="filename-search"]').setValue('MySQL')
+    // Filename search debounces 300ms
+    const filenameInput = wrapper.find('input')
+    await filenameInput.setValue('MySQL')
     await vi.advanceTimersByTimeAsync(299)
-    expect(api.listAdminChunks).not.toHaveBeenLastCalledWith(expect.objectContaining({ filename: 'MySQL' }))
+    expect(api.listAdminDocuments).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({ filename: 'MySQL' }),
+    )
     await vi.advanceTimersByTimeAsync(1)
     await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ filename: 'MySQL' }))
+    expect(api.listAdminDocuments).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filename: 'MySQL' }),
+      undefined,
+      false,
+    )
     vi.useRealTimers()
   })
 
-  it('selects only the current page', async () => {
+  it('expands a document row and shows its chunks', async () => {
     const wrapper = mount(AdminChunksView)
     await flushPromises()
 
-    await wrapper.get('[data-test="select-all"]').setValue(true)
+    // Click expand button on first doc row
+    const expandBtns = wrapper.findAll('.doc-row')
+    await expandBtns[0].trigger('click')
+    await flushPromises()
 
-    expect(wrapper.get('[data-test="selection-label"]').text()).toContain('已选择 2 项')
+    expect(api.listDocumentChunks).toHaveBeenCalledWith(
+      'StampServer用户手册.docx',
+      'word/StampServer用户手册.docx',
+    )
+    expect(wrapper.text()).toContain('第一段内容')
+    expect(wrapper.text()).toContain('第二段内容')
   })
 
-  it('selects all matching results across pages', async () => {
-    vi.mocked(api.listAdminChunks)
-      .mockResolvedValueOnce({
-        items: chunks,
-        total: 3,
-        page: 1,
-        page_size: 20,
-        total_pages: 2,
-      })
-      .mockResolvedValueOnce({
-        items: [
-          { ...chunks[0], chunk_id: 'c1' },
-          { ...chunks[1], chunk_id: 'c2' },
-        ],
-        total: 3,
-        page: 1,
-        page_size: 100,
-        total_pages: 2,
-      })
-      .mockResolvedValueOnce({
-        items: [{ ...chunks[0], chunk_id: 'c3', file_name: 'extra.md' }],
-        total: 3,
-        page: 2,
-        page_size: 100,
-        total_pages: 2,
-      })
-
+  it('opens detail panel from expanded chunk row', async () => {
     const wrapper = mount(AdminChunksView)
     await flushPromises()
-    vi.mocked(api.listAdminChunks).mockClear()
 
-    await wrapper.get('[data-test="select-all-matching"]').trigger('click')
+    const expandBtns = wrapper.findAll('.doc-row')
+    await expandBtns[0].trigger('click')
     await flushPromises()
 
-    expect(api.listAdminChunks).toHaveBeenCalledWith(expect.objectContaining({
-      page: 1,
-      page_size: 100,
-      review_status: 'pending',
-    }))
-    expect(api.listAdminChunks).toHaveBeenCalledWith(expect.objectContaining({
-      page: 2,
-      page_size: 100,
-    }))
-    expect(wrapper.get('[data-test="selection-label"]').text()).toContain('已选择全部 3 项（当前筛选）')
+    // Click view on first chunk
+    const viewBtns = wrapper.findAll('.text-button')
+    const viewBtn = viewBtns.find(b => b.text() === '查看')
+    await viewBtn!.trigger('click')
+
+    const panel = wrapper.get('[data-test="detail-panel"]')
+    expect(panel.text()).toContain('第一段完整内容')
+    expect(panel.text()).toContain('来源信息')
+    expect(panel.text()).toContain('StampServer 用户手册')
+    expect(panel.text()).toContain('https://example.com/manual')
+    expect(panel.text()).toContain('技术部')
   })
 
-  it('approves all matching filter results in one click', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.mocked(api.listAdminChunks)
-      .mockResolvedValueOnce({
-        items: [chunks[0]],
-        total: 2,
-        page: 1,
-        page_size: 20,
-        total_pages: 1,
-      })
-      .mockResolvedValueOnce({
-        items: chunks,
-        total: 2,
-        page: 1,
-        page_size: 100,
-        total_pages: 1,
-      })
-      .mockResolvedValue({
-        items: [],
-        total: 0,
-        page: 1,
-        page_size: 20,
-        total_pages: 0,
-      })
-
+  it('saves category and title edits from the detail panel', async () => {
     const wrapper = mount(AdminChunksView)
     await flushPromises()
 
-    await wrapper.get('[data-test="approve-all-matching"]').trigger('click')
+    const expandBtns = wrapper.findAll('.doc-row')
+    await expandBtns[0].trigger('click')
     await flushPromises()
 
-    expect(window.confirm).toHaveBeenCalledWith('确认通过当前筛选下全部 2 个知识块？')
-    expect(api.batchReviewChunks).toHaveBeenCalledWith(['c1', 'c2'], 'approved')
-  })
-
-  it('opens the detail panel and saves category and title edits', async () => {
-    const wrapper = mount(AdminChunksView)
-    await flushPromises()
-
-    await wrapper.get('[data-test="view-c1"]').trigger('click')
-    const detailText = wrapper.get('[data-test="detail-panel"]').text()
-    expect(detailText).toContain('第一段完整内容')
-    expect(detailText).toContain('来源信息')
-    expect(detailText).toContain('StampServer 用户手册')
-    expect(detailText).toContain('word/StampServer用户手册.docx')
-    expect(detailText).toContain('https://example.com/manual')
-    expect(detailText).toContain('技术部')
+    const viewBtns = wrapper.findAll('.text-button')
+    const viewBtn = viewBtns.find(b => b.text() === '查看')
+    await viewBtn!.trigger('click')
 
     await wrapper.get('[data-test="detail-category"]').setValue('基础环境')
     await wrapper.get('[data-test="detail-title"]').setValue('部署准备')
@@ -212,91 +207,88 @@ describe('AdminChunksView', () => {
       doc_category: '基础环境',
       section_title: '部署准备',
     })
-    expect(api.listAdminChunks).toHaveBeenCalledTimes(2)
   })
 
-  it('approves one chunk and batch rejects selected chunks', async () => {
+  it('approves an entire document in one click', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mount(AdminChunksView)
     await flushPromises()
 
-    await wrapper.get('[data-test="approve-c1"]').trigger('click')
+    const approveBtns = wrapper.findAll('.approve-sm')
+    await approveBtns[0].trigger('click')
     await flushPromises()
-    expect(api.updateAdminChunk).toHaveBeenCalledWith('c1', { review_status: 'approved' })
 
-    await wrapper.get('[data-test="select-all"]').setValue(true)
-    await wrapper.get('[data-test="batch-reject"]').trigger('click')
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining('StampServer用户手册.docx'),
+    )
+    expect(api.batchReviewChunks).toHaveBeenCalledWith(['c1', 'c2'], 'approved')
+  })
+
+  it('rejects an entire document in one click', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mount(AdminChunksView)
     await flushPromises()
+
+    const rejectBtns = wrapper.findAll('.reject-sm')
+    await rejectBtns[0].trigger('click')
+    await flushPromises()
+
     expect(api.batchReviewChunks).toHaveBeenCalledWith(['c1', 'c2'], 'rejected')
   })
 
-  it('hides redundant review actions for chunks already in that status', async () => {
-    vi.mocked(api.listAdminChunks).mockResolvedValueOnce({
-      items: [
-        { ...chunks[0], review_status: 'approved' },
-        { ...chunks[1], review_status: 'rejected' },
-      ],
-      total: 2,
-      page: 1,
-      page_size: 20,
-      total_pages: 1,
-    })
-    const wrapper = mount(AdminChunksView)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="approve-c1"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="approve-c2"]').exists()).toBe(true)
-
-    await wrapper.get('[data-test="view-c1"]').trigger('click')
-    expect(wrapper.get('[data-test="detail-panel"]').text()).not.toContain('通过')
-    expect(wrapper.get('[data-test="detail-panel"]').text()).toContain('驳回')
-  })
-
   it('changes page and page size', async () => {
-    vi.mocked(api.listAdminChunks).mockResolvedValue({
-      items: chunks,
-      total: 42,
+    vi.mocked(api.listAdminDocuments).mockResolvedValue({
+      items: docs,
+      total: 60,
       page: 1,
-      page_size: 20,
-      total_pages: 3,
+      page_size: 50,
+      total_pages: 2,
     })
     const wrapper = mount(AdminChunksView)
     await flushPromises()
+    vi.mocked(api.listAdminDocuments).mockClear()
 
-    await wrapper.get('[data-test="next-page"]').trigger('click')
+    // Navigate to next page
+    const pageButtons = wrapper.findAll('.page-button')
+    const nextBtn = pageButtons.find(b => b.text() === '下一页' && !b.element.hasAttribute('disabled'))
+    await nextBtn!.trigger('click')
     await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }))
+    expect(api.listAdminDocuments).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 }),
+      undefined,
+      false,
+    )
 
-    await wrapper.get('[data-test="page-size"]').setValue('50')
+    // Change page size
+    const pageSizeSelects = wrapper.findAll('.pagination select')
+    await pageSizeSelects[0].setValue('20')
     await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 50 }))
-  })
-
-  it('paginates from the top batch bar controls', async () => {
-    vi.mocked(api.listAdminChunks).mockResolvedValue({
-      items: chunks,
-      total: 42,
-      page: 1,
-      page_size: 20,
-      total_pages: 3,
-    })
-    const wrapper = mount(AdminChunksView)
-    await flushPromises()
-
-    await wrapper.get('[data-test="next-page-top"]').trigger('click')
-    await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }))
-
-    await wrapper.get('[data-test="page-size-top"]').setValue('100')
-    await flushPromises()
-    expect(api.listAdminChunks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 100 }))
+    expect(api.listAdminDocuments).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, page_size: 20 }),
+      undefined,
+      false,
+    )
   })
 
   it('shows request failures in the page', async () => {
-    vi.mocked(api.listAdminChunks).mockRejectedValueOnce(new Error('后端不可用'))
+    vi.mocked(api.listAdminDocuments).mockRejectedValueOnce(new Error('后端不可用'))
     const wrapper = mount(AdminChunksView)
     await flushPromises()
 
     expect(wrapper.text()).toContain('后端不可用')
+  })
+
+  it('collapses a document row when clicked again', async () => {
+    const wrapper = mount(AdminChunksView)
+    await flushPromises()
+
+    const expandBtns = wrapper.findAll('.doc-row')
+    await expandBtns[0].trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('第一段内容')
+
+    // Click again to collapse
+    await expandBtns[0].trigger('click')
+    expect(wrapper.text()).not.toContain('第一段内容')
   })
 })
