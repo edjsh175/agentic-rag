@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
+
+import pytest
 from unittest.mock import patch
 
 from rag_knowledge.config import Config
@@ -18,7 +20,7 @@ from rag_knowledge.services.conversation_context import UnderstandingResult
 from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.agent_orchestration.runtime import (
     AgentLoop,
-    FinalizationHandler,
+    ComposeAnswerHandler,
     build_agent_registry,
     build_answer_generation_messages,
     normalize_decision_payload,
@@ -42,6 +44,24 @@ def _doc(chunk_id: str, content: str = "StampServer 的端口是 8080") -> dict:
     }
 
 
+def _compose_decision(
+    *,
+    answer_mode: str = "full",
+    focus_evidence_ids: tuple[str, ...] = (),
+    source: str = "test",
+) -> AgentDecision:
+    arguments: dict[str, object] = {"answer_mode": answer_mode}
+    if focus_evidence_ids:
+        arguments["focus_evidence_ids"] = list(focus_evidence_ids)
+    return AgentDecision(
+        action="tool_call",
+        tool="compose_answer",
+        arguments=arguments,
+        focus_evidence_ids=focus_evidence_ids,
+        source=source,
+    )
+
+
 def test_evidence_gap_is_observation_without_recovery_instruction():
     gap = EvidenceGap(gap_type="missing_fact", missing="StampServer 端口")
 
@@ -61,7 +81,7 @@ def test_model_route_policy_defaults_keep_agent_on_main():
     assert policy.linear_preprocess_role() == "helper_llm"
 
 
-def test_agent_controller_uses_main_and_normalizes_legacy_finish(isolated_storage):
+def test_agent_controller_uses_main_for_compose_answer(isolated_storage):
     isolated_storage()
     Config._instance = None
     cfg = Config()
@@ -78,10 +98,11 @@ def test_agent_controller_uses_main_and_normalizes_legacy_finish(isolated_storag
     )
     with patch(
         "rag_knowledge.llm_http.chat_role",
-        return_value='{"action":"finalize","tool":null,"arguments":{}}',
+        return_value='{"action":"tool_call","tool":"compose_answer","arguments":{}}',
     ) as mocked:
         decision = loop._decide_via_llm()
-    assert decision.action == "finalize"
+    assert decision.action == "tool_call"
+    assert decision.tool == "compose_answer"
     assert mocked.call_args.args[1] == "llm"
     assert mocked.call_args.kwargs["stage"] == "agent_controller"
 
@@ -102,31 +123,31 @@ def test_agent_controller_repairs_protocol_once_without_changing_decision_author
         tool_timeout=0,
     )
     responses = iter([
-        '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
-        '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+        '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"invalid"}}',
+        '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
     ])
     with patch("rag_knowledge.llm_http.chat_role", side_effect=lambda *args, **kwargs: next(responses)) as mocked:
         decision = loop._decide_via_llm()
 
-    assert decision.action == "finalize"
-    assert decision.tool is None
+    assert decision.action == "tool_call"
+    assert decision.tool == "compose_answer"
     assert decision.arguments["answer_mode"] == "partial"
     assert mocked.call_count == 2
     assert loop._controller_protocol_attempts == [
         {
             "attempt": 1,
-            "raw_response": '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
-            "error": "malformed_finalize: finalize cannot carry tool",
+            "raw_response": '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"invalid"}}',
+            "error": "malformed_compose_answer: invalid answer_mode 'invalid'",
         },
         {
             "attempt": 2,
-            "raw_response": '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+            "raw_response": '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
             "error": None,
         },
     ]
     repair_prompt = mocked.call_args_list[1].args[2][0]["content"]
     assert "只修复决策 JSON 协议" in repair_prompt
-    assert "malformed_finalize" in repair_prompt
+    assert "malformed_compose_answer" in repair_prompt
 
 
 def test_controller_protocol_repair_rejects_semantic_drift(isolated_storage):
@@ -146,16 +167,16 @@ def test_controller_protocol_repair_rejects_semantic_drift(isolated_storage):
     )
     responses = iter([
         '{"action":"tool_call","tool":"missing_tool","arguments":{}}',
-        '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+        '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
     ])
     with patch("rag_knowledge.llm_http.chat_role", side_effect=lambda *args, **kwargs: next(responses)):
         try:
             loop._decide_via_llm()
         except ValueError as exc:
-            assert "controller_protocol_repair_semantic_drift:action" in str(exc)
+            assert "controller_protocol_repair_semantic_drift:tool" in str(exc)
             assert len(loop._controller_protocol_attempts) == 2
             assert loop._controller_protocol_attempts[0]["error"].startswith("malformed_tool_call")
-            assert loop._controller_protocol_attempts[1]["error"] == "controller_protocol_repair_semantic_drift:action"
+            assert loop._controller_protocol_attempts[1]["error"] == "controller_protocol_repair_semantic_drift:tool"
         else:
             raise AssertionError("protocol repair must not change controller action semantics")
 
@@ -205,51 +226,48 @@ def test_streaming_agent_controller_repairs_protocol_once(isolated_storage):
     async def _parts(*_args, **_kwargs):
         yield SimpleNamespace(
             kind="content",
-            delta='{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
+            delta='{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"invalid"}}',
         )
 
     async def _run():
         with patch("rag_knowledge.llm_http.achat_stream_parts", _parts), patch(
             "rag_knowledge.llm_http.chat_role",
-            return_value='{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+            return_value='{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
         ) as repair_call, patch("rag_knowledge.llm_http.record_model_call"):
             decision = await loop._adecide_via_llm(None, 1)
         return decision, repair_call
 
     decision, repair_call = asyncio.run(_run())
-    assert decision.action == "finalize"
-    assert decision.tool is None
+    assert decision.action == "tool_call"
+    assert decision.tool == "compose_answer"
     assert decision.arguments["answer_mode"] == "partial"
     assert repair_call.call_count == 1
     assert loop._controller_protocol_attempts == [
         {
             "attempt": 1,
-            "raw_response": '{"action":"finalize","tool":"retrieve_kb","arguments":{}}',
-            "error": "malformed_finalize: finalize cannot carry tool",
+            "raw_response": '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"invalid"}}',
+            "error": "malformed_compose_answer: invalid answer_mode 'invalid'",
         },
         {
             "attempt": 2,
-            "raw_response": '{"action":"finalize","tool":null,"arguments":{"answer_mode":"partial"}}',
+            "raw_response": '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
             "error": None,
         },
     ]
     assert "只修复决策 JSON 协议" in repair_call.call_args.args[2][0]["content"]
 
 
-def test_finalize_rejection_returns_observation_then_controller_retrieves():
+def test_controller_can_retrieve_then_compose_answer_without_harness_recovery_instruction():
     conv = ConversationContext.from_request("StampServer 的端口是多少", [])
     pool = EvidencePool(question_id="q")
-    decisions = iter(
-        [
-            AgentDecision(action="finalize"),
-            AgentDecision(
-                action="tool_call",
-                tool="retrieve_kb",
-                arguments={"search_focus_text": "StampServer 端口"},
-            ),
-            AgentDecision(action="finalize", focus_evidence_ids=("c1",)),
-        ]
-    )
+    decisions = iter([
+        AgentDecision(
+            action="tool_call",
+            tool="retrieve_kb",
+            arguments={"search_focus_text": "StampServer 端口"},
+        ),
+        _compose_decision(focus_evidence_ids=("c1",)),
+    ])
 
     async def retrieve(args):
         pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
@@ -267,43 +285,31 @@ def test_finalize_rejection_returns_observation_then_controller_retrieves():
             budget=AgentBudget(max_steps=5),
             registry=build_agent_registry(),
             handlers={"retrieve_kb": retrieve},
-            cfg=SimpleNamespace(
-                agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
-            ),
+            cfg=SimpleNamespace(agent_orchestration=SimpleNamespace(terminal_finalization_v2=True)),
             decide_fn=lambda *_: next(decisions),
             tool_timeout=0,
         ).run(on_event=on_event)
     )
-    assert result.terminal_action == "controller_finalize"
-    assert result.finalization_attempts == 2
-    assert result.finalization_rejections == 1
+    assert result.terminal_action == "controller_compose_answer"
     assert result.evidence_snapshot is not None
-    assert result.evidence.citable_docs() == []
     assert result.answer_context is not None
-    rejected = next(event for event in events if event["type"] == "finalization_rejected")
-    assert "next_action" not in rejected["data"]
-    assert not any(event["type"] == "thinking" for event in events)
+    assert result.answer_contract == {"answer_mode": "full"}
+    assert not any(event["type"] == "finalization_rejected" for event in events)
 
 
-def test_rejected_finalize_observation_contains_no_recovery_action():
+def test_controller_owns_retrieval_before_compose_answer():
     conv = ConversationContext.from_request("StampServer 的端口是多少", [])
     pool = EvidencePool(question_id="q")
-    observed_finalize = []
-
-    def decide(_conversation, _evidence, observations):
-        if not observations:
-            return AgentDecision(action="finalize")
-        latest = observations[-1]
-        if latest.get("tool") == "finalize":
-            observed_finalize.append(latest)
-            return AgentDecision(
-                action="tool_call",
-                tool="retrieve_kb",
-                arguments={"search_focus_text": "StampServer 端口"},
-                gap="StampServer 端口配置",
-                expected_gain="获取端口数值",
-            )
-        return AgentDecision(action="finalize")
+    decisions = iter([
+        AgentDecision(
+            action="tool_call",
+            tool="retrieve_kb",
+            arguments={"search_focus_text": "StampServer 端口"},
+            gap="StampServer 端口配置",
+            expected_gain="获取端口数值",
+        ),
+        _compose_decision(),
+    ])
 
     async def retrieve(args):
         pool.add_retrieve([_doc("c1")], query=args["search_focus_text"])
@@ -316,24 +322,15 @@ def test_rejected_finalize_observation_contains_no_recovery_action():
             budget=AgentBudget(max_steps=4),
             registry=build_agent_registry(),
             handlers={"retrieve_kb": retrieve},
-            cfg=SimpleNamespace(
-                agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
-            ),
-            decide_fn=decide,
+            cfg=SimpleNamespace(agent_orchestration=SimpleNamespace(terminal_finalization_v2=True)),
+            decide_fn=lambda *_: next(decisions),
             tool_timeout=0,
         ).run()
     )
 
-    assert result.finalization_rejections == 1
     assert result.retrieve_attempts == 1
-    assert result.terminal_action == "controller_finalize"
-    assert len(observed_finalize) == 1
-    assert "next_action" not in observed_finalize[0]
-    assert "next_action" not in observed_finalize[0]["data"]
-    assert any(
-        step.get("controller", {}).get("tool") == "retrieve_kb"
-        for step in result.agent_steps
-    )
+    assert result.terminal_action == "controller_compose_answer"
+    assert not any((obs.get("tool") == "finalize") for obs in result.agent_steps)
 
 
 def test_retrieve_with_no_new_chunks_freezes_answer_snapshot():
@@ -352,7 +349,7 @@ def test_retrieve_with_no_new_chunks_freezes_answer_snapshot():
             gap="未覆盖端口",
             expected_gain="补充端口信息",
         ),
-        AgentDecision(action="finalize"),
+        _compose_decision(),
     ])
 
     async def retrieve(args):
@@ -382,7 +379,7 @@ def test_retrieve_with_no_new_chunks_freezes_answer_snapshot():
         ).run(on_event=on_event)
     )
 
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     assert result.evidence_snapshot is not None
     assert "retrieve_no_new_evidence" in result.fallbacks
 
@@ -403,7 +400,7 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
                 gap="未覆盖产品关系",
                 expected_gain="补充关系",
             ),
-            AgentDecision(action="finalize", arguments={"answer_mode": "partial"}),
+            _compose_decision(answer_mode="partial"),
     ])
 
     async def retrieve(args):
@@ -445,7 +442,7 @@ def test_retrieve_no_new_evidence_does_not_auto_query_graph_for_fact_question():
         ).run()
     )
 
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     assert not any(group.kind == "relation" for group in result.evidence.groups)
     assert not any(tool["name"] == "link_entities" for tool in result.tools)
 
@@ -470,7 +467,7 @@ def test_multi_entity_independent_evidence_does_not_require_graph_relation():
         doc = _doc(chunk_id, f"{entity} 的说明")
         doc["metadata"]["document_entity"] = entity
         pool.add_retrieve([doc], query=entity, target_entity=entity)
-    decisions = iter([AgentDecision(action="finalize")])
+    decisions = iter([_compose_decision()])
 
     result = asyncio.run(
         AgentLoop(
@@ -487,7 +484,7 @@ def test_multi_entity_independent_evidence_does_not_require_graph_relation():
         ).run()
     )
 
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     assert result.tools == []
     assert result.evidence_snapshot is not None
     assert result.evidence_snapshot.evidence_verdict["coverage"] == "FULL"
@@ -508,7 +505,7 @@ def test_duplicate_retrieve_denial_returns_to_controller_for_finalization():
                 tool="retrieve_kb",
                 arguments={"search_focus_text": "StampServer 端口"},
             ),
-            AgentDecision(action="finalize"),
+            _compose_decision(),
         ]
     )
 
@@ -539,10 +536,10 @@ def test_duplicate_retrieve_denial_returns_to_controller_for_finalization():
         "reason": "tool_cycle_detected",
     }
     assert denied_step["observation"]["status"] == "DENIED"
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
 
 
-def test_controller_finish_is_normalized_before_the_answer_stage():
+def test_compose_answer_freezes_snapshot_before_the_answer_stage():
     conv = ConversationContext.from_request("StampServer 的端口是多少", [])
     pool = EvidencePool(question_id="q")
     pool.add_retrieve([_doc("c1")], query="StampServer 端口")
@@ -561,24 +558,27 @@ def test_controller_finish_is_normalized_before_the_answer_stage():
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
-            decide_fn=lambda *_: AgentDecision(action="finalize", source="llm"),
+            decide_fn=lambda *_: _compose_decision(source="llm"),
             tool_timeout=0,
         ).run(on_event=on_event)
     )
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     assert result.evidence_snapshot is not None
     assert result.answer_context is not None
     assert result.evidence.citable_docs() == []
     event_types = [event["type"] for event in events]
-    assert "finalization_requested" in event_types
     assert "evidence_snapshot_created" in event_types
-    assert event_types.index("finalization_requested") < event_types.index("evidence_snapshot_created")
+    compose_result_index = next(
+        index for index, event in enumerate(events)
+        if event["type"] == "tool_result" and event["data"].get("name") == "compose_answer"
+    )
+    assert compose_result_index < event_types.index("evidence_snapshot_created")
     trace = result.to_trace()
-    assert trace["terminal_action"] == "controller_finalize"
+    assert trace["terminal_action"] == "controller_compose_answer"
     assert trace["evidence_snapshot_version"] == result.evidence_snapshot.evidence_version
 
 
-def test_direct_chat_finalize_does_not_consume_budget_on_empty_evidence():
+def test_direct_candidate_freezes_empty_snapshot_and_waits_for_publication_gate():
     conv = ConversationContext.from_request("我们刚才聊了什么？", [])
     pool = EvidencePool(question_id="q")
     events = []
@@ -597,34 +597,30 @@ def test_direct_chat_finalize_does_not_consume_budget_on_empty_evidence():
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
             decide_fn=lambda *_: AgentDecision(
-                action="finalize",
-                arguments={"answer_type": "direct_chat"},
+                action="direct_candidate",
+                candidate="这是基于当前会话状态生成的待审答复。",
                 source="llm",
             ),
             tool_timeout=0,
         ).run(on_event=on_event)
     )
 
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_direct_candidate"
     assert result.budget["steps_used"] == 1
-    assert result.finalization_attempts == 1
-    assert result.finalization_rejections == 0
-    assert result.evidence_snapshot is None
-    assert result.answer_contract == {
-        "answer_type": "direct_chat",
-        "evidence_required": False,
-        "answer_mode": "full",
-    }
-    assert result.answer_gate["answer_type"] == "direct_chat"
-    assert result.answer_gate["reason"] == "evidence_not_required"
-    assert result.route == "direct"
+    assert result.evidence_snapshot is not None
+    assert result.evidence_snapshot.citable_documents() == []
+    assert len(result.evidence_snapshot.documents()) > 0
+    assert result.answer_context is None
     event_types = [event["type"] for event in events]
-    assert event_types.count("finalization_requested") == 1
-    assert "finalization_rejected" not in event_types
-    assert "evidence_snapshot_created" not in event_types
+    assert "evidence_snapshot_created" in event_types
+    assert any(
+        event["type"] == "tool_result"
+        and event["data"].get("name") == "controller_direct_candidate"
+        for event in events
+    )
 
 
-def test_finalize_allows_multi_entity_partial_for_reviewer():
+def test_compose_answer_allows_multi_entity_partial_for_reviewer():
     conv = ConversationContext.from_request(
         "ModelBuilder 和 UEModelBuilder 有什么区别？", []
     )
@@ -657,37 +653,32 @@ def test_finalize_allows_multi_entity_partial_for_reviewer():
             cfg=SimpleNamespace(
                 agent_orchestration=SimpleNamespace(terminal_finalization_v2=True),
             ),
-            decide_fn=lambda *_: AgentDecision(action="finalize"),
+            decide_fn=lambda *_: _compose_decision(),
             tool_timeout=0,
         ).run()
     )
-    assert result.finalization_rejections == 0
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     assert result.evidence_snapshot is not None
     assert result.evidence_snapshot.evidence_verdict["coverage"] == "PARTIAL"
     assert result.answer_context is not None
-    assert result.answer_contract == {
-        "answer_type": "knowledge",
-        "evidence_required": True,
-        "answer_mode": "full",
-    }
+    assert result.answer_contract == {"answer_mode": "full"}
 
 
-def test_finalization_separates_admissibility_from_overview_coverage():
+def test_compose_answer_separates_snapshot_admissibility_from_overview_coverage():
     conv = ConversationContext.from_request("PipelineWebGL 是什么", [])
     pool = EvidencePool(question_id="q")
     doc = _doc("c1", "PipelineWebGL 支持场景浏览设置。")
     doc["metadata"]["document_entity"] = "PipelineWebGL"
     pool.add_retrieve([doc], query="PipelineWebGL")
 
-    result = FinalizationHandler(conv, pool).evaluate()
+    result = ComposeAnswerHandler(conv, pool).compose()
 
     verdict = result["evidence_verdict"]
-    assert verdict["admissibility"] == "VALID"
+    assert verdict["admissibility"] == "SNAPSHOT_FROZEN"
     assert verdict["coverage"] == "PARTIAL"
     assert verdict["can_answer"] is True
     assert result["status"] == "accepted"
-    assert result["reason"] == "controller_finalize"
+    assert result["reason"] == "controller_compose_answer"
 
 
 def test_general_qa_partial_evidence_can_finalize_without_no_knowledge():
@@ -702,7 +693,7 @@ def test_general_qa_partial_evidence_can_finalize_without_no_knowledge():
     doc["metadata"]["document_entity"] = "PipelineWebRTC"
     pool.add_retrieve([doc], query="PipelineWebRTC 功能与用途概述")
 
-    result = FinalizationHandler(conv, pool).evaluate(answer_mode="partial")
+    result = ComposeAnswerHandler(conv, pool).compose(answer_mode="partial")
 
     assert result["status"] == "accepted"
     assert result["evidence_verdict"]["coverage"] == "PARTIAL"
@@ -1011,26 +1002,18 @@ def test_linear_preprocess_calls_helper_and_agent_mode_preserves_controller_quer
     assert mocked.call_args.kwargs["stage"] == "common_stage1"
 
 
-def test_react_parser_accepts_finalize_control_action():
-    parsed = parse_react_line_format("Thought: 证据足够\nAction: finalize")
-    assert parsed is not None
-    assert parsed["action"] == "finalize"
+def test_react_parser_rejects_retired_finalize_control_action():
+    assert parse_react_line_format("Thought: 证据足够\nAction: finalize") is None
 
 
-def test_legacy_finish_is_not_part_of_the_current_controller_protocol():
-    normalized = normalize_decision_payload({"action": "finish", "tool": None})
-    assert normalized["action"] == "finish"
-    assert normalized["tool"] is None
-
-    try:
+def test_legacy_finish_and_finalize_are_not_part_of_current_controller_protocol():
+    with pytest.raises(ValueError, match="unknown action 'finish'"):
+        normalize_decision_payload({"action": "finish", "tool": None})
+    with pytest.raises(ValueError, match="finalize is retired"):
         normalize_decision_payload({"action": "finalize", "tool": "retrieve_kb"})
-    except ValueError as exc:
-        assert "cannot carry tool" in str(exc)
-    else:
-        raise AssertionError("finalize with a tool must be rejected")
 
 
-def test_finalization_has_no_compatibility_fallback():
+def test_retired_finalize_has_no_compatibility_fallback():
     conv = ConversationContext.from_request("StampServer 是什么", [])
     pool = EvidencePool(question_id="q")
     cfg = SimpleNamespace(

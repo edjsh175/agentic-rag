@@ -49,7 +49,12 @@ def test_toolcall_source_is_100_percent_controller():
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 端口"}, source="llm"),
-        AgentDecision(action="finalize", focus_evidence_ids=("c1",), source="llm"),
+        AgentDecision(
+            action="tool_call",
+            tool="compose_answer",
+            arguments={"answer_mode": "full", "focus_evidence_ids": ["c1"]},
+            source="llm",
+        ),
     ])
 
     loop = AgentLoop(
@@ -65,7 +70,7 @@ def test_toolcall_source_is_100_percent_controller():
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
-    assert result.terminal_action == "controller_finalize"
+    assert result.terminal_action == "controller_compose_answer"
     for step in result.agent_steps:
         if step.get("controller", {}).get("action") == "tool_call":
             assert step["controller"]["role"] == "llm"
@@ -493,8 +498,8 @@ def test_budget_exhaustion_never_creates_partial_snapshot_without_main_finalize(
     assert result.answer_contract == {}
 
 
-def test_finalization_rejected_observation_loop_closure():
-    """验证 Finalization 门禁拒绝后，作为 ToolObservation 回传给 Main，由 Main 自主决策补检并成功闭环。"""
+def test_compose_answer_does_not_reject_zero_evidence_before_generation():
+    """0 Evidence 仍应冻结快照；是否可发布由后续 Reviewer 决定。"""
     conv = ConversationContext.from_request("StampServer 部署与配置", [])
     conv.head_entity = "StampServer"
     pool = EvidencePool(question_id="q")
@@ -505,27 +510,10 @@ def test_finalization_rejected_observation_loop_closure():
         pool.add_retrieve([doc], query=args["search_focus_text"], head_entity="StampServer", target_entity="StampServer")
         return ToolObservation(tool="retrieve_kb", ok=True, summary="ok")
 
-    observed_tools: list[str] = []
-
-    def decide(_conv, _pool, observations):
-        for obs in observations:
-            observed_tools.append(obs.get("tool"))
-        if not observations:
-            # 第一轮直接尝试 finalize（无证据将被拒）
-            return AgentDecision(action="finalize", source="llm")
-        last_obs = observations[-1]
-        if last_obs.get("tool") == "finalize" and not last_obs.get("ok"):
-            # Main 控制器看到 Finalize 门禁拒绝及 Observation 中的缺口，自主决定调用 retrieve_kb 补检
-            return AgentDecision(
-                action="tool_call",
-                tool="retrieve_kb",
-                arguments={"search_focus_text": "StampServer 完整配置手册"},
-                gap="StampServer 配置事实",
-                expected_gain="获取完整配置手册",
-                source="llm",
-            )
+    def decide(_conv, _pool, _observations):
         return AgentDecision(
-            action="finalize",
+            action="tool_call",
+            tool="compose_answer",
             arguments={"answer_mode": "partial"},
             source="llm",
         )
@@ -543,7 +531,7 @@ def test_finalization_rejected_observation_loop_closure():
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
-    assert result.finalization_rejections == 1
-    assert result.terminal_action == "controller_finalize"
-    assert "finalize" in observed_tools
+    assert result.finalization_rejections == 0
+    assert result.terminal_action == "controller_compose_answer"
     assert result.evidence_snapshot is not None
+    assert [d for d in result.answer_context.documents() if (d.get("metadata") or {}).get("citable", True) is not False] == []

@@ -59,7 +59,6 @@ class AnswerFinalizer:
         context_docs: list[dict[str, Any]],
         *,
         allow_general_knowledge: bool = False,
-        is_direct_chat: bool = False,
         retry_candidate: Callable[[HelperGroundingReviewResult], str] | None = None,
         helper_reviewer: HelperGroundingReviewer | Callable[..., HelperGroundingReviewResult] | None = None,
         on_lifecycle_event: Callable[[dict[str, Any]], None] | None = None,
@@ -74,93 +73,7 @@ class AnswerFinalizer:
                 except Exception as exc:
                     logger.debug("on_lifecycle_event callback failed: %s", exc)
 
-        if is_direct_chat:
-            _emit({
-                "type": "publication",
-                "data": {
-                    "final_mode": "direct_chat",
-                    "review_verdict": "PASS",
-                    "coverage": "FULL",
-                    "published_candidate_attempt": 1,
-                    "message": "直接会话模式，发布答案。",
-                },
-            })
-            return FinalizedAnswer(
-                answer=text,
-                grounding={
-                    "policy": "direct_chat",
-                    "verdict": "not_required",
-                    "coverage": "FULL",
-                    "final_mode": "direct_chat",
-                    "fallback_used": False,
-                    "candidate_attempts": 1,
-                    "review_count": 0,
-                    "review_attempts": 0,
-                },
-            )
-
         reviewer = helper_reviewer
-
-        if allow_general_knowledge:
-            _emit({
-                "type": "candidate_status",
-                "data": {
-                    "version": 1,
-                    "status": "generated",
-                    "message": "Candidate V1 已生成，正在区分知识库证据与通用知识。",
-                },
-            })
-            res = self._finalize_mixed(
-                text,
-                question,
-                context_docs,
-                reviewer=reviewer,
-                emit=_emit,
-            )
-            _emit({
-                "type": "publication",
-                "data": {
-                    "final_mode": res.final_mode,
-                    "review_verdict": res.grounding.get("review_verdict", "PASS"),
-                    "coverage": res.grounding.get("coverage", "PARTIAL"),
-                    "published_candidate_attempt": 1,
-                    "message": "混合知识模式，发布答案。",
-                },
-            })
-            return res
-
-        if not text or text == NO_KNOWLEDGE_ANSWER:
-            # Finalizer does not own retrieval lifecycle/accounting, so it must
-            # not guess `retrieved_no_hits`. The outer Agent runtime classifies
-            # no-hits / no-support / blocked from actual Retriever facts.
-            _emit({
-                "type": "publication",
-                "data": {
-                    "final_mode": "no_safe_answer",
-                    "publication_state": "no_safe_answer",
-                    "review_verdict": "NONE",
-                    "coverage": "NONE",
-                    "published_candidate_attempt": 0,
-                    "message": "候选答案为空或不可发布，未对检索结果类型作推断。",
-                },
-            })
-            return FinalizedAnswer(
-                answer=NO_KNOWLEDGE_ANSWER,
-                grounding={
-                    "policy": "strict_kb",
-                    "verdict": "empty",
-                    "coverage": "NONE",
-                    "reasons": ["empty_or_no_knowledge_candidate"],
-                    "unsupported_segments": [],
-                    "final_mode": "no_safe_answer",
-                    "publication_state": "no_safe_answer",
-                    "fallback_used": False,
-                    "candidate_attempts": 0,
-                    "review_count": 0,
-                    "review_attempts": 0,
-                    "attempts": [],
-                },
-            )
 
         _emit({
             "type": "candidate_status",

@@ -604,6 +604,17 @@ export interface ClarifyResult {
 }
 
 /** 消息所携带的反问卡片数据与交互状态 */
+export interface ClarificationInteractionRecord {
+  question: string
+  selected?: string
+  option_id?: string
+  snapshot_id?: string
+  selection_kind?: ClarificationSelectionKind
+  free_text?: string
+  published_trace_id?: string | null
+  response_trace_id?: string | null
+}
+
 export interface MessageClarification {
   ask_question: string
   trigger?: string
@@ -611,7 +622,12 @@ export interface MessageClarification {
   clarification_snapshot_id?: string
   options: ClarificationOption[]
   selectedId?: string
+  selection_kind?: ClarificationSelectionKind
   otherText?: string
+  published_trace_id?: string | null
+  response_trace_id?: string | null
+  /** 同一 assistant 消息内此前已完成/推进过的澄清交互，避免 Clarify→Clarify 覆盖历史事实。 */
+  history?: ClarificationInteractionRecord[]
 }
 
 /** 来源文档片段 */

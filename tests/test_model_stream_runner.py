@@ -73,6 +73,38 @@ def test_stream_runner_token_policy_streams_delta_and_emits_end():
     assert events[3]["data"]["reasoning_chars"] == len("思考片段 1") + len("思考片段 2")
 
 
+def test_stream_runner_separates_sse_semantic_role_from_model_route_audit():
+    runner = ModelStreamRunner()
+    events: list[dict] = []
+    audit_calls: list[dict] = []
+
+    async def fake_stream(*_args, **_kwargs):
+        yield LLMStreamPart("reasoning", "规划下一步")
+        yield LLMStreamPart("content", "{}")
+
+    def fake_record(**kwargs):
+        audit_calls.append(kwargs)
+
+    options = StreamRunOptions(
+        endpoint=_qwen_endpoint(),
+        messages=[{"role": "user", "content": "hello"}],
+        stage="agent_controller",
+        semantic_role="main",
+        model_route_role="llm",
+        call_id="controller_1",
+    )
+
+    with (
+        patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream),
+        patch("rag_knowledge.llm_http.record_model_call", fake_record),
+    ):
+        asyncio.run(runner.arun(options, on_event=events.append))
+
+    assert {event["data"]["role"] for event in events} == {"main"}
+    assert {event["data"]["model_route_role"] for event in events} == {"llm"}
+    assert audit_calls[0]["role"] == "llm"
+
+
 def test_stream_runner_request_reasoning_override():
     runner = ModelStreamRunner()
     events: list[dict] = []

@@ -108,6 +108,7 @@ interface QueryResult {
   used_model?: string
   downshift_notice?: string
   clarification?: ClarifyResult
+  trace_id?: string
 }
 
 interface UploadResult {

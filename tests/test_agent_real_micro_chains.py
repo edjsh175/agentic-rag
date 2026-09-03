@@ -492,7 +492,6 @@ def test_real_revise_rewrite_review2_closed_loop():
         "StampServer 的端口是多少？",
         [doc],
         allow_general_knowledge=False,
-        is_direct_chat=False,
         retry_candidate=retry_candidate_fn,
         helper_reviewer=reviewer,
         on_lifecycle_event=on_lifecycle,
@@ -595,7 +594,6 @@ def test_real_prd_pipe_management_contextual_publication():
         [doc],
         helper_reviewer=reviewer,
         allow_general_knowledge=False,
-        is_direct_chat=False,
         on_lifecycle_event=lifecycle.append,
     )
     assert finalized.grounding.get("review_verdict") == "PASS"
@@ -729,7 +727,6 @@ def test_real_prd_pipeline_webrtc_cross_document_publication():
         [doc],
         helper_reviewer=reviewer,
         allow_general_knowledge=False,
-        is_direct_chat=False,
         on_lifecycle_event=lifecycle.append,
     )
     assert finalized.grounding.get("review_verdict") == "PASS"

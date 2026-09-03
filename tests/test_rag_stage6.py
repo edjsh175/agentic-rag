@@ -911,7 +911,10 @@ class RagStage6Tests(unittest.TestCase):
         chain._build_messages = lambda *args, **kwargs: [{"role": "user", "content": "question"}]
         chain._filter_cited_sources = lambda answer, source_docs: source_docs
 
-        with patch("rag_knowledge.services.rag.logger.info") as info_log:
+        with patch("rag_knowledge.services.rag.logger.info") as info_log, patch(
+            "rag_knowledge.services.rag._ANSWER_FINALIZER.finalize",
+            return_value=SimpleNamespace(answer="answer [1]"),
+        ):
             result = chain.query("question", thinking=True)
 
         self.assertEqual(result["answer"], "answer [1]")

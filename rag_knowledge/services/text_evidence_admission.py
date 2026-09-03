@@ -507,6 +507,7 @@ class TextEvidenceAdmissionService:
                 json_schema=text_qualification_response_json_schema(
                     direct_attribution_eligible=direct_attribution_eligible,
                 ),
+                stage="text_evidence_admission",
             )
             cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw or "").strip(), flags=re.IGNORECASE)
             data = json.loads(cleaned)

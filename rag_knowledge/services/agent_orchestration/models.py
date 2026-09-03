@@ -18,7 +18,7 @@ from rag_knowledge.services.conversation_context import (
 )
 
 EvidenceStatus = Literal["ACTIVE", "FROZEN"]
-ToolAction = Literal["tool_call", "finalize"]
+ToolAction = Literal["tool_call", "direct_candidate"]
 
 
 class ToolProgressStatus:
@@ -98,9 +98,10 @@ class ToolObservation:
 
 @dataclass
 class AgentDecision:
-    action: ToolAction = "finalize"
+    action: ToolAction = "tool_call"
     tool: str | None = None
     arguments: dict[str, Any] = field(default_factory=dict)
+    candidate: str = ""
     reason: str = ""
     thought: str = ""
     source: str = "llm"
@@ -128,6 +129,9 @@ class AgentDecision:
         }
         if self.focus_evidence_ids:
             payload["focus_evidence_ids"] = list(self.focus_evidence_ids)
+        if self.candidate:
+            payload["candidate"] = self.candidate
+        return payload
         if self.gap:
             payload["gap"] = self.gap
         if self.expected_gain:
@@ -1165,8 +1169,9 @@ class EvidencePool:
         *,
         verdict: dict[str, Any],
         focus_evidence_ids: list[str] | tuple[str, ...] | None = None,
+        grounding_docs: list[dict[str, Any]] | None = None,
     ) -> "EvidenceSnapshot":
-        """Freeze the current citable evidence into an answer-only snapshot."""
+        """Freeze the current evidence into an answer-and-grounding snapshot."""
         docs = self.citable_docs_renumbered()
         valid_support_scopes = {"TARGET_SPECIFIC", "CONTEXT_ONLY", "RELATION_SPECIFIC"}
         valid_text_evidence = {
@@ -1176,7 +1181,7 @@ class EvidencePool:
         for doc in docs:
             meta = (doc.get("metadata") if isinstance(doc, dict) else None) or {}
             source_type = str(meta.get("source_type") or "").strip()
-            if source_type == "external":
+            if source_type in {"external", "web"}:
                 # External sources (web search) follow their own protocol and
                 # stay outside the Text Admission authority.
                 continue
@@ -1194,19 +1199,46 @@ class EvidencePool:
                 support_scope,
             ) not in valid_text_evidence:
                 raise ValueError("invalid_text_evidence_protocol")
+
+        for doc in docs:
+            meta = dict((doc.get("metadata") if isinstance(doc, dict) else None) or {})
+            meta["citable"] = True
+            if "source_type" not in meta:
+                meta["source_type"] = "graph_relation" if meta.get("relation_key") else "kb_text"
+            doc["metadata"] = meta
+
+        extra_docs: list[dict[str, Any]] = []
+        for gdoc in (grounding_docs or []):
+            if not isinstance(gdoc, dict):
+                continue
+            cloned = deepcopy(gdoc)
+            gmeta = dict(cloned.get("metadata") or {})
+            gmeta["citable"] = False
+            if "source_type" not in gmeta:
+                gmeta["source_type"] = "conversation"
+            cloned["metadata"] = gmeta
+            extra_docs.append(cloned)
+
+        all_docs = docs + extra_docs
         wanted = {str(item).strip() for item in (focus_evidence_ids or ()) if str(item).strip()}
         if wanted:
             focused: list[dict[str, Any]] = []
             rest: list[dict[str, Any]] = []
-            for doc in docs:
+            for doc in all_docs:
                 meta = doc.get("metadata") or {}
                 evidence_id = str(meta.get("evidence_id") or meta.get("chunk_id") or "")
                 (focused if evidence_id in wanted else rest).append(doc)
-            docs = focused + rest
+            all_docs = focused + rest
+
+        for idx, doc in enumerate(all_docs, start=1):
+            meta = dict(doc.get("metadata") or {})
+            meta["citation_id"] = idx
+            doc["metadata"] = meta
+
         self.freeze_active()
         return EvidenceSnapshot.from_documents(
             question_id=self.question_id,
-            documents=docs,
+            documents=all_docs,
             verdict=verdict,
             evidence_groups=self.to_trace(),
             evidence_version=(
@@ -1233,6 +1265,29 @@ def _thaw_value(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_thaw_value(item) for item in value]
     return value
+
+
+EvidenceSourceType = Literal[
+    "kb_text",
+    "graph_relation",
+    "conversation",
+    "runtime_event",
+    "tool_observation",
+    "environment",
+    "web",
+]
+
+
+@dataclass(frozen=True)
+class EvidenceItem:
+    """Unified evidence item contract across KB, graph, conversation, runtime and tools."""
+
+    evidence_id: str
+    source_type: EvidenceSourceType
+    content: str
+    metadata: dict[str, Any]
+    citable: bool
+    provenance: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -1270,6 +1325,12 @@ class EvidenceSnapshot:
 
     def documents(self) -> list[dict[str, Any]]:
         return [_thaw_value(item) for item in self.evidence_items]
+
+    def citable_documents(self) -> list[dict[str, Any]]:
+        return [
+            doc for doc in self.documents()
+            if bool((doc.get("metadata") or {}).get("citable", True))
+        ]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1506,6 +1567,24 @@ class ConversationContext:
         evidence_epoch = previous_epoch + 1 if identity_changed else previous_epoch
 
         clar_hist: list[dict[str, Any]] = []
+        for h_turn in (history or []):
+            if not isinstance(h_turn, dict):
+                continue
+            for prior_clar in h_turn.get("clarification_history") or []:
+                if isinstance(prior_clar, dict) and (
+                    prior_clar.get("selected") or prior_clar.get("question") or prior_clar.get("option_id")
+                ):
+                    clar_hist.append(dict(prior_clar))
+            h_clar = h_turn.get("clarification") or h_turn.get("clarification_selection")
+            if isinstance(h_clar, dict) and (h_clar.get("selected") or h_clar.get("question") or h_clar.get("option_id")):
+                clar_hist.append(dict(h_clar))
+            elif h_turn.get("clarification_selected"):
+                clar_hist.append({
+                    "question": str(h_turn.get("clarification_question") or ""),
+                    "selected": str(h_turn.get("clarification_selected") or ""),
+                    "option_id": h_turn.get("clarification_option_id"),
+                    "selection_kind": h_turn.get("clarification_selection_kind"),
+                })
         if clarification_question or is_callback:
             clar_hist.append({
                 "question": clarification_question or "",
@@ -1742,6 +1821,7 @@ class AgentTurnResult:
     terminal_outcome: str = ""
     evidence_snapshot: EvidenceSnapshot | None = None
     answer_context: AnswerGenerationContext | None = None
+    direct_candidate: str | None = None
     answer_contract: dict[str, Any] = field(default_factory=dict)
     finalization_attempts: int = 0
     finalization_rejections: int = 0
@@ -1804,6 +1884,7 @@ class AgentTurnResult:
                 else None
             ),
             "answer_contract": dict(self.answer_contract or {}),
+            "candidate_source": "controller_direct" if self.direct_candidate else "answer_generator",
             "evidence_verdict": dict(
                 (self.evidence_snapshot.evidence_verdict if self.evidence_snapshot is not None else {})
                 or {}

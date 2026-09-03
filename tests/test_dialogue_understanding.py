@@ -256,7 +256,7 @@ def test_to_retrieval_queries_roundtrip():
     assert [s.kind for s in specs] == ["original", "search"]
 
 
-def test_understanding_direct_chat_on_correction_question(isolated_storage):
+def test_understanding_correction_is_context_dependent_without_direct_chat_mode(isolated_storage):
     isolated_storage()
     cfg = MagicMock()
     contextualizer = MagicMock()
@@ -271,7 +271,9 @@ def test_understanding_direct_chat_on_correction_question(isolated_storage):
         run_clarify=False,
         entity_name="PipelineBuilder",
     )
-    assert result.mode == "direct_chat"
+    assert result.mode == "retrieve"
+    assert result.is_context_dependent is True
+    assert result.rationale == "dialogue_correction_or_meta"
     assert result.is_context_dependent is True
     assert result.retrieval_queries == []
     contextualizer.build_query_specs_with_meta.assert_not_called()

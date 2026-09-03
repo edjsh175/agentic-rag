@@ -414,6 +414,7 @@ async def query(req: QueryRequest):
             used_model=result.get("used_model"),
             downshift_notice=result.get("downshift_notice"),
             clarification=result.get("clarification"),
+            trace_id=result.get("trace_id"),
         )
     except Exception as e:
         logger.error("查询失败: %s", e)

@@ -17,7 +17,12 @@ class StreamRunOptions:
     endpoint: ModelEndpoint
     messages: list[dict[str, Any]]
     stage: str
-    role: str = "main"
+    semantic_role: str = "main"
+    model_route_role: str = ""
+    # Transitional compatibility only.  ``role`` has always been emitted to
+    # the SSE consumer, so it can only retain the semantic meaning; model
+    # routing/audit must use ``model_route_role``.
+    role: str | None = None
     call_id: str = ""
     step: int | None = None
     stream_policy: str = "token"  # "token" | "summary" | "never"
@@ -31,6 +36,12 @@ class StreamRunOptions:
     default_ollama: str = ""
     trace_max_summary_chars: int = 2000
     extra_end_payload: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.role is not None:
+            self.semantic_role = self.role
+        if not self.model_route_role:
+            self.model_route_role = self.endpoint.role
 
 
 @dataclass
@@ -80,7 +91,8 @@ class ModelStreamRunner:
         if normalized_policy != "never":
             start_payload: dict[str, Any] = {
                 "call_id": options.call_id,
-                "role": options.role,
+                "role": options.semantic_role,
+                "model_route_role": options.model_route_role,
                 "stage": options.stage,
                 "model": options.endpoint.model,
                 "provider": options.endpoint.normalized_provider(),
@@ -118,7 +130,8 @@ class ModelStreamRunner:
                     if normalized_policy == "token":
                         delta_payload: dict[str, Any] = {
                             "call_id": options.call_id,
-                            "role": options.role,
+                            "role": options.semantic_role,
+                            "model_route_role": options.model_route_role,
                             "stage": options.stage,
                             "delta": part.delta,
                         }
@@ -143,7 +156,8 @@ class ModelStreamRunner:
                 )
                 summary_payload: dict[str, Any] = {
                     "call_id": options.call_id,
-                    "role": options.role,
+                    "role": options.semantic_role,
+                    "model_route_role": options.model_route_role,
                     "stage": options.stage,
                     "summary": summary_text,
                 }
@@ -154,7 +168,8 @@ class ModelStreamRunner:
             if normalized_policy != "never":
                 end_payload: dict[str, Any] = {
                     "call_id": options.call_id,
-                    "role": options.role,
+                    "role": options.semantic_role,
+                    "model_route_role": options.model_route_role,
                     "stage": options.stage,
                     "model": options.endpoint.model,
                     "provider": options.endpoint.normalized_provider(),
@@ -174,7 +189,7 @@ class ModelStreamRunner:
                 await _emit({"type": "llm_reasoning_end", "data": end_payload})
 
             llm_http.record_model_call(
-                role=options.role,
+                role=options.model_route_role,
                 stage=options.stage,
                 provider=options.endpoint.normalized_provider(),
                 model=options.endpoint.model,

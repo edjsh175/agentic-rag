@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import unittest
 from types import SimpleNamespace
@@ -227,56 +228,14 @@ class PromptEngineeringTests(unittest.TestCase):
             ],
         )
 
-    def test_non_stream_greeting_returns_fixed_reply_without_calling_llm(self):
-        def fail_if_called(*args, **kwargs):
-            raise AssertionError("greeting branch should not call the model")
-
-        with patch("rag_knowledge.services.rag.ChatOllama", fail_if_called):
-            chain = object.__new__(RagChain)
-            from rag_knowledge.config import Config
-            chain._cfg = Config()
-            result = chain.query("你好")
-
-        self.assertEqual(
-            result,
-            {
-                "answer": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。",
-                "source_documents": [],
-            },
-        )
-
-    def test_stream_greeting_returns_fixed_reply_without_calling_llm(self):
-        def fail_if_called(*args, **kwargs):
-            raise AssertionError("greeting branch should not call the model")
-
-        with patch("rag_knowledge.services.rag.ChatOllama", fail_if_called):
-            chain = object.__new__(RagChain)
-            from rag_knowledge.config import Config
-            chain._cfg = Config()
-
-            async def collect():
-                return [event async for event in chain.stream_query("你好")]
-
-            events = asyncio.run(collect())
-
-        self.assertEqual(
-            events,
-            [
-                {"type": "status", "data": "正在理解问题..."},
-                {
-                    "type": "publication",
-                    "data": {
-                        "final_mode": "direct_chat",
-                        "review_verdict": "PASS",
-                        "coverage": "FULL",
-                        "message": "问候无需知识库审查，正在发布。",
-                    },
-                },
-                {"type": "final_answer", "data": "你好！我是知识库助手，可以帮你查项目文档、配置和资料。"},
-                {"type": "sources", "data": []},
-                {"type": "done"},
-            ],
-        )
+    def test_greeting_has_no_direct_chat_publication_bypass(self):
+        public_paths = "\n".join((
+            inspect.getsource(RagChain.query),
+            inspect.getsource(RagChain.aquery),
+            inspect.getsource(RagChain.stream_query),
+        ))
+        self.assertNotIn("if _is_greeting(q):", public_paths)
+        self.assertNotIn('"final_mode": "direct_chat"', public_paths)
 
     def test_stream_query_emits_trimmed_sources(self):
         original_docs = [

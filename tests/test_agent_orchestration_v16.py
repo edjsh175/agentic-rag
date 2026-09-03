@@ -369,7 +369,7 @@ def test_v16_agent_loop_inherits_state_across_resumes():
     budget.retrieval_executed = 1
 
     decisions = [
-        AgentDecision(action="finalize", arguments={"answer_type": "direct_chat"}),
+        AgentDecision(action="direct_candidate", candidate="基于当前会话状态结束本轮。"),
     ]
 
     loop = AgentLoop(

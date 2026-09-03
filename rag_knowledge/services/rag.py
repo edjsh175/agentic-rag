@@ -443,6 +443,22 @@ class RagChain:
             adder(event_type, data)
 
     @staticmethod
+    def _clarification_card_event(clarify: dict[str, Any]) -> dict[str, Any]:
+        """Build the one canonical runtime fact emitted when a clarification card is published."""
+        return {
+            "type": "clarification_card_published",
+            "data": {
+                "ask_question": clarify.get("ask_question"),
+                "options": clarify.get("options") or [],
+                "snapshot_id": clarify.get("clarification_snapshot_id"),
+            },
+        }
+
+    @classmethod
+    def _record_clarification_card_published(cls, trace: Any, clarify: dict[str, Any]) -> None:
+        cls._record_execution_event(trace, cls._clarification_card_event(clarify))
+
+    @staticmethod
     def _record_execution_event(trace: Any, event: dict[str, Any]) -> None:
         if trace is None:
             return
@@ -1718,8 +1734,13 @@ class RagChain:
 
         by_id: dict[int, dict] = {}
         for source in source_docs:
+            if not isinstance(source, dict):
+                continue
+            meta = source.get("metadata") or {}
+            if meta.get("citable", True) is False:
+                continue
             try:
-                citation_id = int(source.get("metadata", {}).get("citation_id"))
+                citation_id = int(meta.get("citation_id"))
             except (TypeError, ValueError):
                 continue
             by_id[citation_id] = source
@@ -2413,6 +2434,7 @@ class RagChain:
                 num_predict=16,
                 timeout=15.0,
                 think=False,
+                stage="kb_route",
             ).strip().strip('"')
             if result in ("文章附件", "已发布文章"):
                 logger.info("Query 路由: %s → %s", question[:40], result)
@@ -2445,9 +2467,7 @@ class RagChain:
                         job: str = "",
                         prompt_layout: str = "dag",
                         conversation_context_section: str | None = None,
-                        evidence_pool_section: str | None = None,
-                        is_direct_chat: bool = False,
-                        has_evidence: bool = True) -> list[dict]:
+                        evidence_pool_section: str | None = None) -> list[dict]:
         if allow_general_knowledge:
             general_rule = (
                 "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
@@ -2538,8 +2558,6 @@ class RagChain:
                 backbone_anchor_section=backbone_anchor_section,
                 job_contract_section=job_contract_section,
                 max_history=RagChain.MAX_HISTORY,
-                is_direct_chat=is_direct_chat,
-                has_evidence=has_evidence,
             )
 
         prompt = _SYSTEM_PROMPT.format(
@@ -2670,7 +2688,8 @@ class RagChain:
                 endpoint=endpoint,
                 messages=retry_messages,
                 stage="grounded_retry",
-                role="main",
+                semantic_role="main",
+                model_route_role=endpoint.role,
                 call_id=call_id,
                 stream_policy=stream_policy,
                 request_reasoning=True,
@@ -3141,6 +3160,7 @@ class RagChain:
         clarification_free_text: str | None = None,
         previous_cited_docs: list[dict[str, Any]] | None = None,
         reviewer_feedback: dict[str, Any] | None = None,
+        reviewer_finding: dict[str, Any] | None = None,
         resume_budget: dict[str, Any] | None = None,
         resume_gap_registry: dict[str, Any] | None = None,
         resume_continuous_no_progress_count: int = 0,
@@ -3152,6 +3172,10 @@ class RagChain:
         on_event=None,
         trace=None,
     ):
+        if reviewer_feedback is not None and reviewer_finding is not None:
+            raise ValueError(
+                "invalid_reviewer_resume_contract: reviewer_feedback and reviewer_finding are mutually exclusive"
+            )
         from rag_knowledge.services.agent_orchestration.models import (
             AgentBudget,
             AttemptedGapRegistry,
@@ -3280,9 +3304,9 @@ class RagChain:
             # current working evidence as ACTIVE, re-qualified under the
             # current epoch — the system owns the V2 merge, not a Main
             # reuse_evidence call.
-            carry_active=bool(reviewer_feedback),
+            carry_active=bool(reviewer_feedback or reviewer_finding),
         )
-        if reviewer_feedback and resume_working_docs:
+        if (reviewer_feedback or reviewer_finding) and resume_working_docs:
             evidence.seed_resume_working(
                 resume_working_docs,
                 head_entity=conv.head_entity or conv.previous_head_entity,
@@ -3294,14 +3318,14 @@ class RagChain:
             max_retrieve_attempts=max_retries,
             hard_retrieve_cap=hard_cap,
         )
-        if reviewer_feedback:
+        if reviewer_feedback or reviewer_finding:
             budget.restore_state(resume_budget)
             self._safe_add_trace_event(
                 trace,
-                "reviewer_feedback_received",
+                "reviewer_feedback_received" if reviewer_feedback else "reviewer_finding_received",
                 {
-                    "gap_id": reviewer_feedback.get("gap_id"),
-                    "affected_claim_ids": list(reviewer_feedback.get("affected_claim_ids") or []),
+                    "gap_id": (reviewer_feedback or {}).get("gap_id"),
+                    "affected_claim_ids": list((reviewer_feedback or reviewer_finding or {}).get("affected_claim_ids") or []),
                     "budget": budget.to_dict(),
                 },
             )
@@ -3905,6 +3929,14 @@ class RagChain:
 
             restored_graph_working_set = GraphWorkingSet.from_trace(resume_graph_working_set)
 
+        from rag_knowledge.services.runtime_evidence_provider import RuntimeEvidenceProvider
+
+        prior_runtime_events = RuntimeEvidenceProvider.collect_events(
+            trace=trace,
+            history=history,
+            cfg=self._cfg,
+        )
+
         loop = AgentLoop(
             conversation=conv,
             evidence=evidence,
@@ -3925,6 +3957,7 @@ class RagChain:
             continuous_no_progress_count=int(resume_continuous_no_progress_count or 0),
             exploration_fuse_open=bool(resume_exploration_fuse_open),
             call_id_prefix=model_call_id_prefix,
+            runtime_events=prior_runtime_events,
             initial_observations=([
                 {
                     "tool": "reviewer_feedback",
@@ -3933,7 +3966,15 @@ class RagChain:
                     "summary": "冻结证据快照存在 Reviewer 标记的缺口",
                     "data": dict(reviewer_feedback),
                 },
-            ] if reviewer_feedback else None),
+            ] if reviewer_feedback else ([
+                {
+                    "tool": "reviewer_finding",
+                    "ok": False,
+                    "status": "REWRITE",
+                    "summary": "Reviewer 要求基于当前即时上下文修正 Candidate，不得改走 Answer Generator。",
+                    "data": dict(reviewer_finding),
+                },
+            ] if reviewer_finding else None)),
         )
         result = await loop.run(on_event=emit)
         return result
@@ -3993,10 +4034,14 @@ class RagChain:
         else:
             logger.error("Agent knowledge answer missing frozen evidence snapshot")
             frozen_docs = []
+        citable_docs = [
+            doc for doc in frozen_docs
+            if (doc.get("metadata") or {}).get("citable", True) is not False
+        ]
         gate = getattr(result, "answer_gate", None) or {}
         if gate and not gate.get("allow_knowledge_answer", True):
-            return [], frozen_docs
-        return frozen_docs, frozen_docs
+            return frozen_docs, []
+        return frozen_docs, citable_docs
 
     async def _iter_reviewer_resume_loop(
         self,
@@ -4026,7 +4071,6 @@ class RagChain:
         finalized,
         agent_prompt,
         allow_general,
-        is_direct_chat,
         guarded_model,
         generate_candidate,
         forward_retry_reasoning,
@@ -4198,8 +4242,6 @@ class RagChain:
                     allow_general_knowledge=allow_general,
                     history_summary=history_summary,
                     prompt_layout="agent",
-                    is_direct_chat=is_direct_chat,
-                    has_evidence=bool(source_docs),
                 )
             candidate_version = rounds + 2
             if emit_candidate_status:
@@ -4254,7 +4296,6 @@ class RagChain:
                         q,
                         source_docs,
                         allow_general_knowledge=allow_general,
-                        is_direct_chat=is_direct_chat,
                         retry_candidate=lambda review_result: self._retry_grounded_candidate(
                             guarded_model,
                             q,
@@ -4473,6 +4514,7 @@ class RagChain:
                 "selected": clarification_selected,
                 "options": result.clarify.get("options") or [],
             })
+            self._record_clarification_card_published(trace, result.clarify)
             publication_event = {
                 "type": "publication",
                 "data": {
@@ -4503,18 +4545,11 @@ class RagChain:
                 yield {"type": "trace", "data": {"trace_id": tid}}
             yield {"type": "done"}
             return
-        # Answer/Reviewer/citations consume the immutable finalization contract.
+        # Answer/Reviewer/citations consume the immutable compose_answer snapshot.
         source_docs, retrieved_source_docs = self._agent_answer_docs(result)
-        is_direct_chat = str((getattr(result, "answer_contract", {}) or {}).get("answer_type") or "knowledge").strip().casefold() == "direct_chat"
         has_citable_evidence = bool(retrieved_source_docs)
-        if has_citable_evidence:
-            context = self._format_context(source_docs)
-            has_evidence = bool(source_docs)
-        else:
-            source_docs = []
-            retrieved_source_docs = []
-            context = ""
-            has_evidence = False
+        has_evidence = bool(source_docs)
+        context = self._format_context(source_docs) if has_evidence else ""
         self._safe_set_retrieval(
             trace,
             retrieved_source_docs,
@@ -4522,7 +4557,237 @@ class RagChain:
         )
         trace.mark("retrieve")
 
-        if not is_direct_chat and not source_docs and not allow_general:
+        controller_candidate = str(getattr(result, "direct_candidate", "") or "").strip()
+        generation_candidate_version = 1
+        if controller_candidate:
+            lifecycle_queue: asyncio.Queue = asyncio.Queue()
+            current_loop = asyncio.get_running_loop()
+
+            def _on_lifecycle_sync(evt: dict[str, Any]) -> None:
+                current_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, evt)
+
+            async def _finalize_direct_candidate(*, candidate_version: int = 1):
+                try:
+                    return await asyncio.to_thread(
+                        _ANSWER_FINALIZER.finalize,
+                        controller_candidate,
+                        q,
+                        source_docs,
+                        allow_general_knowledge=allow_general,
+                        retry_candidate=None,
+                        helper_reviewer=self._helper_grounding_reviewer(),
+                        on_lifecycle_event=_on_lifecycle_sync,
+                        candidate_version=candidate_version,
+                    )
+                finally:
+                    current_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
+
+            finalize_task = asyncio.create_task(_finalize_direct_candidate())
+            while True:
+                event = await lifecycle_queue.get()
+                if event is None:
+                    break
+                self._record_execution_event(trace, event)
+                yield event
+            finalized = await finalize_task
+            grounding = dict(finalized.grounding or {})
+            details = grounding.get("details") if isinstance(grounding.get("details"), dict) else {}
+            if (
+                grounding.get("review_verdict") == "REVISE"
+                and grounding.get("repair_mode") == "REWRITE"
+            ):
+                finding = {
+                    "kind": "REWRITE",
+                    "affected_claim_ids": [
+                        str(item.get("claim_id"))
+                        for item in (details.get("rewrite_actions") or [])
+                        if isinstance(item, dict) and str(item.get("claim_id") or "").strip()
+                    ],
+                    "rewrite_actions": list(details.get("rewrite_actions") or []),
+                    "claim_reviews": list(details.get("claim_reviews") or []),
+                }
+                resume_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+                async def _on_rewrite_resume(event: dict[str, Any]) -> None:
+                    await resume_events.put(event)
+
+                async def _run_rewrite_resume():
+                    try:
+                        return await self._run_agent_turn(
+                            q,
+                            history=history,
+                            kb_name=kb_name,
+                            doc_category=doc_category,
+                            entity_name=entity_name,
+                            web_search=bool(web_search),
+                            pinned_chunk_ids=pinned_chunk_ids,
+                            excluded_chunk_ids=excluded_chunk_ids,
+                            clarification_question=clarification_question,
+                            clarification_selected=clarification_selected,
+                            clarification_option_id=clarification_option_id,
+                            clarification_snapshot_id=clarification_snapshot_id,
+                            clarification_selected_candidate=clarification_selected_candidate,
+                            clarification_options=clarification_options,
+                            clarification_selection_kind=clarification_selection_kind,
+                            clarification_free_text=clarification_free_text,
+                            previous_cited_docs=source_docs,
+                            reviewer_finding=finding,
+                            resume_budget=getattr(result, "budget", None),
+                            resume_gap_registry=getattr(result, "gap_registry", None),
+                            resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                            resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                            resume_working_docs=result.evidence.working_only_docs(),
+                            resume_graph_working_set=(
+                                result.graph_working_set.to_trace()
+                                if getattr(result, "graph_working_set", None) is not None
+                                and hasattr(result.graph_working_set, "to_trace")
+                                else None
+                            ),
+                            previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                            model_call_id_prefix="reviewer_rewrite_resume_1",
+                            on_event=_on_rewrite_resume,
+                            trace=trace,
+                        )
+                    finally:
+                        await resume_events.put(None)
+
+                resume_task = asyncio.create_task(_run_rewrite_resume())
+                while True:
+                    event = await resume_events.get()
+                    if event is None:
+                        break
+                    self._record_execution_event(trace, event)
+                    yield event
+                resumed = await resume_task
+                candidate_v2 = str(getattr(resumed, "direct_candidate", "") or "").strip()
+                if candidate_v2:
+                    result = resumed
+                    controller_candidate = candidate_v2
+                    lifecycle_queue = asyncio.Queue()
+                    current_loop = asyncio.get_running_loop()
+                    finalize_task = asyncio.create_task(_finalize_direct_candidate(candidate_version=2))
+                    while True:
+                        event = await lifecycle_queue.get()
+                        if event is None:
+                            break
+                        self._record_execution_event(trace, event)
+                        yield event
+                    finalized = await finalize_task
+            elif finalized.retrieval_feedback:
+                resume_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+                async def _on_retrieve_resume(event: dict[str, Any]) -> None:
+                    await resume_events.put(event)
+
+                async def _run_retrieve_resume():
+                    try:
+                        return await self._run_agent_turn(
+                            q,
+                            history=history, kb_name=kb_name, doc_category=doc_category,
+                            entity_name=entity_name, web_search=bool(web_search),
+                            pinned_chunk_ids=pinned_chunk_ids, excluded_chunk_ids=excluded_chunk_ids,
+                            clarification_question=clarification_question,
+                            clarification_selected=clarification_selected,
+                            clarification_option_id=clarification_option_id,
+                            clarification_snapshot_id=clarification_snapshot_id,
+                            clarification_selected_candidate=clarification_selected_candidate,
+                            clarification_options=clarification_options,
+                            clarification_selection_kind=clarification_selection_kind,
+                            clarification_free_text=clarification_free_text,
+                            previous_cited_docs=source_docs,
+                            reviewer_feedback=finalized.retrieval_feedback,
+                            resume_budget=getattr(result, "budget", None),
+                            resume_gap_registry=getattr(result, "gap_registry", None),
+                            resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                            resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                            resume_working_docs=result.evidence.working_only_docs(),
+                            resume_graph_working_set=(
+                                result.graph_working_set.to_trace()
+                                if getattr(result, "graph_working_set", None) is not None
+                                and hasattr(result.graph_working_set, "to_trace")
+                                else None
+                            ),
+                            previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                            model_call_id_prefix="reviewer_retrieve_resume_1",
+                            on_event=_on_retrieve_resume,
+                            trace=trace,
+                        )
+                    finally:
+                        await resume_events.put(None)
+
+                resume_task = asyncio.create_task(_run_retrieve_resume())
+                while True:
+                    event = await resume_events.get()
+                    if event is None:
+                        break
+                    self._record_execution_event(trace, event)
+                    yield event
+                resumed = await resume_task
+                candidate_v2 = str(getattr(resumed, "direct_candidate", "") or "").strip()
+                if candidate_v2:
+                    result = resumed
+                    controller_candidate = candidate_v2
+                    source_docs, retrieved_source_docs = self._agent_answer_docs(resumed)
+                    context = self._format_context(source_docs)
+                    self._safe_set_retrieval(
+                        trace,
+                        retrieved_source_docs,
+                        retrieval_trace=getattr(resumed, "retrieval_trace", None),
+                    )
+                    lifecycle_queue = asyncio.Queue()
+                    current_loop = asyncio.get_running_loop()
+                    finalize_task = asyncio.create_task(_finalize_direct_candidate(candidate_version=2))
+                    while True:
+                        event = await lifecycle_queue.get()
+                        if event is None:
+                            break
+                        self._record_execution_event(trace, event)
+                        yield event
+                    finalized = await finalize_task
+                elif getattr(resumed, "answer_context", None) is not None:
+                    result = resumed
+                    controller_candidate = ""
+                    generation_candidate_version = 2
+                    source_docs, retrieved_source_docs = self._agent_answer_docs(resumed)
+                    context = self._format_context(source_docs)
+                    self._safe_set_retrieval(
+                        trace,
+                        retrieved_source_docs,
+                        retrieval_trace=getattr(resumed, "retrieval_trace", None),
+                    )
+            if controller_candidate:
+                answer_text = finalized.answer
+                final_answer_event = {"type": "final_answer", "data": answer_text}
+                self._record_execution_event(trace, final_answer_event)
+                yield final_answer_event
+                self._safe_set_grounding(trace, finalized.grounding, allow_general=allow_general)
+                cited = self._filter_cited_sources(answer_text, source_docs)
+                evidence = build_evidence_pack(answer_text, retrieved_source_docs, source_docs)
+                tid = self._commit_qa_trace(
+                    trace,
+                    answer=answer_text,
+                    retrieved_docs=retrieved_source_docs,
+                    context_docs=source_docs,
+                    cited_docs=cited,
+                )
+                yield {"type": "sources", "data": cited}
+                if pipeline_events:
+                    yield {
+                        "type": "pipeline",
+                        "data": {
+                            "stage": "done",
+                            "answer": answer_text,
+                            "evidence": evidence,
+                            "source_documents": cited,
+                            "agent": result.to_trace(),
+                        },
+                    }
+                if tid:
+                    yield {"type": "trace", "data": {"trace_id": tid}}
+                yield {"type": "done"}
+                return
+
+        if not source_docs and not allow_general and getattr(result, "answer_context", None) is None:
             publication_state, terminal_answer, terminal_message = self._classify_empty_agent_publication(result)
             evidence = build_evidence_pack(terminal_answer, retrieved_source_docs, [])
             publication_event = {"type": "publication", "data": {"final_mode": publication_state, "publication_state": publication_state, "review_verdict": "NONE", "coverage": "NONE", "message": terminal_message}}
@@ -4575,7 +4840,6 @@ class RagChain:
                 allow_general_knowledge=allow_general,
                 history_summary=history_summary,
                 prompt_layout="agent",
-                is_direct_chat=is_direct_chat,
                 has_evidence=has_evidence,
             )
 
@@ -4591,7 +4855,7 @@ class RagChain:
 
         ep = self._resolve_llm_endpoint(model)
         enable_model_thinking = self._should_enable_main_model_thinking(ep, thinking)
-        reasoning_call_id = "answer_generator_v1"
+        reasoning_call_id = f"answer_generator_v{generation_candidate_version}"
         orch = getattr(self._cfg, "agent_orchestration", None)
         stream_policy = str(getattr(orch, "reasoning_stream_policy", "token") or "token").lower()
         stream_policy = {"summarized": "summary"}.get(stream_policy, stream_policy)
@@ -4608,7 +4872,8 @@ class RagChain:
             endpoint=ep,
             messages=msgs,
             stage="answer_generation",
-            role="main",
+            semantic_role="main",
+            model_route_role=ep.role,
             call_id=reasoning_call_id,
             stream_policy=stream_policy,
             request_reasoning=enable_model_thinking,
@@ -4752,7 +5017,6 @@ class RagChain:
                     q,
                     source_docs,
                     allow_general_knowledge=allow_general,
-                    is_direct_chat=is_direct_chat,
                     retry_candidate=lambda review_result: self._retry_grounded_candidate(
                         guarded_model,
                         q,
@@ -4765,6 +5029,7 @@ class RagChain:
                     # it is intentionally not projected into the user-visible Agent stream.
                     helper_reviewer=self._helper_grounding_reviewer(),
                     on_lifecycle_event=_on_lifecycle_sync,
+                    candidate_version=generation_candidate_version,
                 )
             finally:
                 curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
@@ -4788,7 +5053,8 @@ class RagChain:
                     endpoint=ep,
                     messages=msgs,
                     stage="answer_generation",
-                    role="main",
+                    semantic_role="main",
+                    model_route_role=ep.role,
                     call_id=f"answer_generator_resume_v{candidate_version}",
                     stream_policy=stream_policy,
                     request_reasoning=enable_model_thinking,
@@ -4845,7 +5111,6 @@ class RagChain:
                 finalized=finalized,
                 agent_prompt=agent_prompt,
                 allow_general=allow_general,
-                is_direct_chat=is_direct_chat,
                 guarded_model=guarded_model,
                 generate_candidate=_generate_v2,
                 forward_retry_reasoning=True,
@@ -4981,6 +5246,7 @@ class RagChain:
                 "selected": clarification_selected,
                 "options": result.clarify.get("options") or [],
             })
+            self._record_clarification_card_published(trace, result.clarify)
             tid = self._commit_qa_trace(
                 trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
             )
@@ -5006,8 +5272,8 @@ class RagChain:
             self._allow_general_knowledge if allow_general_knowledge is None
             else allow_general_knowledge
         )
-        is_direct_chat = str((getattr(result, "answer_contract", {}) or {}).get("answer_type") or "knowledge").strip().casefold() == "direct_chat"
-        if not source_docs and not allow_general and not is_direct_chat:
+        controller_candidate = str(getattr(result, "direct_candidate", "") or "").strip()
+        if not source_docs and not allow_general and not controller_candidate and getattr(result, "answer_context", None) is None:
             publication_state, terminal_answer, _terminal_message = self._classify_empty_agent_publication(result)
             self._safe_set_grounding(trace, {
                 "final_mode": publication_state,
@@ -5041,7 +5307,10 @@ class RagChain:
 
         has_evidence = bool(source_docs)
         answer_context = getattr(result, "answer_context", None)
-        if answer_context is not None:
+        guarded_model, downshifted = self._apply_vram_guard(llm_model)
+        if controller_candidate:
+            answer_content = controller_candidate
+        elif answer_context is not None:
             from rag_knowledge.services.agent_orchestration.runtime import (
                 build_answer_generation_messages,
             )
@@ -5053,22 +5322,20 @@ class RagChain:
                 allow_general_knowledge=allow_general,
                 history_summary=history_summary,
                 prompt_layout="agent",
-                is_direct_chat=is_direct_chat,
-                has_evidence=has_evidence,
             )
-        guarded_model, downshifted = self._apply_vram_guard(llm_model)
-        llm = self._build_llm(guarded_model)
-        from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-        lc_msgs = []
-        for m in msgs:
-            if m["role"] == "system":
-                lc_msgs.append(SystemMessage(content=m["content"]))
-            elif m["role"] == "assistant":
-                lc_msgs.append(AIMessage(content=m["content"]))
-            else:
-                lc_msgs.append(HumanMessage(content=m["content"]))
-        answer = await asyncio.to_thread(llm.invoke, lc_msgs)
-        answer_content = answer.content if hasattr(answer, "content") else str(answer)
+        if not controller_candidate:
+            llm = self._build_llm(guarded_model)
+            from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+            lc_msgs = []
+            for m in msgs:
+                if m["role"] == "system":
+                    lc_msgs.append(SystemMessage(content=m["content"]))
+                elif m["role"] == "assistant":
+                    lc_msgs.append(AIMessage(content=m["content"]))
+                else:
+                    lc_msgs.append(HumanMessage(content=m["content"]))
+            answer = await asyncio.to_thread(llm.invoke, lc_msgs)
+            answer_content = answer.content if hasattr(answer, "content") else str(answer)
         trace.mark("generate")
         finalized = await asyncio.to_thread(
             _ANSWER_FINALIZER.finalize,
@@ -5076,15 +5343,193 @@ class RagChain:
             q,
             source_docs,
             allow_general_knowledge=allow_general,
-            is_direct_chat=is_direct_chat,
-            retry_candidate=lambda review_result: self._retry_grounded_candidate(
-                guarded_model, q, answer_content, source_docs, review_result,
+            retry_candidate=(
+                None if controller_candidate else lambda review_result: self._retry_grounded_candidate(
+                    guarded_model, q, answer_content, source_docs, review_result,
+                )
             ),
             helper_reviewer=self._helper_grounding_reviewer(),
             on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
         )
+        grounding = dict(finalized.grounding or {})
+        details = grounding.get("details") if isinstance(grounding.get("details"), dict) else {}
+        if (
+            controller_candidate
+            and grounding.get("review_verdict") == "REVISE"
+            and grounding.get("repair_mode") == "REWRITE"
+        ):
+            finding = {
+                "kind": "REWRITE",
+                "affected_claim_ids": [
+                    str(item.get("claim_id"))
+                    for item in (details.get("rewrite_actions") or [])
+                    if isinstance(item, dict) and str(item.get("claim_id") or "").strip()
+                ],
+                "rewrite_actions": list(details.get("rewrite_actions") or []),
+                "claim_reviews": list(details.get("claim_reviews") or []),
+            }
+            resumed = await self._run_agent_turn(
+                q,
+                history=history,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                entity_name=entity_name,
+                web_search=bool(web_search),
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                clarification_question=clarification_question,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+                clarification_options=clarification_options,
+                clarification_selection_kind=clarification_selection_kind,
+                clarification_free_text=clarification_free_text,
+                previous_cited_docs=source_docs,
+                reviewer_finding=finding,
+                resume_budget=getattr(result, "budget", None),
+                resume_gap_registry=getattr(result, "gap_registry", None),
+                resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                resume_working_docs=result.evidence.working_only_docs(),
+                resume_graph_working_set=(
+                    result.graph_working_set.to_trace()
+                    if getattr(result, "graph_working_set", None) is not None
+                    and hasattr(result.graph_working_set, "to_trace")
+                    else None
+                ),
+                previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                model_call_id_prefix="reviewer_rewrite_resume_1",
+                trace=trace,
+            )
+            candidate_v2 = str(getattr(resumed, "direct_candidate", "") or "").strip()
+            if candidate_v2:
+                result = resumed
+                answer_content = candidate_v2
+                finalized = await asyncio.to_thread(
+                    _ANSWER_FINALIZER.finalize,
+                    answer_content,
+                    q,
+                    source_docs,
+                    allow_general_knowledge=allow_general,
+                    retry_candidate=None,
+                    helper_reviewer=self._helper_grounding_reviewer(),
+                    on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
+                    candidate_version=2,
+                )
         feedback = finalized.retrieval_feedback
-        if feedback:
+        if feedback and controller_candidate:
+            resumed = await self._run_agent_turn(
+                q,
+                history=history,
+                kb_name=kb_name,
+                doc_category=doc_category,
+                entity_name=entity_name,
+                web_search=bool(web_search),
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                clarification_question=clarification_question,
+                clarification_selected=clarification_selected,
+                clarification_option_id=clarification_option_id,
+                clarification_snapshot_id=clarification_snapshot_id,
+                clarification_selected_candidate=clarification_selected_candidate,
+                clarification_options=clarification_options,
+                clarification_selection_kind=clarification_selection_kind,
+                clarification_free_text=clarification_free_text,
+                previous_cited_docs=source_docs,
+                reviewer_feedback=feedback,
+                resume_budget=getattr(result, "budget", None),
+                resume_gap_registry=getattr(result, "gap_registry", None),
+                resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                resume_working_docs=result.evidence.working_only_docs(),
+                resume_graph_working_set=(
+                    result.graph_working_set.to_trace()
+                    if getattr(result, "graph_working_set", None) is not None
+                    and hasattr(result.graph_working_set, "to_trace")
+                    else None
+                ),
+                previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                model_call_id_prefix="reviewer_retrieve_resume_1",
+                trace=trace,
+            )
+            candidate_v2 = str(getattr(resumed, "direct_candidate", "") or "").strip()
+            if candidate_v2:
+                result = resumed
+                source_docs, retrieved_source_docs = self._agent_answer_docs(resumed)
+                self._safe_set_retrieval(
+                    trace,
+                    retrieved_source_docs,
+                    retrieval_trace=getattr(resumed, "retrieval_trace", None),
+                )
+                answer_content = candidate_v2
+                finalized = await asyncio.to_thread(
+                    _ANSWER_FINALIZER.finalize,
+                    answer_content,
+                    q,
+                    source_docs,
+                    allow_general_knowledge=allow_general,
+                    retry_candidate=None,
+                    helper_reviewer=self._helper_grounding_reviewer(),
+                    on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
+                    candidate_version=2,
+                )
+            elif getattr(resumed, "answer_context", None) is not None:
+                result = resumed
+                controller_candidate = ""
+                source_docs, retrieved_source_docs = self._agent_answer_docs(resumed)
+                answer_context = resumed.answer_context
+                self._safe_set_retrieval(
+                    trace,
+                    retrieved_source_docs,
+                    retrieval_trace=getattr(resumed, "retrieval_trace", None),
+                )
+                context = self._format_context(source_docs)
+                pack = self._pack_agent_answer_context(
+                    result,
+                    source_docs, context, history, q, agent_prompt=agent_prompt,
+                )
+                source_docs = self._freeze_generation_source_docs(pack.source_docs)
+                context = self._format_context(source_docs)
+                history = pack.history
+                history_summary = pack.history_summary
+                trace.set_pack(pack.decision)
+                trace.mark("pack")
+                from rag_knowledge.services.agent_orchestration.runtime import (
+                    build_answer_generation_messages,
+                )
+
+                msgs = build_answer_generation_messages(
+                    resumed.answer_context, agent_prompt=agent_prompt,
+                )
+                llm = self._build_llm(guarded_model)
+                from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+                lc_msgs = []
+                for message in msgs:
+                    if message["role"] == "system":
+                        lc_msgs.append(SystemMessage(content=message["content"]))
+                    elif message["role"] == "assistant":
+                        lc_msgs.append(AIMessage(content=message["content"]))
+                    else:
+                        lc_msgs.append(HumanMessage(content=message["content"]))
+                answer = await asyncio.to_thread(llm.invoke, lc_msgs)
+                answer_content = answer.content if hasattr(answer, "content") else str(answer)
+                trace.mark("generate")
+                finalized = await asyncio.to_thread(
+                    _ANSWER_FINALIZER.finalize,
+                    answer_content,
+                    q,
+                    source_docs,
+                    allow_general_knowledge=allow_general,
+                    retry_candidate=lambda review_result: self._retry_grounded_candidate(
+                        guarded_model, q, answer_content, source_docs, review_result,
+                    ),
+                    helper_reviewer=self._helper_grounding_reviewer(),
+                    on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
+                    candidate_version=2,
+                )
+            feedback = finalized.retrieval_feedback
+        if feedback and not controller_candidate:
             resume_state: dict[str, Any] = {}
 
             async def _generate_v2(msgs, *, on_event, candidate_version: int):
@@ -5125,7 +5570,6 @@ class RagChain:
                 finalized=finalized,
                 agent_prompt=agent_prompt,
                 allow_general=allow_general,
-                is_direct_chat=is_direct_chat,
                 guarded_model=guarded_model,
                 generate_candidate=_generate_v2,
                 forward_retry_reasoning=False,
@@ -5204,10 +5648,6 @@ class RagChain:
         if _is_sensitive(q):
             logger.warning("敏感内容拦截: %s", q[:40])
             return {"answer": "抱歉，我无法回答这个问题。", "source_documents": []}
-
-        if _is_greeting(q):
-            logger.info("闲聊模式: %s", q[:40])
-            return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
 
         rejected = self._com_phase0_reject_if_needed(
             q,
@@ -5484,10 +5924,6 @@ class RagChain:
         if _is_sensitive(q):
             logger.warning("敏感内容拦截: %s", q[:40])
             return {"answer": "抱歉，我无法回答这个问题。", "source_documents": []}
-        if _is_greeting(q):
-            logger.info("闲聊模式: %s", q[:40])
-            return {"answer": _GREETING_FIXED_REPLY, "source_documents": []}
-
         agent_enabled = self._agent_orchestration_enabled(agent_orchestration_enabled)
         if not agent_enabled:
             q, entity_name, clarification_selected = self._safe_linear_identity_binding(
@@ -6040,27 +6476,6 @@ class RagChain:
                 },
             }
 
-        if _is_greeting(q):
-            publication_event = {
-                "type": "publication",
-                "data": {
-                    "final_mode": "direct_chat",
-                    "review_verdict": "PASS",
-                    "coverage": "FULL",
-                    "message": "问候无需知识库审查，正在发布。",
-                },
-            }
-            final_event = {"type": "final_answer", "data": _GREETING_FIXED_REPLY}
-            for event in (publication_event, final_event):
-                self._record_execution_event(trace, event)
-                yield event
-            yield {"type": "sources", "data": []}
-            tid = self._commit_qa_trace(trace, answer=_GREETING_FIXED_REPLY, retrieved_docs=[])
-            if tid:
-                yield {"type": "trace", "data": {"trace_id": tid}}
-            yield {"type": "done"}
-            return
-
         if not agent_enabled:
             q, entity_name, clarification_selected = self._safe_linear_identity_binding(
                 q,
@@ -6255,37 +6670,27 @@ class RagChain:
             if getattr(self, "_last_understanding", None) is not None:
                 trace.set_understanding(self._last_understanding)
             trace.mark("understand")
-            is_direct_chat = (
-                getattr(self, "_last_understanding", None) is not None
-                and getattr(self._last_understanding, "mode", "") == "direct_chat"
-            )
-            if is_direct_chat:
-                source_docs = []
-                retrieved_source_docs = []
-                context = ""
-                plan = _FallbackRetrievalPlan([], top_k=0, candidate_k=0, enable_rerank=False)
-            else:
-                if pipeline_events:
-                    yield {
-                        "type": "pipeline",
-                        "data": {
-                            "stage": "queries",
-                            "plan": {"queries": serialize_queries(queries)},
-                            "understanding": (
-                                self._last_understanding.to_dict()
-                                if getattr(self, "_last_understanding", None) is not None
-                                else {}
-                            ),
-                            "stages": trace.stages_ms,
-                        },
-                    }
+            if pipeline_events:
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "queries",
+                        "plan": {"queries": serialize_queries(queries)},
+                        "understanding": (
+                            self._last_understanding.to_dict()
+                            if getattr(self, "_last_understanding", None) is not None
+                            else {}
+                        ),
+                        "stages": trace.stages_ms,
+                    },
+                }
 
-                if pipeline_events:
-                    yield {"type": "status", "data": "正在规划检索参数..."}
-                plan = await asyncio.to_thread(
-                    self._plan_retrieval, q, queries, force_rerank=True,
-                )
-                trace.mark("plan")
+            if pipeline_events:
+                yield {"type": "status", "data": "正在规划检索参数..."}
+            plan = await asyncio.to_thread(
+                self._plan_retrieval, q, queries, force_rerank=True,
+            )
+            trace.mark("plan")
             if pipeline_events:
                 yield {
                     "type": "pipeline",
@@ -6296,56 +6701,77 @@ class RagChain:
                     },
                 }
 
-            if not is_direct_chat:
-                if pipeline_events:
-                    yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
-                from rag_knowledge.services.retrieval_scope import RetrievalScope
+            if pipeline_events:
+                yield {"type": "status", "data": "正在图扩召回 / 图辅助改写..."}
+            from rag_knowledge.services.retrieval_scope import RetrievalScope
 
-                scope = RetrievalScope.create(
-                    q,
-                    entity_name=entity_name,
-                    doc_category=doc_category,
-                    clarification_selected=clarification_selected,
-                )
-                self._safe_set_scope(trace, scope)
-                plan, graph_context, graph_docs = await asyncio.to_thread(
-                    self._prepare_graph_plan,
+            scope = RetrievalScope.create(
+                q,
+                entity_name=entity_name,
+                doc_category=doc_category,
+                clarification_selected=clarification_selected,
+            )
+            self._safe_set_scope(trace, scope)
+            plan, graph_context, graph_docs = await asyncio.to_thread(
+                self._prepare_graph_plan,
+                q,
+                plan,
+                kb_name,
+                doc_category,
+                "approved",
+                scope.canonical_entity or entity_name,
+                scope,
+            )
+            trace.set_plan(plan)
+            trace.set_clarify(
+                self._build_trace_clarify(
                     q,
                     plan,
-                    kb_name,
-                    doc_category,
-                    "approved",
-                    scope.canonical_entity or entity_name,
-                    scope,
+                    clarification_question=clarification_question,
+                    clarification_selected=clarification_selected,
                 )
-                trace.set_plan(plan)
-                trace.set_clarify(
-                    self._build_trace_clarify(
-                        q,
-                        plan,
-                        clarification_question=clarification_question,
-                        clarification_selected=clarification_selected,
-                    )
-                )
-                trace.mark("graph_rewrite")
-                if pipeline_events:
-                    yield {"type": "status", "data": "计划与改写已完成"}
-                    yield {
-                        "type": "pipeline",
-                        "data": {
-                            "stage": "graph_rewrite",
-                            "plan": serialize_plan(plan),
-                            "stages": trace.stages_ms,
-                        },
-                    }
+            )
+            trace.mark("graph_rewrite")
+            if pipeline_events:
+                yield {"type": "status", "data": "计划与改写已完成"}
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "graph_rewrite",
+                        "plan": serialize_plan(plan),
+                        "stages": trace.stages_ms,
+                    },
+                }
 
-                yield {"type": "status", "data": "正在检索知识库..."}
-                graph_kwargs = self._build_graph_kwargs(
-                    plan, graph_context, graph_docs, include_cache_fields=True,
+            yield {"type": "status", "data": "正在检索知识库..."}
+            graph_kwargs = self._build_graph_kwargs(
+                plan, graph_context, graph_docs, include_cache_fields=True,
+            )
+            effective_backbone = self._effective_backbone_from_scope(scope, plan)
+            if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
+                source_docs, context = await self._aretrieve_multi_uncached(
+                    plan.queries,
+                    kb_name=kb_name,
+                    doc_category=doc_category,
+                    rerank=plan.enable_rerank,
+                    web_search=bool(web_search),
+                    plan_top_k=plan.top_k,
+                    plan_candidate_k=plan.candidate_k,
+                    expand_neighbors=plan.expand_neighbors,
+                    intent_plan=getattr(plan, "intent_plan", None),
+                    backbone_canonical=effective_backbone,
+                    protect_names=self._anchor_protect_names(plan),
+                    strict_explicit_target=scope.explicit_selection,
+                    scope=scope,
+                    **graph_kwargs,
                 )
-                effective_backbone = self._effective_backbone_from_scope(scope, plan)
-                if hasattr(self, "_query_cache") and hasattr(self, "_aretrieve_uncached"):
-                    source_docs, context = await self._aretrieve_multi_uncached(
+            else:
+                sync_graph_kwargs = self._build_graph_kwargs(
+                    plan, graph_context, graph_docs, include_cache_fields=False,
+                )
+
+                def _sync_retrieve():
+                    return self._retrieve_multi(
                         plan.queries,
                         kb_name=kb_name,
                         doc_category=doc_category,
@@ -6359,106 +6785,83 @@ class RagChain:
                         protect_names=self._anchor_protect_names(plan),
                         strict_explicit_target=scope.explicit_selection,
                         scope=scope,
-                        **graph_kwargs,
-                    )
-                else:
-                    sync_graph_kwargs = self._build_graph_kwargs(
-                        plan, graph_context, graph_docs, include_cache_fields=False,
+                        **sync_graph_kwargs,
                     )
 
-                    def _sync_retrieve():
-                        return self._retrieve_multi(
-                            plan.queries,
-                            kb_name=kb_name,
-                            doc_category=doc_category,
-                            rerank=plan.enable_rerank,
-                            web_search=bool(web_search),
-                            plan_top_k=plan.top_k,
-                            plan_candidate_k=plan.candidate_k,
-                            expand_neighbors=plan.expand_neighbors,
-                            intent_plan=getattr(plan, "intent_plan", None),
-                            backbone_canonical=effective_backbone,
-                            protect_names=self._anchor_protect_names(plan),
-                            strict_explicit_target=scope.explicit_selection,
-                            scope=scope,
-                            **sync_graph_kwargs,
-                        )
+                source_docs, context = await asyncio.to_thread(_sync_retrieve)
 
-                    source_docs, context = await asyncio.to_thread(_sync_retrieve)
+            # 检索主链已在 Top-K 前执行 Scope；这里只处理用户显式 pin/exclude 后的正式准入复核。
+            source_docs = self._apply_pinned_excluded(
+                source_docs,
+                pinned_chunk_ids=pinned_chunk_ids,
+                excluded_chunk_ids=excluded_chunk_ids,
+            )
+            source_docs = self._admit_source_docs_by_scope(source_docs, scope)
+            self._record_chunk_hit_query(source_docs)
+            retrieved_source_docs = list(source_docs)
+            context = self._format_context(source_docs)
 
-                # 检索主链已在 Top-K 前执行 Scope；这里只处理用户显式 pin/exclude 后的正式准入复核。
-                source_docs = self._apply_pinned_excluded(
-                    source_docs,
-                    pinned_chunk_ids=pinned_chunk_ids,
-                    excluded_chunk_ids=excluded_chunk_ids,
+            intent_val = getattr(plan, "intent", None) or "general_qa"
+            if intent_val == "exact_parameter":
+                applied_weights = {"bm25": 0.85, "vector": 0.15}
+                graph_expansion_hops = 0
+            elif intent_val == "conceptual_overview":
+                applied_weights = {"bm25": 0.30, "vector": 0.70}
+                graph_expansion_hops = 1
+            elif intent_val == "troubleshooting":
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 1
+            else:
+                applied_weights = {"bm25": 0.50, "vector": 0.50}
+                graph_expansion_hops = 1 if getattr(plan, "expand_neighbors", False) else 0
+
+            retrieval_trace_snapshot = {
+                "intent": intent_val,
+                "applied_weights": applied_weights,
+                "graph_expansion_hops": graph_expansion_hops,
+                "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
+                "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
+                "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
+                "retrieval_status": "MATCHED" if retrieved_source_docs else "NO_VALID_EVIDENCE",
+            }
+            self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
+            if not retrieved_source_docs:
+                self._safe_add_trace_event(
+                    trace,
+                    "retrieval_no_valid_evidence",
+                    {"query": q, "scope_id": getattr(scope, "scope_id", "")},
                 )
-                source_docs = self._admit_source_docs_by_scope(source_docs, scope)
-                self._record_chunk_hit_query(source_docs)
-                retrieved_source_docs = list(source_docs)
-                context = self._format_context(source_docs)
-
-                intent_val = getattr(plan, "intent", None) or "general_qa"
-                if intent_val == "exact_parameter":
-                    applied_weights = {"bm25": 0.85, "vector": 0.15}
-                    graph_expansion_hops = 0
-                elif intent_val == "conceptual_overview":
-                    applied_weights = {"bm25": 0.30, "vector": 0.70}
-                    graph_expansion_hops = 1
-                elif intent_val == "troubleshooting":
-                    applied_weights = {"bm25": 0.50, "vector": 0.50}
-                    graph_expansion_hops = 1
-                else:
-                    applied_weights = {"bm25": 0.50, "vector": 0.50}
-                    graph_expansion_hops = 1 if getattr(plan, "expand_neighbors", False) else 0
-
-                retrieval_trace_snapshot = {
-                    "intent": intent_val,
-                    "applied_weights": applied_weights,
-                    "graph_expansion_hops": graph_expansion_hops,
-                    "top_k": int(getattr(plan, "top_k", 0) or len(retrieved_source_docs)),
-                    "candidate_k": int(getattr(plan, "candidate_k", 0) or 0),
-                    "effective_mode": getattr(getattr(self, "_cfg", None), "retrieval_strategy", "hybrid") or "hybrid",
-                    "retrieval_status": "MATCHED" if retrieved_source_docs else "NO_VALID_EVIDENCE",
+            trace.mark("retrieve")
+            if pipeline_events:
+                qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
+                max_candidates = int(getattr(qt, "max_candidates", 20) or 20)
+                preview_chars = int(getattr(qt, "max_content_preview", 240) or 240)
+                evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
+                yield {
+                    "type": "status",
+                    "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
                 }
-                self._safe_set_retrieval(trace, retrieved_source_docs, retrieval_trace=retrieval_trace_snapshot)
-                if not retrieved_source_docs:
-                    self._safe_add_trace_event(
-                        trace,
-                        "retrieval_no_valid_evidence",
-                        {"query": q, "scope_id": getattr(scope, "scope_id", "")},
-                    )
-                trace.mark("retrieve")
-                if pipeline_events:
-                    qt = getattr(getattr(self, "_cfg", None), "qa_trace", None)
-                    max_candidates = int(getattr(qt, "max_candidates", 20) or 20)
-                    preview_chars = int(getattr(qt, "max_content_preview", 240) or 240)
-                    evidence_preview = build_evidence_pack("", retrieved_source_docs, source_docs)
-                    yield {
-                        "type": "status",
-                        "data": f"检索完成（{len(retrieved_source_docs)} 条候选），正在生成答案...",
-                    }
-                    yield {
-                        "type": "pipeline",
-                        "data": {
-                            "stage": "retrieve",
-                            "retrieval": {
-                                "query_hits": [],
-                                "candidates": serialize_candidates(
-                                    retrieved_source_docs,
-                                    max_candidates=max_candidates,
-                                    preview_chars=preview_chars,
-                                ),
-                                "candidate_count": len(retrieved_source_docs),
-                            },
-                            "evidence": evidence_preview,
-                            "stages": trace.stages_ms,
+                yield {
+                    "type": "pipeline",
+                    "data": {
+                        "stage": "retrieve",
+                        "retrieval": {
+                            "query_hits": [],
+                            "candidates": serialize_candidates(
+                                retrieved_source_docs,
+                                max_candidates=max_candidates,
+                                preview_chars=preview_chars,
+                            ),
+                            "candidate_count": len(retrieved_source_docs),
                         },
-                    }
+                        "evidence": evidence_preview,
+                        "stages": trace.stages_ms,
+                    },
+                }
 
             allow_general = (self._allow_general_knowledge if allow_general_knowledge is None
                              else allow_general_knowledge)
-            strict_grounding = not is_direct_chat
-            if not source_docs and not allow_general and not is_direct_chat:
+            if not source_docs and not allow_general:
                 no_know_answer = (
                     f"知识库中暂未找到与 {scope.canonical_entity} 对齐的已审核文档内容，无法可靠回答。"
                     if scope.explicit_selection and scope.canonical_entity
@@ -6557,8 +6960,6 @@ class RagChain:
                         parts = content.split("<think>")
                         if parts[0]:
                             answer_parts.append(parts[0])
-                            if not strict_grounding:
-                                yield {"type": "token", "data": parts[0]}
                         in_thinking_tag = True
                         rest = parts[1]
                         if "</think>" in rest:
@@ -6568,8 +6969,6 @@ class RagChain:
                             in_thinking_tag = False
                             if t_parts[1]:
                                 answer_parts.append(t_parts[1])
-                                if not strict_grounding:
-                                    yield {"type": "token", "data": t_parts[1]}
                         else:
                             thinking_parts.append(rest)
                             yield {"type": "thinking", "data": rest}
@@ -6580,15 +6979,11 @@ class RagChain:
                         in_thinking_tag = False
                         if parts[1]:
                             answer_parts.append(parts[1])
-                            if not strict_grounding:
-                                yield {"type": "token", "data": parts[1]}
                     elif in_thinking_tag:
                         thinking_parts.append(content)
                         yield {"type": "thinking", "data": content}
                     else:
                         answer_parts.append(content)
-                        if not strict_grounding:
-                            yield {"type": "token", "data": content}
             except Exception as stream_exc:
                 logger.error("模型流式调用失败: %s", stream_exc)
                 fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
@@ -6695,7 +7090,6 @@ class RagChain:
                         q,
                         source_docs,
                         allow_general_knowledge=allow_general,
-                        is_direct_chat=is_direct_chat,
                         retry_candidate=lambda review_result: self._retry_grounded_candidate(
                             guarded_model, q, answer_text, source_docs, review_result,
                         ),

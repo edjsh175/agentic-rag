@@ -835,8 +835,8 @@ class QaTraceStore:
 
     def _prune_locked(self) -> None:
         """Optional retention. retain_days<=0 and max_traces<=0 means keep forever."""
-        qt = self._cfg.qa_trace
-        if qt.retain_days <= 0 and qt.max_traces <= 0:
+        qt = getattr(self._cfg, "qa_trace", None)
+        if qt is None or (getattr(qt, "retain_days", 0) <= 0 and getattr(qt, "max_traces", 0) <= 0):
             return
         rows = self._iter_index()
         if not rows:

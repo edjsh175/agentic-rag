@@ -39,6 +39,17 @@ def _pass_reviewer(coverage: str = "FULL"):
     }}""")
 
 
+def _no_claim_reviewer():
+    return HelperGroundingReviewer(lambda _msgs: """{
+        "verdict": "PASS",
+        "coverage": "FULL",
+        "summary": "没有需要 Grounding 的事实 Claim",
+        "repair_mode": "NONE",
+        "claim_reviews": [],
+        "rewrite_actions": []
+    }""")
+
+
 def _revise_reviewer():
     return HelperGroundingReviewer(lambda _msgs: """{
         "verdict": "REVISE",
@@ -106,27 +117,29 @@ def test_review_status_event_projects_evidence_support_scopes():
     assert claim["evidence_support_scopes"] == ["CONTEXT_ONLY"]
 
 
-def test_direct_chat_passes_through():
+def test_conversation_candidate_still_runs_reviewer():
     finalizer = AnswerFinalizer()
     res = finalizer.finalize(
         "你好！我是智能助手。",
         "你好",
         [],
-        is_direct_chat=True,
+        helper_reviewer=_no_claim_reviewer(),
     )
     assert res.answer == "你好！我是智能助手。"
-    assert res.final_mode == "direct_chat"
+    assert res.final_mode == "generated"
+    assert res.grounding["review_count"] == 1
 
 
-def test_no_knowledge_candidate():
+def test_evidence_limitation_candidate_still_runs_reviewer():
     finalizer = AnswerFinalizer()
     res = finalizer.finalize(
         NO_KNOWLEDGE_ANSWER,
         "测试问题",
-        [_source(1, "文档内容")],
+        [],
+        helper_reviewer=_no_claim_reviewer(),
     )
     assert res.answer == NO_KNOWLEDGE_ANSWER
-    assert res.final_mode == "no_safe_answer"
+    assert res.final_mode == "generated"
 
 
 def test_candidate_v1_pass_full():

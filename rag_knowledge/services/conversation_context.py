@@ -146,7 +146,7 @@ class SessionState:
 class UnderstandingResult:
     """对话理解出口。"""
 
-    mode: Literal["clarify", "retrieve", "direct_chat"] = "retrieve"
+    mode: Literal["clarify", "retrieve"] = "retrieve"
     user_utterance: str = ""
     resolved_question: str = ""
     retrieval_queries: list[dict[str, Any]] = field(default_factory=list)

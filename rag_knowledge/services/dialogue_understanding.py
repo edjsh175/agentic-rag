@@ -448,7 +448,7 @@ class DialogueUnderstanding:
             remaining_entities = extract_explicit_entities(question, exclude_negated=True)
             if is_corr and not remaining_entities:
                 return UnderstandingResult(
-                    mode="direct_chat",
+                    mode="retrieve",
                     user_utterance=question,
                     resolved_question=question,
                     retrieval_queries=[],

@@ -16,7 +16,7 @@ import {
   deleteChatSession,
   generateSessionTitle,
 } from '../utils/storage'
-import { buildChatHistoryPayload } from '../utils/chatHistory'
+import { archiveClarificationInteraction, bindClarificationTrace, buildChatHistoryPayload } from '../utils/chatHistory'
 import { AgentBlockProjector } from '../utils/agentBlockProjector'
 import { isNearScrollBottom } from '../utils/scrollFollow'
 import ChatMessage from '../components/ChatMessage.vue'
@@ -631,6 +631,9 @@ function handleStop() {
 
 function applyClarification(msg: Message, data: ClarifyResult | undefined) {
   if (!data?.needs_clarification || !data.options || data.options.length < 1) return false
+  const archivedHistory = msg.clarification
+    ? archiveClarificationInteraction(msg.clarification)
+    : []
   msg.loading = false
   msg.status = undefined
   msg.clarification = {
@@ -639,6 +642,9 @@ function applyClarification(msg: Message, data: ClarifyResult | undefined) {
     reason: data.reason,
     clarification_snapshot_id: data.clarification_snapshot_id || (data as any)?.snapshot_id,
     options: data.options,
+    // 只能由同一 HTTP 请求随后到达的 trace 事件绑定，绝不能复用消息上的旧 trace_id。
+    published_trace_id: undefined,
+    history: archivedHistory,
   }
   loading.value = false
   return true
@@ -652,6 +658,10 @@ function createStreamHandler(
   targetMsg.mode = streamMode
   let inThinkTag = false
   let finalAnswerReceived = false
+  let clarificationPublishedInThisRequest = false
+  const respondingClarificationSnapshotId = targetMsg.clarification?.selectedId
+    ? targetMsg.clarification.clarification_snapshot_id
+    : undefined
 
   if (streamMode === 'agent' && !targetMsg.blocks) {
     // 先把空数组挂到 reactive Message 上，再交给 projector 原位更新。
@@ -803,7 +813,10 @@ function createStreamHandler(
       targetMsg.sources = sources
     },
     onTrace: (traceId: string) => {
-      targetMsg.trace_id = traceId ? String(traceId).trim() : null
+      bindClarificationTrace(targetMsg, traceId, {
+        respondingSnapshotId: respondingClarificationSnapshotId,
+        clarificationPublishedInThisRequest,
+      })
     },
     onPipeline: (pipelineData) => {
       if (streamMode !== 'linear') return
@@ -823,7 +836,7 @@ function createStreamHandler(
       scrollDown()
     },
     onClarify: (data: ClarifyResult) => {
-      applyClarification(targetMsg, data)
+      clarificationPublishedInThisRequest = applyClarification(targetMsg, data)
     },
     onDone: async () => {
       targetMsg.status = undefined
@@ -966,7 +979,12 @@ async function handleSend(text: string, image?: File) {
           msg.loading = false
           currentSources.value = result.source_documents
           msg.sources = result.source_documents
-          applyClarification(msg, result.clarification)
+          const clarificationPublished = applyClarification(msg, result.clarification)
+          if (result.trace_id) {
+            bindClarificationTrace(msg, result.trace_id, {
+              clarificationPublishedInThisRequest: clarificationPublished,
+            })
+          }
           if (result.downshift_notice) showGpuNotice(result.downshift_notice)
         } catch (err: any) {
           const msg = lastAiMsg()
@@ -1059,6 +1077,7 @@ async function handleSelectClarificationOption(aiMsg: Message, selection: Clarif
   aiMsg.mode = requestMode
 
   aiMsg.clarification.selectedId = option.id
+  aiMsg.clarification.selection_kind = kind
   aiMsg.loading = true
   const selectedText = kind === 'free_text' ? (freeText || '').trim() : option.label
   aiMsg.status = requestMode === 'linear'

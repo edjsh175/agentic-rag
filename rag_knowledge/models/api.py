@@ -1,5 +1,5 @@
 """API 请求与响应数据模型。"""
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -19,6 +19,9 @@ class HistoryItem(BaseModel):
     role: str
     content: str
     sources: Optional[list[SourceSummary]] = None  # assistant 消息可携带上一轮来源摘要
+    trace_id: Optional[str] = None  # 关联已提交的 QA Trace
+    clarification: Optional[dict[str, Any]] = None  # 当前/最近一次澄清交互
+    clarification_history: Optional[list[dict[str, Any]]] = None  # 同一消息内此前澄清交互
 
 
 class ClarificationOptionFilter(BaseModel):
@@ -88,6 +91,7 @@ class QueryResponse(BaseModel):
     used_model: Optional[str] = None  # 显存不足自动降级后的实际模型
     downshift_notice: Optional[str] = None  # 自动降级提示（未降级时为 None）
     clarification: Optional[dict] = None
+    trace_id: Optional[str] = None
 
 
 class AdminQaDebugResponse(QueryResponse):

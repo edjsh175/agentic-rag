@@ -35,7 +35,7 @@ from rag_knowledge.services.agent_orchestration.models import (
     ConversationContext,
     EvidencePool,
 )
-from rag_knowledge.services.agent_orchestration.runtime import FinalizationHandler
+from rag_knowledge.services.agent_orchestration.runtime import ComposeAnswerHandler
 from rag_knowledge.services.dialogue_understanding import SemanticTaskContext
 from rag_knowledge.services.helper_grounding_reviewer import HelperGroundingReviewer
 from rag_knowledge.services.text_evidence_admission import (
@@ -128,7 +128,7 @@ def test_dod_incident_chain_1_pipe_management_related_context():
         grant_id="grant-pipe-1",
     )
 
-    finalization = FinalizationHandler(conv, pool).evaluate(answer_mode="partial")
+    finalization = ComposeAnswerHandler(conv, pool).compose(answer_mode="partial")
     assert finalization["status"] == "accepted"
     # Coverage MUST be PARTIAL (because only CONTEXT_ONLY evidence exists, no direct TARGET_SPECIFIC evidence)
     assert finalization["evidence_verdict"]["coverage"] == "PARTIAL"

@@ -10,6 +10,41 @@ from rag_knowledge.services.helper_grounding_reviewer import (
 )
 
 
+def test_repair_mode_is_derived_from_claim_state_not_model_output():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "全部支持",
+        # Legacy models may still emit this field. It must not control the
+        # publication state or make a PASS result unrepairable.
+        "repair_mode": "REWRITE",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "服务端口为 8080",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "reason": "证据直接支持",
+        }],
+        "rewrite_actions": [{
+            "claim_id": "c1",
+            "action": "correct_to_evidence",
+            "instruction": "保持原样",
+        }],
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [{"content": "默认端口为 8080", "metadata": {"citation_id": 1}}],
+        "服务端口为 8080 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "PASS"
+    assert result.repair_mode == "NONE"
+    assert result.rewrite_actions == []
+
+
 def _source(index: int, content: str, source: str = "", support_scope: str = "TARGET_SPECIFIC"):
     # 通过 Text Admission 的 KB 文本必须携带协议字段（evidence_class + support_scope）；
     # 有 evidence_class 即属于 Support Scope Protocol，参与 Claim Support Matrix。
@@ -492,7 +527,7 @@ def test_problem_claim_without_rewrite_action_fails_protocol_validation(status):
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "revise_requires_rewrite_actions")
+    _assert_protocol_error(result, "revise_rewrite_requires_actions")
 
 
 def test_unsupported_non_knowledge_claim_also_requires_rewrite_action():
@@ -504,16 +539,17 @@ def test_unsupported_non_knowledge_claim_also_requires_rewrite_action():
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "revise_requires_rewrite_actions")
+    _assert_protocol_error(result, "revise_rewrite_requires_actions")
 
 
-def test_review_requires_at_least_one_claim_review():
+def test_review_accepts_no_factual_claims():
     payload = _pass_payload()
     payload["claim_reviews"] = []
 
     result = _review_payload(payload)
 
-    _assert_protocol_error(result, "review_requires_claim_reviews")
+    assert result.verdict == "PASS"
+    assert result.claim_reviews == []
 
 
 def test_model_supplied_rewrite_actions_are_validated():
@@ -622,7 +658,7 @@ def test_protocol_repair_removes_non_retrieve_feedback_without_semantic_drift():
     assert result.verdict == "REVISE"
     assert result.error is None
     assert len(result.protocol_attempts) == 2
-    assert "必须删除 retrieval_feedback 键" in calls[1][0]["content"]
+    assert "控制建议" in calls[1][0]["content"]
 
 
 def test_protocol_repair_rejects_semantic_drift():
@@ -666,8 +702,9 @@ def test_structured_output_schema_has_single_semantic_source():
     assert "verdict" not in schema["required"]
     action_enum = schema["properties"]["rewrite_actions"]["items"]["properties"]["action"]["enum"]
     assert "preserve" not in action_enum
-    assert "omit retrieval_feedback entirely" in schema["properties"]["repair_mode"]["description"]
-    assert "Do not emit this property" in schema["properties"]["retrieval_feedback"]["description"]
+    assert "repair_mode" not in schema["properties"]
+    assert "repair_mode" not in schema["required"]
+    assert "additional evidence is required" in schema["properties"]["retrieval_feedback"]["description"]
 
 
 def test_evidence_snapshot_includes_support_scope():

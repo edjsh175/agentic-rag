@@ -243,7 +243,7 @@ def test_stage1_reasoning_completes_before_understanding_and_controller_reasonin
 
     async def fake_controller_stream(*_args, **_kwargs):
         yield LLMStreamPart("reasoning", "Stage-1 已解析主体，现在决定是否结束。")
-        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+        yield LLMStreamPart("content", '{"action":"tool_call","tool":"compose_answer","arguments":{},"reason":"结束本轮"}')
 
     async def on_event(event: dict) -> None:
         events.append(event)
@@ -318,7 +318,7 @@ def test_controller_raw_reasoning_streams_before_structured_decision():
 
     async def fake_stream_parts(*_args, **_kwargs):
         yield LLMStreamPart("reasoning", "当前还没有足够证据，先判断是否需要检索。")
-        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+        yield LLMStreamPart("content", '{"action":"tool_call","tool":"compose_answer","arguments":{},"reason":"结束本轮"}')
 
     loop = AgentLoop(
         conversation=conversation,
@@ -370,7 +370,7 @@ def test_controller_fallback_public_explanation_when_model_unsupported():
         events.append(event)
 
     async def fake_stream_parts(*_args, **_kwargs):
-        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+        yield LLMStreamPart("content", '{"action":"tool_call","tool":"compose_answer","arguments":{},"reason":"结束本轮"}')
 
     loop = AgentLoop(
         conversation=conversation,
@@ -421,7 +421,7 @@ def test_controller_fallback_public_explanation_when_reasoning_requested_but_no_
         events.append(event)
 
     async def fake_stream_parts(*_args, **_kwargs):
-        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+        yield LLMStreamPart("content", '{"action":"tool_call","tool":"compose_answer","arguments":{},"reason":"结束本轮"}')
 
     loop = AgentLoop(
         conversation=conversation,
@@ -926,6 +926,579 @@ class _TraceStub:
         pass
 
 
+def _direct_state_result(
+    candidate: str,
+    *,
+    docs: list[dict] | None = None,
+    question_id: str,
+    snapshot_version: int = 1,
+) -> AgentTurnResult:
+    conversation = ConversationContext.from_request("你刚才为什么反问我？", [])
+    evidence = EvidencePool(question_id=question_id, snapshot_version=snapshot_version)
+    if docs:
+        evidence.add_retrieve(list(docs), query="reviewer resume evidence")
+    snapshot = evidence.create_snapshot(
+        verdict={"verdict": "PARTIAL" if docs else "NONE", "coverage": "PARTIAL" if docs else "NONE"},
+    )
+    return AgentTurnResult(
+        conversation=conversation,
+        evidence=evidence,
+        terminal_action="controller_direct_candidate",
+        evidence_snapshot=snapshot,
+        direct_candidate=candidate,
+        budget={
+            "steps_used": 0,
+            "max_steps": 4,
+            "remaining_retrieve_attempts": 2,
+        },
+        retrieval_trace={"fixture": question_id},
+    )
+
+
+def _compose_state_result(
+    *,
+    docs: list[dict],
+    question_id: str,
+    snapshot_version: int = 2,
+) -> AgentTurnResult:
+    conversation = ConversationContext.from_request("你刚才为什么反问我？", [])
+    evidence = EvidencePool(question_id=question_id, snapshot_version=snapshot_version)
+    evidence.add_retrieve(list(docs), query="reviewer resume evidence")
+    snapshot = evidence.create_snapshot(
+        verdict={"verdict": "PARTIAL", "coverage": "PARTIAL"},
+    )
+    answer_context = AnswerGenerationContext.from_snapshot(
+        original_question=conversation.user_question,
+        resolved_question=conversation.resolved_question,
+        conversation_context="reviewer resume",
+        snapshot=snapshot,
+        answer_contract={"answer_mode": "full"},
+    )
+    return AgentTurnResult(
+        conversation=conversation,
+        evidence=evidence,
+        terminal_action="controller_compose_answer",
+        evidence_snapshot=snapshot,
+        answer_context=answer_context,
+        budget={
+            "steps_used": 1,
+            "max_steps": 4,
+            "remaining_retrieve_attempts": 1,
+        },
+        retrieval_trace={"fixture": question_id},
+    )
+
+
+def _retrieval_pending_finalized() -> FinalizedAnswer:
+    return FinalizedAnswer(
+        answer=REVIEW_BLOCKED_ANSWER,
+        grounding={
+            "review_verdict": "REVISE",
+            "repair_mode": "RETRIEVE",
+            "coverage": "PARTIAL",
+            "final_mode": "retrieval_pending",
+            "publication_state": "retrieval_pending",
+            "details": {"claim_reviews": [], "rewrite_actions": []},
+            "retrieval_feedback": {
+                "gap_id": "missing-runtime-fact",
+                "affected_claim_ids": ["c1"],
+                "missing_fact": "本轮行为的可核验事实",
+                "subject_entity_ids": [],
+                "deficiency_type": "CONTEXTUAL_MISSING",
+                "reason": "当前冻结快照缺少该事实",
+            },
+        },
+    )
+
+
+def _rewrite_pending_finalized() -> FinalizedAnswer:
+    return FinalizedAnswer(
+        answer=REVIEW_BLOCKED_ANSWER,
+        grounding={
+            "review_verdict": "REVISE",
+            "repair_mode": "REWRITE",
+            "coverage": "FULL",
+            "final_mode": "review_blocked",
+            "publication_state": "no_safe_answer",
+            "details": {
+                "claim_reviews": [{"claim_id": "c1", "status": "unsupported"}],
+                "rewrite_actions": [{
+                    "claim_id": "c1",
+                    "action": "rewrite_to_supported_scope_or_remove",
+                    "instruction": "删除未经当前上下文支持的归因。",
+                }],
+            },
+        },
+    )
+
+
+def _pass_finalized(answer: str) -> FinalizedAnswer:
+    return FinalizedAnswer(
+        answer=answer,
+        grounding={
+            "review_verdict": "PASS",
+            "repair_mode": "NONE",
+            "coverage": "FULL",
+            "final_mode": "generated",
+            "publication_state": "published",
+        },
+    )
+
+
+def _direct_state_chain() -> RagChain:
+    chain = object.__new__(RagChain)
+    chain._cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(
+            reasoning_stream_policy="token",
+            trace_reasoning_max_chars=2000,
+        ),
+        context_budget=SimpleNamespace(context_window=4096),
+    )
+    chain._allow_general_knowledge = False
+    chain._last_understanding = None
+    chain._ollama_base = "http://unused.test"
+    chain._record_execution_event = lambda *_args, **_kwargs: None
+    chain._safe_set_scope = lambda *_args, **_kwargs: None
+    chain._safe_set_retrieval = lambda *_args, **_kwargs: None
+    chain._safe_set_grounding = lambda *_args, **_kwargs: None
+    chain._safe_add_trace_event = lambda *_args, **_kwargs: None
+    chain._commit_qa_trace = lambda *_args, **_kwargs: None
+    chain._filter_cited_sources = lambda _answer, docs: list(docs)
+    chain._format_context = lambda docs: "\n".join(str(doc.get("content") or "") for doc in docs)
+    chain._freeze_generation_source_docs = lambda docs: list(docs)
+    chain._pack_agent_answer_context = lambda _result, docs, _context, hist, _q, **_kwargs: SimpleNamespace(
+        source_docs=list(docs),
+        history=list(hist or []),
+        history_summary=None,
+        decision={},
+    )
+    chain._helper_grounding_reviewer = lambda: object()
+    chain._apply_vram_guard = lambda model: (model or "fixture-model", False)
+    chain._resolve_llm_endpoint = lambda _model: ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="fixture-model",
+        base_url="http://unused.test",
+    )
+    chain._should_enable_main_model_thinking = lambda *_args, **_kwargs: False
+    return chain
+
+
+def test_stream_direct_candidate_pass_publishes_after_single_review():
+    chain = _direct_state_chain()
+    initial = _direct_state_result(
+        "我刚才反问，是因为当前表达存在歧义。",
+        question_id="direct-pass-v1",
+    )
+    run_calls = 0
+
+    async def fake_run_agent_turn(*_args, **_kwargs):
+        nonlocal run_calls
+        run_calls += 1
+        return initial
+
+    chain._run_agent_turn = fake_run_agent_turn
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _pass_finalized(candidate)
+
+    async def collect() -> list[dict]:
+        return [
+            event
+            async for event in chain._stream_agent_query(
+                "你刚才为什么反问我？",
+                [],
+                llm_model="fixture-model",
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=False,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            )
+        ]
+
+    with patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize):
+        events = asyncio.run(collect())
+
+    assert run_calls == 1
+    assert [call["candidate_version"] for call in finalize_calls] == [1]
+    assert [event for event in events if event["type"] == "final_answer"][-1]["data"] == initial.direct_candidate
+
+
+def test_stream_direct_candidate_rewrite_returns_to_main_then_second_review_without_answer_generator():
+    chain = _direct_state_chain()
+    docs = [_doc(chunk_id="rewrite-context", content="本轮确实触发了澄清判断。")]
+    initial = _direct_state_result(
+        "我刚才已经向你弹出了澄清卡。",
+        docs=docs,
+        question_id="direct-rewrite-v1",
+    )
+    resumed = _direct_state_result(
+        "我刚才尝试进入澄清流程，但这里不能据此断言卡片已经实际弹出。",
+        docs=docs,
+        question_id="direct-rewrite-v2",
+        snapshot_version=2,
+    )
+    run_calls: list[dict] = []
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        run_calls.append(dict(kwargs))
+        if len(run_calls) == 1:
+            return initial
+        assert kwargs.get("reviewer_finding") is not None
+        assert kwargs.get("reviewer_feedback") is None
+        return resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _rewrite_pending_finalized() if len(finalize_calls) == 1 else _pass_finalized(candidate)
+
+    chain._resolve_llm_endpoint = lambda _model: (_ for _ in ()).throw(
+        AssertionError("REWRITE direct resume must not enter Answer Generator")
+    )
+
+    async def collect() -> list[dict]:
+        return [
+            event
+            async for event in chain._stream_agent_query(
+                "你刚才为什么反问我？",
+                [],
+                llm_model="fixture-model",
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=False,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            )
+        ]
+
+    with patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize):
+        events = asyncio.run(collect())
+
+    assert len(run_calls) == 2
+    assert [call["candidate_version"] for call in finalize_calls] == [1, 2]
+    assert [call["candidate"] for call in finalize_calls] == [initial.direct_candidate, resumed.direct_candidate]
+    assert [event for event in events if event["type"] == "final_answer"][-1]["data"] == resumed.direct_candidate
+
+
+def test_stream_direct_candidate_retrieve_forwards_resume_events_and_reviews_v2_snapshot():
+    chain = _direct_state_chain()
+    initial = _direct_state_result(
+        "本轮已经完成了该事实确认。",
+        question_id="direct-retrieve-v1",
+    )
+    v2_docs = [_doc(chunk_id="retrieved-v2", content="补检后确认：本轮只记录了澄清尝试。")]
+    resumed = _direct_state_result(
+        "补检记录只能确认本轮发生过澄清尝试。[1]",
+        docs=v2_docs,
+        question_id="direct-retrieve-v2",
+        snapshot_version=2,
+    )
+    run_calls: list[dict] = []
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        run_calls.append(dict(kwargs))
+        if len(run_calls) == 1:
+            return initial
+        assert kwargs.get("reviewer_feedback", {}).get("gap_id") == "missing-runtime-fact"
+        assert kwargs.get("reviewer_finding") is None
+        await kwargs["on_event"]({
+            "type": "llm_reasoning_delta",
+            "data": {
+                "call_id": "reviewer_retrieve_resume_1_agent_controller_1",
+                "role": "main",
+                "stage": "agent_controller",
+                "delta": "先根据 Reviewer 缺口补检当前事实。",
+            },
+        })
+        return resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _retrieval_pending_finalized() if len(finalize_calls) == 1 else _pass_finalized(candidate)
+
+    async def collect() -> list[dict]:
+        return [
+            event
+            async for event in chain._stream_agent_query(
+                "你刚才为什么反问我？",
+                [],
+                llm_model="fixture-model",
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=False,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            )
+        ]
+
+    with patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize):
+        events = asyncio.run(collect())
+
+    assert len(run_calls) == 2
+    assert [call["candidate_version"] for call in finalize_calls] == [1, 2]
+    assert finalize_calls[0]["docs"] == []
+    assert [doc["metadata"]["chunk_id"] for doc in finalize_calls[1]["docs"]] == ["retrieved-v2"]
+    resume_reasoning = [
+        event for event in events
+        if isinstance(event.get("data"), dict)
+        and event["data"].get("call_id") == "reviewer_retrieve_resume_1_agent_controller_1"
+    ]
+    assert [event["type"] for event in resume_reasoning] == ["llm_reasoning_delta"]
+    assert [event for event in events if event["type"] == "final_answer"][-1]["data"] == resumed.direct_candidate
+
+
+def test_stream_direct_candidate_retrieve_can_handoff_to_compose_answer_v2():
+    chain = _direct_state_chain()
+    initial = _direct_state_result(
+        "这个事实已经可以直接确认。",
+        question_id="direct-retrieve-compose-v1",
+    )
+    v2_docs = [_doc(chunk_id="compose-v2", content="补检后的正式证据。[1]")]
+    resumed = _compose_state_result(
+        docs=v2_docs,
+        question_id="direct-retrieve-compose-v2",
+        snapshot_version=2,
+    )
+    run_calls: list[dict] = []
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        run_calls.append(dict(kwargs))
+        return initial if len(run_calls) == 1 else resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _retrieval_pending_finalized() if len(finalize_calls) == 1 else _pass_finalized(candidate)
+
+    stream_call_ids: list[str] = []
+
+    async def fake_arun(_self, options, *, on_event):
+        stream_call_ids.append(options.call_id)
+        await on_event({
+            "type": "llm_reasoning_delta",
+            "data": {
+                "call_id": options.call_id,
+                "role": "main",
+                "stage": "answer_generation",
+                "delta": "根据补检后的冻结证据组织正式回答。",
+            },
+        })
+        return SimpleNamespace(
+            content="补检后的正式回答。[1]",
+            reasoning_available=True,
+            raw_reasoning="",
+        )
+
+    async def collect() -> list[dict]:
+        return [
+            event
+            async for event in chain._stream_agent_query(
+                "你刚才为什么反问我？",
+                [],
+                llm_model="fixture-model",
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=False,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            )
+        ]
+
+    with (
+        patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize),
+        patch("rag_knowledge.services.model_stream_runner.ModelStreamRunner.arun", new=fake_arun),
+    ):
+        events = asyncio.run(collect())
+
+    assert len(run_calls) == 2
+    assert run_calls[1].get("reviewer_feedback", {}).get("gap_id") == "missing-runtime-fact"
+    assert stream_call_ids == ["answer_generator_v2"]
+    assert [call["candidate_version"] for call in finalize_calls] == [1, 2]
+    assert [doc["metadata"]["chunk_id"] for doc in finalize_calls[1]["docs"]] == ["compose-v2"]
+    assert [event for event in events if event["type"] == "final_answer"][-1]["data"] == "补检后的正式回答。[1]"
+
+
+def test_nonstream_direct_candidate_retrieve_resumes_to_direct_v2_with_new_snapshot():
+    chain = _direct_state_chain()
+    initial = _direct_state_result(
+        "本轮事实已经确认。",
+        question_id="nonstream-retrieve-v1",
+    )
+    v2_docs = [_doc(chunk_id="nonstream-v2", content="补检后确认的事实。[1]")]
+    resumed = _direct_state_result(
+        "补检后只能确认这一项事实。[1]",
+        docs=v2_docs,
+        question_id="nonstream-retrieve-v2",
+        snapshot_version=2,
+    )
+    run_calls: list[dict] = []
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        run_calls.append(dict(kwargs))
+        return initial if len(run_calls) == 1 else resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _retrieval_pending_finalized() if len(finalize_calls) == 1 else _pass_finalized(candidate)
+
+    with patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize):
+        output = asyncio.run(chain._aquery_agent(
+            "你刚才为什么反问我？",
+            [],
+            llm_model="fixture-model",
+            kb_name=None,
+            doc_category=None,
+            entity_name=None,
+            thinking=False,
+            web_search=False,
+            allow_general_knowledge=False,
+            agent_prompt=None,
+            include_evidence=False,
+            clarification_question=None,
+            clarification_selected=None,
+            trace=_TraceStub(),
+        ))
+
+    assert len(run_calls) == 2
+    assert run_calls[1].get("reviewer_feedback", {}).get("gap_id") == "missing-runtime-fact"
+    assert [call["candidate_version"] for call in finalize_calls] == [1, 2]
+    assert [doc["metadata"]["chunk_id"] for doc in finalize_calls[1]["docs"]] == ["nonstream-v2"]
+    assert output["answer"] == resumed.direct_candidate
+
+
+def test_nonstream_direct_candidate_retrieve_can_handoff_to_compose_answer_v2():
+    chain = _direct_state_chain()
+    initial = _direct_state_result(
+        "这个事实已经可以直接确认。",
+        question_id="nonstream-compose-v1",
+    )
+    v2_docs = [_doc(chunk_id="nonstream-compose-v2", content="补检后的正式证据。[1]")]
+    resumed = _compose_state_result(
+        docs=v2_docs,
+        question_id="nonstream-compose-v2",
+        snapshot_version=2,
+    )
+    run_calls: list[dict] = []
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        run_calls.append(dict(kwargs))
+        return initial if len(run_calls) == 1 else resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    invoke_count = 0
+
+    def invoke(_messages):
+        nonlocal invoke_count
+        invoke_count += 1
+        return SimpleNamespace(content="非流式正式回答。[1]")
+
+    chain._build_llm = lambda _model: SimpleNamespace(invoke=invoke)
+    finalize_calls: list[dict] = []
+
+    def fake_finalize(candidate, _question, context_docs, **kwargs):
+        finalize_calls.append({
+            "candidate": candidate,
+            "docs": list(context_docs),
+            "candidate_version": kwargs.get("candidate_version", 1),
+        })
+        return _retrieval_pending_finalized() if len(finalize_calls) == 1 else _pass_finalized(candidate)
+
+    with patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", side_effect=fake_finalize):
+        output = asyncio.run(chain._aquery_agent(
+            "你刚才为什么反问我？",
+            [],
+            llm_model="fixture-model",
+            kb_name=None,
+            doc_category=None,
+            entity_name=None,
+            thinking=False,
+            web_search=False,
+            allow_general_knowledge=False,
+            agent_prompt=None,
+            include_evidence=False,
+            clarification_question=None,
+            clarification_selected=None,
+            trace=_TraceStub(),
+        ))
+
+    assert len(run_calls) == 2
+    assert run_calls[1].get("reviewer_feedback", {}).get("gap_id") == "missing-runtime-fact"
+    assert invoke_count == 1
+    assert [call["candidate_version"] for call in finalize_calls] == [1, 2]
+    assert [doc["metadata"]["chunk_id"] for doc in finalize_calls[1]["docs"]] == ["nonstream-compose-v2"]
+    assert output["answer"] == "非流式正式回答。[1]"
+
+
 def test_reviewer_resume_candidate_reasoning_streams_before_candidate_finishes():
     """Resume candidates keep the Main answer stage and forward Runner events live."""
     chain = object.__new__(RagChain)
@@ -1069,7 +1642,6 @@ def test_reviewer_resume_candidate_reasoning_streams_before_candidate_finishes()
             finalized=initial_finalized,
             agent_prompt=None,
             allow_general=False,
-            is_direct_chat=False,
             guarded_model="fixture-model",
             generate_candidate=generate_candidate,
             forward_retry_reasoning=True,
@@ -1148,7 +1720,7 @@ def test_public_stream_query_keeps_heartbeat_in_both_modes(agent_enabled):
     assert events[-1] == {"type": "done"}
 
 
-def test_backend_agent_and_linear_modes_isolate_pipeline_events():
+def test_backend_agent_mode_does_not_emit_legacy_pipeline_events():
     def make_chain() -> RagChain:
         chain = object.__new__(RagChain)
         chain._cfg = SimpleNamespace()
@@ -1172,16 +1744,11 @@ def test_backend_agent_and_linear_modes_isolate_pipeline_events():
 
     with patch("rag_knowledge.services.rag.runtime_fingerprint", return_value={}):
         agent_events = asyncio.run(collect(True))
-        linear_events = asyncio.run(collect(False))
     agent_types = [event["type"] for event in agent_events]
-    linear_types = [event["type"] for event in linear_events]
 
     assert "status" not in agent_types
     assert "pipeline" not in agent_types
-    assert "status" in linear_types
-    assert "pipeline" in linear_types
     assert agent_types[-3:] == ["final_answer", "sources", "done"]
-    assert linear_types[-3:] == ["final_answer", "sources", "done"]
 
 
 def test_controller_error_with_evidence_is_not_published_as_no_knowledge():
@@ -1712,9 +2279,10 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
 
     def fake_repair_chat(*args, **kwargs):
         return json.dumps({
-            "action": "finalize",
+            "action": "tool_call",
+            "tool": "compose_answer",
             "thought": "Repaired after empty response",
-            "answer_mode": "full",
+            "arguments": {"answer_mode": "full"},
         })
 
     cfg = SimpleNamespace(
@@ -1746,7 +2314,8 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
     ):
         decision = asyncio.run(loop._adecide_via_llm(on_event, step_index=1))
 
-    assert decision.action == "finalize"
+    assert decision.action == "tool_call"
+    assert decision.tool == "compose_answer"
     assert len(reasoning_events) >= 2
     assert reasoning_events[0]["type"] == "llm_reasoning_start"
     assert reasoning_events[-1]["type"] == "llm_reasoning_end"
