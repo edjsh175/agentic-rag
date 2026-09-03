@@ -210,7 +210,7 @@ class AgentOrchestrationConfig:
     graph_max_expansion_calls: int = 2
     graph_max_entities_total: int = 24
     graph_max_relations_total: int = 64
-    reasoning_stream_policy: str = "summarized"
+    reasoning_stream_policy: str = "token"
     trace_reasoning_policy: str = "summarized"
     trace_reasoning_max_chars: int = 4000
     # Bounded Reviewer-resume state machine (PRD §12.2/§12.5): how many
@@ -647,7 +647,7 @@ class Config:
                 _get("agent_orchestration", "graph_max_relations_total", "64")
             ),
             reasoning_stream_policy=_get(
-                "agent_orchestration", "reasoning_stream_policy", "summarized"
+                "agent_orchestration", "reasoning_stream_policy", "token"
             ).strip().lower(),
             trace_reasoning_policy=_get(
                 "agent_orchestration", "trace_reasoning_policy", "summarized"

@@ -132,6 +132,13 @@ function closeInspect() {
   showInspectModal.value = false
   inspectPayload.value = null
 }
+
+function reviewActionText(action?: string): string {
+  if (action === 'correct_to_evidence') return '按现有证据改正表述。'
+  if (action === 'add_limitation_statement') return '删除断言，并说明当前证据无法确认。'
+  if (action === 'rewrite_to_supported_scope_or_remove') return '删除或缩限到证据直接支持的范围。'
+  return ''
+}
 </script>
 
 <template>
@@ -178,6 +185,20 @@ function closeInspect() {
           </span>
         </div>
       </div>
+
+      <section v-else-if="block.kind === 'review_finding'" class="review-finding-root">
+        <div class="review-finding-title">证据审查发现 {{ block.findings.length }} 个需要修正的表述</div>
+        <p v-if="block.summary" class="review-finding-summary">{{ block.summary }}</p>
+        <ul class="review-finding-list">
+          <li v-for="(finding, findingIndex) in block.findings" :key="findingIndex">
+            <strong>{{ finding.claim }}</strong>
+            <span class="review-finding-status">{{ finding.status === 'contradicted' ? '与证据冲突' : '当前证据未支持' }}</span>
+            <p v-if="finding.reason">原因：{{ finding.reason }}</p>
+            <p v-if="finding.instruction">修正：{{ finding.instruction }}</p>
+            <p v-else-if="finding.action">修正：{{ reviewActionText(finding.action) }}</p>
+          </li>
+        </ul>
+      </section>
 
       <!-- 3. Reasoning 思考节点 (ReasoningBlock) -->
       <div
@@ -868,5 +889,20 @@ function closeInspect() {
   font-size: 12px;
   color: #94a3b8;
 }
+
+.review-finding-root {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-left: 3px solid #d97706;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #78350f;
+}
+
+.review-finding-title { font-size: 13px; font-weight: 700; }
+.review-finding-summary, .review-finding-list p { margin: 4px 0 0; font-size: 12px; line-height: 1.55; }
+.review-finding-list { margin: 7px 0 0; padding-left: 18px; }
+.review-finding-list li { margin: 6px 0; }
+.review-finding-status { margin-left: 6px; font-size: 12px; color: #b45309; }
 
 </style>

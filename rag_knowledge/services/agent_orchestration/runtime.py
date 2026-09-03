@@ -833,6 +833,7 @@ class AgentLoop:
         gap_registry: AttemptedGapRegistry | None = None,
         continuous_no_progress_count: int = 0,
         exploration_fuse_open: bool = False,
+        call_id_prefix: str | None = None,
     ) -> None:
         self.conversation = conversation
         self.evidence = evidence
@@ -884,6 +885,12 @@ class AgentLoop:
         self._event_started_at = time.perf_counter()
         self._pending_decision_error: dict[str, Any] | None = None
         self._controller_protocol_attempts: list[dict[str, Any]] = []
+        self._last_controller_reasoning_available: bool = False
+        self._call_id_prefix = str(call_id_prefix or "").strip("_")
+
+    def _controller_call_id(self, step_index: int) -> str:
+        call_id = f"agent_controller_{step_index}"
+        return f"{self._call_id_prefix}_{call_id}" if self._call_id_prefix else call_id
 
     async def _emit(
         self,
@@ -1488,29 +1495,31 @@ class AgentLoop:
                     "source": decision.source,
                 },
             )
-            from rag_knowledge.services.execution_explanation import (
-                public_explanation_event,
-            )
-            from rag_knowledge.services.model_routing import ModelRoutePolicy
+            if not self._last_controller_reasoning_available:
+                from rag_knowledge.services.execution_explanation import (
+                    public_explanation_event,
+                )
+                from rag_knowledge.services.model_routing import ModelRoutePolicy
 
-            endpoint_for = getattr(self._cfg, "endpoint_for", None)
-            controller_endpoint = (
-                endpoint_for(ModelRoutePolicy(self._cfg).agent_controller_role())
-                if callable(endpoint_for)
-                else None
-            )
-            explanation = public_explanation_event(
-                stage="agent_controller",
-                call_id=f"agent_controller_{step_index}",
-                endpoint=controller_endpoint,
-                text=self._decision_reason(decision),
-                source="model_protocol",
-            )
-            await self._emit(
-                on_event,
-                ExecutionEventType.PUBLIC_EXPLANATION,
-                explanation["data"],
-            )
+                endpoint_for = getattr(self._cfg, "endpoint_for", None)
+                controller_endpoint = (
+                    endpoint_for(ModelRoutePolicy(self._cfg).agent_controller_role())
+                    if callable(endpoint_for)
+                    else None
+                )
+                explanation = public_explanation_event(
+                    stage="agent_controller",
+                    call_id=self._controller_call_id(step_index),
+                    endpoint=controller_endpoint,
+                    text=None,
+                    source="system_fallback",
+                    context={"step": step_index},
+                )
+                await self._emit(
+                    on_event,
+                    ExecutionEventType.PUBLIC_EXPLANATION,
+                    explanation["data"],
+                )
 
             # === 分支 A：Finalize 动作 ===
             if decision.action == "finalize":
@@ -2169,6 +2178,7 @@ class AgentLoop:
             self._controller_protocol_attempts = [
                 {"attempt": 1, "raw_response": raw, "error": None}
             ]
+            self._last_controller_reasoning_available = False
             return decision
         except ValueError as exc:
             self._controller_protocol_attempts = [
@@ -2210,7 +2220,7 @@ class AgentLoop:
             return repaired
 
     async def _adecide_via_llm(self, on_event, step_index: int) -> AgentDecision:
-        from rag_knowledge.llm_http import achat_stream_parts, chat_role, record_model_call
+        from rag_knowledge.llm_http import chat_role
 
         if self._cfg is None:
             raise RuntimeError("cfg required for llm decide")
@@ -2228,106 +2238,51 @@ class AgentLoop:
             evidence=self._evidence_summary(),
             history=self._observation_history_for_prompt(),
         )
-        call_id = f"agent_controller_{step_index}"
-        started = time.perf_counter()
-        reasoning_available = False
-        reasoning_chars = 0
-        reasoning_parts: list[str] = []
-        content_parts: list[str] = []
-        # Reasoning policy belongs to the model role, not to whether the caller
-        # happens to expose SSE events. Keep the same policy across entry points.
+        from rag_knowledge.services.model_stream_runner import (
+            ModelStreamRunner,
+            StreamRunOptions,
+        )
+
+        call_id = self._controller_call_id(step_index)
         reasoning_num_predict = 8192 if reasoning_enabled else 2048
-        fallback: str | None = None
-        if reasoning_policy != "never":
-            await self._emit(
-                on_event,
-                ExecutionEventType.LLM_REASONING_START,
-                {
-                    "call_id": call_id,
-                    "role": "main",
-                    "stage": "agent_controller",
-                    "model": endpoint.model,
-                    "provider": endpoint.normalized_provider(),
-                    "step": step_index,
-                },
-            )
-        try:
-            async for part in achat_stream_parts(
-                endpoint,
-                [
-                    {"role": "system", "content": _REASONING_LANGUAGE_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                default_ollama=getattr(self._cfg, "ollama_base_url", ""),
-                temperature=0.0,
-                timeout=45.0,
-                num_predict=reasoning_num_predict,
-                think=reasoning_enabled,
-                num_ctx=self._cfg.context_budget.context_window,
-                format_json=True,
-            ):
-                if part.kind == "reasoning":
-                    reasoning_available = True
-                    reasoning_chars += len(part.delta)
-                    reasoning_parts.append(part.delta)
-                    if reasoning_policy == "token":
-                        await self._emit(
-                            on_event,
-                            ExecutionEventType.LLM_REASONING_DELTA,
-                            {
-                                "call_id": call_id,
-                                "role": "main",
-                                "stage": "agent_controller",
-                                "delta": part.delta,
-                                "step": step_index,
-                            },
-                        )
-                else:
-                    content_parts.append(part.delta)
-        except Exception as exc:
-            fallback = type(exc).__name__
-            raise
-        finally:
-            elapsed_ms = (time.perf_counter() - started) * 1000
-            if reasoning_policy == "summary" and reasoning_parts:
-                await self._emit(
-                    on_event,
-                    ExecutionEventType.LLM_REASONING_SUMMARY,
-                    {
-                        "call_id": call_id,
-                        "role": "main",
-                        "stage": "agent_controller",
-                        "text": "".join(reasoning_parts)[:2000],
-                        "step": step_index,
-                    },
-                )
-            if reasoning_policy != "never":
-                await self._emit(
-                    on_event,
-                    ExecutionEventType.LLM_REASONING_END,
-                    {
-                        "call_id": call_id,
-                        "role": "main",
-                        "stage": "agent_controller",
-                        "model": endpoint.model,
-                        "provider": endpoint.normalized_provider(),
-                        "reasoning_available": reasoning_available,
-                        "reasoning_chars": reasoning_chars,
-                        "content_chars": sum(len(part) for part in content_parts),
-                        "num_predict": reasoning_num_predict,
-                        "elapsed_ms": round(elapsed_ms, 1),
-                        "step": step_index,
-                    },
-                )
-            record_model_call(
-                role=role,
-                stage="agent_controller",
-                provider=endpoint.normalized_provider(),
-                model=endpoint.model,
-                elapsed_ms=elapsed_ms,
-                fallback=fallback,
-            )
-        raw = "".join(content_parts)
+
+        async def _forward_event(evt: dict) -> None:
+            evt_type_map = {
+                "llm_reasoning_start": ExecutionEventType.LLM_REASONING_START,
+                "llm_reasoning_delta": ExecutionEventType.LLM_REASONING_DELTA,
+                "llm_reasoning_summary": ExecutionEventType.LLM_REASONING_SUMMARY,
+                "llm_reasoning_end": ExecutionEventType.LLM_REASONING_END,
+            }
+            mapped_type = evt_type_map.get(evt.get("type"))
+            if mapped_type:
+                await self._emit(on_event, mapped_type, evt.get("data", {}))
+
+        stream_runner = ModelStreamRunner()
+        options = StreamRunOptions(
+            endpoint=endpoint,
+            messages=[
+                {"role": "system", "content": _REASONING_LANGUAGE_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            stage="agent_controller",
+            # ``role`` is the user-visible execution identity, not the model
+            # routing key used above to resolve ``endpoint``.
+            role="main",
+            call_id=call_id,
+            step=step_index,
+            stream_policy=reasoning_policy,
+            request_reasoning=reasoning_enabled,
+            temperature=0.0,
+            num_predict=reasoning_num_predict,
+            num_ctx=self._cfg.context_budget.context_window,
+            timeout=45.0,
+            format_json=True,
+            default_ollama=getattr(self._cfg, "ollama_base_url", ""),
+        )
+        result = await stream_runner.arun(options, on_event=_forward_event)
+        self._last_controller_reasoning_available = result.reasoning_available
+        raw = result.content
+        reasoning_available = result.reasoning_available
         try:
             if not raw.strip() and reasoning_available:
                 raise ValueError(

@@ -110,7 +110,7 @@ coverage 只衡量 Evidence 对 Question 的覆盖，不衡量 Candidate 的正�
 
 输出协议是严格协议：
 - coverage、summary、claim_reviews、repair_mode、rewrite_actions 五个顶层字段缺一不可；不要输出 verdict；
-- 非 RETRIEVE 时 retrieval_feedback 必须输出 null；只有 repair_mode=RETRIEVE 时才输出完整 retrieval_feedback 对象；
+- retrieval_feedback 是条件字段：只有 repair_mode=RETRIEVE 时才输出完整 retrieval_feedback 对象；repair_mode=REWRITE 或 NONE 时必须完全省略该键，不得输出 null、{} 或占位对象；
 - coverage=FULL/PARTIAL 且所有 Claim supported 时，rewrite_actions 必须为空；
 - coverage=FULL/PARTIAL 且存在 unsupported/contradicted Claim 时，repair_mode 必须为 REWRITE 或 RETRIEVE；REWRITE 必须为每个问题 Claim 提供匹配 claim_id 的 rewrite action；RETRIEVE 必须携带 retrieval_feedback 且 rewrite_actions 为空；
 - coverage=NONE 时 rewrite_actions 必须为空；
@@ -177,6 +177,8 @@ Candidate: “StampGIS 仅在 Windows 10 运行 [1]。”
     "reason": "为何现有快照无法支撑"
   }
 }
+
+上方 retrieval_feedback 仅为 RETRIEVE 分支示例：REWRITE 或 NONE 的 JSON 必须完全省略 retrieval_feedback 键。
 """
 
 _ALLOWED_VERDICTS = frozenset({"PASS", "REVISE", "NO_SAFE_ANSWER"})
@@ -287,8 +289,19 @@ def review_response_json_schema() -> dict[str, Any]:
                     "additionalProperties": False,
                 },
             },
-            "repair_mode": {"type": "string", "enum": sorted(_ALLOWED_REPAIR_MODES)},
+            "repair_mode": {
+                "type": "string",
+                "enum": sorted(_ALLOWED_REPAIR_MODES),
+                "description": (
+                    "Use RETRIEVE only when retrieval_feedback is needed. "
+                    "For REWRITE or NONE, omit retrieval_feedback entirely."
+                ),
+            },
             "retrieval_feedback": {
+                "description": (
+                    "Required only when repair_mode is RETRIEVE. "
+                    "Do not emit this property for REWRITE or NONE."
+                ),
                 "anyOf": [
                     {"type": "null"},
                     {
@@ -704,10 +717,13 @@ class HelperGroundingReviewer:
                     "status": claim.get("status"),
                     "evidence_ids": claim.get("evidence_ids"),
                 })
+            retrieval_feedback = payload.get("retrieval_feedback")
+            if repair_mode != "RETRIEVE":
+                retrieval_feedback = None
             return {
                 "coverage": coverage,
                 "repair_mode": repair_mode,
-                "retrieval_feedback": payload.get("retrieval_feedback"),
+                "retrieval_feedback": retrieval_feedback,
                 "claim_reviews": frozen_claims,
             }
         except Exception:
@@ -730,8 +746,10 @@ class HelperGroundingReviewer:
                 "content": (
                     _REVIEWER_SYSTEM_PROMPT
                     + "\n\n你正在执行一次协议修复。只修复上一份审查 JSON 的协议错误；"
-                    "immutable_semantics 中的 coverage、repair_mode、retrieval_feedback、claim_id、claim、claim_type、claim_scope、status、evidence_ids "
-                    "必须逐项保持不变。不得重新判断事实，不得增删 Claim，不要输出 verdict。"
+                    "immutable_semantics 中的 coverage、repair_mode、claim_id、claim、claim_type、claim_scope、status、evidence_ids "
+                    "必须逐项保持不变；仅当 repair_mode=RETRIEVE 时 retrieval_feedback 也必须保持不变。"
+                    "当 repair_mode=REWRITE 或 NONE 时，必须删除 retrieval_feedback 键。"
+                    "不得重新判断事实，不得增删 Claim，不要输出 verdict。"
                 ),
             },
             {

@@ -209,15 +209,19 @@ def native_reasoning_capability(
     documented protocol accepts it.
     """
     provider = endpoint.normalized_provider()
+    model_name = str(endpoint.model or "").lower()
     if provider == "ollama":
+        is_reasoning_model = any(
+            pattern in model_name for pattern in ("qwen3", "deepseek-r1", "-r1", ":r1", "r1-")
+        )
         return NativeReasoningCapability(
-            can_request="qwen3" in str(endpoint.model or "").lower(),
+            can_request=is_reasoning_model,
             can_stream=True,
         )
     if provider == "openai":
         base = endpoint.resolved_base_url(default_ollama).lower()
         return NativeReasoningCapability(
-            can_request="api.deepseek.com" in base,
+            can_request="api.deepseek.com" in base or "deepseek-r1" in model_name,
             can_stream=True,
         )
     return NativeReasoningCapability(can_request=False, can_stream=False)

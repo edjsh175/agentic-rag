@@ -35,10 +35,11 @@ def test_real_agent_stream_matches_persisted_trace(monkeypatch):
     async def collect() -> list[dict]:
         return [
             event
-            async for event in chain.stream_query(
-                "StampServer 的主要用途是什么？请只根据知识库回答。",
-                history=[],
-                allow_general_knowledge=False,
+                async for event in chain.stream_query(
+                    "StampServer 如何修改 IP？请只根据知识库回答。",
+                    history=[],
+                    thinking=True,
+                    allow_general_knowledge=False,
                 agent_orchestration_enabled=True,
                 pipeline_events=False,
             )
@@ -157,7 +158,8 @@ def test_real_http_agent_sse_matches_trace(monkeypatch):
             return await client.post(
                 "/api/query/stream",
                 json={
-                    "question": "StampServer 的主要用途是什么？请只根据知识库回答。",
+                    "question": "StampServer 如何修改 IP？请只根据知识库回答。",
+                    "thinking": True,
                     "mode": "agent",
                     "allow_general_knowledge": False,
                     "pipeline_events": False,

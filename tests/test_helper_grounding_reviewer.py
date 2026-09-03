@@ -595,6 +595,36 @@ def test_protocol_repair_retries_once_and_can_recover():
     assert calls[1][1]["role"] == "user"
 
 
+def test_protocol_repair_removes_non_retrieve_feedback_without_semantic_drift():
+    invalid = _revise_payload()
+    invalid["retrieval_feedback"] = {
+        "gap_id": "missing-port",
+        "affected_claim_ids": ["c2"],
+        "missing_fact": "默认端口",
+        "subject_entity_ids": [],
+        "deficiency_type": "NO_DIRECT_EVIDENCE",
+        "reason": "没有端口证据",
+    }
+    repaired = _revise_payload()
+    calls = []
+
+    def _caller(messages):
+        calls.append(messages)
+        return invalid if len(calls) == 1 else repaired
+
+    reviewer = HelperGroundingReviewer(_caller)
+    result = reviewer.review(
+        "StampServer 支持什么功能？",
+        [_source(1, "StampServer 支持服务发布。")],
+        "StampServer 支持服务发布，并默认开放 9999 端口。",
+    )
+
+    assert result.verdict == "REVISE"
+    assert result.error is None
+    assert len(result.protocol_attempts) == 2
+    assert "必须删除 retrieval_feedback 键" in calls[1][0]["content"]
+
+
 def test_protocol_repair_rejects_semantic_drift():
     invalid = _revise_payload()
     invalid["rewrite_actions"][0]["claim_id"] = "c1"
@@ -636,6 +666,8 @@ def test_structured_output_schema_has_single_semantic_source():
     assert "verdict" not in schema["required"]
     action_enum = schema["properties"]["rewrite_actions"]["items"]["properties"]["action"]["enum"]
     assert "preserve" not in action_enum
+    assert "omit retrieval_feedback entirely" in schema["properties"]["repair_mode"]["description"]
+    assert "Do not emit this property" in schema["properties"]["retrieval_feedback"]["description"]
 
 
 def test_evidence_snapshot_includes_support_scope():

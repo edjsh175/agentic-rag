@@ -14,6 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from rag_knowledge.services.agent_orchestration.models import (
+    AnswerGenerationContext,
     AgentBudget,
     AgentDecision,
     AgentTurnResult,
@@ -336,15 +337,119 @@ def test_controller_raw_reasoning_streams_before_structured_decision():
     delta_index = _event_index(events, "llm_reasoning_delta")
     end_index = _event_index(events, "llm_reasoning_end")
     decision_index = _event_index(events, "decision")
-    explanation_index = _event_index(events, "public_explanation")
-    assert start_index < delta_index < end_index < decision_index < explanation_index
+    assert start_index < delta_index < end_index < decision_index
     assert events[delta_index]["data"]["delta"] == "当前还没有足够证据，先判断是否需要检索。"
+    assert events[start_index]["data"]["reasoning_requested"] is True
+    assert events[end_index]["data"]["reasoning_requested"] is True
     assert events[end_index]["data"]["reasoning_available"] is True
     assert events[decision_index]["data"]["reason"] == "结束本轮"
-    assert events[explanation_index]["data"]["source"] == "model_protocol"
+    # Sub-PRD 01: When native reasoning is present, do NOT emit public_explanation
+    assert "public_explanation" not in [e["type"] for e in events]
 
 
-def test_helper_reviewer_streams_raw_reasoning_without_bypassing_protocol_validation():
+def test_controller_fallback_public_explanation_when_model_unsupported():
+    # Case B: Model does not support reasoning (reasoning_requested=False, reasoning_available=False)
+    conversation = ConversationContext.from_request("StampServer 的端口是多少？", [])
+    evidence = EvidencePool(question_id="controller-unsupported-reasoning")
+    endpoint = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen2.5:7b",
+        base_url="http://unused.test",
+    )
+    cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(terminal_finalization_v2=False, reasoning_stream_policy="token"),
+        context_budget=SimpleNamespace(context_window=32768),
+        ollama_base_url="http://unused.test",
+        model_routing=None,
+        endpoint_for=lambda _role: endpoint,
+    )
+    events: list[dict] = []
+
+    async def on_event(event: dict) -> None:
+        events.append(event)
+
+    async def fake_stream_parts(*_args, **_kwargs):
+        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=1),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=cfg,
+        tool_timeout=0,
+    )
+
+    with patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts):
+        asyncio.run(loop.run(on_event=on_event))
+
+    start_index = _event_index(events, "llm_reasoning_start")
+    end_index = _event_index(events, "llm_reasoning_end")
+    decision_index = _event_index(events, "decision")
+    explanation_index = _event_index(events, "public_explanation")
+    assert start_index < end_index < decision_index < explanation_index
+    assert events[start_index]["data"]["reasoning_requested"] is False
+    assert events[end_index]["data"]["reasoning_requested"] is False
+    assert events[end_index]["data"]["reasoning_available"] is False
+    assert events[explanation_index]["data"]["source"] == "system_fallback"
+    assert events[explanation_index]["data"]["fallback_used"] is True
+    assert "正在根据当前问题" in events[explanation_index]["data"]["text"]
+
+
+def test_controller_fallback_public_explanation_when_reasoning_requested_but_no_output():
+    # Case C: Model supports reasoning, requested=True, but 0 reasoning tokens produced
+    conversation = ConversationContext.from_request("StampServer 的端口是多少？", [])
+    evidence = EvidencePool(question_id="controller-case-c-reasoning")
+    endpoint = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen3.5:9b",
+        base_url="http://unused.test",
+    )
+    cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(terminal_finalization_v2=False, reasoning_stream_policy="token"),
+        context_budget=SimpleNamespace(context_window=32768),
+        ollama_base_url="http://unused.test",
+        model_routing=None,
+        endpoint_for=lambda _role: endpoint,
+    )
+    events: list[dict] = []
+
+    async def on_event(event: dict) -> None:
+        events.append(event)
+
+    async def fake_stream_parts(*_args, **_kwargs):
+        yield LLMStreamPart("content", '{"action":"finalize","reason":"结束本轮"}')
+
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=1),
+        registry=build_agent_registry(),
+        handlers={},
+        cfg=cfg,
+        tool_timeout=0,
+    )
+
+    with patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts):
+        asyncio.run(loop.run(on_event=on_event))
+
+    start_index = _event_index(events, "llm_reasoning_start")
+    end_index = _event_index(events, "llm_reasoning_end")
+    decision_index = _event_index(events, "decision")
+    explanation_index = _event_index(events, "public_explanation")
+    assert start_index < end_index < decision_index < explanation_index
+    assert events[start_index]["data"]["reasoning_requested"] is True
+    assert events[end_index]["data"]["reasoning_requested"] is True
+    assert events[end_index]["data"]["reasoning_available"] is False
+    assert events[explanation_index]["data"]["source"] == "system_fallback"
+    assert events[explanation_index]["data"]["fallback_used"] is True
+    assert "正在根据当前问题" in events[explanation_index]["data"]["text"]
+
+
+def test_helper_reviewer_uses_structured_output_without_free_reasoning():
     chain = object.__new__(RagChain)
     endpoint = ModelEndpoint(
         role="helper_llm",
@@ -377,25 +482,25 @@ def test_helper_reviewer_streams_raw_reasoning_without_bypassing_protocol_valida
         "rewrite_actions": [],
     }, ensure_ascii=False)
 
-    async def fake_stream_parts(*_args, **_kwargs):
-        yield LLMStreamPart("reasoning", "逐条核对候选事实与 Evidence。")
-        yield LLMStreamPart("content", response)
+    calls = []
 
-    with patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts):
-        reviewer = chain._helper_grounding_reviewer(on_reasoning_event=events.append)
+    def fake_chat_role(*_args, **kwargs):
+        calls.append(kwargs)
+        return response
+
+    with patch("rag_knowledge.llm_http.chat_role", fake_chat_role):
+        reviewer = chain._helper_grounding_reviewer(
+            on_reasoning_event=events.append,
+            reasoning_enabled=True,
+        )
         result = reviewer.review("StampServer 的端口是多少？", [_doc()], "StampServer 的端口是 8080。[1]")
 
     assert result.verdict == "PASS"
     assert result.coverage == "PARTIAL"
-    assert [event["type"] for event in events] == [
-        "llm_reasoning_start",
-        "llm_reasoning_delta",
-        "llm_reasoning_end",
-    ]
-    assert events[1]["data"]["role"] == "helper"
-    assert events[1]["data"]["stage"] == "grounding_reviewer"
-    assert events[1]["data"]["delta"] == "逐条核对候选事实与 Evidence。"
-    assert events[2]["data"]["reasoning_available"] is True
+    assert events == []
+    assert calls[0]["think"] is False
+    assert calls[0]["format_json"] is True
+    assert calls[0]["json_schema"]
 
 
 def test_grounded_rewrite_streams_raw_reasoning_while_buffering_candidate_v2():
@@ -439,17 +544,68 @@ def test_grounded_rewrite_streams_raw_reasoning_while_buffering_candidate_v2():
         )
 
     assert candidate_v2 == "StampServer 的端口是 8080。[1]"
+    # Sub-PRD 01: When native reasoning is present, no public_explanation
     assert [event["type"] for event in events] == [
-        "public_explanation",
         "llm_reasoning_start",
         "llm_reasoning_delta",
         "llm_reasoning_end",
     ]
     assert events[0]["data"]["stage"] == "grounded_retry"
-    assert events[2]["data"]["role"] == "main"
-    assert events[2]["data"]["stage"] == "grounded_retry"
-    assert events[2]["data"]["delta"] == "只保留 c1，删除 c2。"
+    assert events[0]["data"]["reasoning_requested"] is True
+    assert events[1]["data"]["role"] == "main"
+    assert events[1]["data"]["stage"] == "grounded_retry"
+    assert events[1]["data"]["delta"] == "只保留 c1，删除 c2。"
+    assert events[-1]["data"]["reasoning_requested"] is True
+    assert events[-1]["data"]["reasoning_available"] is True
     assert events[-1]["data"]["num_predict"] == 8192
+
+
+def test_grounded_rewrite_fallback_public_explanation_when_no_native_reasoning():
+    chain = object.__new__(RagChain)
+    endpoint = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen2.5:7b",
+        base_url="http://unused.test",
+    )
+    chain._cfg = SimpleNamespace(context_budget=SimpleNamespace(context_window=32768))
+    chain._ollama_base = "http://unused.test"
+    chain._resolve_llm_endpoint = lambda _model: endpoint
+    chain._need_ollama_thinking = lambda _model: False
+    events: list[dict] = []
+    review = HelperGroundingReviewResult(
+        verdict="REVISE",
+        coverage="PARTIAL",
+        summary="remove unsupported claim",
+        claim_reviews=[
+            _claim("c1", evidence_ids=(1,), status="supported"),
+            _claim("c2", evidence_ids=(), status="unsupported"),
+        ],
+        rewrite_actions=[
+            RewriteAction("c2", "rewrite_to_supported_scope_or_remove", "删除未支持断言"),
+        ],
+    )
+
+    async def fake_stream_parts(*_args, **_kwargs):
+        yield LLMStreamPart("content", "StampServer 的端口是 8080。[1]")
+
+    with patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts):
+        candidate_v2 = chain._retry_grounded_candidate(
+            "qwen2.5:7b",
+            "StampServer 的端口是多少？",
+            "StampServer 的端口是 8080。[1] 另有未支持断言。",
+            [_doc()],
+            review,
+            on_reasoning_event=events.append,
+        )
+
+    assert candidate_v2 == "StampServer 的端口是 8080。[1]"
+    assert [event["type"] for event in events] == [
+        "llm_reasoning_start",
+        "llm_reasoning_end",
+        "public_explanation",
+    ]
+    assert events[-1]["data"]["source"] == "system_fallback"
 
 
 def test_understanding_is_the_first_agent_lifecycle_event():
@@ -768,6 +924,194 @@ class _TraceStub:
 
     def mark(self, _stage: str) -> None:
         pass
+
+
+def test_reviewer_resume_candidate_reasoning_streams_before_candidate_finishes():
+    """Resume candidates keep the Main answer stage and forward Runner events live."""
+    chain = object.__new__(RagChain)
+    chain._cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(max_reviewer_resume_rounds=1),
+    )
+    source_docs = [_doc()]
+    evidence = SimpleNamespace(working_only_docs=lambda: [])
+    snapshot = SimpleNamespace(snapshot_id="snapshot-2", evidence_version=2)
+    resumed = SimpleNamespace(
+        budget={"steps_used": 0, "max_steps": 1, "remaining_retrieve_attempts": 1},
+        graph_working_set=None,
+        fallbacks=[],
+        evidence=evidence,
+        evidence_snapshot=snapshot,
+        gap_registry=None,
+        continuous_no_progress_count=0,
+        exploration_fuse_open=False,
+        retrieval_trace=None,
+        retrieve_attempts=1,
+        answer_context=None,
+        to_trace=lambda: {},
+    )
+    call_prefixes: list[str] = []
+
+    resume_controller_complete = False
+
+    async def fake_run_agent_turn(*_args, **kwargs):
+        call_prefixes.append(kwargs["model_call_id_prefix"])
+        await kwargs["on_event"]({
+            "type": "llm_reasoning_start",
+            "data": {
+                "call_id": "reviewer_resume_1_agent_controller_1",
+                "role": "main",
+                "stage": "agent_controller",
+            },
+        })
+        await kwargs["on_event"]({
+            "type": "llm_reasoning_delta",
+            "data": {
+                "call_id": "reviewer_resume_1_agent_controller_1",
+                "role": "main",
+                "stage": "agent_controller",
+                "delta": "继续补检端口证据。",
+            },
+        })
+        await asyncio.sleep(0)
+        await kwargs["on_event"]({
+            "type": "llm_reasoning_end",
+            "data": {
+                "call_id": "reviewer_resume_1_agent_controller_1",
+                "role": "main",
+                "stage": "agent_controller",
+                "reasoning_available": True,
+            },
+        })
+        nonlocal resume_controller_complete
+        resume_controller_complete = True
+        return resumed
+
+    chain._run_agent_turn = fake_run_agent_turn
+    chain._agent_answer_docs = lambda _result: (source_docs, source_docs)
+    chain._format_context = lambda _docs: "evidence context"
+    chain._safe_set_retrieval = lambda *_args, **_kwargs: None
+    chain._safe_add_trace_event = lambda *_args, **_kwargs: None
+    chain._pack_agent_answer_context = lambda *_args, **_kwargs: SimpleNamespace(
+        source_docs=source_docs,
+        history=[],
+        history_summary=None,
+        decision={},
+    )
+    chain._freeze_generation_source_docs = lambda docs: list(docs)
+    chain._build_messages = lambda *_args, **_kwargs: [{"role": "user", "content": "q"}]
+    chain._helper_grounding_reviewer = lambda: object()
+
+    candidate_complete = False
+
+    async def generate_candidate(_msgs, *, on_event, candidate_version):
+        assert candidate_version == 2
+        await on_event({
+            "type": "llm_reasoning_start",
+            "data": {
+                "call_id": "answer_generator_resume_v2",
+                "role": "main",
+                "stage": "answer_generation",
+            },
+        })
+        await on_event({
+            "type": "llm_reasoning_delta",
+            "data": {
+                "call_id": "answer_generator_resume_v2",
+                "role": "main",
+                "stage": "answer_generation",
+                "delta": "补检后的证据可以支持端口结论。",
+            },
+        })
+        await asyncio.sleep(0)
+        await on_event({
+            "type": "llm_reasoning_end",
+            "data": {
+                "call_id": "answer_generator_resume_v2",
+                "role": "main",
+                "stage": "answer_generation",
+                "reasoning_available": True,
+            },
+        })
+        nonlocal candidate_complete
+        candidate_complete = True
+        return "StampServer 的端口是 8080。[1]"
+
+    initial_finalized = SimpleNamespace(retrieval_feedback={"gap_id": "port"})
+    final_finalized = SimpleNamespace(retrieval_feedback=None)
+    emitted: list[dict] = []
+    emitted_before_candidate_complete: list[dict] = []
+    emitted_before_resume_controller_complete: list[dict] = []
+
+    async def collect():
+        async for event in chain._iter_reviewer_resume_loop(
+            q="StampServer 的端口是多少？",
+            history=[],
+            kb_name=None,
+            doc_category=None,
+            entity_name=None,
+            web_search=False,
+            pinned_chunk_ids=None,
+            excluded_chunk_ids=None,
+            clarification_question=None,
+            clarification_selected=None,
+            clarification_option_id=None,
+            clarification_snapshot_id=None,
+            clarification_selected_candidate=None,
+            clarification_options=None,
+            clarification_selection_kind=None,
+            clarification_free_text=None,
+            result=resumed,
+            source_docs=source_docs,
+            retrieved_source_docs=source_docs,
+            history_summary=None,
+            answer_context=None,
+            context="evidence context",
+            finalized=initial_finalized,
+            agent_prompt=None,
+            allow_general=False,
+            is_direct_chat=False,
+            guarded_model="fixture-model",
+            generate_candidate=generate_candidate,
+            forward_retry_reasoning=True,
+            emit_candidate_status=True,
+            re_finalize_when_empty=True,
+            state={},
+            trace=_TraceStub(),
+        ):
+            emitted.append(event)
+            if not candidate_complete:
+                emitted_before_candidate_complete.append(event)
+            if not resume_controller_complete:
+                emitted_before_resume_controller_complete.append(event)
+
+    with patch(
+        "rag_knowledge.services.rag._ANSWER_FINALIZER.finalize",
+        return_value=final_finalized,
+    ):
+        asyncio.run(collect())
+
+    assert call_prefixes == ["reviewer_resume_1"]
+    candidate_streamed = [
+        event for event in emitted
+        if event["data"].get("call_id") == "answer_generator_resume_v2"
+    ]
+    assert [event["type"] for event in candidate_streamed] == [
+        "llm_reasoning_start",
+        "llm_reasoning_delta",
+        "llm_reasoning_end",
+    ]
+    assert all(event["data"]["stage"] == "answer_generation" for event in candidate_streamed)
+    controller_streamed = [
+        event for event in emitted
+        if event["data"].get("call_id") == "reviewer_resume_1_agent_controller_1"
+    ]
+    assert [event["type"] for event in controller_streamed] == [
+        "llm_reasoning_start",
+        "llm_reasoning_delta",
+        "llm_reasoning_end",
+    ]
+    assert any(event["type"] == "llm_reasoning_delta" for event in emitted_before_candidate_complete)
+    assert any(event["type"] == "llm_reasoning_delta" for event in emitted_before_resume_controller_complete)
 
 
 @pytest.mark.parametrize("agent_enabled", [False, True])
@@ -1351,6 +1695,16 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
     """When controller outputs reasoning but zero content (e.g. token limit), it must report diagnosis and attempt repair."""
     context = ConversationContext.from_request("StampServer 端口？", [])
     pool = EvidencePool(question_id="test-empty-reasoning")
+    routed_roles: list[str] = []
+
+    def endpoint_for(role: str) -> ModelEndpoint:
+        routed_roles.append(role)
+        return ModelEndpoint(
+            role=role,
+            provider="ollama",
+            model="qwen3.5:9b",
+            base_url="http://localhost:11434",
+        )
 
     async def fake_stream_parts(*args, **kwargs):
         # Model emits reasoning but exhausts tokens before emitting JSON content
@@ -1369,7 +1723,7 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
         ),
         ollama_base_url="http://localhost:11434",
         context_budget=SimpleNamespace(context_window=4096),
-        endpoint_for=lambda role: ModelEndpoint(role=role, provider="ollama", model="qwen3.5:9b", base_url="http://localhost:11434"),
+        endpoint_for=endpoint_for,
     )
 
     loop = AgentLoop(
@@ -1396,6 +1750,9 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
     assert len(reasoning_events) >= 2
     assert reasoning_events[0]["type"] == "llm_reasoning_start"
     assert reasoning_events[-1]["type"] == "llm_reasoning_end"
+    assert routed_roles == ["llm"]
+    assert {event["data"]["role"] for event in reasoning_events} == {"main"}
+    assert {event["data"]["stage"] for event in reasoning_events} == {"agent_controller"}
     end_data = reasoning_events[-1]["data"]
     assert end_data["reasoning_available"] is True
     assert end_data["content_chars"] == 0
@@ -1406,8 +1763,8 @@ def test_controller_empty_content_after_reasoning_triggers_repair_or_fallback():
     assert "controller_output_empty_after_reasoning" in str(loop._controller_protocol_attempts[0].get("error"))
 
 
-def test_reviewer_empty_content_after_reasoning_fails_closed():
-    """When reviewer outputs reasoning but zero content, it must fail-closed with error."""
+def test_reviewer_empty_structured_output_fails_closed():
+    """Reviewer output remains fail-closed even though free reasoning is hidden."""
     chain = object.__new__(RagChain)
     chain._cfg = SimpleNamespace(
         grounding_reviewer_timeout=30.0,
@@ -1416,17 +1773,11 @@ def test_reviewer_empty_content_after_reasoning_fails_closed():
         endpoint_for=lambda role: ModelEndpoint(role=role, provider="ollama", model="qwen3.5:4b", base_url="http://localhost:11434"),
     )
 
-    async def fake_stream_parts(*args, **kwargs):
-        yield LLMStreamPart("reasoning", "Reviewing claim against evidence...")
-
     reasoning_events = []
     def on_reasoning(evt):
         reasoning_events.append(evt)
 
-    with (
-        patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts),
-        patch("rag_knowledge.llm_http.chat_role", lambda *args, **kwargs: ""),
-    ):
+    with patch("rag_knowledge.llm_http.chat_role", lambda *args, **kwargs: ""):
         reviewer = chain._helper_grounding_reviewer(on_reasoning_event=on_reasoning)
         assert reviewer is not None
         result = reviewer.review(
@@ -1437,8 +1788,202 @@ def test_reviewer_empty_content_after_reasoning_fails_closed():
 
     assert result.verdict == "ERROR"
     assert result.coverage == "NONE"
-    assert len(reasoning_events) >= 2
-    end_data = reasoning_events[-1]["data"]
-    assert end_data["reasoning_available"] is True
-    assert end_data["content_chars"] == 0
-    assert end_data["num_predict"] == 12288
+    assert reasoning_events == []
+
+
+def test_answer_generation_streams_native_reasoning_and_suppresses_public_explanation():
+    chain = object.__new__(RagChain)
+    endpoint = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen3.5:9b",
+        base_url="http://unused.test",
+    )
+    chain._cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(
+            reasoning_stream_policy="token",
+            trace_reasoning_max_chars=4000,
+        ),
+        context_budget=SimpleNamespace(context_window=32768),
+        ollama_base_url="http://unused.test",
+        endpoint_for=lambda _role: endpoint,
+        grounding_reviewer_enabled=False,
+    )
+    chain._resolve_llm_endpoint = lambda _model: endpoint
+    chain._should_enable_main_model_thinking = lambda _ep, _th: True
+    chain._apply_vram_guard = lambda model: (model, False)
+    chain._downshift_fields = lambda *args: {}
+    chain._record_execution_event = lambda *_args, **_kwargs: None
+    chain._commit_qa_trace = lambda *_args, **_kwargs: "test-trace-id"
+    chain._route_agent_query = lambda *args, **kwargs: (None, [], None)
+
+    async def fake_run_agent_turn(*args, **kwargs):
+        conv = ConversationContext.from_request("StampServer 端口？", [])
+        pool = EvidencePool(question_id="test-q")
+        pool.add_retrieve([_doc("c1", "StampServer 端口是 8080。")], query="StampServer 端口")
+        snapshot = pool.create_snapshot(verdict={"coverage": "FULL", "admissibility": "VALID", "can_answer": True})
+        return AgentTurnResult(
+            conversation=conv,
+            evidence=pool,
+            route="retrieve",
+            answer_gate={"coverage": "FULL", "admissibility": "VALID", "can_answer": True},
+            answer_context=AnswerGenerationContext.from_snapshot(
+                original_question="StampServer 端口？",
+                resolved_question="StampServer 端口？",
+                conversation_context="",
+                snapshot=snapshot,
+            ),
+            terminal_action="controller_finalize",
+        )
+
+    chain._run_agent_turn = fake_run_agent_turn
+    chain._safe_set_retrieval = lambda *_args, **_kwargs: None
+    chain._freeze_generation_source_docs = lambda docs: list(docs)
+
+    async def fake_stream_parts(*args, **kwargs):
+        yield LLMStreamPart("reasoning", "正在基于证据 [1] 组织回答。")
+        yield LLMStreamPart("content", "StampServer 的端口是 8080。[1]")
+
+    with (
+        patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts),
+        patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", lambda *args, **kwargs: FinalizedAnswer(
+            answer="StampServer 的端口是 8080。[1]",
+            grounding={"final_mode": "generated", "review_verdict": "PASS"},
+        )),
+    ):
+        events = []
+        async def collect():
+            async for evt in chain._stream_agent_query(
+                "StampServer 端口？",
+                None,
+                llm_model=None,
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=True,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            ):
+                events.append(evt)
+        asyncio.run(collect())
+
+    event_types = [e["type"] for e in events]
+    assert "llm_reasoning_start" in event_types
+    assert "llm_reasoning_delta" in event_types
+    assert "llm_reasoning_end" in event_types
+    # Sub-PRD 01: When native reasoning is available, public_explanation must be suppressed
+    assert "public_explanation" not in event_types
+    start_event = next(e for e in events if e["type"] == "llm_reasoning_start")
+    end_event = next(e for e in events if e["type"] == "llm_reasoning_end")
+    assert start_event["data"]["reasoning_requested"] is True
+    assert end_event["data"]["reasoning_requested"] is True
+    assert end_event["data"]["reasoning_available"] is True
+    delta_event = next(e for e in events if e["type"] == "llm_reasoning_delta")
+    assert delta_event["data"]["delta"] == "正在基于证据 [1] 组织回答。"
+
+
+def test_answer_generation_emits_fallback_public_explanation_when_no_native_reasoning():
+    chain = object.__new__(RagChain)
+    endpoint = ModelEndpoint(
+        role="llm",
+        provider="ollama",
+        model="qwen2.5:7b",
+        base_url="http://unused.test",
+    )
+    chain._cfg = SimpleNamespace(
+        agent_orchestration=SimpleNamespace(
+            reasoning_stream_policy="token",
+            trace_reasoning_max_chars=4000,
+        ),
+        context_budget=SimpleNamespace(context_window=32768),
+        ollama_base_url="http://unused.test",
+        endpoint_for=lambda _role: endpoint,
+        grounding_reviewer_enabled=False,
+    )
+    chain._resolve_llm_endpoint = lambda _model: endpoint
+    chain._should_enable_main_model_thinking = lambda _ep, _th: False
+    chain._apply_vram_guard = lambda model: (model, False)
+    chain._downshift_fields = lambda *args: {}
+    chain._record_execution_event = lambda *_args, **_kwargs: None
+    chain._commit_qa_trace = lambda *_args, **_kwargs: "test-trace-id"
+    chain._route_agent_query = lambda *args, **kwargs: (None, [], None)
+
+    async def fake_run_agent_turn(*args, **kwargs):
+        conv = ConversationContext.from_request("StampServer 端口？", [])
+        pool = EvidencePool(question_id="test-q-no-reasoning")
+        pool.add_retrieve([_doc("c1", "StampServer 端口是 8080。")], query="StampServer 端口")
+        snapshot = pool.create_snapshot(verdict={"coverage": "FULL", "admissibility": "VALID", "can_answer": True})
+        return AgentTurnResult(
+            conversation=conv,
+            evidence=pool,
+            route="retrieve",
+            answer_gate={"coverage": "FULL", "admissibility": "VALID", "can_answer": True},
+            answer_context=AnswerGenerationContext.from_snapshot(
+                original_question="StampServer 端口？",
+                resolved_question="StampServer 端口？",
+                conversation_context="",
+                snapshot=snapshot,
+            ),
+            terminal_action="controller_finalize",
+        )
+
+    chain._run_agent_turn = fake_run_agent_turn
+    chain._safe_set_retrieval = lambda *_args, **_kwargs: None
+    chain._freeze_generation_source_docs = lambda docs: list(docs)
+
+    async def fake_stream_parts(*args, **kwargs):
+        yield LLMStreamPart("content", "StampServer 的端口是 8080。[1]")
+
+    with (
+        patch("rag_knowledge.llm_http.achat_stream_parts", fake_stream_parts),
+        patch("rag_knowledge.services.rag._ANSWER_FINALIZER.finalize", lambda *args, **kwargs: FinalizedAnswer(
+            answer="StampServer 的端口是 8080。[1]",
+            grounding={"final_mode": "generated", "review_verdict": "PASS"},
+        )),
+    ):
+        events = []
+        async def collect():
+            async for evt in chain._stream_agent_query(
+                "StampServer 端口？",
+                None,
+                llm_model=None,
+                kb_name=None,
+                doc_category=None,
+                entity_name=None,
+                thinking=False,
+                web_search=False,
+                allow_general_knowledge=False,
+                agent_prompt=None,
+                pipeline_events=False,
+                pinned_chunk_ids=None,
+                excluded_chunk_ids=None,
+                path=None,
+                clarification_question=None,
+                clarification_selected=None,
+                trace=_TraceStub(),
+            ):
+                events.append(evt)
+        asyncio.run(collect())
+
+    event_types = [e["type"] for e in events]
+    assert "llm_reasoning_start" in event_types
+    assert "llm_reasoning_end" in event_types
+    # Sub-PRD 01: When native reasoning is NOT available, fallback public_explanation must be emitted
+    assert "public_explanation" in event_types
+    start_event = next(e for e in events if e["type"] == "llm_reasoning_start")
+    end_event = next(e for e in events if e["type"] == "llm_reasoning_end")
+    assert start_event["data"]["reasoning_requested"] is False
+    assert end_event["data"]["reasoning_requested"] is False
+    assert end_event["data"]["reasoning_available"] is False
+    exp_event = next(e for e in events if e["type"] == "public_explanation")
+    assert exp_event["data"]["source"] == "system_fallback"
+    assert exp_event["data"]["fallback_used"] is True
+    assert exp_event["data"]["stage"] == "answer_generation"

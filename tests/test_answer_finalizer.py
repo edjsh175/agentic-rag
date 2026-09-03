@@ -479,7 +479,7 @@ def test_pass_lifecycle_includes_review_start_and_publication():
     ]
 
 
-def test_review_status_exposes_counts_without_private_reviewer_reasoning():
+def test_review_status_exposes_safe_claim_reasons_without_private_reviewer_reasoning():
     events = []
 
     AnswerFinalizer().finalize(
@@ -496,7 +496,7 @@ def test_review_status_exposes_counts_without_private_reviewer_reasoning():
     assert data["unsupported_count"] == 1
     assert data["contradicted_count"] == 0
     assert "summary" not in data
-    assert all("reason" not in claim for claim in data["claim_reviews"])
+    assert data["claim_reviews"][1]["reason"]
     assert all("instruction" not in action for action in data["rewrite_actions"])
 
 

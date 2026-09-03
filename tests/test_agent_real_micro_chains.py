@@ -446,8 +446,11 @@ def test_real_revise_rewrite_second_review_micro_chain():
     )
 
     assert second_review.verdict == "PASS"
+    # Reviewer 的用户可见解释是结构化 Claim Finding；不把其自由思考
+    # 冒充 Main reasoning。此配置的 helper 模型没有 native reasoning，
+    # 因此闭环必须至少保留 Main Rewrite 的原生 reasoning。
     call_ids = [event["data"]["call_id"] for event in events if event["type"] == "llm_reasoning_start"]
-    assert call_ids == ["grounding_reviewer_1", "grounded_retry_v2", "grounding_reviewer_2"]
+    assert call_ids == ["grounded_retry_v2"]
     assert all(
         event["data"].get("reasoning_chars", 0) > 0
         for event in events
@@ -505,12 +508,11 @@ def test_real_revise_rewrite_review2_closed_loop():
     assert review_statuses[0]["data"]["verdict"] == "REVISE"
     assert review_statuses[1]["data"]["verdict"] == "PASS"
 
-    # Check reasoning blocks for Reviewer #1, Main Rewrite, Reviewer #2
+    # Reviewer #1 / #2 通过 review_status 暴露结构化裁决；只有 Main Rewrite
+    # 的 native reasoning 应作为用户可见 reasoning block。
     reasoning_starts = [e for e in lifecycle_events if e.get("type") == "llm_reasoning_start"]
-    assert len(reasoning_starts) >= 3
-    assert reasoning_starts[0]["data"]["stage"] == "grounding_reviewer"
-    assert reasoning_starts[1]["data"]["stage"] == "grounded_retry"
-    assert reasoning_starts[2]["data"]["stage"] == "grounding_reviewer"
+    assert [event["data"]["stage"] for event in reasoning_starts] == ["grounded_retry"]
+    assert reasoning_starts[0]["data"]["call_id"] == "grounded_retry_v2"
 
     assert finalized.grounding.get("final_mode") in {"grounded_rewrite", "grounded_partial"}
     assert finalized.grounding.get("review_verdict") == "PASS"

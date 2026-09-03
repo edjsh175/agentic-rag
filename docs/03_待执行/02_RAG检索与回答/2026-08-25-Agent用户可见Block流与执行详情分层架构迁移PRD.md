@@ -4,7 +4,7 @@
 | --- | --- |
 | 文档版本 | V1.0 |
 | 日期 | 2026-08-25 |
-| 状态 | **待实施** |
+| 状态 | **历史语义已被 2026-09-02 新总 PRD 部分替代；仅保留 Tool/Trace/Final Answer/Agent-Linear 隔离等不冲突背景，不再作为 reasoning/public explanation/Reviewer 纠错展示的实施真源** |
 | 所属域 | `02_RAG检索与回答` |
 | 任务性质 | **架构迁移 / 旧展示架构替换，不是 UI 叠加优化** |
 | 改造对象 | Agent 用户可见执行流、前端 Assistant Message 数据模型、SSE→UI 投影层、Reasoning/Tool/System Event/Markdown Block、Trace/Debug 详情入口、旧兼容组件清理 |
@@ -14,7 +14,8 @@
 | 兼容裁决 | Linear / Pipeline 模式继续使用既有 `status / pipeline stage → answer → sources`，本 PRD 不将其伪装成 Agent Block Stream。 |
 | 正确性裁决 | strict grounding 下 Candidate 正文继续服务端缓冲；只有 Grounding Review 后的 `final_answer` 才能进入 Markdown Block。不得为了“流式感”提前泄露未经审核 Candidate。 |
 | 关联文档 | `2026-08-24-Agent全链路透明执行流PRD.md`、`2026-08-24-HelperLLM回答Grounding审查执行PRD.md`、`2026-08-24-Main单控制器与Agent收敛执行PRD.md` |
-| 覆盖关系 | **本 PRD 覆盖并替代 `2026-08-24-Agent全链路透明执行流PRD.md` 中“Agent 主界面必须展示 Understanding / Decision / Guard / Evidence / Finalization / Reviewer / Rewrite / Publication 等完整 Timeline”的产品展示裁决；后端事件与 Trace 保留要求不被覆盖。** |
+| 覆盖关系 | **本 PRD 曾覆盖 `2026-08-24-Agent全链路透明执行流PRD.md` 的主聊天 Timeline 裁决；自 2026-09-02 起，关于 reasoning 主备语义、Model Stream、三段 Main reasoning、Reviewer Finding 与 Rewrite 纠错展示，改由新总 PRD 及 01–05 子 PRD 统一裁决。** |
+| 新权威入口 | **`2026-09-02-Agent原生Reasoning与证据纠错透明执行流重构总PRD.md`。发生冲突时以 2026-09-02 总 PRD 及 01–05 子 PRD 为准。** |
 
 ---
 

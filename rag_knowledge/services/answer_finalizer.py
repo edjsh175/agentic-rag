@@ -63,6 +63,7 @@ class AnswerFinalizer:
         retry_candidate: Callable[[HelperGroundingReviewResult], str] | None = None,
         helper_reviewer: HelperGroundingReviewer | Callable[..., HelperGroundingReviewResult] | None = None,
         on_lifecycle_event: Callable[[dict[str, Any]], None] | None = None,
+        candidate_version: int = 1,
     ) -> FinalizedAnswer:
         text = (candidate or "").strip()
 
@@ -215,12 +216,12 @@ class AnswerFinalizer:
             "type": "helper_grounding_review_started",
             "data": {
                 "review_count": 1,
-                "candidate_version": 1,
+                "candidate_version": candidate_version,
                 "message": "正在核对 Candidate V1 与冻结证据快照。",
             },
         })
         review1 = self._invoke_reviewer(reviewer, question, context_docs, text)
-        _emit(self._review_status_event(review1, review_count=1, context_docs=context_docs))
+        _emit(self._review_status_event(review1, review_count=1, candidate_version=candidate_version, context_docs=context_docs))
         if review1.error or review1.verdict == "ERROR":
             _emit({
                 "type": "error",
@@ -383,7 +384,7 @@ class AnswerFinalizer:
                     "type": "rewrite_status",
                     "data": {
                         "status": "completed",
-                        "candidate_version": 2,
+                        "candidate_version": candidate_version + 1,
                         "message": "重写完成，已生成 Candidate V2。",
                     },
                 })
@@ -399,7 +400,7 @@ class AnswerFinalizer:
                     "type": "helper_grounding_review_started",
                     "data": {
                         "review_count": 2,
-                        "candidate_version": 2,
+                        "candidate_version": candidate_version + 1,
                         "message": "正在二次核对 Candidate V2 与同一冻结证据快照。",
                     },
                 })
@@ -407,7 +408,7 @@ class AnswerFinalizer:
                 review2 = self._freeze_review_coverage(review2, review1.coverage)
                 last_review = review2
                 review_count = 2
-                _emit(self._review_status_event(review2, review_count=2, context_docs=context_docs))
+                _emit(self._review_status_event(review2, review_count=2, candidate_version=candidate_version + 1, context_docs=context_docs))
                 if review2.error or review2.verdict == "ERROR":
                     attempts.append({
                         "attempt": 2,
@@ -648,10 +649,20 @@ class AnswerFinalizer:
         return replace(result, coverage=coverage, verdict=verdict)
 
     @staticmethod
+    def _public_claim_reason(reason: Any) -> str | None:
+        text = " ".join(str(reason or "").split())
+        if not text or any(marker in text.casefold() for marker in (
+            "prompt", "traceback", "raw_response", "protocol_attempt", "exception",
+        )):
+            return None
+        return text[:240]
+
+    @staticmethod
     def _review_status_event(
         result: HelperGroundingReviewResult,
         *,
         review_count: int,
+        candidate_version: int = 1,
         context_docs: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         claims = list(getattr(result, "claim_reviews", []) or [])
@@ -667,6 +678,7 @@ class AnswerFinalizer:
             "data": {
                 "reviewer_role": "helper_llm",
                 "review_count": review_count,
+                "candidate_version": candidate_version,
                 "verdict": result.verdict,
                 "coverage": result.coverage,
                 "repair_mode": result.repair_mode,
@@ -685,6 +697,7 @@ class AnswerFinalizer:
                         "claim_type": claim.claim_type,
                         "claim_scope": claim.claim_scope,
                         "status": claim.status,
+                        **({"reason": public_reason} if public_reason else {}),
                         "evidence_ids": list(claim.evidence_ids),
                         "evidence_support_scopes": [
                             scope_by_evidence_id.get(evidence_id, "UNKNOWN")
@@ -692,6 +705,7 @@ class AnswerFinalizer:
                         ],
                     }
                     for claim in claims
+                    for public_reason in [AnswerFinalizer._public_claim_reason(claim.reason)]
                 ],
                 "rewrite_actions": [
                     {

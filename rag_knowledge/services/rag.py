@@ -2571,6 +2571,7 @@ class RagChain:
         review_result: Any,
         *,
         on_reasoning_event=None,
+        call_id: str = "grounded_retry_v2",
     ) -> str:
         candidate_text = (candidate_v1 or "").strip()
         rewrite_actions = getattr(review_result, "rewrite_actions", []) or []
@@ -2655,105 +2656,52 @@ class RagChain:
             },
         ]
         if on_reasoning_event is not None:
-            from rag_knowledge.llm_http import (
-                achat_stream_parts,
-                native_reasoning_capability,
-            )
-            from rag_knowledge.services.execution_explanation import (
-                generate_public_explanation,
+            from rag_knowledge.services.model_stream_runner import (
+                ModelStreamRunner,
+                StreamRunOptions,
             )
 
             endpoint = self._resolve_llm_endpoint(model)
-            call_id = "grounded_retry_v2"
-            started = time.perf_counter()
-            reasoning_available = False
-            reasoning_chars = 0
-            content_parts: list[str] = []
-            # Grounded Rewrite is still a Main-LLM generation call and shares
-            # the output budget with native reasoning. Keep it aligned with the
-            # primary Answer Generator so thinking cannot consume the entire
-            # budget before Candidate V2 content is emitted.
-            reasoning_num_predict = 8192
-            explanation = asyncio.run(generate_public_explanation(
-                stage="grounded_retry",
-                call_id=call_id,
+            orch = getattr(self._cfg, "agent_orchestration", None)
+            stream_policy = str(getattr(orch, "reasoning_stream_policy", "token") or "token").lower()
+            stream_policy = {"summarized": "summary"}.get(stream_policy, stream_policy)
+            stream_runner = ModelStreamRunner()
+            options = StreamRunOptions(
                 endpoint=endpoint,
-                context={
-                    "question": question,
-                    "review_summary": getattr(review_result, "summary", ""),
-                    "rewrite_actions": [
-                        action.to_dict() for action in rewrite_actions
-                    ],
-                },
-                default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                messages=retry_messages,
+                stage="grounded_retry",
+                role="main",
+                call_id=call_id,
+                stream_policy=stream_policy,
+                request_reasoning=True,
+                temperature=0.0,
+                timeout=600.0,
+                num_predict=8192,
                 num_ctx=self._cfg.context_budget.context_window,
-            ))
-            on_reasoning_event(explanation)
-            on_reasoning_event({
-                "type": "llm_reasoning_start",
-                "data": {
-                    "call_id": call_id,
-                    "role": "main",
-                    "stage": "grounded_retry",
-                    "model": endpoint.model,
-                    "provider": endpoint.normalized_provider(),
-                },
-            })
+                default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+            )
+            result = stream_runner.run(options, on_event=on_reasoning_event)
+            if not result.reasoning_available:
+                from rag_knowledge.services.execution_explanation import (
+                    public_explanation_event,
+                )
 
-            async def _collect() -> None:
-                nonlocal reasoning_available, reasoning_chars
-                async for part in achat_stream_parts(
-                    endpoint,
-                    retry_messages,
-                    default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
-                    temperature=0.0,
-                    timeout=600.0,
-                    num_predict=reasoning_num_predict,
-                    think=native_reasoning_capability(
-                        endpoint,
-                        default_ollama=getattr(self, "_ollama_base", ""),
-                    ).can_request,
-                    num_ctx=self._cfg.context_budget.context_window,
-                ):
-                    if part.kind == "reasoning":
-                        reasoning_available = True
-                        reasoning_chars += len(part.delta)
-                        on_reasoning_event({
-                            "type": "llm_reasoning_delta",
-                            "data": {
-                                "call_id": call_id,
-                                "role": "main",
-                                "stage": "grounded_retry",
-                                "delta": part.delta,
-                            },
-                        })
-                    else:
-                        content_parts.append(part.delta)
-
-            error_name: str | None = None
-            try:
-                asyncio.run(_collect())
-            except Exception as exc:
-                error_name = type(exc).__name__
-                raise
-            finally:
-                on_reasoning_event({
-                    "type": "llm_reasoning_end",
-                    "data": {
-                        "call_id": call_id,
-                        "role": "main",
-                        "stage": "grounded_retry",
-                        "model": endpoint.model,
-                        "provider": endpoint.normalized_provider(),
-                        "reasoning_available": reasoning_available,
-                        "reasoning_chars": reasoning_chars,
-                        "content_chars": sum(len(part) for part in content_parts),
-                        "num_predict": reasoning_num_predict,
-                        "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
-                        **({"error": error_name} if error_name else {}),
+                fallback_explanation = public_explanation_event(
+                    stage="grounded_retry",
+                    call_id=call_id,
+                    endpoint=endpoint,
+                    text=None,
+                    source="system_fallback",
+                    context={
+                        "question": question,
+                        "review_summary": getattr(review_result, "summary", ""),
+                        "rewrite_actions": [
+                            action.to_dict() for action in rewrite_actions
+                        ],
                     },
-                })
-            return "".join(content_parts)
+                )
+                on_reasoning_event(fallback_explanation)
+            return result.content
 
         from langchain_core.messages import SystemMessage, HumanMessage
 
@@ -2776,11 +2724,7 @@ class RagChain:
         if cfg is None or not bool(getattr(cfg, "grounding_reviewer_enabled", True)):
             return None
 
-        from rag_knowledge.llm_http import (
-            achat_stream_parts,
-            chat_role,
-            native_reasoning_capability,
-        )
+        from rag_knowledge.llm_http import chat_role
         from rag_knowledge.services.helper_grounding_reviewer import (
             HelperGroundingReviewer,
             review_response_json_schema,
@@ -2788,107 +2732,21 @@ class RagChain:
         from rag_knowledge.services.model_routing import ModelRoutePolicy
 
         role = ModelRoutePolicy(cfg).grounding_reviewer_role()
-        endpoint = cfg.endpoint_for(role)
         timeout = float(getattr(cfg, "grounding_reviewer_timeout", 30.0) or 30.0)
-        if reasoning_enabled is None:
-            reasoning_enabled = native_reasoning_capability(
-                endpoint,
-                default_ollama=getattr(cfg, "ollama_base_url", ""),
-            ).can_request
-        call_counter = 0
 
         def _caller(messages: list[dict[str, str]]):
-            nonlocal call_counter
-            if not reasoning_enabled:
-                return chat_role(
-                    cfg,
-                    role,
-                    messages,
-                    temperature=0.0,
-                    format_json=True,
-                    json_schema=review_response_json_schema(),
-                    num_predict=4096,
-                    timeout=timeout,
-                    think=False,
-                    stage="grounding_reviewer",
-                )
-
-            call_counter += 1
-            call_id = f"grounding_reviewer_{call_counter}"
-            started = time.perf_counter()
-            reasoning_available = False
-            reasoning_chars = 0
-            content_parts: list[str] = []
-            # Review JSON shares the provider output budget with native reasoning.
-            # Full evidence packs can exhaust 6144 before schema content is emitted.
-            reasoning_num_predict = 12288
-            if on_reasoning_event is not None:
-                on_reasoning_event({
-                    "type": "llm_reasoning_start",
-                    "data": {
-                        "call_id": call_id,
-                        "role": "helper",
-                        "stage": "grounding_reviewer",
-                        "model": endpoint.model,
-                        "provider": endpoint.normalized_provider(),
-                    },
-                })
-
-            async def _collect() -> None:
-                nonlocal reasoning_available, reasoning_chars
-                async for part in achat_stream_parts(
-                    endpoint,
-                    messages,
-                    default_ollama=getattr(cfg, "ollama_base_url", ""),
-                    temperature=0.0,
-                    timeout=timeout,
-                    num_predict=reasoning_num_predict,
-                    think=True,
-                    num_ctx=cfg.context_budget.context_window,
-                    format_json=True,
-                    json_schema=review_response_json_schema(),
-                ):
-                    if part.kind == "reasoning":
-                        reasoning_available = True
-                        reasoning_chars += len(part.delta)
-                        if on_reasoning_event is not None:
-                            on_reasoning_event({
-                                "type": "llm_reasoning_delta",
-                                "data": {
-                                    "call_id": call_id,
-                                    "role": "helper",
-                                    "stage": "grounding_reviewer",
-                                    "delta": part.delta,
-                                },
-                            })
-                    else:
-                        content_parts.append(part.delta)
-
-            error_name: str | None = None
-            try:
-                asyncio.run(_collect())
-            except Exception as exc:
-                error_name = type(exc).__name__
-                raise
-            finally:
-                if on_reasoning_event is not None:
-                    on_reasoning_event({
-                        "type": "llm_reasoning_end",
-                        "data": {
-                            "call_id": call_id,
-                            "role": "helper",
-                            "stage": "grounding_reviewer",
-                            "model": endpoint.model,
-                            "provider": endpoint.normalized_provider(),
-                            "reasoning_available": reasoning_available,
-                            "reasoning_chars": reasoning_chars,
-                            "content_chars": sum(len(part) for part in content_parts),
-                            "num_predict": reasoning_num_predict,
-                            "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
-                            **({"error": error_name} if error_name else {}),
-                        },
-                    })
-            return "".join(content_parts)
+            return chat_role(
+                cfg,
+                role,
+                messages,
+                temperature=0.0,
+                format_json=True,
+                json_schema=review_response_json_schema(),
+                num_predict=4096,
+                timeout=timeout,
+                think=False,
+                stage="grounding_reviewer",
+            )
 
         return HelperGroundingReviewer(_caller)
 
@@ -3290,6 +3148,7 @@ class RagChain:
         resume_working_docs: list[dict[str, Any]] | None = None,
         resume_graph_working_set: dict[str, Any] | None = None,
         previous_snapshot_version: int | None = None,
+        model_call_id_prefix: str | None = None,
         on_event=None,
         trace=None,
     ):
@@ -4065,6 +3924,7 @@ class RagChain:
             ),
             continuous_no_progress_count=int(resume_continuous_no_progress_count or 0),
             exploration_fuse_open=bool(resume_exploration_fuse_open),
+            call_id_prefix=model_call_id_prefix,
             initial_observations=([
                 {
                     "tool": "reviewer_feedback",
@@ -4233,47 +4093,58 @@ class RagChain:
                 })
                 break
 
-            resume_events: list[dict[str, Any]] = []
+            resume_event_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
             async def _capture_resume_event(event: dict[str, Any]) -> None:
-                resume_events.append(event)
+                await resume_event_queue.put(event)
 
-            resumed = await self._run_agent_turn(
-                q,
-                history=history,
-                kb_name=kb_name,
-                doc_category=doc_category,
-                entity_name=entity_name,
-                web_search=bool(web_search),
-                pinned_chunk_ids=pinned_chunk_ids,
-                excluded_chunk_ids=excluded_chunk_ids,
-                clarification_question=clarification_question,
-                clarification_selected=clarification_selected,
-                clarification_option_id=clarification_option_id,
-                clarification_snapshot_id=clarification_snapshot_id,
-                clarification_selected_candidate=clarification_selected_candidate,
-                clarification_options=clarification_options,
-                clarification_selection_kind=clarification_selection_kind,
-                clarification_free_text=clarification_free_text,
-                previous_cited_docs=source_docs,
-                reviewer_feedback=feedback,
-                resume_budget=remaining,
-                resume_gap_registry=getattr(result, "gap_registry", None),
-                resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
-                resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
-                resume_working_docs=result.evidence.working_only_docs(),
-                resume_graph_working_set=(
-                    result.graph_working_set.to_trace()
-                    if getattr(result, "graph_working_set", None) is not None
-                    and hasattr(result.graph_working_set, "to_trace")
-                    else None
-                ),
-                previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
-                on_event=_capture_resume_event,
-                trace=trace,
-            )
-            for event in resume_events:
+            async def _run_resume_task():
+                try:
+                    return await self._run_agent_turn(
+                        q,
+                        history=history,
+                        kb_name=kb_name,
+                        doc_category=doc_category,
+                        entity_name=entity_name,
+                        web_search=bool(web_search),
+                        pinned_chunk_ids=pinned_chunk_ids,
+                        excluded_chunk_ids=excluded_chunk_ids,
+                        clarification_question=clarification_question,
+                        clarification_selected=clarification_selected,
+                        clarification_option_id=clarification_option_id,
+                        clarification_snapshot_id=clarification_snapshot_id,
+                        clarification_selected_candidate=clarification_selected_candidate,
+                        clarification_options=clarification_options,
+                        clarification_selection_kind=clarification_selection_kind,
+                        clarification_free_text=clarification_free_text,
+                        previous_cited_docs=source_docs,
+                        reviewer_feedback=feedback,
+                        resume_budget=remaining,
+                        resume_gap_registry=getattr(result, "gap_registry", None),
+                        resume_continuous_no_progress_count=getattr(result, "continuous_no_progress_count", 0),
+                        resume_exploration_fuse_open=getattr(result, "exploration_fuse_open", False),
+                        resume_working_docs=result.evidence.working_only_docs(),
+                        resume_graph_working_set=(
+                            result.graph_working_set.to_trace()
+                            if getattr(result, "graph_working_set", None) is not None
+                            and hasattr(result.graph_working_set, "to_trace")
+                            else None
+                        ),
+                        previous_snapshot_version=getattr(result.evidence_snapshot, "evidence_version", None),
+                        model_call_id_prefix=f"reviewer_resume_{rounds + 1}",
+                        on_event=_capture_resume_event,
+                        trace=trace,
+                    )
+                finally:
+                    await resume_event_queue.put(None)
+
+            resume_task = asyncio.create_task(_run_resume_task())
+            while True:
+                event = await resume_event_queue.get()
+                if event is None:
+                    break
                 yield event
+            resumed = await resume_task
 
             resumed_source_docs, resumed_retrieved_docs = self._agent_answer_docs(resumed)
             if not resumed_source_docs:
@@ -4330,16 +4201,38 @@ class RagChain:
                     is_direct_chat=is_direct_chat,
                     has_evidence=bool(source_docs),
                 )
+            candidate_version = rounds + 2
             if emit_candidate_status:
                 yield {
                     "type": "candidate_status",
                     "data": {
-                        "version": rounds + 2,
+                        "version": candidate_version,
                         "status": "generating",
-                        "message": "Main Controller 已完成补检，正在生成 Candidate V%s。" % (rounds + 2),
+                        "message": "Main Controller 已完成补检，正在生成 Candidate V%s。" % candidate_version,
                     },
                 }
-            v2_text = await generate_candidate(msgs)
+            candidate_event_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+            async def _capture_candidate_event(event: dict[str, Any]) -> None:
+                await candidate_event_queue.put(event)
+
+            async def _run_candidate_task() -> str:
+                try:
+                    return await generate_candidate(
+                        msgs,
+                        on_event=_capture_candidate_event,
+                        candidate_version=candidate_version,
+                    )
+                finally:
+                    await candidate_event_queue.put(None)
+
+            candidate_task = asyncio.create_task(_run_candidate_task())
+            while True:
+                event = await candidate_event_queue.get()
+                if event is None:
+                    break
+                yield event
+            v2_text = await candidate_task
             if not v2_text or not v2_text.strip():
                 if not re_finalize_when_empty:
                     break
@@ -4369,9 +4262,11 @@ class RagChain:
                             source_docs,
                             review_result,
                             on_reasoning_event=_on_lifecycle_sync if forward_retry_reasoning else None,
+                            call_id=f"grounded_retry_v{candidate_version + 1}",
                         ),
                         helper_reviewer=self._helper_grounding_reviewer(),
                         on_lifecycle_event=_on_lifecycle_sync,
+                        candidate_version=candidate_version,
                     )
                 finally:
                     curr_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
@@ -4689,103 +4584,59 @@ class RagChain:
         if downshifted:
             yield {"type": "notice", "data": self._downshift_fields(True, guarded_model)["downshift_notice"]}
 
-        from rag_knowledge.llm_http import achat_stream_parts
-        from rag_knowledge.services.execution_explanation import (
-            generate_public_explanation,
+        from rag_knowledge.services.model_stream_runner import (
+            ModelStreamRunner,
+            StreamRunOptions,
         )
 
         ep = self._resolve_llm_endpoint(model)
         enable_model_thinking = self._should_enable_main_model_thinking(ep, thinking)
-        answer_parts: list[str] = []
-        thinking_parts: list[str] = []
-        reasoning_available = False
         reasoning_call_id = "answer_generator_v1"
-        # Provider-native reasoning consumes the same output budget as the answer.
-        # 4096 can exhaust on qwen3.5:9b before any candidate content is emitted.
-        reasoning_num_predict = 8192
-        explanation_event = await generate_public_explanation(
-            stage="answer_generation",
-            call_id=reasoning_call_id,
-            endpoint=ep,
-            context={
-                "question": q,
-                "evidence_count": len(source_docs),
-                "allow_general_knowledge": bool(allow_general),
-                "answer_contract": getattr(answer_context, "answer_contract", None),
-            },
-            default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
-            num_ctx=self._cfg.context_budget.context_window,
-        )
-        self._record_execution_event(trace, explanation_event)
-        yield explanation_event
-        reasoning_started = time.perf_counter()
         orch = getattr(self._cfg, "agent_orchestration", None)
         stream_policy = str(getattr(orch, "reasoning_stream_policy", "token") or "token").lower()
         stream_policy = {"summarized": "summary"}.get(stream_policy, stream_policy)
-        if stream_policy != "never":
-            reasoning_start_event = {
-                "type": "llm_reasoning_start",
-                "data": {
-                    "call_id": reasoning_call_id,
-                    "role": "main",
-                    "stage": "answer_generation",
-                    "model": ep.model,
-                    "provider": ep.normalized_provider(),
-                },
-            }
-            self._record_execution_event(trace, reasoning_start_event)
-            yield reasoning_start_event
+        max_summary_chars = int(getattr(orch, "trace_reasoning_max_chars", 2000) or 2000)
+
+        event_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        async def _on_stream_event(evt: dict[str, Any]) -> None:
+            self._record_execution_event(trace, evt)
+            await event_queue.put(evt)
+
+        stream_runner = ModelStreamRunner()
+        options = StreamRunOptions(
+            endpoint=ep,
+            messages=msgs,
+            stage="answer_generation",
+            role="main",
+            call_id=reasoning_call_id,
+            stream_policy=stream_policy,
+            request_reasoning=enable_model_thinking,
+            temperature=0.1,
+            timeout=600.0,
+            num_predict=8192,
+            num_ctx=self._cfg.context_budget.context_window,
+            default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+            trace_max_summary_chars=max_summary_chars,
+        )
+
+        async def _run_stream() -> Any:
+            try:
+                return await stream_runner.arun(options, on_event=_on_stream_event)
+            finally:
+                await event_queue.put(None)
+
+        stream_task = asyncio.create_task(_run_stream())
+        while True:
+            evt = await event_queue.get()
+            if evt is None:
+                break
+            yield evt
+
         try:
-            async for part in achat_stream_parts(
-                ep,
-                msgs,
-                default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
-                temperature=0.1,
-                timeout=600.0,
-                num_predict=reasoning_num_predict,
-                think=bool(enable_model_thinking),
-                num_ctx=self._cfg.context_budget.context_window,
-            ):
-                if not part.delta:
-                    continue
-                if part.kind == "reasoning":
-                    reasoning_available = True
-                    thinking_parts.append(part.delta)
-                    if stream_policy == "token":
-                        reasoning_delta_event = {
-                            "type": "llm_reasoning_delta",
-                            "data": {
-                                "call_id": reasoning_call_id,
-                                "role": "main",
-                                "stage": "answer_generation",
-                                "delta": part.delta,
-                            },
-                        }
-                        self._record_execution_event(trace, reasoning_delta_event)
-                        yield reasoning_delta_event
-                else:
-                    answer_parts.append(part.delta)
+            result = await stream_task
         except Exception as stream_exc:
             logger.error("模型流式调用失败: %s", stream_exc)
-            if stream_policy != "never":
-                reasoning_end_event = {
-                    "type": "llm_reasoning_end",
-                    "data": {
-                        "call_id": reasoning_call_id,
-                        "role": "main",
-                        "stage": "answer_generation",
-                        "model": ep.model,
-                        "provider": ep.normalized_provider(),
-                        "reasoning_available": reasoning_available,
-                        "reasoning_chars": sum(len(part) for part in thinking_parts),
-                        "content_chars": sum(len(part) for part in answer_parts),
-                        "num_predict": reasoning_num_predict,
-                        "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
-                        "error": type(stream_exc).__name__,
-                    },
-                }
-                self._record_execution_event(trace, reasoning_end_event)
-                yield reasoning_end_event
             fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
             error_event = {
                 "type": "error",
@@ -4820,43 +4671,30 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        if stream_policy == "summary" and thinking_parts:
-            summary_text = "".join(thinking_parts)
-            max_chars = int(getattr(orch, "trace_reasoning_max_chars", 2000) or 2000)
-            if len(summary_text) > max_chars:
-                summary_text = summary_text[:max_chars] + "..."
-            reasoning_summary_event = {
-                "type": "llm_reasoning_summary",
-                "data": {
-                    "call_id": reasoning_call_id,
-                    "role": "main",
-                    "stage": "answer_generation",
-                    "summary": summary_text,
-                },
-            }
-            self._record_execution_event(trace, reasoning_summary_event)
-            yield reasoning_summary_event
+        reasoning_available = result.reasoning_available
+        if not reasoning_available:
+            from rag_knowledge.services.execution_explanation import (
+                public_explanation_event,
+            )
 
-        if stream_policy != "never":
-            reasoning_end_event = {
-                "type": "llm_reasoning_end",
-                "data": {
-                    "call_id": reasoning_call_id,
-                    "role": "main",
-                    "stage": "answer_generation",
-                    "model": ep.model,
-                    "provider": ep.normalized_provider(),
-                    "reasoning_available": reasoning_available,
-                    "reasoning_chars": sum(len(part) for part in thinking_parts),
-                    "content_chars": sum(len(part) for part in answer_parts),
-                    "num_predict": reasoning_num_predict,
-                    "elapsed_ms": round((time.perf_counter() - reasoning_started) * 1000, 1),
+            fallback_explanation = public_explanation_event(
+                stage="answer_generation",
+                call_id=reasoning_call_id,
+                endpoint=ep,
+                text=None,
+                source="system_fallback",
+                context={
+                    "question": q,
+                    "evidence_count": len(source_docs),
+                    "allow_general_knowledge": bool(allow_general),
+                    "answer_contract": getattr(answer_context, "answer_contract", None),
                 },
-            }
-            self._record_execution_event(trace, reasoning_end_event)
-            yield reasoning_end_event
+            )
+            self._record_execution_event(trace, fallback_explanation)
+            yield fallback_explanation
+
         trace.mark("generate")
-        answer_text = "".join(answer_parts)
+        answer_text = result.content
         if not answer_text.strip():
             fallback_answer = (
                 "知识库已完成检索，但模型没有返回有效答案，请重试一次。"
@@ -4888,7 +4726,7 @@ class RagChain:
             tid = self._commit_qa_trace(
                 trace,
                 answer=fallback_answer,
-                thinking="".join(thinking_parts) if thinking_parts else None,
+                thinking=result.raw_reasoning if result.raw_reasoning else None,
                 retrieved_docs=retrieved_source_docs,
                 context_docs=source_docs,
                 cited_docs=[],
@@ -4944,21 +4782,42 @@ class RagChain:
         if feedback:
             resume_state: dict[str, Any] = {}
 
-            async def _generate_v2(msgs):
-                v2_parts: list[str] = []
-                async for part in achat_stream_parts(
-                    ep,
-                    msgs,
-                    default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+            async def _generate_v2(msgs, *, on_event, candidate_version: int):
+                runner = ModelStreamRunner()
+                v2_opts = StreamRunOptions(
+                    endpoint=ep,
+                    messages=msgs,
+                    stage="answer_generation",
+                    role="main",
+                    call_id=f"answer_generator_resume_v{candidate_version}",
+                    stream_policy=stream_policy,
+                    request_reasoning=enable_model_thinking,
                     temperature=0.1,
                     timeout=600.0,
-                    num_predict=reasoning_num_predict,
-                    think=bool(enable_model_thinking),
+                    num_predict=8192,
                     num_ctx=self._cfg.context_budget.context_window,
-                ):
-                    if part.delta and part.kind != "reasoning":
-                        v2_parts.append(part.delta)
-                return "".join(v2_parts)
+                    default_ollama=getattr(self, "_ollama_base", "http://localhost:11434"),
+                    trace_max_summary_chars=max_summary_chars,
+                )
+                v2_res = await runner.arun(v2_opts, on_event=on_event)
+                if not v2_res.reasoning_available:
+                    from rag_knowledge.services.execution_explanation import (
+                        public_explanation_event,
+                    )
+
+                    await on_event(public_explanation_event(
+                        stage="answer_generation",
+                        call_id=v2_opts.call_id,
+                        endpoint=ep,
+                        text=None,
+                        source="system_fallback",
+                        context={
+                            "question": q,
+                            "evidence_count": len(source_docs),
+                            "allow_general_knowledge": bool(allow_general),
+                        },
+                    ))
+                return v2_res.content
 
             async for event in self._iter_reviewer_resume_loop(
                 q=q,
@@ -4991,6 +4850,7 @@ class RagChain:
                 generate_candidate=_generate_v2,
                 forward_retry_reasoning=True,
                 emit_candidate_status=True,
+                re_finalize_when_empty=True,
                 state=resume_state,
                 trace=trace,
             ):
@@ -5015,7 +4875,7 @@ class RagChain:
         tid = self._commit_qa_trace(
             trace,
             answer=answer_text,
-            thinking="".join(thinking_parts) if thinking_parts else None,
+            thinking=result.raw_reasoning if getattr(result, "raw_reasoning", None) else None,
             retrieved_docs=retrieved_source_docs,
             context_docs=source_docs,
             cited_docs=cited,
@@ -5227,7 +5087,7 @@ class RagChain:
         if feedback:
             resume_state: dict[str, Any] = {}
 
-            async def _generate_v2(msgs):
+            async def _generate_v2(msgs, *, on_event, candidate_version: int):
                 lc_msgs = []
                 for message in msgs:
                     if message["role"] == "system":

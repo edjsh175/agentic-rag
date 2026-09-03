@@ -6,6 +6,7 @@ import type {
   GroundingReviewStartedEventData,
   LLMReasoningEventData,
   PublicExplanationEventData,
+  ReviewFindingBlock,
   MarkdownBlock,
   ReasoningBlock,
   ReviewStatusEventData,
@@ -80,20 +81,34 @@ export class AgentBlockProjector {
   private pendingReasoningStarts = new Map<string, LLMReasoningEventData>()
   private activeSystemEventMap = new Map<string, number>()
   private activityIndexMap = new Map<string, number>()
+  private reviewFindingIndexMap = new Map<number, number>()
 
   constructor(initialBlocks: AssistantBlock[] = []) {
     // 直接持有调用方提供的数组。ChatView 传入 Vue reactive blocks，
     // 这样 reasoning delta / tool lifecycle 的原位更新才能逐事件触发界面刷新。
     this.blocks = initialBlocks
     this.sequenceCounter = this.blocks.reduce((max, block) => Math.max(max, block.sequence || 0), 0)
-    // 重建索引
+    this.rebuildAllIndexMaps()
+  }
+
+  private rebuildAllIndexMaps(): void {
+    this.reasoningCallIndexMap.clear()
+    this.toolKeyIndexMap.clear()
+    this.activityIndexMap.clear()
+    this.reviewFindingIndexMap.clear()
+    this.activeSystemEventMap.clear()
     this.blocks.forEach((b, idx) => {
       if (b.kind === 'reasoning') {
         this.reasoningCallIndexMap.set(b.callId, idx)
       } else if (b.kind === 'tool') {
         this.toolKeyIndexMap.set(b.toolCallKey, idx)
       } else if (b.kind === 'activity') {
-        this.activityIndexMap.set(`activity:${b.activity}:${b.reviewCount || 1}`, idx)
+        this.activityIndexMap.set(
+          `activity:${b.activity}:${b.candidateVersion || b.reviewCount || 1}:${b.reviewCount || 1}`,
+          idx,
+        )
+      } else if (b.kind === 'review_finding') {
+        this.reviewFindingIndexMap.set(b.candidateVersion, idx)
       } else if (b.kind === 'system_event' && b.correlationId) {
         this.activeSystemEventMap.set(b.correlationId, idx)
       }
@@ -159,6 +174,14 @@ export class AgentBlockProjector {
     const callId = data.call_id
     if (!callId) return
 
+    // 若存在同 call 的 public fallback block，清理之以 native reasoning 为准
+    const publicCallId = `public:${callId}`
+    if (this.reasoningCallIndexMap.has(publicCallId)) {
+      const pubIdx = this.reasoningCallIndexMap.get(publicCallId)!
+      this.blocks.splice(pubIdx, 1)
+      this.rebuildAllIndexMaps()
+    }
+
     if (!this.reasoningCallIndexMap.has(callId)) {
       this.createNativeReasoningBlock({
         ...(this.pendingReasoningStarts.get(callId) || {}),
@@ -200,9 +223,17 @@ export class AgentBlockProjector {
     }
   }
 
-  /** 处理所有 Main 阶段统一产生的公开执行说明。 */
+  /** 处理所有 Main 阶段统一产生的公开执行说明（仅在无 native reasoning 时兜底）。 */
   public handlePublicExplanation(data: PublicExplanationEventData): void {
     if (data.role !== 'main' || !data.call_id || !data.text) return
+    const rawCallId = data.call_id
+    // 若该 call 已有 native reasoning 且已有内容或正在流式，则忽略 public explanation 兜底
+    if (this.reasoningCallIndexMap.has(rawCallId)) {
+      const existing = this.blocks[this.reasoningCallIndexMap.get(rawCallId)!] as ReasoningBlock
+      if (existing && existing.contentSource === 'native_reasoning' && (existing.text || existing.isStreaming)) {
+        return
+      }
+    }
     const callId = `public:${data.call_id}`
     if (this.reasoningCallIndexMap.has(callId)) return
     const block: ReasoningBlock = {
@@ -320,7 +351,7 @@ export class AgentBlockProjector {
   public handleGroundingReviewStarted(data: GroundingReviewStartedEventData): void {
     const reviewCount = data.review_count || 1
     const candidateVersion = data.candidate_version || reviewCount
-    const key = `activity:grounding_review:${reviewCount}`
+    const key = `activity:grounding_review:${candidateVersion}:${reviewCount}`
     const text = reviewCount === 2 ? '正在再次核对修正后的回答…' : '正在核对回答与证据…'
 
     if (this.activityIndexMap.has(key)) {
@@ -335,7 +366,7 @@ export class AgentBlockProjector {
 
     const sequence = this.nextSequence()
     const block: ActivityBlock = {
-      id: `activity-review-${reviewCount}-${sequence}`,
+      id: `activity-review-${candidateVersion}-${reviewCount}-${sequence}`,
       kind: 'activity',
       type: 'activity',
       sequence,
@@ -355,19 +386,20 @@ export class AgentBlockProjector {
   /** 处理 Reviewer 审查结果：在对应的 ActivityBlock 上原位更新状态与文案，不生成 SystemEvent Warning */
   public handleReviewStatus(data: ReviewStatusEventData): void {
     const reviewCount = data.review_count || 1
-    const key = `activity:grounding_review:${reviewCount}`
+    const candidateVersion = data.candidate_version || reviewCount
+    const key = `activity:grounding_review:${candidateVersion}:${reviewCount}`
 
     let idx = this.activityIndexMap.get(key)
     if (idx === undefined) {
       const sequence = this.nextSequence()
       const block: ActivityBlock = {
-        id: `activity-review-${reviewCount}-${sequence}`,
+        id: `activity-review-${candidateVersion}-${reviewCount}-${sequence}`,
         kind: 'activity',
         type: 'activity',
         sequence,
         activity: 'grounding_review',
         reviewCount,
-        candidateVersion: reviewCount,
+        candidateVersion,
         status: 'running',
         text: reviewCount === 2 ? '正在再次核对修正后的回答…' : '正在核对回答与证据…',
         startedAt: Date.now(),
@@ -393,6 +425,41 @@ export class AgentBlockProjector {
 
     if (elapsedMs !== undefined) {
       existing.elapsedMs = elapsedMs
+    }
+
+    const findings = (data.claim_reviews || [])
+      .filter(claim => claim.status !== 'supported')
+      .map(claim => {
+        const action = (data.rewrite_actions || []).find(item => item.claim_id === claim.claim_id)
+        return {
+          claim: claim.claim || claim.statement || '未命名表述',
+          status: claim.status,
+          reason: claim.reason,
+          evidenceIds: claim.evidence_ids,
+          action: action?.action,
+          instruction: action?.instruction,
+        }
+      })
+    if (data.verdict !== 'REVISE' || findings.length === 0) return
+
+    const findingKey = candidateVersion
+    const findingBlock: ReviewFindingBlock = {
+      id: `review-finding-${findingKey}`,
+      kind: 'review_finding',
+      type: 'review_finding',
+      sequence: this.nextSequence(),
+      candidateVersion,
+      reviewCount,
+      summary: data.summary,
+      findings,
+    }
+    const findingIndex = this.reviewFindingIndexMap.get(findingKey)
+    if (findingIndex === undefined) {
+      this.reviewFindingIndexMap.set(findingKey, this.blocks.length)
+      this.blocks.push(findingBlock)
+    } else {
+      this.blocks.splice(findingIndex, 1, findingBlock)
+      this.rebuildAllIndexMaps()
     }
   }
 

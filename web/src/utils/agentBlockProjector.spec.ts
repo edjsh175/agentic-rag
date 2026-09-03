@@ -185,9 +185,9 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
     projector.handleGroundingReviewStarted({ review_count: 1, candidate_version: 1, message: '一审' })
     projector.handleReviewStatus({ review_count: 1, verdict: 'REVISE', coverage: '0.5', message: '需修正' })
 
-    // Rewrite Explanation & Reasoning
+    // Rewrite Explanation & Reasoning (Sub-PRD 01: native reasoning supersedes fallback, no duplicate cards)
     projector.handlePublicExplanation({
-      call_id: 'retry_1', role: 'main', stage: 'grounded_retry', text: '将删除未支持断言。', source: 'model_generated',
+      call_id: 'retry_1', role: 'main', stage: 'grounded_retry', text: '将删除未支持断言。', source: 'system_fallback',
     })
     projector.handleReasoningStart({ call_id: 'retry_1', role: 'main', stage: 'grounded_retry' })
     projector.handleReasoningDelta({ call_id: 'retry_1', role: 'main', delta: '删除 c2' })
@@ -195,18 +195,69 @@ describe('AgentBlockProjector - 核心生命周期与投影', () => {
 
     // Review #2
     projector.handleGroundingReviewStarted({ review_count: 2, candidate_version: 2, message: '二审' })
-    expect((projector.getBlocks()[3] as any).text).toBe('正在再次核对修正后的回答…')
-    expect((projector.getBlocks()[3] as any).status).toBe('running')
+    expect((projector.getBlocks()[2] as any).text).toBe('正在再次核对修正后的回答…')
+    expect((projector.getBlocks()[2] as any).status).toBe('running')
 
     projector.handleReviewStatus({ review_count: 2, verdict: 'PASS', coverage: '1.0', message: '通过' })
-    expect((projector.getBlocks()[3] as any).text).toBe('二次核对通过')
-    expect((projector.getBlocks()[3] as any).status).toBe('completed')
+    expect((projector.getBlocks()[2] as any).text).toBe('二次核对通过')
+    expect((projector.getBlocks()[2] as any).status).toBe('completed')
 
     // Final Answer
     projector.handleFinalAnswer('最终通过的回答。')
 
     const kinds = projector.getBlocks().map(b => b.kind)
-    expect(kinds).toEqual(['activity', 'reasoning', 'reasoning', 'activity', 'markdown'])
+    expect(kinds).toEqual(['activity', 'reasoning', 'activity', 'markdown'])
+  })
+
+  it('projects Reviewer claim findings without replacing rewrite reasoning', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleReviewStatus({
+      review_count: 1,
+      candidate_version: 2,
+      verdict: 'REVISE',
+      coverage: 'PARTIAL',
+      message: '需修正',
+      summary: '发现跨实体属性归因。',
+      claim_reviews: [{ claim_id: 'c3', claim: 'PipelineWebGL 使用 WebRTC', status: 'unsupported' }],
+      rewrite_actions: [{ claim_id: 'c3', action: 'rewrite_to_supported_scope_or_remove' }],
+    })
+    projector.handleReasoningStart({ call_id: 'grounded_retry_v2', role: 'main', stage: 'grounded_retry' })
+    projector.handleReasoningDelta({ call_id: 'grounded_retry_v2', role: 'main', stage: 'grounded_retry', delta: '删除无依据机制描述。' })
+
+    const blocks = projector.getBlocks()
+    const finding = blocks.find(block => block.kind === 'review_finding') as any
+    expect(finding.findings[0]).toMatchObject({
+      claim: 'PipelineWebGL 使用 WebRTC',
+      action: 'rewrite_to_supported_scope_or_remove',
+    })
+    expect(finding).toMatchObject({ candidateVersion: 2, reviewCount: 1 })
+    expect(blocks[blocks.indexOf(finding) + 1]).toMatchObject({ kind: 'reasoning', stage: 'grounded_retry' })
+  })
+
+  it('keeps review activities and findings distinct for each candidate version', () => {
+    const projector = new AgentBlockProjector()
+    for (const candidateVersion of [1, 2]) {
+      projector.handleGroundingReviewStarted({
+        review_count: 1,
+        candidate_version: candidateVersion,
+        message: `核对 Candidate V${candidateVersion}`,
+      })
+      projector.handleReviewStatus({
+        review_count: 1,
+        candidate_version: candidateVersion,
+        verdict: 'REVISE',
+        coverage: 'PARTIAL',
+        message: '需修正',
+        claim_reviews: [{ claim_id: `c${candidateVersion}`, claim: `待修正断言 V${candidateVersion}`, status: 'unsupported' }],
+      })
+    }
+
+    const activities = projector.getBlocks().filter(block => block.kind === 'activity') as any[]
+    const findings = projector.getBlocks().filter(block => block.kind === 'review_finding') as any[]
+    expect(activities).toHaveLength(2)
+    expect(activities.map(block => [block.candidateVersion, block.reviewCount])).toEqual([[1, 1], [2, 1]])
+    expect(findings).toHaveLength(2)
+    expect(findings.map(block => [block.candidateVersion, block.reviewCount])).toEqual([[1, 1], [2, 1]])
   })
 
   it('appends markdown final answer (INV-UI-10)', () => {
@@ -312,6 +363,98 @@ describe('AgentBlockProjector - 故障注入测试 (Failure Injection Suite)', (
     })
 
     expect(projector.getBlocks()).toHaveLength(0)
+  })
+
+  it('Sub-PRD 01: prioritizes native reasoning over public explanation for the same call_id', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleReasoningStart({ call_id: 'answer_1', role: 'main', stage: 'answer_generation' })
+    projector.handleReasoningDelta({ call_id: 'answer_1', role: 'main', delta: '正在分析证据...' })
+    projector.handleReasoningEnd({ call_id: 'answer_1', role: 'main', reasoning_available: true })
+
+    // If a fallback public_explanation arrives for the same call, it should be ignored
+    projector.handlePublicExplanation({
+      call_id: 'answer_1',
+      role: 'main',
+      stage: 'answer_generation',
+      text: '将根据冻结证据组织回答。',
+      source: 'system_fallback',
+    })
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as any).contentSource).toBe('native_reasoning')
+    expect((blocks[0] as any).text).toBe('正在分析证据...')
+  })
+
+  it('Sub-PRD 01: cleans up public explanation fallback if native reasoning delta arrives later', () => {
+    const projector = new AgentBlockProjector()
+    projector.handlePublicExplanation({
+      call_id: 'answer_1',
+      role: 'main',
+      stage: 'answer_generation',
+      text: '将根据冻结证据组织回答。',
+      source: 'system_fallback',
+    })
+
+    let blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as any).contentSource).toBe('public_explanation')
+
+    // Now native reasoning arrives
+    projector.handleReasoningStart({ call_id: 'answer_1', role: 'main', stage: 'answer_generation' })
+    projector.handleReasoningDelta({ call_id: 'answer_1', role: 'main', delta: '模型原生思考...' })
+    projector.handleReasoningEnd({ call_id: 'answer_1', role: 'main', reasoning_available: true })
+
+    blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as any).contentSource).toBe('native_reasoning')
+    expect((blocks[0] as any).text).toBe('模型原生思考...')
+  })
+
+  it('Sub-PRD 01: rebuildAllIndexMaps correctly updates tool/activity/system indices after deleting fallback block', () => {
+    const projector = new AgentBlockProjector()
+    // 1. Fallback reasoning block at index 0
+    projector.handlePublicExplanation({
+      call_id: 'controller_1',
+      role: 'main',
+      stage: 'agent_controller',
+      text: '公开说明',
+      source: 'system_fallback',
+    })
+    // 2. Running tool at index 1
+    projector.handleToolStart({ name: 'retrieve_kb', step: 1, arguments: { query: 'test' } })
+    // 3. Activity at index 2
+    projector.handleGroundingReviewStarted({ review_count: 1, candidate_version: 1, message: '核对中' })
+
+    expect(projector.getBlocks()).toHaveLength(3)
+
+    // Now native reasoning for controller_1 arrives, deleting the fallback at index 0
+    projector.handleReasoningStart({ call_id: 'controller_1', role: 'main', stage: 'agent_controller' })
+    projector.handleReasoningDelta({ call_id: 'controller_1', role: 'main', delta: '原生思考' })
+
+    // Now update toolResult and reviewStatus in-place to verify index maps are correct!
+    projector.handleToolResult({
+      name: 'retrieve_kb',
+      step: 1,
+      ok: true,
+      elapsed_ms: 200,
+      summary: '命中 2 条',
+      arguments: { query: 'test' },
+    })
+    projector.handleReviewStatus({ review_count: 1, verdict: 'PASS', coverage: '1.0', message: '通过' })
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(3)
+    // Tool was shifted from index 1 to 0 and correctly updated in-place via rebuilt toolKeyIndexMap
+    expect(blocks[0].kind).toBe('tool')
+    expect((blocks[0] as any).status).toBe('completed')
+    expect((blocks[0] as any).elapsedMs).toBe(200)
+    // Activity was shifted from index 2 to 1 and correctly updated in-place via rebuilt activityIndexMap
+    expect(blocks[1].kind).toBe('activity')
+    expect((blocks[1] as any).status).toBe('completed')
+    // Native reasoning was appended after deleting fallback
+    expect(blocks[2].kind).toBe('reasoning')
+    expect((blocks[2] as any).text).toBe('原生思考')
   })
 
   it('FI-03: 连续 50 次 Reasoning Delta 高频追加与幂等 FinalAnswer', () => {

@@ -19,7 +19,10 @@ export interface LLMReasoningEventData {
   provider?: string
   step?: number
   delta?: string
+  reasoning_requested?: boolean
   reasoning_available?: boolean
+  reasoning_chars?: number
+  content_chars?: number
   elapsed_ms?: number
   error?: string
 }
@@ -129,6 +132,7 @@ export interface ClaimReviewEventData {
 export interface ReviewStatusEventData {
   reviewer_role?: 'helper_llm'
   review_count: number
+  candidate_version?: number
   verdict: string
   coverage?: string | number
   message: string
@@ -215,8 +219,8 @@ export type KnowledgeStreamEvent =
 /** Agent 用户可见 Block 流基础模型 */
 export interface BaseBlock {
   id: string
-  kind: 'reasoning' | 'tool' | 'activity' | 'system_event' | 'markdown'
-  type?: 'reasoning' | 'tool' | 'activity' | 'system_event' | 'markdown'
+  kind: 'reasoning' | 'tool' | 'activity' | 'review_finding' | 'system_event' | 'markdown'
+  type?: 'reasoning' | 'tool' | 'activity' | 'review_finding' | 'system_event' | 'markdown'
   sequence: number
 }
 
@@ -270,6 +274,22 @@ export interface ActivityBlock extends BaseBlock {
   elapsedMs?: number
 }
 
+export interface ReviewFindingBlock extends BaseBlock {
+  kind: 'review_finding'
+  type?: 'review_finding'
+  candidateVersion: number
+  reviewCount: number
+  summary?: string
+  findings: Array<{
+    claim: string
+    status: string
+    reason?: string
+    evidenceIds?: number[]
+    action?: string
+    instruction?: string
+  }>
+}
+
 export interface SystemEventBlock extends BaseBlock {
   kind: 'system_event'
   type?: 'system_event'
@@ -292,6 +312,7 @@ export type AssistantBlock =
   | ReasoningBlock
   | ToolBlock
   | ActivityBlock
+  | ReviewFindingBlock
   | SystemEventBlock
   | MarkdownBlock
 
@@ -416,6 +437,7 @@ export type AgentTimelineItem =
       type: 'review_status'
       eventKey?: string
       review_count: number
+      candidate_version?: number
       verdict: string
       coverage: string
       message: string
