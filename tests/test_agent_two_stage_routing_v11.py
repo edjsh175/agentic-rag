@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -107,7 +108,7 @@ def test_agent_controller_uses_main_for_compose_answer(isolated_storage):
     assert mocked.call_args.kwargs["stage"] == "agent_controller"
 
 
-def test_agent_controller_repairs_protocol_once_without_changing_decision_authority(isolated_storage):
+def test_agent_controller_retries_clean_semantic_input_after_invalid_protocol(isolated_storage):
     isolated_storage()
     Config._instance = None
     cfg = Config()
@@ -145,12 +146,16 @@ def test_agent_controller_repairs_protocol_once_without_changing_decision_author
             "error": None,
         },
     ]
-    repair_prompt = mocked.call_args_list[1].args[2][0]["content"]
-    assert "只修复决策 JSON 协议" in repair_prompt
-    assert "malformed_compose_answer" in repair_prompt
+    first_messages = mocked.call_args_list[0].args[2]
+    second_messages = mocked.call_args_list[1].args[2]
+    assert second_messages == first_messages
+    retry_payload = json.dumps(second_messages, ensure_ascii=False)
+    assert "validation_error" not in retry_payload
+    assert "previous_response" not in retry_payload
+    assert "只修复决策 JSON 协议" not in retry_payload
 
 
-def test_controller_protocol_repair_rejects_semantic_drift(isolated_storage):
+def test_controller_clean_retry_can_make_a_new_semantic_decision(isolated_storage):
     isolated_storage()
     Config._instance = None
     cfg = Config()
@@ -170,15 +175,13 @@ def test_controller_protocol_repair_rejects_semantic_drift(isolated_storage):
         '{"action":"tool_call","tool":"compose_answer","arguments":{"answer_mode":"partial"}}',
     ])
     with patch("rag_knowledge.llm_http.chat_role", side_effect=lambda *args, **kwargs: next(responses)):
-        try:
-            loop._decide_via_llm()
-        except ValueError as exc:
-            assert "controller_protocol_repair_semantic_drift:tool" in str(exc)
-            assert len(loop._controller_protocol_attempts) == 2
-            assert loop._controller_protocol_attempts[0]["error"].startswith("malformed_tool_call")
-            assert loop._controller_protocol_attempts[1]["error"] == "controller_protocol_repair_semantic_drift:tool"
-        else:
-            raise AssertionError("protocol repair must not change controller action semantics")
+        decision = loop._decide_via_llm()
+
+    assert decision.tool == "compose_answer"
+    assert decision.arguments["answer_mode"] == "partial"
+    assert len(loop._controller_protocol_attempts) == 2
+    assert loop._controller_protocol_attempts[0]["error"].startswith("malformed_tool_call")
+    assert loop._controller_protocol_attempts[1]["error"] is None
 
 
 def test_controller_error_preserves_existing_evidence_state():
@@ -254,7 +257,11 @@ def test_streaming_agent_controller_repairs_protocol_once(isolated_storage):
             "error": None,
         },
     ]
-    assert "只修复决策 JSON 协议" in repair_call.call_args.args[2][0]["content"]
+    retry_payload = json.dumps(repair_call.call_args.args[2], ensure_ascii=False)
+    assert "validation_error" not in retry_payload
+    assert "previous_response" not in retry_payload
+    assert "只修复决策 JSON 协议" not in retry_payload
+    assert repair_call.call_args.args[2][1]["content"] == loop._decision_prompt_for_model()
 
 
 def test_controller_can_retrieve_then_compose_answer_without_harness_recovery_instruction():
@@ -886,6 +893,33 @@ def test_understanding_result_deep_freezes_nested_payloads():
         except TypeError:
             continue
         raise AssertionError("UnderstandingResult nested payload must be immutable")
+
+
+def test_answer_prompt_excludes_runtime_control_and_snapshot_provenance():
+    pool = EvidencePool(question_id="q-runtime-contract")
+    pool.add_retrieve([_doc("c1")], query="q")
+    snapshot = pool.create_snapshot(verdict={"verdict": "FULL"})
+    context = AnswerGenerationContext.from_snapshot(
+        original_question="q",
+        resolved_question="q",
+        conversation_context=(
+            "- 当前主体身份: StampServer（已确认）\n"
+            "- 当前证据 epoch: 4\n"
+            "- topic_shift: true\n"
+            "- entity_transition: true\n"
+            "- 本轮为澄清回调\n"
+        ),
+        snapshot=snapshot,
+        execution_summary="本轮进行了 2 次知识库检索",
+    )
+
+    _, user = [item["content"] for item in build_answer_generation_messages(context)]
+    for forbidden in (
+        "执行摘要：", "本轮进行了 2 次知识库检索", "快照 ID：",
+        "Evidence version：", "当前证据 epoch", "topic_shift: true",
+        "entity_transition: true", "本轮为澄清回调",
+    ):
+        assert forbidden not in user
 
 
 def test_answer_prompt_excludes_tools_and_raw_agent_trace():

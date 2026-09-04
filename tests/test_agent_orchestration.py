@@ -1241,10 +1241,11 @@ Gate: support
     assert "证据已经充足" in res2["thought"]
 
 
-def test_decision_prompt_has_one_shot():
+def test_decision_prompt_does_not_depend_on_static_one_shot_examples():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
-    assert "示例（One-shot）" in _DECISION_PROMPT
-    assert "实体 A 默认端口" in _DECISION_PROMPT
+    assert "示例（One-shot）" not in _DECISION_PROMPT
+    assert "实体 A 默认端口" not in _DECISION_PROMPT
+    assert "当前可以调用的工具" in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():
@@ -1475,12 +1476,15 @@ Gate: support
     assert "证据已经充足" in res2["thought"]
 
 
-def test_decision_prompt_has_one_shot():
+def test_decision_prompt_uses_dynamic_tool_surface_without_static_tool_examples():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
-    assert "示例 1" in _DECISION_PROMPT or "示例" in _DECISION_PROMPT
-    assert "实体 A 默认端口" in _DECISION_PROMPT
-    assert "retrieve_kb" in _DECISION_PROMPT
-    assert "expand_graph_scope" in _DECISION_PROMPT
+    assert "当前可以调用的工具" in _DECISION_PROMPT
+    assert "不要根据历史记忆调用本步骤未提供的工具" in _DECISION_PROMPT
+    assert "示例 1" not in _DECISION_PROMPT
+    assert "实体 A 默认端口" not in _DECISION_PROMPT
+    assert "内部执行约束" in _DECISION_PROMPT
+    for leaked_term in ("Guard", "Fuse", "clarification_callback", "remaining_retrieve_attempts"):
+        assert leaked_term not in _DECISION_PROMPT
 
 
 def test_retrieval_trace_explainable_snapshot():

@@ -131,13 +131,14 @@ class AgentDecision:
             payload["focus_evidence_ids"] = list(self.focus_evidence_ids)
         if self.candidate:
             payload["candidate"] = self.candidate
-        return payload
         if self.gap:
             payload["gap"] = self.gap
         if self.expected_gain:
             payload["expected_gain"] = self.expected_gain
         if self.gate:
             payload["gate"] = self.gate
+        if self.missing:
+            payload["missing"] = self.missing
         return payload
 
 
@@ -1120,7 +1121,6 @@ class EvidencePool:
             "GRAPH_RELATION": 2,
             "IRRELEVANT": 4,
         }
-        counts: dict[str, int] = {}
         ranked: list[tuple[int, int, dict[str, Any]]] = []
         for original_index, doc in enumerate(working):
             meta = doc.get("metadata") or {}
@@ -1128,14 +1128,12 @@ class EvidencePool:
             if not evidence_class and str(meta.get("source_type") or "") == "graph_relation":
                 evidence_class = "GRAPH_RELATION"
             evidence_class = evidence_class or "UNCLASSIFIED"
-            counts[evidence_class] = counts.get(evidence_class, 0) + 1
             ranked.append((priority.get(evidence_class, 3), original_index, doc))
         ranked.sort(key=lambda item: (item[0], item[1]))
 
         items: list[str] = []
         for index, (_, _, doc) in enumerate(ranked[:max_items], start=1):
             meta = doc.get("metadata") or {}
-            chunk_id = str(meta.get("chunk_id") or f"evidence-{index}")
             entity = str(
                 meta.get("evidence_target_entity")
                 or meta.get("document_entity")
@@ -1150,7 +1148,6 @@ class EvidencePool:
                 fact = f"{fact[:max_fact_chars].rstrip()}…"
             parts = [
                 f"Evidence #{index}",
-                f"id={chunk_id}",
                 f"entity={entity}",
                 f"class={evidence_class}",
                 f"support_scope={support_scope}",
@@ -1160,9 +1157,8 @@ class EvidencePool:
             else:
                 parts.extend((f"section={section}", f"fact={fact or '（空）'}"))
             items.append("; ".join(parts))
-        summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
-        hidden = max(0, len(working) - min(max_items, len(working)))
-        items.append(f"Working Summary: {summary}; compacted={hidden}")
+        if len(working) > max_items:
+            items.append("还有其他候选证据未在本次语义摘要中展开。")
         return "\n".join(items)
 
     def create_snapshot(
@@ -1630,13 +1626,17 @@ class ConversationContext:
         )
 
     def to_prompt(self, *, history_summary: str | None = None) -> str:
+        """Project only semantic conversation context into model-visible prompts.
+
+        Runtime provenance such as evidence epochs, transition flags and callback
+        state belongs to ``to_trace()`` and must not become model cognition.
+        """
         lines = [
             "## 对话上下文（ConversationContext）",
             "以下内容仅用于理解指代、省略、切题和用户意图，**不得作为知识事实依据**。",
         ]
         if self.user_question:
             lines.append(f"- 当前问题: {self.user_question}")
-        lines.append(f"- 当前证据 epoch: {self.evidence_epoch}")
         if self.resolved_question and self.resolved_question != self.user_question:
             lines.append(f"- 当前解析问题: {self.resolved_question}")
         if self.confirmed_topic:
@@ -1669,12 +1669,6 @@ class ConversationContext:
                 lines.append(f"- 已定位图谱实体: {', '.join(cands)}")
         if self.domain_context:
             lines.append(f"- 图谱关联背景: {self.domain_context}")
-        if self.topic_shift:
-            lines.append("- topic_shift: true")
-        if self.entity_transition:
-            lines.append("- entity_transition: true（旧证据默认不可引用）")
-        if self.clarification_callback:
-            lines.append("- 本轮为澄清回调：历史证据只能作为候选重新 Qualification，不得沿用旧引用资格")
         lines.extend((
             "## Identity Anchor（身份方向锚，不作为事实来源）",
             "<identity_anchor>",

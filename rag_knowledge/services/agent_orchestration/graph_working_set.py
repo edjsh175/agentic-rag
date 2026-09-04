@@ -337,17 +337,8 @@ class GraphWorkingSet:
         """Compact graph summary for Main ControllerState injection."""
         self.recalculate_frontier()
         return {
-            "bootstrap_status": self.bootstrap_status,
             "roots": list(self.exploration_roots),
-            "max_depth_reached": self.max_depth_reached,
             "frontier_entities": list(self.frontier_entity_ids),
-            "entity_count": len(self.entities),
-            "relation_count": len(self.relations),
-            "admitted_relation_evidence_count": len(self.admitted_relation_ids),
-            "remaining_expansion_calls": self.budget.remaining_expansion_calls(),
-            "max_total_depth": self.budget.max_total_depth,
-            "expansion_allowed": self.budget.can_expand(),
-            "last_graph_status": self.last_graph_status,
         }
 
     @classmethod

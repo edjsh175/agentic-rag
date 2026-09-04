@@ -370,7 +370,50 @@ def test_sparse_evidence_gap_derives_retrieve_feedback():
     assert result.repair_mode == "RETRIEVE"
     assert result.rewrite_actions == []
     assert result.retrieval_feedback is not None
-    assert result.retrieval_feedback.gap_id == "f1"
+    assert result.retrieval_feedback.gap_id.startswith("gap_")
+    assert result.retrieval_feedback.gap_id != "f1"
+
+
+def test_sparse_gap_id_is_stable_when_finding_order_changes():
+    findings = [
+        {
+            "issue": "EVIDENCE_GAP",
+            "claim": "DEM 发布所需的服务器路径要求",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [],
+            "evidence_ids": [],
+            "reason": "缺少服务器路径证据",
+        },
+        {
+            "issue": "EVIDENCE_GAP",
+            "claim": "DEM 发布所需的发布入口要求",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [],
+            "evidence_ids": [],
+            "reason": "缺少发布入口证据",
+        },
+    ]
+
+    def _review_with(items):
+        reviewer = HelperGroundingReviewer(lambda _messages: {
+            "coverage": "PARTIAL",
+            "summary": "仍有证据缺口",
+            "findings": items,
+            "more_blocking_findings": False,
+        })
+        return reviewer.review(
+            "如何发布 DEM 数据？",
+            [_source(1, "DEM 发布需要设置空间参考")],
+            "先设置空间参考 [1]。",
+        )
+
+    first = _review_with(findings)
+    second = _review_with(list(reversed(findings)))
+
+    assert first.retrieval_feedback is not None
+    assert second.retrieval_feedback is not None
+    assert first.retrieval_feedback.gap_id == second.retrieval_feedback.gap_id
+    assert set(first.retrieval_feedback.affected_claim_ids) == set(second.retrieval_feedback.affected_claim_ids)
 
 
 def test_sparse_more_findings_triggers_bounded_conservative_rewrite():
@@ -958,7 +1001,7 @@ def test_coverage_none_derives_no_safe_answer_even_if_legacy_verdict_says_pass()
     assert result.error is None
 
 
-def test_protocol_repair_retries_once_and_can_recover():
+def test_invalid_protocol_retries_same_semantic_review_once():
     invalid = _revise_payload()
     invalid["rewrite_actions"][0]["claim_id"] = "c1"
     invalid["rewrite_actions"][0]["action"] = "rewrite_to_supported_scope_or_remove"
@@ -984,11 +1027,14 @@ def test_protocol_repair_retries_once_and_can_recover():
     assert len(result.protocol_attempts) == 2
     assert result.protocol_attempts[0]["error"] is not None
     assert result.protocol_attempts[1]["error"] is None
-    assert "协议修复" in calls[1][0]["content"]
-    assert calls[1][1]["role"] == "user"
+    assert calls[1] == calls[0]
+    retry_payload = json.dumps(calls[1], ensure_ascii=False)
+    assert "validation_error" not in retry_payload
+    assert "previous_response" not in retry_payload
+    assert "immutable_semantics" not in retry_payload
 
 
-def test_protocol_repair_removes_non_retrieve_feedback_without_semantic_drift():
+def test_invalid_protocol_retry_does_not_expose_validator_state():
     invalid = _revise_payload()
     invalid["retrieval_feedback"] = {
         "gap_id": "missing-port",
@@ -1015,11 +1061,14 @@ def test_protocol_repair_removes_non_retrieve_feedback_without_semantic_drift():
     assert result.verdict == "REVISE"
     assert result.error is None
     assert len(result.protocol_attempts) == 2
-    assert "纯协议修复" in calls[1][0]["content"]
-    assert "不得重新判断事实" in calls[1][0]["content"]
+    assert calls[1] == calls[0]
+    retry_payload = json.dumps(calls[1], ensure_ascii=False)
+    assert "validation_error" not in retry_payload
+    assert "missing-port" not in retry_payload
+    assert "没有端口证据" not in retry_payload
 
 
-def test_protocol_repair_rejects_semantic_drift():
+def test_clean_retry_uses_second_valid_semantic_result():
     invalid = _revise_payload()
     invalid["rewrite_actions"][0]["claim_id"] = "c1"
     invalid["rewrite_actions"][0]["action"] = "rewrite_to_supported_scope_or_remove"
@@ -1045,10 +1094,11 @@ def test_protocol_repair_rejects_semantic_drift():
         "StampServer 支持服务发布，并默认开放 9999 端口。",
     )
 
-    assert result.verdict == "ERROR"
-    assert result.error == "invalid_review_protocol:protocol_repair_semantic_drift"
+    assert result.verdict == "REVISE"
+    assert result.error is None
     assert len(result.protocol_attempts) == 2
-    assert result.protocol_attempts[1]["error"] == result.error
+    assert result.claim_reviews[1].status == "contradicted"
+    assert result.protocol_attempts[1]["error"] is None
 
 
 def test_structured_output_schema_has_single_semantic_source():
@@ -1062,6 +1112,7 @@ def test_structured_output_schema_has_single_semantic_source():
     assert set(schema["required"]) == set(schema["properties"])
     finding_schema = schema["properties"]["findings"]
     assert finding_schema["maxItems"] == 12
+    assert "finding_id" not in finding_schema["items"]["properties"]
     assert set(finding_schema["items"]["properties"]["issue"]["enum"]) == {
         "UNSUPPORTED", "CONTRADICTED", "CITATION_MISMATCH", "SCOPE_MISMATCH", "EVIDENCE_GAP"
     }

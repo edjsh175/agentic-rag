@@ -106,8 +106,8 @@ def test_controller_evidence_summary_exposes_precise_partial_coverage():
     assert 'current_evidence_state={"coverage":"PARTIAL"' in summary
     assert '"missing_facts":[' in summary
     assert '"missing_facts":[]' not in summary
-    assert '"evidence_count":1' in summary
-    assert '"evidence_version":1' in summary
+    assert '"evidence_count"' not in summary
+    assert '"evidence_version"' not in summary
 
 
 def test_first_step_zero_docs_marked_as_no_progress():
@@ -148,8 +148,8 @@ def test_first_step_zero_docs_marked_as_no_progress():
     assert loop.continuous_no_progress_count == 1
 
 
-def test_second_retrieval_missing_gap_denied_by_harness():
-    """验证第 2 次 retrieve_kb 若未携带 gap/expected_gain，Harness 拒绝执行并返回 DENIED。"""
+def test_retrieval_gap_fields_are_semantic_not_attempt_counter_protocol():
+    """后续检索可不携带 gap/expected_gain；次数与预算由 Runtime 自己管理。"""
     conv = ConversationContext.from_request("StampServer 部署与端口", [])
     conv.head_entity = "StampServer"
     pool = EvidencePool(question_id="q")
@@ -162,24 +162,13 @@ def test_second_retrieval_missing_gap_denied_by_harness():
 
     decisions = iter([
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 部署"}, source="llm"),
-        # 第二轮未提供 gap 与 expected_gain
         AgentDecision(action="tool_call", tool="retrieve_kb", arguments={"search_focus_text": "StampServer 端口"}, source="llm"),
-        # 第三轮纠正，提供 gap
-        AgentDecision(
-            action="tool_call",
-            tool="retrieve_kb",
-            arguments={"search_focus_text": "StampServer 端口"},
-            gap="StampServer 端口配置",
-            expected_gain="获取默认管理端口",
-            source="llm",
-        ),
-        AgentDecision(action="finalize", source="llm"),
     ])
 
     loop = AgentLoop(
         conversation=conv,
         evidence=pool,
-        budget=AgentBudget(max_steps=5),
+        budget=AgentBudget(max_steps=2),
         registry=build_agent_registry(),
         handlers={"retrieve_kb": retrieve},
         cfg=SimpleNamespace(
@@ -189,29 +178,10 @@ def test_second_retrieval_missing_gap_denied_by_harness():
         tool_timeout=0,
     )
     result = asyncio.run(loop.run())
-    assert "missing_retrieval_gap" in result.fallbacks
-    # 第 2 步被拦截
-    step2 = result.agent_steps[1]
-    assert step2["guard"]["allowed"] is False
-    assert step2["guard"]["reason"] == "missing_retrieval_gap"
-    assert step2["progress"] == ToolProgressStatus.DENIED
-    assert step2["evidence_delta"] == {
-            "new_chunks": 0,
-            "new_entities": 0,
-            "new_relations": 0,
-        "working_delta": 0,
-        "citable_delta": 0,
-        "gap_support_delta": 0,
-        "graph_entity_delta": 0,
-        "graph_relation_delta": 0,
-        "graph_frontier_delta": 0,
-        "evidence_version_before": 1,
-        "evidence_version_after": 1,
-        "status": ToolProgressStatus.DENIED,
-    }
-    assert loop.continuous_no_progress_count == 1
-    # 实际执行了 2 次工具（第 1 步与第 3 步）
+    assert "missing_retrieval_gap" not in result.fallbacks
     assert len(result.tools) == 2
+    assert result.agent_steps[1]["guard"]["allowed"] is True
+    assert result.tools[1]["name"] == "retrieve_kb"
 
 
 def test_reviewer_feedback_is_only_an_observation_until_controller_selects_retrieve():

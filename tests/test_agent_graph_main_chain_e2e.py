@@ -346,8 +346,8 @@ def test_grounding_reviewer_verifies_graph_relation_claims():
     assert result.claim_reviews[0].status == "supported"
 
 
-def test_v2_allowed_tools_exposes_expand_graph_scope_and_excludes_link_entities(isolated_storage):
-    """Verify that in V2 Agent mode, allowed_tools contains expand_graph_scope and strictly excludes link_entities."""
+def test_v2_tool_surface_exposes_expand_graph_scope_and_excludes_link_entities(isolated_storage):
+    """V2 exposes current capabilities through the tool surface, not ControllerState fields."""
     cfg, _, _, _ = isolated_storage()
 
     conv = ConversationContext(
@@ -372,12 +372,12 @@ def test_v2_allowed_tools_exposes_expand_graph_scope_and_excludes_link_entities(
     )
     loop.graph_working_set = ws
 
-    state_json = loop._controller_state_for_prompt()
-    state = json.loads(state_json)
-    allowed_tools = state.get("allowed_tools", [])
+    state = json.loads(loop._controller_state_for_prompt())
+    assert "allowed_tools" not in state
+    visible_tools = loop._available_tool_names()
 
-    assert "expand_graph_scope" in allowed_tools
-    assert "link_entities" not in allowed_tools
+    assert "expand_graph_scope" in visible_tools
+    assert "link_entities" not in visible_tools
 
 
 def test_non_answer_relations_never_enter_evidence_pool_even_if_approved():

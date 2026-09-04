@@ -2112,12 +2112,11 @@ def test_controller_prompt_does_not_reclarify_an_already_confirmed_entity():
     from rag_knowledge.services.agent_orchestration.runtime import _DECISION_PROMPT
 
     assert "不得仅因用户原始词较短、泛化、存在拼写近似" in _DECISION_PROMPT
-    assert "EvidencePool 为空时优先围绕已确认实体做首次 retrieve_kb" in _DECISION_PROMPT
-    assert "ControllerState 是权威状态" in _DECISION_PROMPT
-    assert "用户问题：那它的默认端口是多少？" in _DECISION_PROMPT
-    assert "前序正在讨论已确认实体 A 的配置" in _DECISION_PROMPT
-    assert '"tool":"retrieve_kb"' in _DECISION_PROMPT
-    assert '"focus_entity_id":"实体 A"' in _DECISION_PROMPT
+    assert "EvidencePool 为空时，若 `retrieve_kb` 当前可用，优先围绕已确认实体做首次检索" in _DECISION_PROMPT
+    assert "ControllerState 是语义状态" in _DECISION_PROMPT
+    assert "当前可以调用的工具" in _DECISION_PROMPT
+    assert "不要根据历史记忆调用本步骤未提供的工具" in _DECISION_PROMPT
+    assert "不要讨论澄清回调机制本身" in _DECISION_PROMPT
 
 
 def test_controller_state_keeps_clarify_available_after_entity_confirmation():
@@ -2145,9 +2144,146 @@ def test_controller_state_keeps_clarify_available_after_entity_confirmation():
 
     assert state["identity_status"] == "confirmed_entity"
     assert state["confirmed_entity"] == "PipelineWebGL"
-    assert "clarify" in state["allowed_tools"]
-    assert "retrieve_kb" in state["allowed_tools"]
-    assert state["retrieval_allowed"] is True
+    assert "allowed_tools" not in state
+    assert "retrieval_allowed" not in state
+    assert "budget" not in state
+    visible_tools = loop._available_tool_names()
+    assert "clarify" in visible_tools
+    assert "retrieve_kb" in visible_tools
+
+
+def test_controller_model_visible_contract_excludes_runtime_control_plane():
+    conversation = ConversationContext.from_request("PipelineBuilder", [])
+    evidence = EvidencePool(question_id="controller-contract")
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=8, max_retrieve_attempts=2),
+        registry=build_agent_registry(),
+        handlers={},
+    )
+
+    state = json.loads(loop._controller_state_for_prompt())
+    forbidden = {
+        "budget", "allowed_tools", "retrieval_allowed", "registered_entity_ids",
+        "clarification_callback", "topic_shift", "entity_transition",
+        "latest_denial_reason", "max_steps", "steps_used",
+        "retrieve_attempts", "remaining_retrieve_attempts",
+    }
+    assert forbidden.isdisjoint(state)
+
+
+def test_controller_full_prompt_excludes_conversation_runtime_provenance():
+    conversation = ConversationContext.from_request("PipelineBuilder", [])
+    conversation.topic_shift = True
+    conversation.entity_transition = True
+    conversation.clarification_callback = True
+    conversation.evidence_epoch = 7
+    evidence = EvidencePool(question_id="controller-full-prompt-contract")
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(),
+        registry=build_agent_registry(),
+        handlers={},
+    )
+
+    prompt = loop._decision_prompt_for_model()
+    for forbidden in (
+        "当前证据 epoch", "topic_shift: true", "entity_transition: true",
+        "本轮为澄清回调", "clarification_callback", "evidence_epoch",
+    ):
+        assert forbidden not in prompt
+
+
+def test_controller_prompt_tool_surface_hides_exhausted_retriever():
+    conversation = ConversationContext.from_request("PipelineBuilder", [])
+    evidence = EvidencePool(question_id="controller-tool-surface")
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(max_steps=8, max_retrieve_attempts=1, retrieve_attempts=1),
+        registry=build_agent_registry(),
+        handlers={},
+    )
+
+    prompt = loop._decision_prompt_for_model()
+    tool_surface = prompt.split("你当前可以调用的工具（未列出的工具本步骤不可用）：", 1)[1].split("决策准则：", 1)[0]
+    output_contract = prompt.split("输出严格 JSON 格式：", 1)[1]
+    assert "retrieve_kb" not in tool_surface
+    assert "retrieve_kb" not in output_contract
+    assert "compose_answer" in tool_surface
+
+
+def test_controller_tool_surface_hides_denied_and_confirmation_tools():
+    registry = build_agent_registry()
+    from rag_knowledge.services.agent_orchestration.models import ToolSpec
+    registry.register(ToolSpec(
+        name="denied_tool",
+        description="denied",
+        input_schema={"type": "object", "properties": {}},
+        permission="deny",
+    ))
+    registry.register(ToolSpec(
+        name="confirmation_tool",
+        description="confirm",
+        input_schema={"type": "object", "properties": {}},
+        confirmation_required=True,
+    ))
+    loop = AgentLoop(
+        conversation=ConversationContext.from_request("test", []),
+        evidence=EvidencePool(question_id="tool-permission-surface"),
+        budget=AgentBudget(),
+        registry=registry,
+        handlers={},
+    )
+
+    visible = loop._available_tool_names()
+    prompt = loop._decision_prompt_for_model()
+    assert "denied_tool" not in visible
+    assert "confirmation_tool" not in visible
+    assert "denied_tool" not in prompt
+    assert "confirmation_tool" not in prompt
+
+
+def test_controller_observation_projection_drops_runtime_accounting_and_provenance():
+    conversation = ConversationContext.from_request("PipelineBuilder", [])
+    evidence = EvidencePool(question_id="controller-observation-contract")
+    loop = AgentLoop(
+        conversation=conversation,
+        evidence=evidence,
+        budget=AgentBudget(),
+        registry=build_agent_registry(),
+        handlers={},
+        initial_observations=[{
+            "name": "retrieve_kb",
+            "ok": True,
+            "status": "PROGRESS",
+            "summary": "找到 PipelineBuilder 功能说明",
+            "evidence_delta": {"citable_delta": 4, "gap_support_delta": 2},
+            "budget": {"retrieve_attempts": 1},
+            "data": {
+                "retrieval_executed": True,
+                "n": 8,
+                "clarification_snapshot_id": "secret-snapshot",
+                "evidence_observations": [{
+                    "chunk_id": "chunk-internal",
+                    "document_entity": "PipelineBuilder",
+                    "evidence_class": "TARGET_DIRECT",
+                    "reason": "direct",
+                }],
+            },
+        }],
+    )
+
+    history = loop._observation_history_for_prompt()
+    assert "找到 PipelineBuilder 功能说明" in history
+    assert "PipelineBuilder" in history
+    for forbidden in (
+        "citable_delta", "gap_support_delta", "retrieve_attempts", "retrieval_executed",
+        "secret-snapshot", "chunk-internal", '"n":8',
+    ):
+        assert forbidden not in history
 
 
 def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
@@ -2164,8 +2300,10 @@ def test_controller_state_blocks_graph_link_for_unconfirmed_identity():
     state = json.loads(loop._controller_state_for_prompt())
 
     assert state["identity_status"] in {"unresolved", "ambiguous_entity"}
-    assert "link_entities" not in state["allowed_tools"]
-    assert "clarify" in state["allowed_tools"]
+    assert "allowed_tools" not in state
+    visible_tools = loop._available_tool_names()
+    assert "link_entities" not in visible_tools
+    assert "clarify" in visible_tools
 
 
 def test_unbound_topic_allows_main_to_choose_clarify_or_retrieval():
@@ -2201,8 +2339,10 @@ def test_unbound_topic_allows_main_to_choose_clarify_or_retrieval():
 
     state = json.loads(loop._controller_state_for_prompt())
     assert "entity_binding_required" not in state
-    assert "clarify" in state["allowed_tools"]
-    assert "retrieve_kb" in state["allowed_tools"]
+    assert "allowed_tools" not in state
+    visible_tools = loop._available_tool_names()
+    assert "clarify" in visible_tools
+    assert "retrieve_kb" in visible_tools
 
     asyncio.run(loop.run(on_event=on_event))
     guards = [event for event in events if event.get("type") == "guard"]

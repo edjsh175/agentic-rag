@@ -100,9 +100,19 @@ def test_graph_working_set_controller_state():
 
     state = ws.to_controller_state()
     assert state["roots"] == ["StampServer"]
-    assert state["entity_count"] == 1
-    assert state["relation_count"] == 1
-    assert state["admitted_relation_evidence_count"] == 1
+    assert "frontier_entities" in state
+    for forbidden in (
+        "bootstrap_status",
+        "last_graph_status",
+        "entity_count",
+        "relation_count",
+        "admitted_relation_evidence_count",
+        "remaining_expansion_calls",
+        "max_total_depth",
+        "expansion_allowed",
+        "max_depth_reached",
+    ):
+        assert forbidden not in state
 
 
 def test_relation_candidate_carries_graph_revision_to_provenance():

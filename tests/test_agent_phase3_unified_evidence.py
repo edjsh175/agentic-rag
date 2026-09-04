@@ -54,7 +54,7 @@ def _make_sample_conversation() -> ConversationContext:
     return conv
 
 
-def test_build_unified_grounding_docs_extracts_all_three_sources():
+def test_build_unified_grounding_docs_defaults_to_conversation_semantics_only():
     conv = _make_sample_conversation()
     runtime_events = [
         {"type": "tool_start", "data": {"name": "clarify"}},
@@ -91,9 +91,7 @@ def test_build_unified_grounding_docs_extracts_all_three_sources():
     )
 
     source_types = {d["metadata"]["source_type"] for d in docs}
-    assert "conversation" in source_types
-    assert "runtime_event" in source_types
-    assert "tool_observation" in source_types
+    assert source_types == {"conversation"}
 
     # 所有提取的运行时与历史证据必须标注 citable=False，防止泄露给前端文献引用
     for d in docs:
@@ -106,10 +104,39 @@ def test_build_unified_grounding_docs_extracts_all_three_sources():
     assert clar_doc["metadata"]["selected_entity"] == "PipelineBuilder"
     assert clar_doc["metadata"]["support_scope"] == "CONTEXT_ONLY"
 
-    # 验证澄清统计与对账事实
-    clar_summary = next(d for d in docs if d["metadata"]["evidence_id"] == "event:clarification_summary")
-    assert "系统尝试发起澄清次数=1次" in clar_summary["content"]
-    assert "实际向用户弹出澄清交互卡片次数=0次" in clar_summary["content"]
+    assert all(d["metadata"]["source_type"] != "runtime_event" for d in docs)
+    assert all(d["metadata"]["source_type"] != "tool_observation" for d in docs)
+
+
+def test_runtime_semantics_are_opt_in_and_raw_tool_data_is_not_exposed():
+    conv = _make_sample_conversation()
+    docs = build_unified_grounding_docs(
+        conv,
+        runtime_events=[{"type": "tool_result", "data": {"status": "DENIED", "secret": "hidden"}}],
+        tool_observations=[{
+            "tool": "retrieve_kb",
+            "status": "NO_PROGRESS",
+            "summary": "没有新增证据",
+            "data": {"secret": "hidden", "n": 8},
+        }],
+        execution_steps=[{
+            "step": 1,
+            "tool": "clarify",
+            "guard": {"allowed": False, "reason": "internal_guard_code"},
+            "progress": "DENIED",
+        }],
+        include_runtime_semantics=True,
+        include_tool_semantics=True,
+    )
+
+    text = "\n".join(d["content"] for d in docs)
+    source_types = {d["metadata"]["source_type"] for d in docs}
+    assert "runtime_event" in source_types
+    assert "tool_observation" in source_types
+    assert "secret" not in text
+    assert "internal_guard_code" not in text
+    assert "Guard" not in text
+    assert "没有新增证据" in text
 
 
 def test_snapshot_freezes_unified_evidence_and_preserves_citability():
@@ -444,20 +471,21 @@ def test_cross_turn_runtime_event_store_truth_grounding(tmp_path):
     )
     assert any(e.get("type") == "clarification_card_published" for e in recovered_events)
 
-    # 4. 注入 AgentLoop 并组织回答快照
+    # 4. 注入 AgentLoop 并组织回答快照。该问题明确询问系统刚才的行为，
+    # 因此显式开启 Runtime Semantic Evidence。
     conv = ConversationContext.from_request("你刚才是不是问了我三次？", history)
     pool = EvidencePool(question_id="runtime-truth-test")
 
     composition = ComposeAnswerHandler(
         conv, pool, runtime_events=recovered_events, execution_steps=[]
-    ).compose(answer_mode="full")
+    ).compose(answer_mode="full", include_runtime_semantics=True)
 
     snapshot = composition["evidence_snapshot"]
     docs = snapshot.documents()
 
-    # 验证统计事实准确对账：实际向用户弹出 1 次！
+    # 验证语义统计事实准确对账：实际向用户发布 1 次卡片。
     summary_doc = next(d for d in docs if d["metadata"]["evidence_id"] == "event:clarification_summary")
-    assert "实际向用户弹出澄清交互卡片次数=1次" in summary_doc["content"]
+    assert "实际发布卡片=1次" in summary_doc["content"]
 
     summary_cid = summary_doc["metadata"]["citation_id"]
 
@@ -714,11 +742,11 @@ def test_browser_contract_full_interaction_cycle_restores_evidence(tmp_path):
     assert len(card_events) == 1
     assert card_events[0]["data"]["ask_question"] == "请选组件"
 
-    # 6. 组织快照并核验
+    # 6. 组织快照并核验。用户追问包含刚才的交互行为，因此显式开启运行事实。
     pool = EvidencePool(question_id="browser-full-lifecycle-test")
     composition = ComposeAnswerHandler(
         conv, pool, runtime_events=recovered_events, execution_steps=[]
-    ).compose(answer_mode="full")
+    ).compose(answer_mode="full", include_runtime_semantics=True)
 
     snapshot = composition["evidence_snapshot"]
     docs = snapshot.documents()
@@ -726,9 +754,9 @@ def test_browser_contract_full_interaction_cycle_restores_evidence(tmp_path):
     # 严格对账：
     # 会话事实：包含 PipelineBuilder
     assert any("PipelineBuilder" in d["content"] for d in docs)
-    # 运行事实：精确记录卡片弹出次数=1次
+    # 运行事实：精确记录实际发布卡片=1次
     summary_doc = next(d for d in docs if d["metadata"]["evidence_id"] == "event:clarification_summary")
-    assert "实际向用户弹出澄清交互卡片次数=1次" in summary_doc["content"]
+    assert "实际发布卡片=1次" in summary_doc["content"]
 
     # 诚实回答通过 Reviewer 核验
     honest_answer = "我们刚才确认的组件是 PipelineBuilder，在此之前我只向您弹出过 1 次澄清卡片。"

@@ -320,7 +320,8 @@ def test_decision_digest_prioritizes_conflict_over_irrelevant():
     assert "class=TARGET_DIRECT" in lines[0]
     assert "class=CONFLICT" in lines[1]
     assert "class=IRRELEVANT" in lines[2]
-    assert "Working Summary:" in lines[3]
+    assert all("Working Summary:" not in line for line in lines)
+    assert all("id=chk-" not in line for line in lines)
 
 
 # ==============================================================================

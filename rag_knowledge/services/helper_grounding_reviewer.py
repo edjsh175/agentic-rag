@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import hashlib
 import json
 import logging
 import re
@@ -231,7 +232,6 @@ Claim Support Matrix：
 - 图谱关系不得自动继承实体属性。
 
 Finding 字段语义：
-- finding_id：本次响应内唯一，如 f1、f2。
 - issue：上述五种问题之一。
 - claim：Candidate 中有问题的最小事实；EVIDENCE_GAP 时写缺失的最小事实需求。
 - claim_scope：该事实的语义归属。
@@ -251,7 +251,6 @@ coverage 只判断 Frozen Evidence 对 Question 的覆盖程度：FULL / PARTIAL
   "summary": "一句简短审核总结",
   "findings": [
     {
-      "finding_id": "f1",
       "issue": "UNSUPPORTED" | "CONTRADICTED" | "CITATION_MISMATCH" | "SCOPE_MISMATCH" | "EVIDENCE_GAP",
       "claim": "有问题的最小事实",
       "claim_scope": "TARGET_ATTRIBUTION" | "CONTEXTUAL_FACT" | "RELATION_CLAIM",
@@ -280,7 +279,6 @@ _REQUIRED_SPARSE_TOP_LEVEL_FIELDS = frozenset({
     "more_blocking_findings",
 })
 _REQUIRED_FINDING_FIELDS = frozenset({
-    "finding_id",
     "issue",
     "claim",
     "claim_scope",
@@ -366,7 +364,6 @@ def review_response_json_schema() -> dict[str, Any]:
                 "items": {
                     "type": "object",
                     "properties": {
-                        "finding_id": {"type": "string", "minLength": 1},
                         "issue": {"type": "string", "enum": sorted(_ALLOWED_FINDING_ISSUES)},
                         "claim": {"type": "string", "minLength": 1},
                         "claim_scope": {"type": "string", "enum": sorted(_FACT_CLAIM_SCOPES)},
@@ -605,6 +602,13 @@ def _candidate_citation_ids(text: str) -> set[int]:
     return ids
 
 
+def _stable_semantic_id(prefix: str, *parts: Any) -> str:
+    normalized = [" ".join(str(part or "").split()).casefold() for part in parts]
+    payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}_{digest}"
+
+
 def _evidence_citation_id(meta: dict[str, Any], idx: int) -> int:
     try:
         return int(meta.get("citation_id", idx))
@@ -742,12 +746,10 @@ class HelperGroundingReviewer:
         if first.error is None:
             return replace(first, protocol_attempts=(first_attempt,))
 
-        semantic_signature = self._semantic_signature(raw)
-        repair_messages = self._build_protocol_repair_messages(raw, first.error, semantic_signature)
         try:
-            repaired_raw = self._caller(repair_messages)
+            retry_raw = self._caller(messages)
         except Exception as exc:
-            logger.error("HelperGroundingReviewer protocol repair caller error: %s", exc)
+            logger.error("HelperGroundingReviewer retry caller error: %s", exc)
             return replace(
                 first,
                 protocol_attempts=(
@@ -755,134 +757,28 @@ class HelperGroundingReviewer:
                     {
                         "attempt": 2,
                         "raw_response": None,
-                        "error": f"reviewer_protocol_repair_invocation_error:{type(exc).__name__}",
+                        "error": f"reviewer_retry_invocation_error:{type(exc).__name__}",
                     },
                 ),
             )
 
-        repaired = self._parse_and_validate(
-            repaired_raw,
+        retried = self._parse_and_validate(
+            retry_raw,
             valid_evidence_ids=valid_evidence_ids,
             evidence_scopes=evidence_scopes,
             candidate_answer_citation_ids=candidate_answer_citation_ids,
         )
-        repair_error = repaired.error
-        if repair_error is None and semantic_signature is not None:
-            if self._semantic_signature(repaired_raw) != semantic_signature:
-                repair_error = "invalid_review_protocol:protocol_repair_semantic_drift"
-                repaired = HelperGroundingReviewResult(
-                    verdict="ERROR",
-                    coverage="NONE",
-                    summary="协议修复改变了原始语义判断",
-                    raw_response=repaired_raw,
-                    error=repair_error,
-                )
         return replace(
-            repaired,
+            retried,
             protocol_attempts=(
                 first_attempt,
                 {
                     "attempt": 2,
-                    "raw_response": repaired_raw,
-                    "error": repair_error,
+                    "raw_response": retry_raw,
+                    "error": retried.error,
                 },
             ),
         )
-
-    @classmethod
-    def _semantic_signature(cls, raw: Any) -> dict[str, Any] | None:
-        try:
-            if isinstance(raw, dict):
-                payload = raw
-            elif isinstance(raw, str):
-                payload = cls._extract_and_parse_json(raw)
-            else:
-                return None
-            coverage = payload.get("coverage")
-            if not isinstance(coverage, str):
-                return None
-
-            findings = payload.get("findings")
-            if isinstance(findings, list):
-                frozen_findings = []
-                for finding in findings:
-                    if not isinstance(finding, dict):
-                        return None
-                    frozen_findings.append({
-                        key: finding.get(key)
-                        for key in sorted(_REQUIRED_FINDING_FIELDS)
-                    })
-                return {
-                    "protocol": "sparse_findings_v1",
-                    "coverage": coverage,
-                    "findings": frozen_findings,
-                    "more_blocking_findings": payload.get("more_blocking_findings"),
-                }
-
-            claims = payload.get("claim_reviews")
-            if not isinstance(claims, list):
-                return None
-            frozen_claims = []
-            for claim in claims:
-                if not isinstance(claim, dict):
-                    return None
-                candidate_citation_ids = claim.get("candidate_citation_ids")
-                if candidate_citation_ids is not None and not isinstance(candidate_citation_ids, list):
-                    return None
-                frozen_claims.append({
-                    "claim_id": claim.get("claim_id"),
-                    "claim": claim.get("claim"),
-                    "claim_type": claim.get("claim_type"),
-                    "claim_scope": claim.get("claim_scope"),
-                    "status": claim.get("status"),
-                    "evidence_ids": claim.get("evidence_ids"),
-                    "candidate_citation_ids": candidate_citation_ids,
-                })
-            return {
-                "protocol": "legacy_claim_report",
-                "coverage": coverage,
-                "claim_reviews": frozen_claims,
-            }
-        except Exception:
-            return None
-
-    @staticmethod
-    def _build_protocol_repair_messages(
-        raw: Any,
-        error: str,
-        semantic_signature: dict[str, Any] | None,
-    ) -> list[dict[str, str]]:
-        payload = {
-            "previous_response": raw,
-            "validation_error": error,
-            "immutable_semantics": semantic_signature,
-        }
-        sparse = (semantic_signature or {}).get("protocol") == "sparse_findings_v1"
-        base_prompt = _REVIEWER_SYSTEM_PROMPT if sparse else _LEGACY_REVIEWER_SYSTEM_PROMPT
-        immutable_rule = (
-            "immutable_semantics 中的 coverage、findings 全部字段、more_blocking_findings 必须逐项保持不变。"
-            if sparse else
-            "immutable_semantics 中的 coverage 与 claim_reviews 语义字段必须逐项保持不变。"
-        )
-        return [
-            {
-                "role": "system",
-                "content": (
-                    base_prompt
-                    + "\n\n你正在执行一次纯协议修复。只修复 JSON 结构、字段类型或缺失字段；"
-                    + immutable_rule
-                    + "不得重新判断事实、不得增加或删除语义 Finding/Claim、不得改变引用或证据绑定。"
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    "上一份 Grounding Review 未通过协议校验。请根据 validation_error 只修复 JSON，"
-                    "并重新输出完整合法对象：\n\n"
-                    + json.dumps(payload, ensure_ascii=False, indent=2)
-                ),
-            },
-        ]
 
     @staticmethod
     def _build_messages(
@@ -1011,10 +907,6 @@ class HelperGroundingReviewer:
                 if not isinstance(item, dict):
                     raise _ReviewProtocolError(f"{location}_not_object")
                 _required_fields(item, _REQUIRED_FINDING_FIELDS, location=location)
-                finding_id = _required_string(item, "finding_id", location=location, nonempty=True)
-                if finding_id in finding_ids:
-                    raise _ReviewProtocolError(f"duplicate_finding_id:{finding_id}")
-                finding_ids.add(finding_id)
                 issue = _required_string(item, "issue", location=location, nonempty=True).upper()
                 if issue not in _ALLOWED_FINDING_ISSUES:
                     raise _ReviewProtocolError(f"{location}_invalid_issue:{issue}")
@@ -1083,6 +975,10 @@ class HelperGroundingReviewer:
                         # a matrix violation has no machine-verifiable blocking fact.
                         continue
 
+                finding_id = _stable_semantic_id("finding", issue, claim_scope, claim)
+                if finding_id in finding_ids:
+                    continue
+                finding_ids.add(finding_id)
                 finding = GroundingFinding(
                     finding_id=finding_id,
                     issue=issue,
@@ -1177,9 +1073,12 @@ class HelperGroundingReviewer:
                 verdict = "REVISE"
                 repair_mode = "RETRIEVE"
                 rewrite_actions = []
-                first_gap = evidence_gap_findings[0]
+                gap_semantics = sorted(
+                    f"{finding.claim_scope}:{' '.join(finding.claim.split()).casefold()}"
+                    for finding in evidence_gap_findings
+                )
                 retrieval_feedback = RetrievalFeedback(
-                    gap_id=first_gap.finding_id,
+                    gap_id=_stable_semantic_id("gap", *gap_semantics),
                     affected_claim_ids=tuple(f.finding_id for f in evidence_gap_findings),
                     missing_fact="；".join(f.claim for f in evidence_gap_findings),
                     subject_entity_ids=(),

@@ -73,6 +73,16 @@ def _assert_reasoning_is_chinese(events: list[dict]) -> None:
     assert "Thinking Process" not in text
 
 
+def _assert_reasoning_hides_runtime_control(events: list[dict]) -> None:
+    text = _reasoning_text(events)
+    for forbidden in (
+        "retrieve_attempts", "remaining_retrieve_attempts", "allowed_tools",
+        "clarification_callback", "steps_used", "max_steps",
+        "还剩一次预算", "还剩 1 次预算", "第 2 次检索", "第二次检索协议",
+    ):
+        assert forbidden not in text, f"runtime control leaked into reasoning: {forbidden!r} in {text[:600]!r}"
+
+
 def _live_cfg() -> Config:
     os.environ["ALLOW_LIVE_STORAGE_IN_TESTS"] = "1"
     # Respect an explicitly selected integration-test config (for example
@@ -120,6 +130,7 @@ def test_real_controller_micro_chain():
         reasoning_text = _reasoning_text(reasoning_events)
         if len(reasoning_text) >= 20:
             _assert_reasoning_is_chinese(reasoning_events)
+            _assert_reasoning_hides_runtime_control(reasoning_events)
     else:
         # Compatible providers may advertise or omit a native reasoning
         # channel independently of a particular response's token stream.
@@ -129,7 +140,7 @@ def test_real_controller_micro_chain():
 
 @pytest.mark.integration
 def test_real_reviewer_micro_chain():
-    """Verify Grounding Reviewer with live qwen3.5:4b streams reasoning and returns valid review JSON."""
+    """Verify the live Reviewer returns a valid review under the active provider contract."""
     cfg = _live_cfg()
     chain = RagChain()
 
@@ -149,14 +160,15 @@ def test_real_reviewer_micro_chain():
 
     assert result.verdict in {"PASS", "REVISE"}
     assert result.coverage in {"FULL", "PARTIAL"}
-    assert len(reasoning_events) >= 2
-    assert reasoning_events[0]["type"] == "llm_reasoning_start"
-    assert reasoning_events[-1]["type"] == "llm_reasoning_end"
-    end_data = reasoning_events[-1]["data"]
-    assert end_data["reasoning_available"] is True
-    assert end_data["reasoning_chars"] > 0
-    assert end_data["content_chars"] > 0
-    assert end_data["num_predict"] == 12288
+    assert result.error is None
+    assert 1 <= len(result.protocol_attempts) <= 2
+    assert result.protocol_attempts[-1]["error"] is None
+    # Reviewer reasoning is not a product-visible contract. Some providers emit
+    # native reasoning events and some do not; when present, only validate the
+    # lifecycle shape rather than requiring them.
+    if reasoning_events:
+        assert reasoning_events[0]["type"] == "llm_reasoning_start"
+        assert reasoning_events[-1]["type"] == "llm_reasoning_end"
 
 
 @pytest.mark.integration
@@ -333,6 +345,7 @@ def test_real_answer_generator_micro_chain():
         assert any("\u4e00" <= ch <= "\u9fff" for ch in reasoning_text)
         assert "Thinking Process" not in reasoning_text
         assert "Analyze the Request" not in reasoning_text
+        _assert_reasoning_hides_runtime_control(reasoning)
     else:
         # Some external providers/models do not expose a separate reasoning
         # channel; content generation must still complete normally.
@@ -409,6 +422,7 @@ def test_real_rewrite_micro_chain():
     assert any("\u4e00" <= ch <= "\u9fff" for ch in reasoning_text)
     assert "Thinking Process" not in reasoning_text
     assert "Analyze the Request" not in reasoning_text
+    _assert_reasoning_hides_runtime_control(reasoning_events)
 
 
 @pytest.mark.integration

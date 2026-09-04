@@ -460,9 +460,11 @@ async def test_unbound_identity_allows_working_evidence_exploration(identity_sta
     # Prompt 暴露取证和澄清，交由 Main 基于 Observation 决策。
     state = json.loads(loop._controller_state_for_prompt())
     assert state["identity_status"] == identity_status
-    assert "retrieve_kb" in state["allowed_tools"]
-    assert "reuse_evidence" in state["allowed_tools"]
-    assert "clarify" in state["allowed_tools"]
+    assert "allowed_tools" not in state
+    visible_tools = loop._available_tool_names()
+    assert "retrieve_kb" in visible_tools
+    assert "reuse_evidence" in visible_tools
+    assert "clarify" in visible_tools
 
 
 @pytest.mark.anyio
@@ -485,7 +487,8 @@ async def test_topic_task_without_binding_requirement_keeps_null_target_retrieva
     assert obs.ok
 
     state = json.loads(loop._controller_state_for_prompt())
-    assert "retrieve_kb" in state["allowed_tools"]
+    assert "allowed_tools" not in state
+    assert "retrieve_kb" in loop._available_tool_names()
 
 
 @pytest.mark.anyio
@@ -501,8 +504,10 @@ async def test_not_required_identity_enters_null_target_retrieval_without_clarif
     # 主题型任务仍允许 Main 在检索与澄清之间做策略选择
     state = json.loads(loop._controller_state_for_prompt())
     assert state["identity_status"] == "not_required"
-    assert "retrieve_kb" in state["allowed_tools"]
-    assert "clarify" in state["allowed_tools"]
+    assert "allowed_tools" not in state
+    visible_tools = loop._available_tool_names()
+    assert "retrieve_kb" in visible_tools
+    assert "clarify" in visible_tools
 
 
 def test_identity_scope_multi_entity_confirmed_set():
