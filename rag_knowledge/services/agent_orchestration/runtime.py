@@ -146,7 +146,7 @@ _AGENT_SYSTEM_PROMPT = """你是 RAG 知识库问答助手。以下规则是不�
 
 {entity_hint_section}{backbone_anchor_section}{job_contract_section}## 事实与来源规则（绝对事实强锁）
 
-1. 知识库事实只能来自 <evidence_pool>（EvidencePool）。ConversationContext、历史消息、对话焦点只用于理解追问、指代和用户意图，不能作为未经审查的事实来源；所有面向用户的回答均须经过审核。
+1. 知识库事实只能来自 <evidence_pool>（EvidencePool）。ConversationContext、历史消息、对话焦点只用于理解追问、指代和用户意图，不能作为未经审查的事实来源；所有面向用户的回答均须经过审核。如果问题要求解释对话历史或系统上一轮行为，只能使用 Snapshot 中的 Conversation / Runtime Evidence，不得把模型记忆或外部通用知识当成解释依据。
 2. 每项知识库事实后必须使用对应的引用编号，例如 `[1]`。只能使用 evidence_pool 中存在的编号，不得编造文件名、页码、URL、片段或编号。
 3. evidence_pool 仅能支持部分答案时，必须先根据 evidence_pool 写出实质性回答（定义、用途、相关章节/字段/步骤等可依据内容），每项事实后引用编号；然后再补充：“以上为知识库中已查到的部分内容。关于[具体未覆盖的方面]，当前知识库中未查询到相关内容。”禁止只用一句“部分相关/未检索到完整说明”代替作答。
 4. evidence_pool 无法完整覆盖问题、但仍有与问题主体相关的片段时：先按规则3写出已有依据的实质内容并引用；仅在实质内容之后，可追加一句未覆盖说明。不得在已有可转述要点时，只输出空壳句。
@@ -1318,10 +1318,6 @@ class AgentLoop:
             return "partial"
         return "full"
 
-    @staticmethod
-    def _finalization_answer_type(decision: AgentDecision) -> str:
-        answer_type = str((decision.arguments or {}).get("answer_type") or "knowledge").strip().casefold()
-        return answer_type if answer_type in {"knowledge", "direct_chat"} else "knowledge"
 
     @classmethod
     def _decision_reason(cls, decision: AgentDecision) -> str:
@@ -2089,6 +2085,14 @@ class AgentLoop:
             self.steps.append(step_record)
             self._observations.append(record)
 
+            clarification_snapshot_id = None
+            if isinstance(observation.data, dict):
+                clarification_snapshot_id = (
+                    observation.data.get("clarification_snapshot_id")
+                    or (observation.data.get("clarify") or {}).get("clarification_snapshot_id")
+                    or (observation.data.get("clarify") or {}).get("snapshot_id")
+                )
+
             tool_res_payload = {
                 "name": decision.tool,
                 "ok": observation.ok,
@@ -2105,6 +2109,10 @@ class AgentLoop:
                 "gap": decision.gap,
                 "expected_gain": decision.expected_gain,
             }
+            if clarification_snapshot_id:
+                tool_res_payload["clarification_snapshot_id"] = clarification_snapshot_id
+            if isinstance(observation.data, dict):
+                tool_res_payload["data"] = observation.data
             await self._emit(
                 on_event,
                 ExecutionEventType.TOOL_RESULT,
@@ -2622,19 +2630,6 @@ class AgentLoop:
         return observation
 
 
-_AGENT_CONVERSATION_EXPLAIN_PROMPT = """你是对话状态澄清与释疑助手。你的任务是根据对话历史，客观、自然地解答用户关于会话状态、指代、前序讨论内容的疑问、反问或质疑。
-
-## 核心规则
-1. 【基于历史客观释疑】：充分结合对话历史，客观、清晰地向用户解释前序上下文语境，明确指出前序对话中何时提及了相关内容或确认用户并未提过。
-2. 【禁止机械拒答】：严禁输出“当前知识库中未查询到相关内容”等知识库模板，本轮为纯会话释疑，直接给出自然语言解答。
-3. 【无需引用编号】：本轮回答无需添加知识库 `[编号]` 引用。
-
-{conversation_context_section}
-
-## 附加角色要求
-{agent_instructions}"""
-
-
 def build_agent_messages(
     *,
     question: str,
@@ -2647,8 +2642,6 @@ def build_agent_messages(
     backbone_anchor_section: str = "",
     job_contract_section: str = "",
     max_history: int = 30,
-    is_direct_chat: bool = False,
-    has_evidence: bool = True,
 ) -> list[dict[str, str]]:
     agent_instructions = agent_prompt or "无。不得改变以上规则。"
     agent_instructions = re.sub(
@@ -2657,29 +2650,22 @@ def build_agent_messages(
         agent_instructions,
     ).strip()
 
-    # 物理硬隔离挂载：状态 A（纯会话释疑且无证据）vs 状态 B（客观知识问答）
-    if is_direct_chat and not has_evidence:
-        prompt = _AGENT_CONVERSATION_EXPLAIN_PROMPT.format(
-            conversation_context_section=conversation_section or "",
-            agent_instructions=(agent_instructions or "无。不得改变以上规则。"),
+    if allow_general_knowledge:
+        general_rule = (
+            "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
+            "通用知识不得使用知识库引用编号。闲聊和明确的常识问题可直接回答。"
         )
     else:
-        if allow_general_knowledge:
-            general_rule = (
-                "允许在固定未命中提示之后增加 `## 通用知识补充`，但必须明确声明该部分不来自知识库；"
-                "通用知识不得使用知识库引用编号。闲聊和明确的常识问题可直接回答。"
-            )
-        else:
-            general_rule = "禁止使用模型通用知识补充；没有明确依据时只输出固定未命中提示。"
-        prompt = _AGENT_SYSTEM_PROMPT.format(
-            general_knowledge_rule=general_rule,
-            conversation_context_section=conversation_section or "",
-            evidence_pool_section=evidence_section or "",
-            agent_instructions=(agent_instructions or "无。不得改变以上规则。"),
-            entity_hint_section=entity_hint_section,
-            backbone_anchor_section=backbone_anchor_section,
-            job_contract_section=job_contract_section,
-        )
+        general_rule = "禁止使用模型通用知识补充；没有明确依据时只输出固定未命中提示。"
+    prompt = _AGENT_SYSTEM_PROMPT.format(
+        general_knowledge_rule=general_rule,
+        conversation_context_section=conversation_section or "",
+        evidence_pool_section=evidence_section or "",
+        agent_instructions=(agent_instructions or "无。不得改变以上规则。"),
+        entity_hint_section=entity_hint_section,
+        backbone_anchor_section=backbone_anchor_section,
+        job_contract_section=job_contract_section,
+    )
 
     messages = [{"role": "system", "content": prompt}]
     if history:

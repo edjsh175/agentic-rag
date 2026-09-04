@@ -677,6 +677,7 @@ class EntityCandidateResolver:
                     return self.registry.get_by_id(cand.entity_id) or RegisteredEntity(
                         entity_id=cand.entity_id,
                         canonical_name=cand.canonical_name,
+                        display_name=cand.display_name or cand.canonical_name,
                         entity_type=cand.entity_type or "Product",
                         doc_category=cand.doc_category,
                     )

@@ -179,6 +179,7 @@ class ExecutionEventType(str, Enum):
     HEARTBEAT = "heartbeat"
     NOTICE = "notice"
     CLARIFY = "clarify"
+    CLARIFICATION_CARD_PUBLISHED = "clarification_card_published"
     TRACE = "trace"
     STATUS = "status"
     PIPELINE = "pipeline"

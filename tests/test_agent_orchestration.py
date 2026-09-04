@@ -1225,28 +1225,27 @@ def test_retrieval_trace_explainable_snapshot():
     assert trace_dict["retrieval_trace"]["graph_expansion_hops"] == 0
 
 
-def test_context_conditioned_prompt_hard_isolation():
-    # 1. 状态 A：纯会话释疑且无证据 -> 挂载会话解释 Prompt，无知识库拒答壳
+def test_unified_agent_system_prompt_meta_conversation_rule():
+    """PRD §7.4: 删除单独的 _AGENT_CONVERSATION_EXPLAIN_PROMPT 特权入口，元对话规则并入统一 Answer Prompt。"""
+    # 1. 解释对话历史/反问，统一挂载绝对事实强锁 Prompt，并包含元对话事实解释约束
     explain_msgs = build_agent_messages(
         question="我啥时候说是PipelineBuilder了？",
         conversation_section="## 对话上下文\n- 用户此前未指定产品",
-        evidence_section="",
-        is_direct_chat=True,
-        has_evidence=False,
+        evidence_section="## 证据池\n<evidence_pool>(暂无)</evidence_pool>",
     )
     assert len(explain_msgs) >= 1
     sys_content = explain_msgs[0]["content"]
-    assert "对话状态澄清与释疑助手" in sys_content
-    assert "禁止机械拒答" in sys_content
-    assert "<evidence_pool>" not in sys_content
+    assert "RAG 知识库问答助手" in sys_content
+    assert "如果问题要求解释对话历史或系统上一轮行为" in sys_content
+    assert "只能使用 Snapshot 中的 Conversation / Runtime Evidence" in sys_content
+    assert "不得把模型记忆或外部通用知识当成解释依据" in sys_content
+    assert "绝对事实强锁" in sys_content
 
-    # 2. 状态 B：客观知识问答 -> 挂载事实强锁 Prompt
+    # 2. 客观知识问答 -> 同样使用统一事实强锁
     strict_msgs = build_agent_messages(
         question="StampServer 端口是多少？",
         conversation_section="## 对话上下文\n- 当前实体: StampServer",
         evidence_section="## 证据池\n<evidence_pool>[1] 端口 8080</evidence_pool>",
-        is_direct_chat=False,
-        has_evidence=True,
     )
     sys_strict = strict_msgs[0]["content"]
     assert "RAG 知识库问答助手" in sys_strict
@@ -1461,34 +1460,6 @@ def test_retrieval_trace_explainable_snapshot():
     assert trace_dict["retrieval_trace"]["applied_weights"] == {"bm25": 0.85, "vector": 0.15}
     assert trace_dict["retrieval_trace"]["graph_expansion_hops"] == 0
 
-
-def test_context_conditioned_prompt_hard_isolation():
-    # 1. 状态 A：纯会话释疑且无证据 -> 挂载会话解释 Prompt，无知识库拒答壳
-    explain_msgs = build_agent_messages(
-        question="我啥时候说是PipelineBuilder了？",
-        conversation_section="## 对话上下文\n- 用户此前未指定产品",
-        evidence_section="",
-        is_direct_chat=True,
-        has_evidence=False,
-    )
-    assert len(explain_msgs) >= 1
-    sys_content = explain_msgs[0]["content"]
-    assert "对话状态澄清与释疑助手" in sys_content
-    assert "禁止机械拒答" in sys_content
-    assert "<evidence_pool>" not in sys_content
-
-    # 2. 状态 B：客观知识问答 -> 挂载事实强锁 Prompt
-    strict_msgs = build_agent_messages(
-        question="StampServer 端口是多少？",
-        conversation_section="## 对话上下文\n- 当前实体: StampServer",
-        evidence_section="## 证据池\n<evidence_pool>[1] 端口 8080</evidence_pool>",
-        is_direct_chat=False,
-        has_evidence=True,
-    )
-    sys_strict = strict_msgs[0]["content"]
-    assert "RAG 知识库问答助手" in sys_strict
-    assert "<evidence_pool>" in sys_strict
-    assert "绝对事实强锁" in sys_strict
 
 
 def test_agent_stream_events_yielded():

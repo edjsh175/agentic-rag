@@ -2114,9 +2114,8 @@ def test_controller_prompt_does_not_reclarify_an_already_confirmed_entity():
     assert "不得仅因用户原始词较短、泛化、存在拼写近似" in _DECISION_PROMPT
     assert "EvidencePool 为空时优先围绕已确认实体做首次 retrieve_kb" in _DECISION_PROMPT
     assert "ControllerState 是权威状态" in _DECISION_PROMPT
-    assert "allowed_tools" in _DECISION_PROMPT
-    assert "用户问题：简称" in _DECISION_PROMPT
-    assert "当前主体身份为实体 A" in _DECISION_PROMPT
+    assert "用户问题：那它的默认端口是多少？" in _DECISION_PROMPT
+    assert "前序正在讨论已确认实体 A 的配置" in _DECISION_PROMPT
     assert '"tool":"retrieve_kb"' in _DECISION_PROMPT
     assert '"focus_entity_id":"实体 A"' in _DECISION_PROMPT
 

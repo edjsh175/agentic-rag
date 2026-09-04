@@ -484,6 +484,97 @@ class QaTraceBuilder:
             return
         self._runtime_overrides.update(kwargs)
 
+    def get_clarification_stats(self) -> dict[str, Any]:
+        """PRD §11.3: 对齐并返回 clarify 的 attempt_count, effect_count, result, pause 统计。"""
+        attempt_count = sum(
+            1 for e in self._events
+            if (e.get("type") == "tool_start" or e.get("event") == "tool_start")
+            and (e.get("data") or {}).get("name") == "clarify"
+        )
+        if attempt_count == 0:
+            attempt_count = sum(
+                1 for e in self._execution_events
+                if (e.get("type") == "tool_start" or e.get("event") == "tool_start")
+                and (e.get("data") or {}).get("name") == "clarify"
+            )
+        effect_count = sum(
+            1 for e in self._events
+            if (e.get("type") == "clarification_card_published" or e.get("event") == "clarification_card_published")
+        )
+        if effect_count == 0:
+            effect_count = sum(
+                1 for e in self._execution_events
+                if (e.get("type") == "clarification_card_published" or e.get("event") == "clarification_card_published")
+            )
+
+        all_event_list = list(self._events) + list(self._execution_events)
+        clarify_results = [
+            e for e in all_event_list
+            if (e.get("type") in {"tool_end", "tool_result"} or e.get("event") in {"tool_end", "tool_result"})
+            and (e.get("data") or {}).get("name") == "clarify"
+        ]
+
+        result = "NONE"
+        pause = False
+
+        if clarify_results:
+            last_res = clarify_results[-1].get("data") or {}
+            progress = str(last_res.get("progress") or "").upper()
+            status = str(last_res.get("status") or "").upper()
+            is_ok = last_res.get("ok")
+            has_error = bool(last_res.get("error"))
+
+            if progress == "DENIED" or status == "DENIED":
+                result = "DENIED"
+            elif is_ok is False or has_error or status in {"ERROR", "FAILED"}:
+                result = "ERROR"
+            elif is_ok is True or status in {"SUCCESS", "COMPLETED"} or progress in {"SUCCESS", "COMPLETED"}:
+                result = "SUCCESS"
+            else:
+                result = progress or status or "SUCCESS"
+
+            res_inner_data = last_res.get("data") if isinstance(last_res.get("data"), dict) else {}
+            has_pause_indicator = bool(
+                last_res.get("pause")
+                or res_inner_data.get("pause")
+                or effect_count > 0
+                or any(
+                    (e.get("type") in {"clarification_prepared", "clarification_card_published", "clarify_pause"}
+                     or e.get("event") in {"clarification_prepared", "clarification_card_published", "clarify_pause"})
+                    for e in all_event_list
+                )
+            )
+            pause = has_pause_indicator if result != "DENIED" else False
+        elif attempt_count > 0:
+            result = "RUNNING"
+            pause = False
+
+        return {
+            "attempt_count": attempt_count,
+            "effect_count": effect_count,
+            "result": result,
+            "pause": pause,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        """返回当前内存中 Trace 的只读快照字典，支持断言与对账。"""
+        return {
+            "meta": {
+                "trace_id": self.trace_id,
+                "request_id": self._request_id,
+                "path": self._meta_path,
+            },
+            "request": self._request,
+            "events": list(self._events),
+            "execution_events": list(self._execution_events),
+            "clarify": {
+                **self._clarify,
+                **self.get_clarification_stats(),
+            } if (self.get_clarification_stats()["attempt_count"] > 0 or self.get_clarification_stats()["effect_count"] > 0) else self._clarify,
+        }
+
+
+
     def finish(
         self,
         *,
@@ -553,7 +644,10 @@ class QaTraceBuilder:
             "scope": self._scope,
             "plan": self._plan,
             "understanding": self._understanding,
-            "clarify": self._clarify,
+            "clarify": {
+                **self._clarify,
+                **self.get_clarification_stats(),
+            } if (self.get_clarification_stats()["attempt_count"] > 0 or self.get_clarification_stats()["effect_count"] > 0) else self._clarify,
             "agent": self._agent,
             "grounding": grounding_payload,
             "retrieval": self._retrieval,
@@ -875,3 +969,6 @@ class QaTraceStore:
             for path in self._root.glob(f"*/{tid}.json"):
                 path.unlink(missing_ok=True)
         self._rewrite_index(keep)
+
+# Alias for convenience and backward compatibility
+QaTrace = QaTraceBuilder

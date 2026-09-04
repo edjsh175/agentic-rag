@@ -835,8 +835,18 @@ function createStreamHandler(
       }
       scrollDown()
     },
-    onClarify: (data: ClarifyResult) => {
+    onClarificationCardPublished: (data: ClarifyResult) => {
       clarificationPublishedInThisRequest = applyClarification(targetMsg, data)
+      if (clarificationPublishedInThisRequest && projector) {
+        projector.handleClarificationPublished(data?.clarification_snapshot_id)
+      }
+    },
+    onClarify: (data: ClarifyResult) => {
+      if (clarificationPublishedInThisRequest) return
+      clarificationPublishedInThisRequest = applyClarification(targetMsg, data)
+      if (clarificationPublishedInThisRequest && projector) {
+        projector.handleClarificationPublished(data?.clarification_snapshot_id)
+      }
     },
     onDone: async () => {
       targetMsg.status = undefined

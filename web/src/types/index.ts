@@ -76,6 +76,7 @@ export interface ToolResultEventData extends ToolStartEventData {
   progress?: ToolProgress
   data?: unknown
   evidence_delta?: EvidenceUpdateEventData
+  clarification_snapshot_id?: string
 }
 
 export interface EvidenceUpdateEventData {
@@ -212,6 +213,7 @@ export type KnowledgeStreamEvent =
   | { type: 'trace'; data: string | { trace_id: string } }
   | { type: 'pipeline'; data: PipelineStep }
   | { type: 'clarify'; data: ClarifyResult }
+  | { type: 'clarification_card_published'; data: ClarifyResult }
   | { type: 'heartbeat'; phase?: string }
   | { type: 'answer_generation_started'; data?: unknown }
   | { type: 'done'; data?: unknown }
@@ -260,6 +262,8 @@ export interface ToolBlock extends BaseBlock {
   error?: string | null
   gap?: string | null
   expectedGain?: string | null
+  cardPublished?: boolean
+  clarificationSnapshotId?: string
 }
 
 export interface ActivityBlock extends BaseBlock {

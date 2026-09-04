@@ -21,8 +21,8 @@ def test_stream_query_ambiguous_short_circuits_with_clarify_card(isolated_storag
 
     events = asyncio.run(collect())
     types = [e.get("type") for e in events]
-    assert "clarify" in types, f"Expected clarify event in stream, got types: {types}"
-    clarify_evt = next(e for e in events if e.get("type") == "clarify")
+    assert "clarification_card_published" in types, f"Expected clarification_card_published event in stream, got types: {types}"
+    clarify_evt = next(e for e in events if e.get("type") == "clarification_card_published")
     data = clarify_evt.get("data") or {}
     assert data.get("needs_clarification") is True
     assert len(data.get("options") or []) >= 2
@@ -56,6 +56,7 @@ def test_stream_query_with_clarification_selected_passes_gate(isolated_storage, 
 
     events = asyncio.run(collect())
     types = [e.get("type") for e in events]
+    assert "clarification_card_published" not in types
     assert "clarify" not in types
     assert "done" in types
 

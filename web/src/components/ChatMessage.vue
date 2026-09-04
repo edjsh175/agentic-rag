@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -58,6 +58,19 @@ const otherOption = computed<ClarificationOption>(() => (
 const visibleOptions = computed(() => (
   (props.clarification?.options || []).filter(option => !isOtherOption(option))
 ))
+
+watch(
+  () => [props.clarification?.clarification_snapshot_id, props.clarification?.ask_question],
+  () => {
+    otherInputVal.value = ''
+    if (!props.clarification || props.clarification.selectedId) {
+      showOtherInput.value = false
+    } else {
+      showOtherInput.value = visibleOptions.value.length === 0
+    }
+  },
+  { immediate: true }
+)
 
 function selectOption(option: ClarificationOption) {
   emit('selectClarificationOption', { option, kind: 'option' })

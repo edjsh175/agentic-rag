@@ -121,6 +121,61 @@ describe('ChatMessage clarification card', () => {
       kind: 'option',
     })
   })
+
+  it('resets input state and toggles panel visibility when transitioning from 0 candidates to N candidates', async () => {
+    const wrapper = mount(ChatMessage, {
+      props: {
+        role: 'assistant',
+        content: '',
+        clarification: {
+          clarification_snapshot_id: 'snap_0',
+          ask_question: '请补充您具体指的产品或模块：',
+          options: [
+            {
+              id: 'other',
+              label: '以上都不是',
+              filter: {},
+              source: 'fixed_other',
+            },
+          ],
+        },
+      },
+      global: {
+        provide: {
+          [Symbol.for('vue-router')]: { push: () => {} },
+        },
+        stubs: {
+          AgentStepStream: true,
+          EvidencePanel: true,
+        },
+      },
+    })
+
+    // 0 候选卡片：自动展开自由文本输入面板
+    expect(wrapper.find('.clarification-other-input-panel').exists()).toBe(true)
+    await wrapper.get('.other-input').setValue('残留的半截输入')
+    expect((wrapper.get('.other-input').element as HTMLInputElement).value).toBe('残留的半截输入')
+
+    // 切换到第二张卡片：2 个候选实体
+    await wrapper.setProps({
+      clarification: {
+        clarification_snapshot_id: 'snap_2',
+        ask_question: '您指的是以下哪一个产品或模块？',
+        options: [
+          { id: 'cand_1', label: 'PipelineBuilder', filter: {} },
+          { id: 'cand_2', label: 'ModelBuilder', filter: {} },
+          { id: 'other', label: '以上都不是', filter: {}, source: 'fixed_other' },
+        ],
+      },
+    })
+
+    // 2 候选卡片：输入面板必须自动收起，输入框残留必须清空！
+    expect(wrapper.find('.clarification-other-input-panel').exists()).toBe(false)
+    // 重新点击展开其他输入框，验证其内容已被重置为空
+    await wrapper.get('.is-other-option').trigger('click')
+    expect(wrapper.find('.clarification-other-input-panel').exists()).toBe(true)
+    expect((wrapper.get('.other-input').element as HTMLInputElement).value).toBe('')
+  })
 })
 
 describe('ChatMessage execution presentation', () => {

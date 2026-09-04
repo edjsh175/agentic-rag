@@ -8,6 +8,7 @@ admission remains a separate downstream authority.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -15,6 +16,8 @@ from langchain_core.documents import Document
 
 from rag_knowledge.models.graph_schema import normalize_entity_name
 from rag_knowledge.services.relation_policy import is_candidate_expansion_relation
+
+logger = logging.getLogger(__name__)
 
 
 def _norm(value: Any) -> str:
@@ -110,6 +113,7 @@ class AgentCandidatePipeline:
         self._store = vector_store
         self._strategy = retrieval_strategy
         self._graph_db = graph_db
+        self.diagnostics: dict[str, dict[str, Any]] = {}
 
     @staticmethod
     def _hard_boundary(doc: Document, *, kb_name: str | None, review_status: str | None, doc_category: str | None) -> bool:
@@ -152,6 +156,7 @@ class AgentCandidatePipeline:
         graph_working_set: Any = None,
     ) -> list[CandidateResult]:
         """Generate independent candidate lists, then deduplicate and RRF-fuse."""
+        self.diagnostics = {}
         target = str(target_entity or "").strip()
         lists: list[tuple[str, Iterable[Document], tuple[str, ...], bool, str | None, bool]] = []
         graph_docs: list[tuple[Document, tuple[str, ...], float, str, bool, str | None]] = []
@@ -276,26 +281,56 @@ class AgentCandidatePipeline:
             add("exact_lexical", (doc for doc in lexical_docs if target.casefold() in doc.page_content.casefold()), exact=True)
         bm25_docs = bm25.search(question, kb_name=kb_name, review_status=review_status, doc_category=doc_category, top_k=budgets.bm25)
         add("bm25", bm25_docs)
-        vector_docs = self._strategy._retrieve_vector(
-            question, kb_name, doc_category, review_status, "similarity", budgets.vector, scope=None,
-        )
+        try:
+            vector_docs = self._strategy._retrieve_vector(
+                question, kb_name, doc_category, review_status, "similarity", budgets.vector, scope=None,
+            )
+            self.diagnostics["vector"] = {"status": "ok"}
+        except Exception as exc:
+            logger.warning(
+                "Vector candidate generator degraded due to %s: %s",
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            self.diagnostics["vector"] = {
+                "status": "degraded",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            }
+            vector_docs = []
         add("vector", vector_docs)
 
         for result in candidates.values():
             result.fusion_score = sum(item.weight / (60 + item.rank) for item in result.provenance)
         return sorted(candidates.values(), key=lambda item: item.fusion_score, reverse=True)[:budgets.merged]
 
-    @staticmethod
-    def generator_trace(candidates: Iterable[CandidateResult]) -> dict[str, dict[str, float | int]]:
+    def generator_trace(
+        self,
+        candidates: Iterable[CandidateResult] | None = None,
+        *,
+        diagnostics: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, dict[str, Any]]:
         """Actual multi-path contributions for request trace, not legacy hybrid weights."""
-        summary: dict[str, dict[str, float | int]] = {}
+        if isinstance(self, AgentCandidatePipeline):
+            target_candidates = candidates if candidates is not None else ()
+            effective_diag = dict(getattr(self, "diagnostics", {}) or {})
+            if diagnostics:
+                effective_diag.update(diagnostics)
+        else:
+            # Invoked as static method: AgentCandidatePipeline.generator_trace(candidates)
+            target_candidates = self
+            effective_diag = dict(diagnostics or {})
+
+        summary: dict[str, dict[str, Any]] = {}
         seen: dict[str, set[str]] = {}
-        for candidate in candidates:
+        for candidate in target_candidates:
             for provenance in candidate.provenance:
                 item = summary.setdefault(provenance.generator, {
                     "candidate_count": 0,
                     "provenance_hits": 0,
                     "rrf_contribution": 0.0,
+                    "status": "ok",
                 })
                 keys = seen.setdefault(provenance.generator, set())
                 if candidate.chunk_id not in keys:
@@ -305,4 +340,17 @@ class AgentCandidatePipeline:
                 item["rrf_contribution"] = round(
                     float(item["rrf_contribution"]) + provenance.weight / (60 + provenance.rank), 6,
                 )
+
+        if effective_diag:
+            for gen_name, diag in effective_diag.items():
+                if gen_name not in summary:
+                    summary[gen_name] = {
+                        "candidate_count": 0,
+                        "provenance_hits": 0,
+                        "rrf_contribution": 0.0,
+                        **diag,
+                    }
+                else:
+                    summary[gen_name].update(diag)
+
         return summary

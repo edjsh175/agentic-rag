@@ -502,3 +502,174 @@ describe('normalizeLegacyMessageToBlocks', () => {
     expect((blocks[2] as any).markdown).toBe('旧最终答案')
   })
 })
+
+
+describe('Phase 6: Clarify Tool Attempt / Effect 真实语义 (PRD 11.1 - 11.3)', () => {
+  it('shows dynamic state for clarify tool and forbids static "反问澄清" on start', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleToolStart({
+      name: 'clarify',
+      step: 1,
+      arguments: { question: '请选择产品' },
+    })
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(1)
+    const toolBlock = blocks[0] as any
+    expect(toolBlock.kind).toBe('tool')
+    expect(toolBlock.status).toBe('running')
+    // 关键断言：严禁 Tool Start 就固定展示“反问澄清”
+    expect(toolBlock.label).not.toBe('反问澄清')
+    expect(toolBlock.label).toBe('正在尝试发起澄清')
+
+    // 执行被 Handler 拒绝 (DENIED)
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 1,
+      progress: 'DENIED',
+      summary: '缺少可冻结的身份解析状态。',
+    })
+    expect(toolBlock.status).toBe('denied')
+    expect(toolBlock.label).toBe('未发起澄清')
+  })
+
+  it('updates clarify label to "澄清执行失败" on error', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleToolStart({ name: 'clarify', step: 1 })
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 1,
+      ok: false,
+      error: 'resolver_crashed',
+    })
+
+    const blocks = projector.getBlocks()
+    const toolBlock = blocks[0] as any
+    expect(toolBlock.status).toBe('failed')
+    expect(toolBlock.label).toBe('澄清执行失败')
+  })
+
+  it('upgrades completed clarify to "已发起澄清" only when card is published (Effect)', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleToolStart({ name: 'clarify', step: 1 })
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 1,
+      ok: true,
+      summary: '出示反问澄清卡片',
+      clarification_snapshot_id: 'snap_demo',
+    })
+
+    const blocks = projector.getBlocks()
+    const toolBlock = blocks[0] as any
+    expect(toolBlock.status).toBe('completed')
+    // 尚未收到 card_published 时，呈现“已准备澄清”中间态，绝非“未发起澄清”
+    expect(toolBlock.cardPublished).toBe(false)
+    expect(toolBlock.label).toBe('已准备澄清')
+
+    // 真正网络出口发布卡片到达 (clarification_card_published)
+    projector.handleClarificationPublished('snap_demo')
+    expect(toolBlock.cardPublished).toBe(true)
+    expect(toolBlock.label).toBe('已发起澄清')
+  })
+
+  it('precisely binds and upgrades clarify tool block by snapshot provenance', () => {
+    const projector = new AgentBlockProjector()
+    // 产生两次 clarify 调用：snapshot_A 与 snapshot_B
+    projector.handleToolStart({ name: 'clarify', step: 1 })
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 1,
+      ok: true,
+      clarification_snapshot_id: 'snap_A',
+    })
+
+    projector.handleToolStart({ name: 'clarify', step: 2 })
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 2,
+      ok: true,
+      clarification_snapshot_id: 'snap_B',
+    })
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(2)
+    const blockA = blocks[0] as any
+    const blockB = blocks[1] as any
+
+    expect(blockA.label).toBe('已准备澄清')
+    expect(blockA.clarificationSnapshotId).toBe('snap_A')
+    expect(blockB.label).toBe('已准备澄清')
+    expect(blockB.clarificationSnapshotId).toBe('snap_B')
+
+    // 针对 snap_A 发起发布
+    projector.handleClarificationPublished('snap_A')
+
+    // 只有 A 升级为“已发起澄清”，B 依然是“已准备澄清”
+    expect(blockA.cardPublished).toBe(true)
+    expect(blockA.label).toBe('已发起澄清')
+    expect(blockB.cardPublished).toBeFalsy()
+    expect(blockB.label).toBe('已准备澄清')
+  })
+
+  it('strictly no-ops if clarification_card_published has no snapshotId or does not match', () => {
+    const projector = new AgentBlockProjector()
+    projector.handleToolStart({ name: 'clarify', step: 1 })
+    projector.handleToolResult({
+      name: 'clarify',
+      step: 1,
+      ok: true,
+      clarification_snapshot_id: 'snap_target',
+    })
+
+    const blocks = projector.getBlocks()
+    const toolBlock = blocks[0] as any
+    expect(toolBlock.label).toBe('已准备澄清')
+
+    // 1. 尝试传入 undefined / 空字符串 -> 严禁盲猜，必须 no-op
+    projector.handleClarificationPublished()
+    expect(toolBlock.cardPublished).toBeFalsy()
+    expect(toolBlock.label).toBe('已准备澄清')
+
+    projector.handleClarificationPublished('')
+    expect(toolBlock.cardPublished).toBeFalsy()
+    expect(toolBlock.label).toBe('已准备澄清')
+
+    // 2. 尝试传入不匹配的 snapshotId -> 严禁盲猜，必须 no-op
+    projector.handleClarificationPublished('snap_unmatched')
+    expect(toolBlock.cardPublished).toBeFalsy()
+    expect(toolBlock.label).toBe('已准备澄清')
+
+    // 3. 只有精准匹配时，才更新
+    projector.handleClarificationPublished('snap_target')
+    expect(toolBlock.cardPublished).toBe(true)
+    expect(toolBlock.label).toBe('已发起澄清')
+  })
+
+  it('accurately projects multiple denied attempts (attempt_count=3, effect_count=0)', () => {
+    const projector = new AgentBlockProjector()
+
+    // 模拟事故场景：Controller 循环中尝试了 3 次 clarify，全部被 DENIED
+    for (let step = 1; step <= 3; step++) {
+      projector.handleToolStart({ name: 'clarify', step, arguments: { reason: 'subject_not_clear' } })
+      projector.handleToolResult({
+        name: 'clarify',
+        step,
+        progress: 'DENIED',
+        summary: '缺少可冻结的身份解析状态。',
+      })
+    }
+
+    const blocks = projector.getBlocks()
+    expect(blocks).toHaveLength(3)
+
+    // 断言 3 个块均为 denied 状态，文案均清晰呈现为“未发起澄清”，而不是向用户提问了 3 次
+    blocks.forEach((b: any) => {
+      expect(b.kind).toBe('tool')
+      expect(b.tool).toBe('clarify')
+      expect(b.status).toBe('denied')
+      expect(b.label).toBe('未发起澄清')
+      expect(b.cardPublished).toBeFalsy()
+    })
+  })
+})

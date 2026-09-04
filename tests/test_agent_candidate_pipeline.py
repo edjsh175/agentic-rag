@@ -581,3 +581,83 @@ def test_v2_agent_entrypoint_retrieves_unbound_topic_instead_of_returning_empty(
             semantic_task=_semantic_task("实时媒体组件如何配置？", intent="config"),
         ))
     assert [doc["metadata"]["chunk_id"] for doc in docs] == ["topic-main"]
+
+
+def test_vector_failure_degrades_gracefully_preserving_bm25_candidates():
+    """向量服务异常（如网络中断/连接拒绝）时，降级为空候选，不崩溃且保留 BM25 / lexical / graph 结果。"""
+    bm25_doc = _doc("bm25-chunk-01", "PipelineWebRTC", "PipelineWebRTC 包含 BM25 专属内容。")
+    strategy = _Strategy([bm25_doc], [])
+
+    def failing_vector(*args, **kwargs):
+        raise ConnectionError("Connection refused by embedding service: 192.168.10.158:11434")
+
+    strategy._retrieve_vector = failing_vector
+
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([bm25_doc]),
+        retrieval_strategy=strategy,
+        graph_db=_Graph(),
+    )
+
+    # 1. 运行 generate 不应抛出异常
+    candidates = pipeline.generate(
+        "PipelineWebRTC 如何配置？",
+        target_entity="PipelineWebRTC",
+        kb_name=None,
+        review_status="approved",
+        doc_category=None,
+    )
+
+    # 2. BM25 候选依然被保留
+    candidate_ids = [c.chunk_id for c in candidates]
+    assert "bm25-chunk-01" in candidate_ids
+
+    # 3. 检查 trace: vector 贡献为 0，且明确记录 degraded 及 error_type
+    trace = pipeline.generator_trace(candidates)
+    assert "vector" in trace
+    assert trace["vector"]["candidate_count"] == 0
+    assert trace["vector"]["rrf_contribution"] == 0.0
+    assert trace["vector"]["status"] == "degraded"
+    assert trace["vector"]["error_type"] == "ConnectionError"
+    assert "Connection refused" in trace["vector"]["error"]
+
+    # 4. BM25 的贡献正常
+    assert "bm25" in trace
+    assert trace["bm25"]["candidate_count"] >= 1
+    assert trace["bm25"]["rrf_contribution"] > 0
+
+
+def test_vector_normal_multi_path_fusion_unaffected():
+    """向量服务正常时，多路融合（BM25 + Vector + Lexical）结果与 RRF 得分行为保持不变。"""
+    bm25_doc = _doc("shared-chunk", "PipelineWebRTC", "PipelineWebRTC 包含通用组件介绍。")
+    vector_doc = _doc("shared-chunk", "PipelineWebRTC", "PipelineWebRTC 包含通用组件介绍。")
+    vector_unique = _doc("vector-only", "PipelineWebRTC", "仅在向量库中召回的高维语义段落。")
+
+    strategy = _Strategy([bm25_doc], [vector_doc, vector_unique])
+
+    pipeline = AgentCandidatePipeline(
+        vector_store=_Store([bm25_doc, vector_unique]),
+        retrieval_strategy=strategy,
+        graph_db=_Graph(),
+    )
+
+    candidates = pipeline.generate(
+        "PipelineWebRTC 组件如何使用？",
+        target_entity="PipelineWebRTC",
+        kb_name=None,
+        review_status="approved",
+        doc_category=None,
+    )
+
+    candidate_ids = [c.chunk_id for c in candidates]
+    assert "shared-chunk" in candidate_ids
+    assert "vector-only" in candidate_ids
+
+    trace = pipeline.generator_trace(candidates)
+    assert trace["vector"]["status"] == "ok"
+    assert trace["vector"]["candidate_count"] >= 2
+    assert trace["vector"]["rrf_contribution"] > 0
+
+    assert trace["bm25"]["status"] == "ok"
+    assert trace["bm25"]["candidate_count"] >= 1
+    assert trace["bm25"]["rrf_contribution"] > 0

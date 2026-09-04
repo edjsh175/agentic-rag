@@ -16,8 +16,8 @@ import type {
   ToolStartEventData,
 } from '../types'
 
-/** 工具标题本地化映射 */
-export function getToolLabel(toolName: string): string {
+/** 工具标题本地化映射 (PRD 11.1: 禁止 Tool Start 就固定展示“反问澄清”) */
+export function getToolLabel(toolName: string, status?: string, cardPublished?: boolean): string {
   switch (toolName) {
     case 'retrieve_kb':
       return '知识库检索'
@@ -32,7 +32,13 @@ export function getToolLabel(toolName: string): string {
     case 'reuse_evidence':
       return '复用已有证据'
     case 'clarify':
-      return '反问澄清'
+      if (status === 'running') return '正在尝试发起澄清'
+      if (status === 'denied') return '未发起澄清'
+      if (status === 'failed') return '澄清执行失败'
+      if (status === 'completed') {
+        return cardPublished ? '已发起澄清' : '已准备澄清'
+      }
+      return '正在尝试发起澄清'
     case 'environment.read_status':
       return '系统状态读取'
     default:
@@ -285,12 +291,13 @@ export class AgentBlockProjector {
       toolCallKey: toolKey,
       tool: toolName,
       toolName,
-      label: getToolLabel(toolName),
+      label: getToolLabel(toolName, 'running'),
       description: data.arguments?.query ? String(data.arguments.query) : toolName,
       input: data.arguments,
       in: data.arguments,
       status: 'running',
       isStreaming: true,
+      cardPublished: false,
       gap: data.gap,
       expectedGain: data.expected_gain,
     }
@@ -339,12 +346,38 @@ export class AgentBlockProjector {
     existing.out = output
     existing.elapsedMs = data.elapsed_ms
     existing.error = data.error || null
+    const snapshotId = data.clarification_snapshot_id
+      || (data.arguments as any)?.clarification_snapshot_id
+      || (data.data as any)?.clarification_snapshot_id
+    if (snapshotId) {
+      existing.clarificationSnapshotId = String(snapshotId)
+    }
+    existing.label = getToolLabel(existing.tool, status, existing.cardPublished)
     if (data.arguments) {
       existing.input = data.arguments
       existing.in = data.arguments
     }
     if (data.gap) existing.gap = data.gap
     if (data.expected_gain) existing.expectedGain = data.expected_gain
+  }
+
+  /** PRD 11.1 & 11.2: 真实卡片发布（clarification_card_published）到达时，依据 snapshotId 精确升级 clarify 工具为“已发起澄清”。
+   * 严禁无 snapshot 时盲猜最近一个 clarify：无 snapshot 或未匹配直接 fail-safe no-op。
+   */
+  public handleClarificationPublished(snapshotId?: string): void {
+    const targetSnapshotId = typeof snapshotId === 'string' ? snapshotId.trim() : ''
+    if (!targetSnapshotId) return
+
+    for (let i = this.blocks.length - 1; i >= 0; i--) {
+      const b = this.blocks[i]
+      if (b.kind === 'tool' && b.tool === 'clarify' && b.clarificationSnapshotId === targetSnapshotId) {
+        b.cardPublished = true
+        if (b.status === 'completed') {
+          b.label = getToolLabel(b.tool, 'completed', true)
+        }
+        break
+      }
+    }
   }
 
   /** 处理 Reviewer 审查开始：创建或原位激活 ActivityBlock */

@@ -189,6 +189,30 @@ describe('queryKnowledgeStream', () => {
     ).rejects.toThrow('clarification selection requires snapshot_id and option_id')
     expect(callbacks.onDone).not.toHaveBeenCalled()
   })
+
+  it('PRD 11.2 & 缺口 A: dispatches onClarificationCardPublished for clarification_card_published SSE event', async () => {
+    const callbacks = {
+      ...streamCallbacks(),
+      onClarificationCardPublished: vi.fn(),
+      onClarify: vi.fn(),
+    }
+    const mockCard = {
+      needs_clarification: true,
+      ask_question: '请选择产品',
+      clarification_snapshot_id: 'snap_stream_100',
+      options: [{ id: 'opt1', label: 'Pipeline' }],
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      sseResponse(
+        `data: ${JSON.stringify({ type: 'clarification_card_published', data: mockCard })}\n\n` +
+        'data: {"type":"done"}',
+      ),
+    ))
+
+    await queryKnowledgeStream('pipeline', [], callbacks)
+
+    expect(callbacks.onClarificationCardPublished).toHaveBeenCalledWith(mockCard)
+  })
 })
 
 describe('queryAdminDebugStream', () => {

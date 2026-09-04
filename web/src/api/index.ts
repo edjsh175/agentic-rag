@@ -307,6 +307,7 @@ export interface KnowledgeStreamCallbacks {
   onPipeline?: (pipelineData: PipelineStep) => void
   onNotice?: (notice: string) => void
   onClarify?: (data: ClarifyResult) => void
+  onClarificationCardPublished?: (data: ClarifyResult) => void
   onAgentEvent?: (event: KnowledgeStreamEvent) => void
   onDone: () => void
   onError: (err: Error) => void
@@ -453,8 +454,12 @@ export async function queryKnowledgeStream(
         callbacks.onPipeline?.(event.data)
       } else if (event.type === 'notice') {
         callbacks.onNotice?.(event.data)
-      } else if (event.type === 'clarify') {
-        callbacks.onClarify?.(event.data)
+      } else if (event.type === 'clarification_card_published' || event.type === 'clarify') {
+        if (callbacks.onClarificationCardPublished) {
+          callbacks.onClarificationCardPublished(event.data)
+        } else {
+          callbacks.onClarify?.(event.data)
+        }
       } else if (event.type === 'done') {
         notifyDone()
       }
@@ -928,6 +933,7 @@ export async function queryAdminDebugStream(
     onSources?: (sources: any[]) => void
     onTrace?: (traceId: string) => void
     onClarify?: (data: ClarifyResult) => void
+    onClarificationCardPublished?: (data: ClarifyResult) => void
     onDone?: () => void
     onError?: (err: Error) => void
   },
@@ -1008,7 +1014,13 @@ export async function queryAdminDebugStream(
           : (typeof event.data?.trace_id === 'string' ? event.data.trace_id.trim() : '')
         if (tid) callbacks.onTrace?.(tid)
       }
-      else if (event.type === 'clarify') callbacks.onClarify?.(event.data)
+      else if (event.type === 'clarification_card_published' || event.type === 'clarify') {
+        if (callbacks.onClarificationCardPublished) {
+          callbacks.onClarificationCardPublished(event.data)
+        } else {
+          callbacks.onClarify?.(event.data)
+        }
+      }
       else if (event.type === 'evidence_snapshot_created') callbacks.onStatus?.('证据已冻结，开始生成答案。')
       else if (event.type === 'answer_generation_started') {
         answerGenerationStarted = true

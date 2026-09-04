@@ -445,18 +445,22 @@ class RagChain:
     @staticmethod
     def _clarification_card_event(clarify: dict[str, Any]) -> dict[str, Any]:
         """Build the one canonical runtime fact emitted when a clarification card is published."""
+        snapshot_id = clarify.get("clarification_snapshot_id") or clarify.get("snapshot_id")
         return {
             "type": "clarification_card_published",
             "data": {
                 "ask_question": clarify.get("ask_question"),
                 "options": clarify.get("options") or [],
-                "snapshot_id": clarify.get("clarification_snapshot_id"),
+                "snapshot_id": snapshot_id,
+                "clarification_snapshot_id": snapshot_id,
             },
         }
 
     @classmethod
     def _record_clarification_card_published(cls, trace: Any, clarify: dict[str, Any]) -> None:
-        cls._record_execution_event(trace, cls._clarification_card_event(clarify))
+        event = cls._clarification_card_event(clarify)
+        cls._record_execution_event(trace, event)
+        cls._safe_add_trace_event(trace, "clarification_card_published", event.get("data"))
 
     @staticmethod
     def _record_execution_event(trace: Any, event: dict[str, Any]) -> None:
@@ -3139,6 +3143,123 @@ class RagChain:
         )
         return source_docs, context, plan
 
+    @classmethod
+    def execute_clarify_tool(
+        cls,
+        conv: Any,
+        trace: Any | None = None,
+        args: dict[str, Any] | None = None,
+        *,
+        safe_add_trace_event: Any | None = None,
+    ) -> Any:
+        """PRD §9: Clarify 0/1/N 闭环执行器。
+
+        - [9.1] Main 控制器自主决定是否澄清；
+        - [9.2] 支持 0/1/N 三种交互形态（2+ 多选、1 单选确认、0 自由补充）；
+        - [9.3] 候选数 0/1/N 均为正常澄清状态，绝不抛出 meaningful_candidates_insufficient；
+        - [9.4] 产生 clarification_prepared 事件与 pause=True（真正的 published 事件由 HTTP/SSE 发布边界写入）。
+        """
+        from rag_knowledge.services.agent_orchestration.models import (
+            ToolObservation,
+            ToolProgressStatus,
+        )
+        from rag_knowledge.services.query_clarification import (
+            candidate_to_option,
+            merge_clarification_candidates,
+        )
+        from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
+
+        _args = args or {}
+
+        def _emit(tr: Any, ev: str, d: dict[str, Any] | None = None) -> None:
+            if safe_add_trace_event is not None:
+                try:
+                    safe_add_trace_event(tr, ev, d)
+                except TypeError:
+                    safe_add_trace_event(ev, d)
+            else:
+                cls._safe_add_trace_event(tr, ev, d)
+
+        _emit(
+            trace,
+            "controller_clarification_decided",
+            {
+                "decision_source": "main_controller",
+                "needed": True,
+                "reason": str(_args.get("reason") or "subject_not_clear"),
+            },
+        )
+        resolution = getattr(conv, "identity_resolution", None)
+        if resolution is None:
+            return ToolObservation(
+                tool="clarify",
+                ok=False,
+                summary="缺少可冻结的身份解析状态。",
+                status=ToolProgressStatus.DENIED,
+                error="identity_resolution_missing",
+            )
+
+        resolver = get_entity_candidate_resolver()
+        snapshot = resolver.create_clarification_snapshot(resolution)
+        system_seeds = [candidate_to_option(candidate) for candidate in snapshot.display_candidates]
+        merged = merge_clarification_candidates(
+            system_candidates=system_seeds,
+            include_other=True,
+        )
+        _emit(
+            trace,
+            "clarification_snapshot_created",
+            {
+                "clarification_snapshot_id": snapshot.clarification_id,
+                "surface": snapshot.surface,
+                "candidate_entity_ids": list(snapshot.candidate_entity_ids),
+                "final": len(merged),
+                "candidates": [option.to_dict() for option in merged],
+            },
+        )
+
+        meaningful_options = [opt for opt in merged if getattr(opt, "source", None) != "fixed_other"]
+
+        # PRD 9.2: 根据候选数量支持 0/1/N 三种交互形态
+        ask_q = str(_args.get("question") or "").strip()
+        if not ask_q:
+            if len(meaningful_options) >= 2:
+                ask_q = "您指的是以下哪一个产品或模块？"
+            elif len(meaningful_options) == 1:
+                opt0 = meaningful_options[0]
+                cand_label = (
+                    getattr(opt0, "canonical_name", None)
+                    or getattr(getattr(opt0, "filter", None), "entity_name", None)
+                    or getattr(opt0, "label", str(opt0))
+                )
+                ask_q = f"您指的是「{cand_label}」吗？"
+            else:
+                ask_q = "请补充您具体指的产品、模块、功能描述或相关上下文。"
+
+        payload = {
+            "needs_clarification": True,
+            "ask_question": ask_q,
+            "clarification_snapshot_id": snapshot.clarification_id,
+            "options": [opt.to_dict() for opt in merged],
+        }
+        _emit(
+            trace,
+            "clarification_prepared",
+            {
+                "ask_question": ask_q,
+                "clarification_snapshot_id": snapshot.clarification_id,
+                "option_ids": [opt.id for opt in merged],
+                "option_count": len(merged),
+                "meaningful_count": len(meaningful_options),
+            },
+        )
+        return ToolObservation(
+            tool="clarify",
+            ok=True,
+            summary=f"出示反问澄清卡片（{len(meaningful_options)} 个实体候选，共 {len(merged)} 个选项）",
+            data={"pause": True, "clarify": payload},
+        )
+
     async def _run_agent_turn(
         self,
         question: str,
@@ -3638,90 +3759,11 @@ class RagChain:
             )
 
         async def handle_clarify(_args: dict) -> ToolObservation:
-            from rag_knowledge.services.query_clarification import (
-                candidate_to_option,
-                merge_clarification_candidates,
-            )
-            from rag_knowledge.services.entity_candidate_resolver import get_entity_candidate_resolver
-
-            self._safe_add_trace_event(
-                trace,
-                "controller_clarification_decided",
-                {
-                    "decision_source": "main_controller",
-                    "needed": True,
-                    "reason": str(_args.get("reason") or "subject_not_clear"),
-                },
-            )
-            resolution = conv.identity_resolution
-            resolution_status = str(getattr(resolution, "status", "") or "").strip().casefold()
-            if resolution is None:
-                return ToolObservation(
-                    tool="clarify",
-                    ok=False,
-                    summary="缺少可冻结的身份解析状态。",
-                    status=ToolProgressStatus.DENIED,
-                    error="identity_resolution_missing",
-                )
-
-            resolver = get_entity_candidate_resolver()
-            snapshot = resolver.create_clarification_snapshot(resolution)
-            system_seeds = [candidate_to_option(candidate) for candidate in snapshot.display_candidates]
-            merged = merge_clarification_candidates(
-                system_candidates=system_seeds,
-                include_other=True,
-            )
-            self._safe_add_trace_event(
-                trace,
-                "clarification_snapshot_created",
-                {
-                    "clarification_snapshot_id": snapshot.clarification_id,
-                    "surface": snapshot.surface,
-                    "candidate_entity_ids": list(snapshot.candidate_entity_ids),
-                    "final": len(merged),
-                    "candidates": [option.to_dict() for option in merged],
-                },
-            )
-
-            meaningful_options = [opt for opt in merged if getattr(opt, "source", None) != "fixed_other"]
-            if resolution_status == "ambiguous" and len(meaningful_options) < 2:
-                return ToolObservation(
-                    tool="clarify",
-                    ok=False,
-                    summary="歧义状态缺少足够的候选实体。",
-                    status=ToolProgressStatus.DENIED,
-                    error="meaningful_candidates_insufficient",
-                )
-
-            ask_q = str(_args.get("question") or "").strip()
-            if not ask_q:
-                ask_q = (
-                    "您指的是以下哪一个产品或模块？"
-                    if meaningful_options
-                    else "请补充您具体指的产品、模块或主题。"
-                )
-
-            payload = {
-                "needs_clarification": True,
-                "ask_question": ask_q,
-                "clarification_snapshot_id": snapshot.clarification_id,
-                "options": [opt.to_dict() for opt in merged],
-            }
-            self._safe_add_trace_event(
-                trace,
-                "clarification_card_published",
-                {
-                    "ask_question": ask_q,
-                    "clarification_snapshot_id": snapshot.clarification_id,
-                    "option_ids": [opt.id for opt in merged],
-                    "option_count": len(merged),
-                },
-            )
-            return ToolObservation(
-                tool="clarify",
-                ok=True,
-                summary=f"出示反问澄清卡片（{len(merged)} 个选项）",
-                data={"pause": True, "clarify": payload},
+            return self.execute_clarify_tool(
+                conv,
+                trace=trace,
+                args=_args,
+                safe_add_trace_event=self._safe_add_trace_event,
             )
 
         async def handle_web_search(args: dict) -> ToolObservation:
@@ -4372,7 +4414,7 @@ class RagChain:
                         raise producer_error[0]
                     break
                 et = item.get("type")
-                if et in {"token", "final_answer", "done", "clarify"}:
+                if et in {"token", "final_answer", "done", "clarify", "clarification_card_published"}:
                     terminal = True
                 yield item
         finally:
@@ -4530,7 +4572,7 @@ class RagChain:
                 trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
             )
             yield publication_event
-            yield {"type": "clarify", "data": result.clarify}
+            yield {"type": "clarification_card_published", "data": result.clarify}
             yield {"type": "sources", "data": []}
             if pipeline_events:
                 yield {
@@ -4566,7 +4608,12 @@ class RagChain:
             def _on_lifecycle_sync(evt: dict[str, Any]) -> None:
                 current_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, evt)
 
-            async def _finalize_direct_candidate(*, candidate_version: int = 1):
+            async def _finalize_direct_candidate(
+                *,
+                candidate_version: int = 1,
+                allow_external_rewrite: bool = True,
+                frozen_coverage: str | None = None,
+            ):
                 try:
                     return await asyncio.to_thread(
                         _ANSWER_FINALIZER.finalize,
@@ -4578,11 +4625,13 @@ class RagChain:
                         helper_reviewer=self._helper_grounding_reviewer(),
                         on_lifecycle_event=_on_lifecycle_sync,
                         candidate_version=candidate_version,
+                        allow_external_rewrite=allow_external_rewrite,
+                        frozen_coverage=frozen_coverage,
                     )
                 finally:
                     current_loop.call_soon_threadsafe(lifecycle_queue.put_nowait, None)
 
-            finalize_task = asyncio.create_task(_finalize_direct_candidate())
+            finalize_task = asyncio.create_task(_finalize_direct_candidate(allow_external_rewrite=True))
             while True:
                 event = await lifecycle_queue.get()
                 if event is None:
@@ -4596,6 +4645,8 @@ class RagChain:
                 grounding.get("review_verdict") == "REVISE"
                 and grounding.get("repair_mode") == "REWRITE"
             ):
+                original_coverage = grounding.get("coverage")
+                snapshot_version = getattr(result.evidence_snapshot, "evidence_version", None)
                 finding = {
                     "kind": "REWRITE",
                     "affected_claim_ids": [
@@ -4605,6 +4656,8 @@ class RagChain:
                     ],
                     "rewrite_actions": list(details.get("rewrite_actions") or []),
                     "claim_reviews": list(details.get("claim_reviews") or []),
+                    "original_coverage": original_coverage,
+                    "snapshot_version": snapshot_version,
                 }
                 resume_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
@@ -4665,7 +4718,13 @@ class RagChain:
                     controller_candidate = candidate_v2
                     lifecycle_queue = asyncio.Queue()
                     current_loop = asyncio.get_running_loop()
-                    finalize_task = asyncio.create_task(_finalize_direct_candidate(candidate_version=2))
+                    finalize_task = asyncio.create_task(
+                        _finalize_direct_candidate(
+                            candidate_version=2,
+                            allow_external_rewrite=False,
+                            frozen_coverage=original_coverage,
+                        )
+                    )
                     while True:
                         event = await lifecycle_queue.get()
                         if event is None:
@@ -4673,6 +4732,38 @@ class RagChain:
                         self._record_execution_event(trace, event)
                         yield event
                     finalized = await finalize_task
+                else:
+                    from rag_knowledge.services.answer_finalizer import (
+                        FinalizedAnswer,
+                        REVIEW_BLOCKED_ANSWER,
+                    )
+                    pub_evt = {
+                        "type": "publication",
+                        "data": {
+                            "final_mode": "no_safe_answer",
+                            "publication_state": "no_safe_answer",
+                            "review_verdict": "REVISE",
+                            "coverage": "NONE",
+                            "published_candidate_attempt": None,
+                            "message": "候选答案重写未生成有效内容，已阻断发布。",
+                        },
+                    }
+                    self._record_execution_event(trace, pub_evt)
+                    yield pub_evt
+                    finalized = FinalizedAnswer(
+                        answer=REVIEW_BLOCKED_ANSWER,
+                        grounding={
+                            "policy": "strict_kb",
+                            "verdict": "blocked",
+                            "coverage": "NONE",
+                            "review_verdict": "REVISE",
+                            "review_count": 1,
+                            "reasons": ["rewrite_empty_candidate"],
+                            "final_mode": "no_safe_answer",
+                            "publication_state": "no_safe_answer",
+                            "fallback_used": False,
+                        },
+                    )
             elif finalized.retrieval_feedback:
                 resume_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
@@ -4736,7 +4827,9 @@ class RagChain:
                     )
                     lifecycle_queue = asyncio.Queue()
                     current_loop = asyncio.get_running_loop()
-                    finalize_task = asyncio.create_task(_finalize_direct_candidate(candidate_version=2))
+                    finalize_task = asyncio.create_task(
+                        _finalize_direct_candidate(candidate_version=2, allow_external_rewrite=False)
+                    )
                     while True:
                         event = await lifecycle_queue.get()
                         if event is None:
@@ -5350,6 +5443,7 @@ class RagChain:
             ),
             helper_reviewer=self._helper_grounding_reviewer(),
             on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
+            allow_external_rewrite=bool(controller_candidate),
         )
         grounding = dict(finalized.grounding or {})
         details = grounding.get("details") if isinstance(grounding.get("details"), dict) else {}
@@ -5358,6 +5452,8 @@ class RagChain:
             and grounding.get("review_verdict") == "REVISE"
             and grounding.get("repair_mode") == "REWRITE"
         ):
+            original_coverage = grounding.get("coverage")
+            snapshot_version = getattr(result.evidence_snapshot, "evidence_version", None)
             finding = {
                 "kind": "REWRITE",
                 "affected_claim_ids": [
@@ -5367,6 +5463,8 @@ class RagChain:
                 ],
                 "rewrite_actions": list(details.get("rewrite_actions") or []),
                 "claim_reviews": list(details.get("claim_reviews") or []),
+                "original_coverage": original_coverage,
+                "snapshot_version": snapshot_version,
             }
             resumed = await self._run_agent_turn(
                 q,
@@ -5416,6 +5514,39 @@ class RagChain:
                     helper_reviewer=self._helper_grounding_reviewer(),
                     on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
                     candidate_version=2,
+                    allow_external_rewrite=False,
+                    frozen_coverage=original_coverage,
+                )
+            else:
+                from rag_knowledge.services.answer_finalizer import (
+                    FinalizedAnswer,
+                    REVIEW_BLOCKED_ANSWER,
+                )
+                pub_evt = {
+                    "type": "publication",
+                    "data": {
+                        "final_mode": "no_safe_answer",
+                        "publication_state": "no_safe_answer",
+                        "review_verdict": "REVISE",
+                        "coverage": "NONE",
+                        "published_candidate_attempt": None,
+                        "message": "候选答案重写未生成有效内容，已阻断发布。",
+                    },
+                }
+                self._record_execution_event(trace, pub_evt)
+                finalized = FinalizedAnswer(
+                    answer=REVIEW_BLOCKED_ANSWER,
+                    grounding={
+                        "policy": "strict_kb",
+                        "verdict": "blocked",
+                        "coverage": "NONE",
+                        "review_verdict": "REVISE",
+                        "review_count": 1,
+                        "reasons": ["rewrite_empty_candidate"],
+                        "final_mode": "no_safe_answer",
+                        "publication_state": "no_safe_answer",
+                        "fallback_used": False,
+                    },
                 )
         feedback = finalized.retrieval_feedback
         if feedback and controller_candidate:
@@ -5473,6 +5604,7 @@ class RagChain:
                     helper_reviewer=self._helper_grounding_reviewer(),
                     on_lifecycle_event=lambda event: self._record_execution_event(trace, event),
                     candidate_version=2,
+                    allow_external_rewrite=False,
                 )
             elif getattr(resumed, "answer_context", None) is not None:
                 result = resumed
@@ -6553,10 +6685,11 @@ class RagChain:
                     "selected": None,
                     "options": clarify_data.get("options") or [],
                 })
+                self._record_clarification_card_published(trace, clarify_data)
                 tid = self._commit_qa_trace(
                     trace, answer="", retrieved_docs=[], context_docs=[], cited_docs=[],
                 )
-                yield {"type": "clarify", "data": clarify_data}
+                yield {"type": "clarification_card_published", "data": clarify_data}
                 yield {"type": "sources", "data": []}
                 if pipeline_events:
                     yield {

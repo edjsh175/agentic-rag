@@ -63,6 +63,8 @@ class AnswerFinalizer:
         helper_reviewer: HelperGroundingReviewer | Callable[..., HelperGroundingReviewResult] | None = None,
         on_lifecycle_event: Callable[[dict[str, Any]], None] | None = None,
         candidate_version: int = 1,
+        allow_external_rewrite: bool = False,
+        frozen_coverage: str | None = None,
     ) -> FinalizedAnswer:
         text = (candidate or "").strip()
 
@@ -78,9 +80,9 @@ class AnswerFinalizer:
         _emit({
             "type": "candidate_status",
             "data": {
-                "version": 1,
+                "version": candidate_version,
                 "status": "generated",
-                "message": "Candidate V1 已生成，正在进行 Grounding Review 审查。",
+                "message": f"Candidate V{candidate_version} 已生成，正在进行 Grounding Review 审查。",
             },
         })
 
@@ -117,7 +119,7 @@ class AnswerFinalizer:
                     "final_mode": "reviewer_error",
                     "publication_state": "reviewer_error",
                     "fallback_used": False,
-                    "candidate_attempts": 1,
+                    "candidate_attempts": candidate_version,
                     "review_count": 0,
                     "review_attempts": 0,
                     "attempts": [{"attempt": 1, "verdict": "error", "reasons": ["reviewer_not_configured"]}],
@@ -125,16 +127,19 @@ class AnswerFinalizer:
             )
 
         # 1. First review pass
+        review_count_current = 1 if candidate_version == 1 else 2
         _emit({
             "type": "helper_grounding_review_started",
             "data": {
-                "review_count": 1,
+                "review_count": review_count_current,
                 "candidate_version": candidate_version,
-                "message": "正在核对 Candidate V1 与冻结证据快照。",
+                "message": f"正在核对 Candidate V{candidate_version} 与冻结证据快照。",
             },
         })
         review1 = self._invoke_reviewer(reviewer, question, context_docs, text)
-        _emit(self._review_status_event(review1, review_count=1, candidate_version=candidate_version, context_docs=context_docs))
+        if frozen_coverage:
+            review1 = self._freeze_review_coverage(review1, frozen_coverage)
+        _emit(self._review_status_event(review1, review_count=review_count_current, candidate_version=candidate_version, context_docs=context_docs))
         if review1.error or review1.verdict == "ERROR":
             _emit({
                 "type": "error",
@@ -149,6 +154,7 @@ class AnswerFinalizer:
                 "type": "publication",
                 "data": {
                     "final_mode": "reviewer_error",
+                    "publication_state": "reviewer_error",
                     "review_verdict": "ERROR",
                     "coverage": review1.coverage,
                     "published_candidate_attempt": None,
@@ -167,6 +173,7 @@ class AnswerFinalizer:
                     "reasons": [review1.error or "reviewer_error"],
                     "details": review1.to_dict(),
                     "final_mode": "reviewer_error",
+                    "publication_state": "reviewer_error",
                     "fallback_used": False,
                     "candidate_attempts": 1,
                     "attempts": [{"verdict": "error", "reasons": [review1.error or "reviewer_error"]}],
@@ -188,7 +195,7 @@ class AnswerFinalizer:
         candidate_attempts = 1
 
         if review1.verdict == "PASS":
-            final_mode = "grounded_partial" if review1.is_partial else "generated"
+            final_mode = "grounded_partial" if review1.is_partial else ("grounded_rewrite" if candidate_version > 1 else "generated")
             _emit({
                 "type": "publication",
                 "data": {
@@ -196,8 +203,8 @@ class AnswerFinalizer:
                     "publication_state": "grounded_partial" if review1.is_partial else "grounded_full",
                     "review_verdict": "PASS",
                     "coverage": review1.coverage,
-                    "published_candidate_attempt": 1,
-                    "message": "初始答案已通过证据审核，正在发布。",
+                    "published_candidate_attempt": candidate_version,
+                    "message": f"候选答案 Candidate V{candidate_version} 已通过证据审核，正在发布。",
                 },
             })
             return FinalizedAnswer(
@@ -207,17 +214,18 @@ class AnswerFinalizer:
                     "verdict": "pass",
                     "coverage": review1.coverage,
                     "review_verdict": "PASS",
-                    "review_count": 1,
-                    "review_attempts": 1,
+                    "review_count": review_count_current,
+                    "review_attempts": review_count_current,
                     "reasons": [],
                     "unsupported_segments": [],
                     "claim_count": len(review1.claim_reviews),
                     "unsupported_count": len(review1.unsupported_claims),
                     "contradicted_count": len(review1.contradicted_claims),
                     "details": review1.to_dict(),
-                    "candidate_attempts": 1,
+                    "candidate_attempts": candidate_version,
                     "attempts": attempts,
                     "final_mode": final_mode,
+                    "publication_state": "grounded_partial" if review1.is_partial else "grounded_full",
                     "fallback_used": False,
                 },
             )
@@ -228,13 +236,13 @@ class AnswerFinalizer:
             and review1.repair_mode == "REWRITE"
             and retry_candidate is not None
         ):
-            candidate_attempts = 2
+            candidate_attempts = candidate_version + 1
             _emit({
                 "type": "rewrite_status",
                 "data": {
                     "status": "started",
                     "mode": "atomic_claim_rewrite",
-                    "message": "Candidate V1 未完全通过审核，正在保留受支持事实并修正未受支持内容。",
+                    "message": f"Candidate V{candidate_version} 未完全通过审核，正在保留受支持事实并修正未受支持内容。",
                 },
             })
             try:
@@ -267,6 +275,7 @@ class AnswerFinalizer:
                     "type": "publication",
                     "data": {
                         "final_mode": "review_blocked",
+                        "publication_state": "no_safe_answer",
                         "review_verdict": "REVISE",
                         "coverage": "NONE",
                         "published_candidate_attempt": None,
@@ -288,6 +297,7 @@ class AnswerFinalizer:
                         "candidate_attempts": candidate_attempts,
                         "attempts": attempts,
                         "final_mode": "review_blocked",
+                        "publication_state": "no_safe_answer",
                         "fallback_used": False,
                     },
                 )
@@ -298,15 +308,15 @@ class AnswerFinalizer:
                     "data": {
                         "status": "completed",
                         "candidate_version": candidate_version + 1,
-                        "message": "重写完成，已生成 Candidate V2。",
+                        "message": f"重写完成，已生成 Candidate V{candidate_version + 1}。",
                     },
                 })
                 _emit({
                     "type": "candidate_status",
                     "data": {
-                        "version": 2,
+                        "version": candidate_version + 1,
                         "status": "generated",
-                        "message": "Candidate V2 已生成，正在进行二审 Grounding Review。",
+                        "message": f"Candidate V{candidate_version + 1} 已生成，正在进行二审 Grounding Review。",
                     },
                 })
                 _emit({
@@ -314,7 +324,7 @@ class AnswerFinalizer:
                     "data": {
                         "review_count": 2,
                         "candidate_version": candidate_version + 1,
-                        "message": "正在二次核对 Candidate V2 与同一冻结证据快照。",
+                        "message": f"正在二次核对 Candidate V{candidate_version + 1} 与同一冻结证据快照。",
                     },
                 })
                 review2 = self._invoke_reviewer(reviewer, question, context_docs, retried)
@@ -359,9 +369,10 @@ class AnswerFinalizer:
                             "review_attempts": 2,
                             "reasons": [review2.error or "reviewer_error"],
                             "details": review2.to_dict(),
-                            "candidate_attempts": 2,
+                            "candidate_attempts": candidate_version + 1,
                             "attempts": attempts,
                             "final_mode": "reviewer_error",
+                            "publication_state": "reviewer_error",
                             "fallback_used": False,
                         },
                     )
@@ -386,8 +397,8 @@ class AnswerFinalizer:
                             "publication_state": "grounded_partial" if review2.is_partial else "grounded_full",
                             "review_verdict": "PASS",
                             "coverage": review2.coverage,
-                            "published_candidate_attempt": 2,
-                            "message": "修正后的 Candidate V2 已通过审核，正在发布。",
+                            "published_candidate_attempt": candidate_version + 1,
+                            "message": f"修正后的 Candidate V{candidate_version + 1} 已通过审核，正在发布。",
                         },
                     })
                     return FinalizedAnswer(
@@ -405,9 +416,10 @@ class AnswerFinalizer:
                             "unsupported_count": len(review2.unsupported_claims),
                             "contradicted_count": len(review2.contradicted_claims),
                             "details": review2.to_dict(),
-                            "candidate_attempts": 2,
+                            "candidate_attempts": candidate_version + 1,
                             "attempts": attempts,
                             "final_mode": final_mode,
+                            "publication_state": "grounded_partial" if review2.is_partial else "grounded_full",
                             "fallback_used": False,
                         },
                     )
@@ -423,7 +435,7 @@ class AnswerFinalizer:
                     "data": {
                         "status": "failed",
                         "error": "rewrite_empty_candidate",
-                        "message": "重写未生成有效 Candidate V2。",
+                        "message": f"重写未生成有效 Candidate V{candidate_version + 1}。",
                     },
                 })
                 _emit({
@@ -437,6 +449,27 @@ class AnswerFinalizer:
                 })
 
         elif review1.verdict == "REVISE" and review1.repair_mode == "REWRITE":
+            if allow_external_rewrite:
+                return FinalizedAnswer(
+                    answer=text,
+                    grounding={
+                        "policy": "strict_kb",
+                        "verdict": "revise",
+                        "coverage": review1.coverage,
+                        "review_verdict": "REVISE",
+                        "repair_mode": "REWRITE",
+                        "review_count": 1,
+                        "review_attempts": 1,
+                        "reasons": ["external_rewrite_pending"],
+                        "unsupported_segments": [c.claim for c in review1.unsupported_claims],
+                        "details": review1.to_dict(),
+                        "candidate_attempts": 1,
+                        "attempts": attempts,
+                        "final_mode": "rewrite_pending",
+                        "publication_state": "rewrite_pending",
+                        "fallback_used": False,
+                    },
+                )
             _emit({
                 "type": "rewrite_status",
                 "data": {
