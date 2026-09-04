@@ -29,6 +29,7 @@ import {
   createChatSession,
   deleteChatSession,
   loadSessionMessages,
+  saveSessionState,
 } from './storage'
 
 describe('storage.ts session management', () => {
@@ -141,6 +142,27 @@ describe('storage.ts session management', () => {
     const stored = JSON.parse(localStorage.getItem('rag-knowledge-sessions') || '[]')
     expect(stored.length).toBe(1)
     expect(stored[0].id).toBe('sess_new')
+  })
+
+  it('recreates the same session id and retries when save reports 404', async () => {
+    apiMocks.saveServerSession
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({ message: 'ok' })
+    apiMocks.createServerSession.mockResolvedValue({ id: 'sess_missing', title: '恢复会话' })
+
+    await saveSessionState(
+      'sess_missing',
+      [{ id: 'msg_1', role: 'user', content: '继续提问' } as any],
+      '恢复会话',
+    )
+
+    expect(apiMocks.createServerSession).toHaveBeenCalledWith(
+      expect.any(String),
+      '恢复会话',
+      'sess_missing',
+    )
+    expect(apiMocks.saveServerSession).toHaveBeenCalledTimes(2)
+    expect(apiMocks.saveServerSession.mock.calls[1][1]).toBe('sess_missing')
   })
 
   it('deleteChatSession calls server delete and cleans local cache', async () => {

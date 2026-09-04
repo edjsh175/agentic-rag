@@ -422,7 +422,15 @@ export async function saveSessionState(
       blocks: m.blocks,
     }))
 
-  await saveServerSession(fingerprint, sessionId, toSave, title)
+  try {
+    await saveServerSession(fingerprint, sessionId, toSave, title)
+  } catch (error) {
+    if (!isNotFound(error)) throw error
+    // 当前页面仍持有该会话及其本地快照，但服务端记录已丢失时，
+    // 先通过幂等 create 恢复同一 session_id，再按严格更新语义重试保存。
+    await createServerSession(fingerprint, updatedTitle, sessionId)
+    await saveServerSession(fingerprint, sessionId, toSave, title)
+  }
 
   // 3. 图片写入 IndexedDB
   const imageJobs = messages

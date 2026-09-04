@@ -617,7 +617,9 @@ async function handleCitationClick(message: Message, citationId: number) {
 const abortController = ref<AbortController | null>(null)
 
 function handleStop() {
-  abortController.value?.abort()
+  const controller = abortController.value
+  abortController.value = null
+  controller?.abort()
   loading.value = false
   const last = messages.value.filter((m) => m.role === 'assistant').slice(-1)[0]
   if (last && last.loading) {
@@ -626,7 +628,7 @@ function handleStop() {
     if (last.content) last.content += '\n\n*（已停止）*'
     else last.content = '*（已停止）*'
   }
-  persist()
+  void persist().catch((error) => console.warn('保存已中止会话失败:', error))
 }
 
 function applyClarification(msg: Message, data: ClarifyResult | undefined) {
@@ -879,7 +881,11 @@ async function handleSend(text: string, image?: File) {
     imageUrl,
   }
   messages.value.push(userMsg)
-  await persist()
+  try {
+    await persist()
+  } catch (error) {
+    console.warn('发送前保存会话失败，继续发起问答请求:', error)
+  }
   scrollDown(true)
 
   const aiId = (Date.now() + 1).toString()
@@ -966,9 +972,12 @@ async function handleSend(text: string, image?: File) {
         requestMode,
       )
       streamOk = true
-    } catch {
+    } catch (streamError: any) {
       lastAiMsg().status = undefined
-      if (!streamOk && !abortController.value) {
+      if ((streamError as DOMException)?.name === 'AbortError') {
+        throw streamError
+      }
+      if (!streamOk) {
         try {
           const result = await queryKnowledge(
             text,
@@ -1003,6 +1012,7 @@ async function handleSend(text: string, image?: File) {
         } finally {
           await persist()
           loading.value = false
+          abortController.value = null
           scrollDown()
         }
       }

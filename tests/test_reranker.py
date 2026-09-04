@@ -92,6 +92,21 @@ class RerankerUnitTests(unittest.TestCase):
             reranker.rerank("q", _docs(1), 1)
         fake_constructor.assert_called_once_with("org/model", use_fp16=True)
 
+    def test_flag_warmup_loads_once_and_rerank_reuses_model(self):
+        fake_model = MagicMock()
+        fake_model.compute_score.return_value = [0.5]
+        fake_module = types.ModuleType("FlagEmbedding")
+        fake_constructor = MagicMock(return_value=fake_model)
+        fake_module.FlagReranker = fake_constructor
+        reranker = FlagReranker("org/model")
+
+        with patch.dict(sys.modules, {"FlagEmbedding": fake_module}):
+            reranker.warmup()
+            reranker.warmup()
+            reranker.rerank("q", _docs(1), 1)
+
+        fake_constructor.assert_called_once_with("org/model", use_fp16=True)
+
     def test_flag_ranks_scores_and_handles_single_float(self):
         reranker = FlagReranker("org/model")
         reranker._model = MagicMock()

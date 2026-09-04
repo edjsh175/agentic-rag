@@ -175,17 +175,18 @@ class AgentCandidatePipeline:
             ))
             if graph_working_set is not None and hasattr(graph_working_set, "entity_chunk_links"):
                 linked_ids = graph_working_set.entity_chunk_links.get(target.casefold(), ())
-                lists.append((
-                    "entity_chunk_link",
-                    self._chunks(
-                        self._generator_filter(
-                            {"chunk_id": {"$in": list(linked_ids)[:budgets.entity_chunk]}},
-                            kb_name=kb_name, review_status=review_status, doc_category=doc_category,
+                if linked_ids:
+                    lists.append((
+                        "entity_chunk_link",
+                        self._chunks(
+                            self._generator_filter(
+                                {"chunk_id": {"$in": list(linked_ids)[:budgets.entity_chunk]}},
+                                kb_name=kb_name, review_status=review_status, doc_category=doc_category,
+                            ),
+                            budgets.entity_chunk,
                         ),
-                        budgets.entity_chunk,
-                    ),
-                    (), True, target, False,
-                ))
+                        (), True, target, False,
+                    ))
             if graph_working_set is not None and hasattr(graph_working_set, "entities"):
                 for ent_state in getattr(graph_working_set, "entities", {}).values():
                     if _same(ent_state.canonical_name, target):

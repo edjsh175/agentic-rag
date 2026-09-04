@@ -8,6 +8,7 @@
 - HTTP 远程服务（type=http，由 GPU 机提供 /rerank）
 """
 import logging
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,9 @@ def _resolve_model_name(model_name: str) -> str:
 class BaseReranker(ABC):
     """重排序器抽象基类"""
 
+    def warmup(self) -> None:
+        """预热底层资源；无本地模型的实现可保持空操作。"""
+
     @abstractmethod
     def rerank(self, query: str, documents: list[Document], top_k: int) -> list[Document]:
         """对文档列表按与 query 的相关性重新排序，返回 top_k 个文档"""
@@ -70,12 +74,20 @@ class FlagReranker(BaseReranker):
         self._model_name = model_name
         self._use_fp16 = use_fp16
         self._model = None
+        self._load_lock = threading.Lock()
 
     def _ensure_loaded(self):
-        if self._model is None:
+        if self._model is not None:
+            return
+        with self._load_lock:
+            if self._model is not None:
+                return
             from FlagEmbedding import FlagReranker as _FlagReranker
             self._model = _FlagReranker(self._model_name, use_fp16=self._use_fp16)
             logger.info("FlagReranker 模型加载完成: %s", self._model_name)
+
+    def warmup(self) -> None:
+        self._ensure_loaded()
 
     def rerank(self, query: str, documents: list[Document], top_k: int) -> list[Document]:
         if not documents or top_k <= 0:
@@ -100,12 +112,20 @@ class CrossEncoderReranker(BaseReranker):
     def __init__(self, model_name: str):
         self._model_name = model_name
         self._model = None
+        self._load_lock = threading.Lock()
 
     def _ensure_loaded(self):
-        if self._model is None:
+        if self._model is not None:
+            return
+        with self._load_lock:
+            if self._model is not None:
+                return
             from sentence_transformers import CrossEncoder as _CrossEncoder
             self._model = _CrossEncoder(self._model_name)
             logger.info("CrossEncoder 模型加载完成: %s", self._model_name)
+
+    def warmup(self) -> None:
+        self._ensure_loaded()
 
     def rerank(self, query: str, documents: list[Document], top_k: int) -> list[Document]:
         if not documents or top_k <= 0:

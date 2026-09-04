@@ -313,9 +313,11 @@ class RagChain:
         self._reranker = None
         if self._reranker_enabled:
             try:
-                self._get_reranker()
+                reranker = self._get_reranker()
+                if reranker is not None:
+                    reranker.warmup()
                 logger.info(
-                    "重排序器已启用: type=%s, model=%s, base_url=%s, top_n=%d, candidate_k=%d",
+                    "重排序器已启用并完成预热: type=%s, model=%s, base_url=%s, top_n=%d, candidate_k=%d",
                     cfg.reranker_type,
                     cfg.reranker_model,
                     self._reranker_base_url or "-",
@@ -324,9 +326,11 @@ class RagChain:
                 )
             except Exception as e:
                 logger.warning("重排序器初始化失败，将在检索时降级: %s", e)
+                self._reranker_enabled = False
+                self._reranker = None
 
     def _get_reranker(self):
-        """按需创建重排序器；底层模型仍由 reranker 在首次调用时懒加载。"""
+        """按需创建并缓存重排序器实例；本地模型在服务初始化阶段统一预热。"""
         if not self._reranker_enabled:
             return None
         if self._reranker is None:

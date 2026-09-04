@@ -119,6 +119,35 @@ def _semantic_task(question: str, target_entity: str = "", *, intent: str = "gen
     )
 
 
+def test_empty_entity_chunk_links_never_issue_empty_in_filter():
+    store = MagicMock()
+
+    def get_chunks_by_metadata(filters, limit=20):
+        conditions = filters.get("$and", [filters])
+        for condition in conditions:
+            if "chunk_id" in condition:
+                assert condition["chunk_id"].get("$in")
+        return []
+
+    store.get_chunks_by_metadata.side_effect = get_chunks_by_metadata
+    pipeline = AgentCandidatePipeline(
+        vector_store=store,
+        retrieval_strategy=_Strategy([], []),
+        graph_db=_Graph(),
+    )
+
+    pipeline.generate(
+        "PipelineWebRTC 的主要功能是什么？",
+        target_entity="PipelineWebRTC",
+        kb_name=None,
+        review_status="approved",
+        doc_category=None,
+        graph_working_set=_working_set(include_links=False),
+    )
+
+    assert store.get_chunks_by_metadata.call_count > 0
+
+
 def test_cross_document_candidate_is_admitted_without_identity_prefilter():
     valid = _doc("cross", "WebRTC", "PipelineWebRTC 用于建立实时音视频处理通道。")
     pipeline = AgentCandidatePipeline(
