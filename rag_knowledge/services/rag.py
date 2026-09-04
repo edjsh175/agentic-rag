@@ -2619,19 +2619,25 @@ class RagChain:
             })
 
         claim_reviews = list(getattr(review_result, "claim_reviews", []) or [])
+        review_findings = [
+            finding.to_dict()
+            for finding in (getattr(review_result, "findings", []) or [])
+        ]
+        # Legacy reviews carried every supported claim. Sparse reviews intentionally
+        # omit successful claims, so the preservation boundary becomes Candidate V1
+        # itself minus the explicitly listed rewrite contracts.
         supported_claims = [
             claim.to_dict()
             for claim in claim_reviews
             if getattr(claim, "status", "") == "supported"
-        ]
-        problem_claims = {
+        ] if not review_findings else []
+        claim_by_id = {
             claim.claim_id: claim.to_dict()
             for claim in claim_reviews
-            if getattr(claim, "status", "") in {"unsupported", "contradicted"}
         }
         rewrite_contract = [
             {
-                "claim": problem_claims.get(action.claim_id),
+                "claim": claim_by_id.get(action.claim_id),
                 "rewrite_action": action.to_dict(),
             }
             for action in rewrite_actions
@@ -2640,6 +2646,8 @@ class RagChain:
             "question": question,
             "frozen_evidence_snapshot": evidence_snapshot,
             "candidate_v1": candidate_text,
+            "review_findings": review_findings,
+            "preserve_unflagged_candidate": bool(review_findings),
             "immutable_supported_claims": supported_claims,
             "rewrite_contract": rewrite_contract,
         }
@@ -2658,15 +2666,15 @@ class RagChain:
                 "content": (
                     "你是 Grounded Rewrite Executor，不是新的回答生成器。\n"
                     "开始任务前再次确认：若存在独立 reasoning/thinking channel，必须从第一段开始直接使用简体中文进行证据核对、删除/保留判断和改写规划，不得使用英文推理标题或先英文后翻译。\n"
-                    "你的唯一任务是把 Candidate V1 按既定 Claim 审查结果修正为 Candidate V2。\n"
-                    "你没有工具，不得重新检索，不得重新判断 Evidence coverage，不得新增事实分支。\n"
-                    "immutable_supported_claims 是不可删除的事实义务：Candidate V2 必须逐项保留其完整语义和证据边界；"
-                    "如果改写会导致语义变化，直接原样保留该 claim。\n"
-                    "rewrite_contract 是唯一允许修改的 Claim 集合；原 unsupported/contradicted 表述不得原样残留。\n"
+                    "你的唯一任务是把 Candidate V1 按既定 Finding 修正为 Candidate V2。\n"
+                    "执行 Copy-first：先把 Candidate V1 视为不可变底稿，除 rewrite_contract 明确指出的事实外，其余文字、事实、结构、引用均不得主动改写。\n"
+                    "你没有工具，不得重新检索，不得重新判断 Evidence coverage，不得新增事实分支。禁止新增 Candidate V1 中没有出现的新工具、新步骤、新参数、新路径、新限制、新引用或新总结。\n"
+                    "Candidate V2 必须以 Candidate V1 为基底，只应用 rewrite_contract 指定的最小修改；若不存在 __candidate_overflow__，禁止重新组织整篇答案、禁止合并或拆分未命中的段落。若某 Finding 无法精确定位，宁可删除对应最小句段，也不要根据 Frozen Evidence 自由补写。\n"
                     "严格按 action 语义执行：\n"
                     "- add_limitation_statement：删除原正向事实断言，只写‘当前证据未说明/无法确认该事实’的边界说明。\n"
                     "- correct_to_evidence：按 instruction 给出的受支持范围重写；原 Claim 中未被 Evidence 支持的谓词、因果、用途或范围必须消失。\n"
-                    "- rewrite_to_supported_scope_or_remove：只保留 Evidence 直接支持的最小事实；无法安全缩限时删除该 Claim。\n"
+                    "- rewrite_to_supported_scope_or_remove：严格按 instruction 执行。若 instruction 要求删除，则只删除该问题事实及其必要的局部连接词，不得用 Evidence 重新扩写一段替代答案。\n"
+                    "- fix_citations：事实语义必须完全保持不变，只删除错绑引用并改用 rewrite_action.instruction 指定的合法 evidence_id；不得顺便改写、扩展或删除 Claim。\n"
                     "Candidate V2 只能由 immutable_supported_claims、rewrite_contract 的合法产物和必要的非事实组织语言组成。\n"
                     "每项知识事实必须使用 frozen_evidence_snapshot 中对应的合法 [evidence_id] 引用。\n"
                     "只输出 Candidate V2 正文，不要输出 JSON、解释、审查过程或修改说明。"
@@ -2760,6 +2768,32 @@ class RagChain:
 
         role = ModelRoutePolicy(cfg).grounding_reviewer_role()
         timeout = float(getattr(cfg, "grounding_reviewer_timeout", 30.0) or 30.0)
+        min_output_tokens = max(
+            1024,
+            int(getattr(cfg, "grounding_reviewer_min_output_tokens", 4096) or 4096),
+        )
+        max_output_tokens = max(
+            min_output_tokens,
+            int(getattr(cfg, "grounding_reviewer_max_output_tokens", 12288) or 12288),
+        )
+
+        def _reviewer_output_budget(messages: list[dict[str, str]]) -> int:
+            # Reviewer output grows with Candidate/Evidence complexity.  Using a
+            # fixed 4096-token cap makes large but valid atomic-claim reviews
+            # deterministically truncate mid-JSON.  Estimate from the current
+            # user payload and keep a bounded safety margin.  Protocol-repair
+            # requests are larger by construction, so they automatically get a
+            # larger budget instead of retrying with the same failing cap.
+            user_chars = sum(
+                len(str(message.get("content") or ""))
+                for message in messages
+                if str(message.get("role") or "").lower() == "user"
+            )
+            estimated_tokens = (user_chars + 2) // 3
+            return min(
+                max_output_tokens,
+                max(min_output_tokens, estimated_tokens),
+            )
 
         def _caller(messages: list[dict[str, str]]):
             return chat_role(
@@ -2769,7 +2803,7 @@ class RagChain:
                 temperature=0.0,
                 format_json=True,
                 json_schema=review_response_json_schema(),
-                num_predict=4096,
+                num_predict=_reviewer_output_budget(messages),
                 timeout=timeout,
                 think=False,
                 stage="grounding_reviewer",
@@ -4996,7 +5030,7 @@ class RagChain:
             yield evt
 
         try:
-            result = await stream_task
+            stream_result = await stream_task
         except Exception as stream_exc:
             logger.error("模型流式调用失败: %s", stream_exc)
             fail_msg = "回答模型调用失败，当前候选答案不会发布，请稍后重试。"
@@ -5033,7 +5067,7 @@ class RagChain:
             yield {"type": "done"}
             return
 
-        reasoning_available = result.reasoning_available
+        reasoning_available = stream_result.reasoning_available
         if not reasoning_available:
             from rag_knowledge.services.execution_explanation import (
                 public_explanation_event,
@@ -5056,7 +5090,7 @@ class RagChain:
             yield fallback_explanation
 
         trace.mark("generate")
-        answer_text = result.content
+        answer_text = stream_result.content
         if not answer_text.strip():
             fallback_answer = (
                 "知识库已完成检索，但模型没有返回有效答案，请重试一次。"
@@ -5088,7 +5122,7 @@ class RagChain:
             tid = self._commit_qa_trace(
                 trace,
                 answer=fallback_answer,
-                thinking=result.raw_reasoning if result.raw_reasoning else None,
+                thinking=stream_result.raw_reasoning if stream_result.raw_reasoning else None,
                 retrieved_docs=retrieved_source_docs,
                 context_docs=source_docs,
                 cited_docs=[],

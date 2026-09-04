@@ -1962,13 +1962,19 @@ class AgentLoop:
 
             if decision.tool == "retrieve_kb":
                 if observation.data.get("retrieval_executed"):
-                    # PRD §10.1: executed is a fact of the Retriever actually
-                    # running, not of the handler being invoked.
+                    # PRD §10.1: executed telemetry is a fact of the Retriever
+                    # actually running, not merely of the handler being invoked.
                     self.budget.consume_retrieve()
                     if observation.data.get("plan") is not None:
                         self.plan = observation.data.get("plan")
                 elif str(observation.status or "").strip().upper() == ToolProgressStatus.DENIED:
                     self.budget.record_guard_rejected()
+                elif not observation.ok:
+                    # A guarded retrieve that entered execution and then timed
+                    # out/errored still consumed one exploration attempt.  It is
+                    # not counted as retrieval_executed telemetry, but it must not
+                    # become a free retry that can multiply wall-clock latency.
+                    self.budget.consume_retrieve()
 
             after_version = self.evidence.evidence_version
             after_working_keys = self._working_evidence_keys()

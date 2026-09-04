@@ -10,6 +10,138 @@ from rag_knowledge.services.helper_grounding_reviewer import (
 )
 
 
+def test_supported_claim_with_wrong_candidate_citation_requires_citation_rewrite():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "事实受支持，但候选引用错绑",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "服务端口为 8080",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "candidate_citation_ids": [2],
+            "reason": "事实由证据 1 支持，但候选原文引用的是 2",
+        }],
+        "rewrite_actions": [],
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [
+            _source(1, "默认端口为 8080"),
+            _source(2, "安装目录为 /opt/app"),
+        ],
+        "服务端口为 8080 [2]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "REWRITE"
+    assert result.claim_reviews[0].status == "supported"
+    assert result.claim_reviews[0].candidate_citation_ids == (2,)
+    assert len(result.rewrite_actions) == 1
+    assert result.rewrite_actions[0].action == "fix_citations"
+    assert "[2]" in result.rewrite_actions[0].instruction
+    assert "[1]" in result.rewrite_actions[0].instruction
+
+
+def test_legacy_supported_rewrite_with_wrong_citation_becomes_citation_only_revise():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "PARTIAL",
+        "summary": "事实均受支持，但引用需要修正",
+        "repair_mode": "REWRITE",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "服务端口为 8080",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "candidate_citation_ids": [2],
+            "reason": "事实由证据 1 支持，但候选绑定了证据 2",
+        }],
+        "rewrite_actions": [{
+            "claim_id": "c1",
+            "action": "correct_to_evidence",
+            "instruction": "把引用 2 改成 1",
+        }],
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [
+            _source(1, "默认端口为 8080"),
+            _source(2, "安装目录为 /opt/app"),
+        ],
+        "服务端口为 8080 [2]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.coverage == "PARTIAL"
+    assert result.repair_mode == "REWRITE"
+    assert result.claim_reviews[0].status == "supported"
+    assert [action.action for action in result.rewrite_actions] == ["fix_citations"]
+
+
+def test_supported_claim_without_candidate_citation_requires_citation_rewrite():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "事实受支持，但候选缺少引用",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "服务端口为 8080",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "candidate_citation_ids": [],
+            "reason": "证据 1 支持事实，但候选原文没有引用",
+        }],
+        "rewrite_actions": [],
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [_source(1, "默认端口为 8080")],
+        "服务端口为 8080。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "REWRITE"
+    assert result.rewrite_actions[0].action == "fix_citations"
+
+
+def test_explicit_candidate_citation_must_exist_in_candidate_text():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "伪造候选引用绑定",
+        "claim_reviews": [{
+            "claim_id": "c1",
+            "claim": "服务端口为 8080",
+            "claim_type": "knowledge_claim",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "status": "supported",
+            "evidence_ids": [1],
+            "candidate_citation_ids": [1],
+            "reason": "证据 1 支持",
+        }],
+        "rewrite_actions": [],
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [_source(1, "默认端口为 8080")],
+        "服务端口为 8080。",
+    )
+
+    assert result.verdict == "ERROR"
+    assert "candidate_citation_not_in_candidate:1" in (result.error or "")
+
+
 def test_repair_mode_is_derived_from_claim_state_not_model_output():
     reviewer = HelperGroundingReviewer(lambda _messages: {
         "coverage": "FULL",
@@ -43,6 +175,231 @@ def test_repair_mode_is_derived_from_claim_state_not_model_output():
     assert result.verdict == "PASS"
     assert result.repair_mode == "NONE"
     assert result.rewrite_actions == []
+
+
+def test_sparse_empty_findings_derives_pass_without_full_claim_report():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "未发现阻断问题",
+        "findings": [],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [_source(1, "默认端口为 8080")],
+        "默认端口为 8080 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "PASS"
+    assert result.findings == []
+    assert result.claim_reviews == []
+    assert result.rewrite_actions == []
+
+
+def test_sparse_citation_mismatch_derives_fix_citations():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "存在引用错绑",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "CITATION_MISMATCH",
+            "claim": "默认端口为 8080",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [2],
+            "evidence_ids": [1],
+            "reason": "事实由 1 支持，但 Candidate 引用 2",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [_source(1, "默认端口为 8080"), _source(2, "安装目录为 /opt/app")],
+        "默认端口为 8080 [2]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "REWRITE"
+    assert result.findings[0].issue == "CITATION_MISMATCH"
+    assert result.claim_reviews[0].status == "supported"
+    assert [action.action for action in result.rewrite_actions] == ["fix_citations"]
+
+
+def test_sparse_scope_mismatch_is_rewrite_not_reviewer_error():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "PARTIAL",
+        "summary": "存在归属越权",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "SCOPE_MISMATCH",
+            "claim": "DEM 数据自身支持在线实时发布",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [1],
+            "evidence_ids": [1],
+            "reason": "证据只授权上下文事实，不能直接归属给 DEM 数据",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "如何发布 DEM 数据？",
+        [_source(1, "StampWebGL 提供 DEM 发布入口", support_scope="CONTEXT_ONLY")],
+        "DEM 数据自身支持在线实时发布 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "REWRITE"
+    assert result.claim_reviews[0].status == "unsupported"
+    assert result.rewrite_actions[0].action == "rewrite_to_supported_scope_or_remove"
+
+
+def test_sparse_redundant_citation_mismatch_with_same_ids_is_discarded():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "误报引用问题",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "CITATION_MISMATCH",
+            "claim": "默认端口为 8080",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [1],
+            "evidence_ids": [1],
+            "reason": "模型误报，但编号完全一致",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "默认端口是多少？",
+        [_source(1, "默认端口为 8080")],
+        "默认端口为 8080 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "PASS"
+    assert result.findings == []
+    assert result.rewrite_actions == []
+
+
+def test_sparse_same_ids_with_scope_violation_normalizes_to_scope_mismatch():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "PARTIAL",
+        "summary": "错误地标成引用问题",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "CITATION_MISMATCH",
+            "claim": "DEM 数据自身支持在线发布",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [1],
+            "evidence_ids": [1],
+            "reason": "实际问题是 scope 越权",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "如何发布 DEM？",
+        [_source(1, "StampWebGL 提供 DEM 发布入口", support_scope="CONTEXT_ONLY")],
+        "DEM 数据自身支持在线发布 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.findings[0].issue == "SCOPE_MISMATCH"
+    assert result.rewrite_actions[0].action == "rewrite_to_supported_scope_or_remove"
+    assert "CONTEX" in result.rewrite_actions[0].instruction
+    assert "删除这条直接归属事实" in result.rewrite_actions[0].instruction
+
+
+def test_sparse_scope_mismatch_without_matrix_violation_is_discarded():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "模型误报 scope",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "SCOPE_MISMATCH",
+            "claim": "DEM 发布需要设置空间参考",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [1],
+            "evidence_ids": [1],
+            "reason": "模型误报",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "如何发布 DEM？",
+        [_source(1, "DEM 发布需要设置空间参考", support_scope="TARGET_SPECIFIC")],
+        "DEM 发布需要设置空间参考 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "PASS"
+    assert result.findings == []
+    assert result.rewrite_actions == []
+
+
+def test_sparse_evidence_gap_derives_retrieve_feedback():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "PARTIAL",
+        "summary": "仍缺少发布路径事实",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "EVIDENCE_GAP",
+            "claim": "DEM 发布所需的服务器路径要求",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [],
+            "evidence_ids": [],
+            "reason": "当前快照没有直接说明服务器路径要求",
+        }],
+        "more_blocking_findings": False,
+    })
+
+    result = reviewer.review(
+        "如何发布 DEM 数据？",
+        [_source(1, "DEM 发布需要设置空间参考")],
+        "先设置空间参考 [1]。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "RETRIEVE"
+    assert result.rewrite_actions == []
+    assert result.retrieval_feedback is not None
+    assert result.retrieval_feedback.gap_id == "f1"
+
+
+def test_sparse_more_findings_triggers_bounded_conservative_rewrite():
+    reviewer = HelperGroundingReviewer(lambda _messages: {
+        "coverage": "FULL",
+        "summary": "问题超过输出上限",
+        "findings": [{
+            "finding_id": "f1",
+            "issue": "UNSUPPORTED",
+            "claim": "无证据事实",
+            "claim_scope": "TARGET_ATTRIBUTION",
+            "candidate_citation_ids": [],
+            "evidence_ids": [],
+            "reason": "无证据支持",
+        }],
+        "more_blocking_findings": True,
+    })
+
+    result = reviewer.review(
+        "介绍产品",
+        [_source(1, "产品支持 A")],
+        "产品支持 A [1]，并支持 B。",
+    )
+
+    assert result.error is None
+    assert result.verdict == "REVISE"
+    assert result.repair_mode == "REWRITE"
+    assert result.more_blocking_findings is True
+    assert any(action.claim_id == "__candidate_overflow__" for action in result.rewrite_actions)
 
 
 def _source(index: int, content: str, source: str = "", support_scope: str = "TARGET_SPECIFIC"):
@@ -392,10 +749,10 @@ def test_reviewer_evidence_formatting():
 
     assert len(captured_msgs) == 2
     assert captured_msgs[0]["role"] == "system"
-    assert "原子事实拆分是审核的前置条件" in captured_msgs[0]["content"]
-    assert "每个 claim_reviews 项只能表达一个可独立判定真假的事实" in captured_msgs[0]["content"]
-    assert "在部署过程中" in captured_msgs[0]["content"]
-    assert "Claim 是否 supported 只看该 Claim 自身是否被 Evidence 支持" in captured_msgs[0]["content"]
+    assert "只输出存在问题的事实" in captured_msgs[0]["content"]
+    assert "正确且引用正确的事实不要输出 Finding" in captured_msgs[0]["content"]
+    assert "SCOPE_MISMATCH" in captured_msgs[0]["content"]
+    assert "不要输出 verdict、repair_mode、rewrite_actions" in captured_msgs[0]["content"]
     assert captured_msgs[1]["role"] == "user"
     content = captured_msgs[1]["content"]
     assert "manual.pdf" in content
@@ -658,7 +1015,8 @@ def test_protocol_repair_removes_non_retrieve_feedback_without_semantic_drift():
     assert result.verdict == "REVISE"
     assert result.error is None
     assert len(result.protocol_attempts) == 2
-    assert "控制建议" in calls[1][0]["content"]
+    assert "纯协议修复" in calls[1][0]["content"]
+    assert "不得重新判断事实" in calls[1][0]["content"]
 
 
 def test_protocol_repair_rejects_semantic_drift():
@@ -698,13 +1056,20 @@ def test_structured_output_schema_has_single_semantic_source():
 
     schema = review_response_json_schema()
 
+    assert set(schema["properties"]) == {
+        "coverage", "summary", "findings", "more_blocking_findings"
+    }
+    assert set(schema["required"]) == set(schema["properties"])
+    finding_schema = schema["properties"]["findings"]
+    assert finding_schema["maxItems"] == 12
+    assert set(finding_schema["items"]["properties"]["issue"]["enum"]) == {
+        "UNSUPPORTED", "CONTRADICTED", "CITATION_MISMATCH", "SCOPE_MISMATCH", "EVIDENCE_GAP"
+    }
     assert "verdict" not in schema["properties"]
-    assert "verdict" not in schema["required"]
-    action_enum = schema["properties"]["rewrite_actions"]["items"]["properties"]["action"]["enum"]
-    assert "preserve" not in action_enum
     assert "repair_mode" not in schema["properties"]
-    assert "repair_mode" not in schema["required"]
-    assert "additional evidence is required" in schema["properties"]["retrieval_feedback"]["description"]
+    assert "rewrite_actions" not in schema["properties"]
+    assert "retrieval_feedback" not in schema["properties"]
+    assert "claim_reviews" not in schema["properties"]
 
 
 def test_evidence_snapshot_includes_support_scope():
@@ -1460,17 +1825,16 @@ def test_reviewer_retrieve_feedback_rejects_query_or_tool_directives():
     _assert_protocol_error(_review_payload(payload), "forbidden_retrieval_directive:query")
 
 
-def test_structured_output_schema_requires_claim_scope():
+def test_structured_output_schema_requires_claim_scope_only_for_findings():
     from rag_knowledge.services.helper_grounding_reviewer import review_response_json_schema
 
     schema = review_response_json_schema()
-    claim_schema = schema["properties"]["claim_reviews"]["items"]
+    finding_schema = schema["properties"]["findings"]["items"]
 
-    assert "claim_scope" in claim_schema["properties"]
-    assert "claim_scope" in claim_schema["required"]
-    assert claim_schema["properties"]["claim_scope"]["enum"] == [
+    assert "claim_scope" in finding_schema["properties"]
+    assert "claim_scope" in finding_schema["required"]
+    assert finding_schema["properties"]["claim_scope"]["enum"] == [
         "CONTEXTUAL_FACT",
-        "NOT_APPLICABLE",
         "RELATION_CLAIM",
         "TARGET_ATTRIBUTION",
     ]

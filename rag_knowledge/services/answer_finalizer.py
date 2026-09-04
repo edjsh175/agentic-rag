@@ -561,7 +561,7 @@ class AnswerFinalizer:
     def _retrieval_feedback_for_controller(
         review: HelperGroundingReviewResult,
     ) -> dict[str, Any] | None:
-        """Return only the Reviewer-authored RETRIEVE contract to Main."""
+        """Return the policy-derived RETRIEVE contract to Main."""
         if (
             review.error
             or review.verdict != "REVISE"
@@ -586,7 +586,12 @@ class AnswerFinalizer:
         ]
         if coverage == "NONE":
             verdict = "NO_SAFE_ANSWER"
-        elif problem_claims:
+        elif (
+            problem_claims
+            or result.repair_mode in {"REWRITE", "RETRIEVE"}
+            or bool(result.rewrite_actions)
+            or result.retrieval_feedback is not None
+        ):
             verdict = "REVISE"
         else:
             verdict = "PASS"
@@ -633,9 +638,26 @@ class AnswerFinalizer:
                     if result.retrieval_feedback is not None else None
                 ),
                 "claim_count": len(claims),
+                "finding_count": len(getattr(result, "findings", []) or []),
+                "more_blocking_findings": bool(getattr(result, "more_blocking_findings", False)),
                 "unsupported_count": sum(c.status == "unsupported" for c in claims),
                 "contradicted_count": sum(c.status == "contradicted" for c in claims),
+                "citation_repair_count": sum(
+                    action.action == "fix_citations"
+                    for action in (getattr(result, "rewrite_actions", []) or [])
+                ),
                 "message": f"证据审核结果：{result.verdict} ({result.coverage})",
+                "findings": [
+                    {
+                        "finding_id": finding.finding_id,
+                        "issue": finding.issue,
+                        "claim": finding.claim,
+                        "claim_scope": finding.claim_scope,
+                        "candidate_citation_ids": list(finding.candidate_citation_ids),
+                        "evidence_ids": list(finding.evidence_ids),
+                    }
+                    for finding in (getattr(result, "findings", []) or [])
+                ],
                 "claim_reviews": [
                     {
                         "claim_id": claim.claim_id,
@@ -645,6 +667,7 @@ class AnswerFinalizer:
                         "status": claim.status,
                         **({"reason": public_reason} if public_reason else {}),
                         "evidence_ids": list(claim.evidence_ids),
+                        "candidate_citation_ids": list(getattr(claim, "candidate_citation_ids", ()) or ()),
                         "evidence_support_scopes": [
                             scope_by_evidence_id.get(evidence_id, "UNKNOWN")
                             for evidence_id in claim.evidence_ids

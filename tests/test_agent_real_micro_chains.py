@@ -412,6 +412,50 @@ def test_real_rewrite_micro_chain():
 
 
 @pytest.mark.integration
+def test_real_citation_binding_rewrite_second_review_micro_chain():
+    """A supported fact with the wrong citation must be repaired, not passed or marked unsupported."""
+    _live_cfg()
+    chain = RagChain()
+    reviewer = chain._helper_grounding_reviewer()
+    assert reviewer is not None
+
+    doc1 = _doc("port", "StampServer 的默认端口是 8080。")
+    doc2 = _doc("auth", "StampServer 提供授权服务。")
+    doc2["metadata"]["citation_id"] = 2
+    docs = [doc1, doc2]
+    events: list[dict] = []
+
+    finalized = AnswerFinalizer().finalize(
+        "StampServer 的默认端口是 8080 [2]。",
+        "StampServer 的默认端口是多少？",
+        docs,
+        helper_reviewer=reviewer,
+        retry_candidate=lambda review: chain._retry_grounded_candidate(
+            None,
+            "StampServer 的默认端口是多少？",
+            "StampServer 的默认端口是 8080 [2]。",
+            docs,
+            review,
+        ),
+        on_lifecycle_event=events.append,
+    )
+
+    review_events = [event for event in events if event.get("type") == "review_status"]
+    assert len(review_events) == 2
+    first = review_events[0]["data"]
+    second = review_events[1]["data"]
+    assert first["verdict"] == "REVISE"
+    assert first["repair_mode"] == "REWRITE"
+    assert first["unsupported_count"] == 0
+    assert first["contradicted_count"] == 0
+    assert any(action.get("action") == "fix_citations" for action in first["rewrite_actions"])
+    assert second["verdict"] == "PASS"
+    assert finalized.grounding.get("review_verdict") == "PASS"
+    assert "[1]" in finalized.answer
+    assert "[2]" not in finalized.answer
+
+
+@pytest.mark.integration
 def test_real_revise_rewrite_second_review_micro_chain():
     """Verify the live Reviewer → Rewrite → Reviewer loop reaches a publishable candidate."""
     _live_cfg()

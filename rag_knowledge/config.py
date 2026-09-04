@@ -351,6 +351,12 @@ class Config:
         self.grounding_reviewer_timeout = float(_get(
             "answer", "grounding_reviewer_timeout", "120"
         ))
+        self.grounding_reviewer_min_output_tokens = int(_get(
+            "answer", "grounding_reviewer_min_output_tokens", "4096"
+        ))
+        self.grounding_reviewer_max_output_tokens = int(_get(
+            "answer", "grounding_reviewer_max_output_tokens", "12288"
+        ))
 
         # ---- 向量数据库 ----
         self.chroma_dir = _dir(_get("vector_store", "persist_directory", "./chroma_db"), "./chroma_db")

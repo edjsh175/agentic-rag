@@ -367,6 +367,52 @@ def test_budget_stops_loop_without_wall_clock():
     assert "retrieve_budget_exhausted" in result.fallbacks or result.route == "retrieve"
 
 
+def test_retrieve_timeout_consumes_attempt_budget_and_blocks_free_retry():
+    conv = ConversationContext.from_request("什么是 StampServer", [])
+    pool = EvidencePool(question_id="q")
+    calls = []
+
+    async def retrieve(args):
+        calls.append(args)
+        await asyncio.sleep(0.05)
+        from rag_knowledge.services.agent_orchestration.models import ToolObservation
+        return ToolObservation(tool="retrieve_kb", ok=True, summary="late")
+
+    decisions = iter([
+        AgentDecision(
+            action="tool_call",
+            tool="retrieve_kb",
+            arguments={"search_focus_text": "StampServer"},
+            source="test",
+        ),
+        AgentDecision(
+            action="tool_call",
+            tool="retrieve_kb",
+            arguments={"search_focus_text": "StampServer 功能"},
+            gap="仍缺功能说明",
+            expected_gain="获取功能事实",
+            source="test",
+        ),
+    ])
+
+    loop = AgentLoop(
+        conversation=conv,
+        evidence=pool,
+        budget=AgentBudget(max_steps=2, max_retrieve_attempts=1),
+        registry=build_phase1_registry(),
+        handlers={"retrieve_kb": retrieve},
+        decide_fn=lambda _c, _e, _o: next(decisions),
+        tool_timeout=0.01,
+    )
+
+    result = asyncio.run(loop.run())
+
+    assert len(calls) == 1
+    assert result.retrieve_attempts == 1
+    assert "tool_timeout" in result.fallbacks
+    assert "retrieve_budget_exhausted" in result.fallbacks
+
+
 def test_loop_retrieve_then_finish_records_tools():
     conv = ConversationContext.from_request("StampServer 是什么", [])
     pool = EvidencePool(question_id="q")
